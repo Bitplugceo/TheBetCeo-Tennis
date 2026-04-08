@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tennis CEO" />
+  <meta name="theme-color" content="#d4af37" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tennis_repo_icon_v1" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tennis_repo_icon_v1" />
+  <title>TheBetCeo Tennis</title>
+  <style>
+    :root {
+      --bg: #efefef;
+      --text: #1f2430;
+      --panel: #ffffff;
+      --panel-border: #dedede;
+      --panel-soft: #f6f7f9;
+      --panel-soft-2: #eceff3;
+      --input-bg: #ffffff;
+      --input-border: #cfd4da;
+      --table-head: #3a404c;
+      --muted: #7b8088;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      --accent: #d91f26;
+      --success: #2f8f4a;
+      --warning: #d98a00;
+      --danger: #c91920;
+      --section-toggle-text: #20242c;
+      --section-toggle-icon: #d91f26;
+    }
+    body.dark-mode {
+      --bg: #111;
+      --text: #d4af37;
+      --panel: #1a1a1a;
+      --panel-border: #333;
+      --panel-soft: #151515;
+      --panel-soft-2: #111;
+      --input-bg: #222;
+      --input-border: #444;
+      --table-head: #111;
+      --muted: #9aa0a8;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+      --section-toggle-text: #d4af37;
+      --section-toggle-icon: #d4af37;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      -webkit-text-size-adjust: 100%;
+    }
+    button, input, select, .section, table, th, td, .modal-panel, .day-btn, .fixture-btn { border-radius: 0; }
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-top: max(10px, env(safe-area-inset-top));
+      padding-left: max(14px, env(safe-area-inset-left));
+      padding-right: max(14px, env(safe-area-inset-right));
+      padding-bottom: 10px;
+      background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #7b0007 100%);
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    }
+    .brand-block { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-block img { width: 44px; height: 44px; border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); flex: 0 0 auto; }
+    .brand-text { min-width: 0; }
+    .brand-title {
+      font-size: 16px; font-weight: 800; line-height: 1.1; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .brand-sub {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: rgba(255,255,255,0.84); text-transform: uppercase; margin-top: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .header-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+    .header-btn {
+      background: none !important; border: none !important; box-shadow: none !important; color: rgba(255,255,255,0.92) !important;
+      font-size: 11px !important; font-weight: 800 !important; letter-spacing: 1.2px !important; text-transform: uppercase !important;
+      padding: 0 !important; margin: 0 !important; cursor: pointer !important;
+    }
+    .wrapper { max-width: 760px; margin: 10px auto; padding: 0 10px 18px; }
+    .hero-card { border: 1px solid var(--panel-border); background: var(--panel); box-shadow: var(--shadow); margin-bottom: 8px; overflow: hidden; }
+    .hero-card img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--panel-border); background: var(--panel-soft); }
+    .hero-note { padding: 8px 10px; font-size: 11px; color: var(--muted); font-weight: 700; }
+    .section { border: 1px solid var(--panel-border); background: var(--panel); margin: 8px auto; box-shadow: var(--shadow); color: var(--text); }
+    .section-toggle {
+      width: 100%; background: none !important; border: none; padding: 12px 10px; margin: 0 !important; color: var(--section-toggle-text) !important;
+      display: flex; align-items: center; justify-content: space-between; text-align: left; cursor: pointer;
+    }
+    .toggle-title { display: block; font-weight: 800; color: var(--section-toggle-text) !important; }
+    .toggle-meta { display: block; margin-top: 2px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .toggle-icon { font-size: 15px; line-height: 1; transition: transform 0.2s ease; color: var(--section-toggle-icon) !important; }
+    .section.collapsed .section-body { display: none; }
+    .section.collapsed .toggle-icon { transform: rotate(-90deg); }
+    .section-body { padding: 0 10px 10px; }
+    label { display: block; font-size: 12px; margin-bottom: 4px; color: var(--text); font-weight: 600; }
+    input, select {
+      display: block; width: 100%; max-width: 260px; padding: 6px 8px; font-size: 12px; background: var(--input-bg); color: var(--text);
+      border: 1px solid var(--input-border); margin-bottom: 6px; appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    }
+    input::placeholder { color: var(--muted); opacity: 0.75; }
+    input:focus, select:focus { outline: none; border-color: #4aa346; box-shadow: 0 0 0 2px rgba(74, 163, 70, 0.12); }
+    button { padding: 8px 16px; margin: 6px; font-weight: 700; background: #313744; color: #fff; border: none; cursor: pointer; }
+    button:hover { opacity: 0.95; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toolbar { display: flex; gap: 8px; margin: 10px 0 8px; flex-wrap: wrap; }
+    .day-btn {
+      background: #eceff3 !important; color: #2a2f38 !important; border: 1px solid #d7dbe1 !important; padding: 6px 10px !important;
+      font-size: 12px !important; font-weight: 700; margin: 0; min-width: 90px !important; text-align: center;
+    }
+    .day-btn.active { background: #49a443 !important; color: #fff !important; border-color: #49a443 !important; }
+    .fetch-btn {
+      background: #49a443 !important; color: #fff !important; padding: 6px 12px !important; font-size: 12px !important; font-weight: 700 !important;
+      border: none !important; cursor: pointer; margin: 0; box-shadow: 0 2px 6px rgba(73, 164, 67, 0.2);
+    }
+    .minor-btn {
+      background: #3a404c !important; color: #fff !important; padding: 6px 12px !important; font-size: 12px !important; font-weight: 700 !important;
+      border: none !important; cursor: pointer; margin: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.14);
+    }
+    .status-line { font-size: 10px; margin-top: 6px; min-height: 16px; font-weight: 700; }
+    .status-line.ok { color: var(--success); }
+    .status-line.err { color: var(--danger); }
+    .status-line.loading { color: var(--warning); }
+    .fixture-list { display: grid; gap: 6px; margin-top: 8px; }
+    .fixture-btn { width: 100%; text-align: left; padding: 10px; margin: 0; background: var(--panel-soft) !important; border: 1px solid var(--panel-border); color: var(--text); box-shadow: none !important; }
+    .fixture-btn.active { border-color: #49a443; box-shadow: 0 0 0 1px rgba(73,164,67,0.35) inset !important; background: rgba(73,164,67,0.08) !important; }
+    .fixture-main { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 800; margin-bottom: 3px; }
+    .fixture-sub { font-size: 10px; color: var(--muted); font-weight: 700; display: flex; flex-wrap: wrap; gap: 8px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 0; }
+    .chip {
+      display: inline-flex; align-items: center; justify-content: center; padding: 7px 9px; background: var(--panel-soft); border: 1px solid var(--panel-border);
+      color: var(--text); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .mini-card { border: 1px solid var(--panel-border); background: var(--panel-soft); padding: 8px; }
+    .mini-head { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .mini-main { font-size: 14px; font-weight: 800; color: var(--text); line-height: 1.25; }
+    .mini-sub { font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+    .actions { text-align: center; padding-bottom: 4px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    .run-btn { background: #3a9c35 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(58, 156, 53, 0.35) !important; padding: 6px 14px !important; font-size: 12px !important; margin: 0; }
+    .clear-btn { background: #3a404c !important; color: #fff !important; box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important; padding: 6px 14px !important; font-size: 12px !important; margin: 0; }
+    .table-wrap { overflow-x: auto; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0; font-size: 12px; background: var(--panel) !important; }
+    th, td { border: 1px solid var(--panel-border); padding: 8px 6px; text-align: center; vertical-align: top; }
+    th { background: var(--table-head) !important; color: #fff !important; font-weight: 700; white-space: nowrap; }
+    td { background: var(--panel) !important; color: var(--text) !important; font-weight: 600 !important; }
+    .pred-over { background: #3a9c35 !important; color: #fff !important; font-weight: 800 !important; }
+    .pred-under { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
+    .pred-noplay { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
+    .conf-a { background: #2f8f4a !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-b { background: #4aa346 !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-c { background: #d98a00 !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-none { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
+    .reason-box { border: 1px solid var(--panel-border); background: var(--panel-soft); padding: 8px; margin-top: 8px; font-size: 11px; line-height: 1.45; font-weight: 700; color: var(--text); }
+    .small-note { color: var(--muted); font-size: 10px; font-weight: 700; display: block; margin-top: 3px; line-height: 1.35; }
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .metric-card { border: 1px solid var(--panel-border); background: var(--panel-soft); padding: 8px; min-height: 72px; }
+    .metric-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.35px; margin-bottom: 4px; }
+    .metric-value { font-size: 18px; font-weight: 900; color: var(--text); line-height: 1.2; }
+    .metric-sub { font-size: 10px; color: var(--muted); font-weight: 700; margin-top: 4px; line-height: 1.35; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: flex-start; justify-content: flex-end; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); z-index: 9999; }
+    .modal.open { display: flex; }
+    .modal-panel { width: min(96vw, 520px); height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); background: var(--panel); color: var(--text); border: 1px solid var(--panel-border); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22); display: flex; flex-direction: column; overflow: hidden; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: #3a404c; color: #fff; border-bottom: 1px solid var(--panel-border); font-weight: 800; font-size: 13px; }
+    body.dark-mode .modal-head { background: #111; color: #d4af37; }
+    .modal-close { background: none !important; border: none !important; box-shadow: none !important; color: inherit !important; font-size: 18px !important; line-height: 1 !important; padding: 0 !important; margin: 0 !important; cursor: pointer !important; }
+    .modal-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0 10px 10px; background: var(--panel); }
+    .report-empty { border: 1px solid var(--panel-border); background: var(--panel-soft); padding: 10px 12px; font-size: 11px; font-weight: 700; margin-top: 10px; color: var(--muted); }
+    .log-card { border: 1px solid var(--panel-border); background: var(--panel-soft); padding: 9px 10px; margin-top: 8px; }
+    .log-head { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+    .log-sub { font-size: 10px; color: var(--muted); font-weight: 700; line-height: 1.4; }
+    @media (min-width: 700px) {
+      .grid-2 { grid-template-columns: 1fr 1fr; }
+      .metric-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-block">
+      <img alt="TheBetCeo Tennis icon" src="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tennis_repo_icon_v1" />
+      <div class="brand-text">
+        <div class="brand-title">TheBetCeo Tennis</div>
+        <div class="brand-sub">ATP total games engine</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="header-btn" id="themeToggleBtn">Theme</button>
+      <button class="header-btn" id="reportToggleBtn">Report</button>
+    </div>
+  </header>
+
+  <div class="wrapper">
+    <div class="hero-card">
+      <img alt="TheBetCeo Tennis banner" src="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tennis_repo_icon_v1" />
+      <div class="hero-note">Repo image path linked from GitHub files. Replace the filename if your repo uses a different image asset.</div>
+    </div>
+
+    <section class="section" id="fixturesSection">
+      <button class="section-toggle" type="button">
+        <span>
+          <span class="toggle-title">Fixtures</span>
+          <span class="toggle-meta">ATP daily feed, one selected match at a time</span>
+        </span>
+        <span class="toggle-icon">▾</span>
+      </button>
+      <div class="section-body">
+        <div class="toolbar">
+          <button class="day-btn active" id="todayBtn" type="button">Today</button>
+          <button class="day-btn" id="tomorrowBtn" type="button">Tomorrow</button>
+          <input id="dateInput" type="date" style="max-width:170px;margin:0;" />
+          <button class="fetch-btn" id="fetchFixturesBtn" type="button">Fetch Fixtures</button>
+        </div>
+        <div class="chips">
+          <span class="chip">Tour: ATP</span>
+          <span class="chip">Market: Full Match Total Games</span>
+          <span class="chip" id="fixtureCountChip">Fixtures: 0</span>
+        </div>
+        <div id="fixtureStatus" class="status-line"></div>
+        <div id="fixtureList" class="fixture-list"></div>
+      </div>
+    </section>
+
+    <section class="section" id="selectedSection">
+      <button class="section-toggle" type="button">
+        <span>
+          <span class="toggle-title">Selected Match</span>
+          <span class="toggle-meta">Auto-filled from the ESPN ATP match feed</span>
+        </span>
+        <span class="toggle-icon">▾</span>
+      </button>
+      <div class="section-body">
+        <div class="grid-2">
+          <div class="mini-card"><div class="mini-head">Players</div><div class="mini-main" id="selectedPlayers">No match selected yet</div><div class="mini-sub" id="selectedIds">Pick a fixture first.</div></div>
+          <div class="mini-card"><div class="mini-head">Tournament</div><div class="mini-main" id="selectedTournament">—</div><div class="mini-sub" id="selectedRound">Round: —</div></div>
+          <div class="mini-card"><div class="mini-head">Court / venue</div><div class="mini-main" id="selectedVenue">—</div><div class="mini-sub" id="selectedCourt">Court: —</div></div>
+          <div class="mini-card"><div class="mini-head">Status / date</div><div class="mini-main" id="selectedStatus">—</div><div class="mini-sub" id="selectedDateMeta">Date: —</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="marketSection">
+      <button class="section-toggle" type="button">
+        <span>
+          <span class="toggle-title">Market Input</span>
+          <span class="toggle-meta">Only one real manual input, because restraint occasionally exists</span>
+        </span>
+        <span class="toggle-icon">▾</span>
+      </button>
+      <div class="section-body">
+        <div class="grid-2">
+          <div>
+            <label for="totalLineInput">Full Match Total Games Line</label>
+            <input id="totalLineInput" type="number" step="0.5" placeholder="e.g. 22.5" />
+            <small class="small-note">Enter the sportsbook total line manually. ESPN gives the match history, not the bookmaker line.</small>
+          </div>
+          <div>
+            <label for="lookbackDaysInput">History Scan Days</label>
+            <input id="lookbackDaysInput" type="number" min="30" max="240" step="10" value="120" />
+            <small class="small-note">The engine scans backward through ATP daily scoreboards until it has enough recent matches or hits this cap.</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="profileSection">
+      <button class="section-toggle" type="button">
+        <span>
+          <span class="toggle-title">Data Profile</span>
+          <span class="toggle-meta">Auto-built from stored ATP history for both players and their H2H</span>
+        </span>
+        <span class="toggle-icon">▾</span>
+      </button>
+      <div class="section-body">
+        <div id="runStatus" class="status-line"></div>
+        <div class="metric-grid" id="metricGrid">
+          <div class="metric-card"><div class="metric-label">Projection</div><div class="metric-value">—</div><div class="metric-sub">Run the engine after selecting a fixture.</div></div>
+          <div class="metric-card"><div class="metric-label">Edge</div><div class="metric-value">—</div><div class="metric-sub">Projection vs line.</div></div>
+          <div class="metric-card"><div class="metric-label">Pick</div><div class="metric-value">—</div><div class="metric-sub">Over, under, or no play.</div></div>
+          <div class="metric-card"><div class="metric-label">Confidence</div><div class="metric-value">—</div><div class="metric-sub">Sample + stability + agreement.</div></div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Profile</th>
+                <th>Matches</th>
+                <th>Last 5 Avg</th>
+                <th>Last 10 Avg</th>
+                <th>Median</th>
+                <th>Avg Games/Set</th>
+                <th>Decider Rate</th>
+                <th>Straight-Set Rate</th>
+                <th>Tiebreak Set Rate</th>
+              </tr>
+            </thead>
+            <tbody id="profileTableBody"><tr><td colspan="9">No profile yet.</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Market</th>
+                <th>Projection</th>
+                <th>Line</th>
+                <th>Edge</th>
+                <th>Pick</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody id="resultTableBody"><tr><td colspan="6">Run the engine to populate the result row.</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="reason-box" id="reasonBox">The engine will summarize why it leaned over, under, or no play here once it has player history and a line.</div>
+      </div>
+    </section>
+
+    <section class="section" id="actionsSection">
+      <button class="section-toggle" type="button">
+        <span>
+          <span class="toggle-title">Actions</span>
+          <span class="toggle-meta">Run the total-games engine or clear the state</span>
+        </span>
+        <span class="toggle-icon">▾</span>
+      </button>
+      <div class="section-body">
+        <div class="actions">
+          <button class="run-btn" id="runBtn" type="button">Run Engine</button>
+          <button class="clear-btn" id="clearBtn" type="button">Clear</button>
+          <button class="minor-btn" id="refreshHistoryBtn" type="button">Refresh History</button>
+        </div>
+        <small class="small-note">Version 1 uses ATP completed-match history only. Retirements and walkovers are filtered out. Best-of-5 support is intentionally blocked for now.</small>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal" id="reportModal">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <span>Engine Report</span>
+        <button class="modal-close" id="reportCloseBtn" type="button">✕</button>
+      </div>
+      <div class="modal-scroll">
+        <div class="metric-grid" style="margin-top:10px;">
+          <div class="metric-card"><div class="metric-label">Runs</div><div class="metric-value" id="reportRuns">0</div><div class="metric-sub">Saved engine runs</div></div>
+          <div class="metric-card"><div class="metric-label">Overs</div><div class="metric-value" id="reportOvers">0</div><div class="metric-sub">Logged over leans</div></div>
+          <div class="metric-card"><div class="metric-label">Unders</div><div class="metric-value" id="reportUnders">0</div><div class="metric-sub">Logged under leans</div></div>
+          <div class="metric-card"><div class="metric-label">No Plays</div><div class="metric-value" id="reportNoPlays">0</div><div class="metric-sub">Suppressed picks</div></div>
+        </div>
+        <div id="reportHistory"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SCOREBOARD_BASE = "https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard";
+    const DAY_CACHE_KEY = "tbc_tennis_day_cache_v1";
+    const RUN_LOG_KEY = "tbc_tennis_run_log_v1";
+
+    const state = {
+      selectedDate: null,
+      fixtures: [],
+      selectedMatch: null,
+      lastRun: null,
+      dayCache: loadJson(DAY_CACHE_KEY, {}),
+      runLog: loadJson(RUN_LOG_KEY, []),
+      errors: []
+    };
+
+    const els = {
+      todayBtn: document.getElementById("todayBtn"),
+      tomorrowBtn: document.getElementById("tomorrowBtn"),
+      dateInput: document.getElementById("dateInput"),
+      fetchFixturesBtn: document.getElementById("fetchFixturesBtn"),
+      fixtureStatus: document.getElementById("fixtureStatus"),
+      fixtureList: document.getElementById("fixtureList"),
+      fixtureCountChip: document.getElementById("fixtureCountChip"),
+      selectedPlayers: document.getElementById("selectedPlayers"),
+      selectedIds: document.getElementById("selectedIds"),
+      selectedTournament: document.getElementById("selectedTournament"),
+      selectedRound: document.getElementById("selectedRound"),
+      selectedVenue: document.getElementById("selectedVenue"),
+      selectedCourt: document.getElementById("selectedCourt"),
+      selectedStatus: document.getElementById("selectedStatus"),
+      selectedDateMeta: document.getElementById("selectedDateMeta"),
+      totalLineInput: document.getElementById("totalLineInput"),
+      lookbackDaysInput: document.getElementById("lookbackDaysInput"),
+      runBtn: document.getElementById("runBtn"),
+      clearBtn: document.getElementById("clearBtn"),
+      refreshHistoryBtn: document.getElementById("refreshHistoryBtn"),
+      runStatus: document.getElementById("runStatus"),
+      resultTableBody: document.getElementById("resultTableBody"),
+      profileTableBody: document.getElementById("profileTableBody"),
+      metricGrid: document.getElementById("metricGrid"),
+      reasonBox: document.getElementById("reasonBox"),
+      themeToggleBtn: document.getElementById("themeToggleBtn"),
+      reportToggleBtn: document.getElementById("reportToggleBtn"),
+      reportModal: document.getElementById("reportModal"),
+      reportCloseBtn: document.getElementById("reportCloseBtn"),
+      reportRuns: document.getElementById("reportRuns"),
+      reportOvers: document.getElementById("reportOvers"),
+      reportUnders: document.getElementById("reportUnders"),
+      reportNoPlays: document.getElementById("reportNoPlays"),
+      reportHistory: document.getElementById("reportHistory")
+    };
+
+    setupSectionToggles();
+    setupDateControls();
+    setupTheme();
+    setupReport();
+    init();
+
+    function init() {
+      const today = toDateInputValue(new Date());
+      state.selectedDate = today;
+      els.dateInput.value = today;
+      renderSelectedMatch(null);
+      renderReport();
+      fetchFixturesForCurrentDate();
+    }
+
+    function setupSectionToggles() {
+      document.querySelectorAll(".section").forEach(section => {
+        const toggle = section.querySelector(".section-toggle");
+        toggle.addEventListener("click", () => section.classList.toggle("collapsed"));
+      });
+    }
+
+    function setupDateControls() {
+      els.todayBtn.addEventListener("click", () => { setDateChoice("today"); fetchFixturesForCurrentDate(); });
+      els.tomorrowBtn.addEventListener("click", () => { setDateChoice("tomorrow"); fetchFixturesForCurrentDate(); });
+      els.dateInput.addEventListener("change", () => { state.selectedDate = els.dateInput.value; syncDayButtons(null); });
+      els.fetchFixturesBtn.addEventListener("click", fetchFixturesForCurrentDate);
+      els.runBtn.addEventListener("click", () => runEngine(false));
+      els.refreshHistoryBtn.addEventListener("click", () => runEngine(true));
+      els.clearBtn.addEventListener("click", clearRunState);
+    }
+
+    function setupTheme() {
+      const themeKey = "tbctennis_theme";
+      const saved = localStorage.getItem(themeKey);
+      if (saved === "dark") document.body.classList.add("dark-mode");
+      els.themeToggleBtn.addEventListener("click", () => {
+        document.body.classList.toggle("dark-mode");
+        localStorage.setItem(themeKey, document.body.classList.contains("dark-mode") ? "dark" : "light");
+      });
+    }
+
+    function setupReport() {
+      els.reportToggleBtn.addEventListener("click", () => { els.reportModal.classList.add("open"); renderReport(); });
+      els.reportCloseBtn.addEventListener("click", () => els.reportModal.classList.remove("open"));
+      els.reportModal.addEventListener("click", e => { if (e.target === els.reportModal) els.reportModal.classList.remove("open"); });
+    }
+
+    function setDateChoice(kind) {
+      const base = new Date();
+      if (kind === "tomorrow") base.setDate(base.getDate() + 1);
+      const value = toDateInputValue(base);
+      state.selectedDate = value;
+      els.dateInput.value = value;
+      syncDayButtons(kind);
+    }
+
+    function syncDayButtons(kind) {
+      els.todayBtn.classList.toggle("active", kind === "today");
+      els.tomorrowBtn.classList.toggle("active", kind === "tomorrow");
+    }
+
+    async function fetchFixturesForCurrentDate() {
+      const dateVal = els.dateInput.value || toDateInputValue(new Date());
+      state.selectedDate = dateVal;
+      setStatus(els.fixtureStatus, "Loading ATP fixtures…", "loading");
+      els.fetchFixturesBtn.disabled = true;
+      try {
+        const fixtures = await getMatchesForDate(dateVal, false);
+        state.fixtures = fixtures.filter(m => !m.completed);
+        if (!state.fixtures.length) state.fixtures = fixtures;
+        renderFixtures();
+        setStatus(els.fixtureStatus, state.fixtures.length ? `Loaded ${state.fixtures.length} fixture${state.fixtures.length === 1 ? "" : "s"} for ${dateVal}.` : `No ATP fixtures returned for ${dateVal}.`, state.fixtures.length ? "ok" : "err");
+      } catch (err) {
+        setStatus(els.fixtureStatus, `Fixture fetch failed: ${err.message}`, "err");
+        pushError(err.message);
+      } finally {
+        els.fetchFixturesBtn.disabled = false;
+      }
+    }
+
+    function renderFixtures() {
+      els.fixtureList.innerHTML = "";
+      els.fixtureCountChip.textContent = `Fixtures: ${state.fixtures.length}`;
+      if (!state.fixtures.length) {
+        els.fixtureList.innerHTML = '<div class="report-empty">No fixtures loaded yet.</div>';
+        return;
+      }
+      state.fixtures.forEach(match => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "fixture-btn" + (state.selectedMatch && state.selectedMatch.id === match.id ? " active" : "");
+        const statusText = match.completed ? "Final" : (match.statusDetail || "Scheduled");
+        btn.innerHTML = `
+          <div class="fixture-main">
+            <span>${escapeHtml(match.playerA.name)} vs ${escapeHtml(match.playerB.name)}</span>
+            <span>${escapeHtml(statusText)}</span>
+          </div>
+          <div class="fixture-sub">
+            <span>${escapeHtml(match.tournament || "ATP event")}</span>
+            <span>${escapeHtml(match.round || "Round unknown")}</span>
+            <span>${escapeHtml(match.court || match.venue || "Court/venue unknown")}</span>
+          </div>`;
+        btn.addEventListener("click", () => {
+          state.selectedMatch = match;
+          renderFixtures();
+          renderSelectedMatch(match);
+          clearRunOutputsOnly();
+        });
+        els.fixtureList.appendChild(btn);
+      });
+    }
+
+    function renderSelectedMatch(match) {
+      if (!match) {
+        els.selectedPlayers.textContent = "No match selected yet";
+        els.selectedIds.textContent = "Pick a fixture first.";
+        els.selectedTournament.textContent = "—";
+        els.selectedRound.textContent = "Round: —";
+        els.selectedVenue.textContent = "—";
+        els.selectedCourt.textContent = "Court: —";
+        els.selectedStatus.textContent = "—";
+        els.selectedDateMeta.textContent = "Date: —";
+        return;
+      }
+      els.selectedPlayers.textContent = `${match.playerA.name} vs ${match.playerB.name}`;
+      els.selectedIds.textContent = `Player IDs: ${match.playerA.id} / ${match.playerB.id}`;
+      els.selectedTournament.textContent = match.tournament || "ATP event";
+      els.selectedRound.textContent = `Round: ${match.round || "Unknown"}`;
+      els.selectedVenue.textContent = match.venue || "Venue unavailable";
+      els.selectedCourt.textContent = `Court: ${match.court || "Unknown"}`;
+      els.selectedStatus.textContent = match.completed ? "Final" : (match.statusDetail || "Scheduled");
+      els.selectedDateMeta.textContent = `Date: ${formatDateTime(match.date)}`;
+    }
+
+    async function runEngine(forceRefresh) {
+      const match = state.selectedMatch;
+      if (!match) { setStatus(els.runStatus, "Select a fixture first.", "err"); return; }
+      const line = parseFloat(els.totalLineInput.value);
+      if (!Number.isFinite(line)) { setStatus(els.runStatus, "Enter a valid total-games line first.", "err"); return; }
+      if (isLikelyBestOfFive(match)) {
+        setStatus(els.runStatus, "Best-of-5 style events are blocked in version 1. Pick a best-of-3 ATP match instead.", "err");
+        renderResultNoPlay("No Play", "Best-of-5 is intentionally blocked for this launch.");
+        return;
+      }
+      const lookbackDays = clampInt(parseInt(els.lookbackDaysInput.value, 10) || 120, 30, 240);
+      setStatus(els.runStatus, "Building player history from ESPN ATP scoreboards…", "loading");
+      els.runBtn.disabled = true;
+      els.refreshHistoryBtn.disabled = true;
+      try {
+        const historyBundle = await collectHistoryBundle(match, lookbackDays, forceRefresh);
+        const analysis = analyzeMatch(match, line, historyBundle);
+        state.lastRun = analysis;
+        renderProfiles(analysis);
+        renderResult(analysis);
+        setStatus(els.runStatus, analysis.statusText, analysis.statusClass);
+        persistRun(analysis);
+        renderReport();
+      } catch (err) {
+        pushError(err.message);
+        setStatus(els.runStatus, `Engine run failed: ${err.message}`, "err");
+        renderResultNoPlay("No Play", `Run failed: ${err.message}`);
+      } finally {
+        els.runBtn.disabled = false;
+        els.refreshHistoryBtn.disabled = false;
+      }
+    }
+
+    async function collectHistoryBundle(match, lookbackDays, forceRefresh) {
+      const anchorDate = new Date(match.date || state.selectedDate);
+      anchorDate.setHours(0, 0, 0, 0);
+      const targetA = match.playerA.id;
+      const targetB = match.playerB.id;
+      const historyA = [];
+      const historyB = [];
+      const h2h = [];
+      let scanned = 0;
+      const seenA = new Set();
+      const seenB = new Set();
+      const seenH2H = new Set();
+
+      for (let offset = 1; offset <= lookbackDays; offset += 4) {
+        const dates = [];
+        for (let step = 0; step < 4 && (offset + step) <= lookbackDays; step++) {
+          const d = new Date(anchorDate);
+          d.setDate(anchorDate.getDate() - (offset + step));
+          dates.push(toDateInputValue(d));
+        }
+        setStatus(els.runStatus, `Scanning history… ${scanned} day blocks checked`, "loading");
+        const results = await Promise.all(dates.map(date => getMatchesForDate(date, forceRefresh)));
+        for (const dayMatches of results) {
+          scanned += 1;
+          for (const m of dayMatches) {
+            if (!m.completed) continue;
+            if (!isUsableCompletedMatch(m)) continue;
+            if (m.id === match.id) continue;
+            const involvesA = [m.playerA.id, m.playerB.id].includes(targetA);
+            const involvesB = [m.playerA.id, m.playerB.id].includes(targetB);
+            if (involvesA && !seenA.has(m.id) && historyA.length < 12) { historyA.push(m); seenA.add(m.id); }
+            if (involvesB && !seenB.has(m.id) && historyB.length < 12) { historyB.push(m); seenB.add(m.id); }
+            if (involvesA && involvesB && !seenH2H.has(m.id) && h2h.length < 8) { h2h.push(m); seenH2H.add(m.id); }
+          }
+        }
+        if (historyA.length >= 10 && historyB.length >= 10 && scanned >= 16) break;
+      }
+
+      historyA.sort((a, b) => new Date(b.date) - new Date(a.date));
+      historyB.sort((a, b) => new Date(b.date) - new Date(a.date));
+      h2h.sort((a, b) => new Date(b.date) - new Date(a.date));
+      return { scannedDays: scanned, playerAHistory: historyA, playerBHistory: historyB, h2hHistory: h2h };
+    }
+
+    function analyzeMatch(match, line, bundle) {
+      const aProfile = buildPlayerProfile(match.playerA.id, bundle.playerAHistory);
+      const bProfile = buildPlayerProfile(match.playerB.id, bundle.playerBHistory);
+      const h2hProfile = buildH2HProfile(match.playerA.id, match.playerB.id, bundle.h2hHistory);
+      const hasEnough = aProfile.count >= 4 && bProfile.count >= 4;
+      if (!hasEnough) return makeNoPlayAnalysis(match, line, bundle, aProfile, bProfile, h2hProfile, "Not enough usable recent ATP history for one or both players.");
+
+      const playerCombinedAvg = meanSafe([aProfile.last5Avg, aProfile.last10Avg, bProfile.last5Avg, bProfile.last10Avg]);
+      const playerCombinedMedian = meanSafe([aProfile.median, bProfile.median]);
+      const directRecentBlend =
+        0.35 * safeNum(meanSafe([aProfile.last5Avg, bProfile.last5Avg]), playerCombinedAvg) +
+        0.30 * safeNum(meanSafe([aProfile.last10Avg, bProfile.last10Avg]), playerCombinedAvg) +
+        0.20 * playerCombinedMedian +
+        0.15 * safeNum(h2hProfile.avgTotalGames, playerCombinedAvg);
+
+      const pDecider = clamp(0.40 * aProfile.deciderRate + 0.40 * bProfile.deciderRate + 0.20 * safeNum(h2hProfile.deciderRate, meanSafe([aProfile.deciderRate, bProfile.deciderRate])), 0, 1);
+      const expectedSets = 2 + pDecider;
+      const combinedGamesPerSet = meanSafe([aProfile.avgGamesPerSet, bProfile.avgGamesPerSet]);
+      const expectedGamesPerSet =
+        0.55 * combinedGamesPerSet +
+        0.25 * safeNum(h2hProfile.avgGamesPerSet, combinedGamesPerSet) +
+        0.20 * (combinedGamesPerSet + 0.6 * meanSafe([aProfile.tiebreakSetRate, bProfile.tiebreakSetRate, h2hProfile.tiebreakSetRate]));
+
+      const projectedFromParts = expectedSets * expectedGamesPerSet;
+      const finalProjection = clamp(0.70 * projectedFromParts + 0.30 * directRecentBlend, 16, 40);
+      const edge = round1(finalProjection - line);
+      const absEdge = Math.abs(edge);
+      const combinedStdev = meanSafe([aProfile.stdev, bProfile.stdev]);
+      const sampleScore = clamp((aProfile.count + bProfile.count) / 20, 0, 1);
+      const volatilityScore = clamp(1 - (combinedStdev / 8), 0, 1);
+      const agreementScore = clamp(1 - Math.abs(projectedFromParts - directRecentBlend) / 6, 0, 1);
+      const h2hSupport = h2hProfile.count >= 2 ? 0.1 : 0;
+      const confidenceRaw = clamp(0.38 * sampleScore + 0.32 * volatilityScore + 0.20 * agreementScore + h2hSupport, 0, 1);
+
+      let confidence = "C";
+      if (confidenceRaw >= 0.78) confidence = "A";
+      else if (confidenceRaw >= 0.63) confidence = "B";
+      else if (confidenceRaw >= 0.48) confidence = "C";
+      else confidence = "NO PLAY";
+
+      let pick = "No Play";
+      if (absEdge >= 1.2) pick = edge > 0 ? "Over" : "Under";
+      if (confidence === "NO PLAY" || absEdge < 1.2) {
+        return makeNoPlayAnalysis(match, line, bundle, aProfile, bProfile, h2hProfile, absEdge < 1.2 ? "Edge is too small. This is too close to the market line to bother pretending it is sharp." : "Sample quality and stability are not strong enough for a real pick.", finalProjection, edge, confidenceRaw);
+      }
+
+      const reason = buildReason(match, aProfile, bProfile, h2hProfile, finalProjection, line, edge, confidence, projectedFromParts, directRecentBlend);
+      return {
+        match,
+        line,
+        projection: round1(finalProjection),
+        edge,
+        pick,
+        confidence,
+        confidenceRaw,
+        statusClass: "ok",
+        statusText: `Engine finished. ${pick} ${line} with confidence ${confidence} after scanning ${bundle.scannedDays} day blocks.`,
+        reason,
+        bundle,
+        aProfile,
+        bProfile,
+        h2hProfile,
+        summaryMetrics: buildSummaryMetrics(round1(finalProjection), edge, pick, confidence)
+      };
+    }
+
+    function makeNoPlayAnalysis(match, line, bundle, aProfile, bProfile, h2hProfile, why, projection = null, edge = null, confidenceRaw = 0) {
+      return {
+        match,
+        line,
+        projection: projection !== null ? round1(projection) : null,
+        edge: edge !== null ? round1(edge) : null,
+        pick: "No Play",
+        confidence: "NO PLAY",
+        confidenceRaw,
+        statusClass: "err",
+        statusText: `No play. ${why}`,
+        reason: why,
+        bundle,
+        aProfile,
+        bProfile,
+        h2hProfile,
+        summaryMetrics: buildSummaryMetrics(projection !== null ? round1(projection) : "—", edge !== null ? round1(edge) : "—", "No Play", "NO PLAY")
+      };
+    }
+
+    function buildSummaryMetrics(projection, edge, pick, confidence) {
+      return [
+        { label: "Projection", value: projection === null ? "—" : (projection.toFixed ? projection.toFixed(1) : projection), sub: "Engine total-games projection" },
+        { label: "Edge", value: edge === null ? "—" : (edge.toFixed ? `${edge > 0 ? "+" : ""}${edge.toFixed(1)}` : edge), sub: "Projection minus market line" },
+        { label: "Pick", value: pick, sub: "Over, under, or no play" },
+        { label: "Confidence", value: confidence, sub: "Sample + stability + agreement" }
+      ];
+    }
+
+    function buildReason(match, aProfile, bProfile, h2hProfile, projection, line, edge, confidence, projectedFromParts, directRecentBlend) {
+      const h2hBit = h2hProfile.count ? `H2H sample ${h2hProfile.count} with avg ${round1(h2hProfile.avgTotalGames)} total games` : "No meaningful H2H boost available";
+      const deciderBit = `Decider rates A/B: ${pct(aProfile.deciderRate)} / ${pct(bProfile.deciderRate)}`;
+      const stabilityBit = `Recent volatility A/B: ${round1(aProfile.stdev)} / ${round1(bProfile.stdev)}`;
+      const blendBit = `Part-model ${round1(projectedFromParts)} vs direct recent blend ${round1(directRecentBlend)}`;
+      return `Projection ${round1(projection)} against line ${line} gives an edge of ${edge > 0 ? "+" : ""}${round1(edge)}. ${h2hBit}. ${deciderBit}. ${stabilityBit}. ${blendBit}. Confidence ${confidence}.`;
+    }
+
+    function renderProfiles(analysis) {
+      renderMetrics(analysis.summaryMetrics);
+      els.profileTableBody.innerHTML = [
+        profileRow("Player A", analysis.aProfile),
+        profileRow("Player B", analysis.bProfile),
+        profileRow("H2H", analysis.h2hProfile)
+      ].join("");
+    }
+
+    function renderMetrics(metrics) {
+      els.metricGrid.innerHTML = metrics.map(m => `
+        <div class="metric-card">
+          <div class="metric-label">${escapeHtml(m.label)}</div>
+          <div class="metric-value">${escapeHtml(String(m.value))}</div>
+          <div class="metric-sub">${escapeHtml(m.sub)}</div>
+        </div>`).join("");
+    }
+
+    function renderResult(analysis) {
+      const pickClass = analysis.pick === "Over" ? "pred-over" : analysis.pick === "Under" ? "pred-under" : "pred-noplay";
+      const confClass = analysis.confidence === "A" ? "conf-a" : analysis.confidence === "B" ? "conf-b" : analysis.confidence === "C" ? "conf-c" : "conf-none";
+      els.resultTableBody.innerHTML = `
+        <tr>
+          <td>Full Match Total Games</td>
+          <td>${analysis.projection !== null ? analysis.projection.toFixed(1) : "—"}</td>
+          <td>${analysis.line.toFixed(1)}</td>
+          <td>${analysis.edge !== null ? (analysis.edge > 0 ? "+" : "") + analysis.edge.toFixed(1) : "—"}</td>
+          <td class="${pickClass}">${escapeHtml(analysis.pick)}</td>
+          <td class="${confClass}">${escapeHtml(analysis.confidence)}</td>
+        </tr>`;
+      els.reasonBox.textContent = analysis.reason;
+    }
+
+    function renderResultNoPlay(label, reason) {
+      renderMetrics(buildSummaryMetrics("—", "—", label, "NO PLAY"));
+      els.profileTableBody.innerHTML = '<tr><td colspan="9">No profile yet.</td></tr>';
+      els.resultTableBody.innerHTML = `
+        <tr>
+          <td>Full Match Total Games</td>
+          <td>—</td>
+          <td>${Number.isFinite(parseFloat(els.totalLineInput.value)) ? parseFloat(els.totalLineInput.value).toFixed(1) : "—"}</td>
+          <td>—</td>
+          <td class="pred-noplay">${escapeHtml(label)}</td>
+          <td class="conf-none">NO PLAY</td>
+        </tr>`;
+      els.reasonBox.textContent = reason;
+    }
+
+    function profileRow(label, profile) {
+      if (!profile || !profile.count) {
+        return `<tr><td>${escapeHtml(label)}</td><td>0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
+      }
+      return `
+        <tr>
+          <td>${escapeHtml(label)}</td>
+          <td>${profile.count}</td>
+          <td>${fmt(profile.last5Avg)}</td>
+          <td>${fmt(profile.last10Avg)}</td>
+          <td>${fmt(profile.median)}</td>
+          <td>${fmt(profile.avgGamesPerSet)}</td>
+          <td>${pct(profile.deciderRate)}</td>
+          <td>${pct(profile.straightSetRate)}</td>
+          <td>${pct(profile.tiebreakSetRate)}</td>
+        </tr>`;
+    }
+
+    function clearRunOutputsOnly() {
+      state.lastRun = null;
+      setStatus(els.runStatus, "", "");
+      renderMetrics(buildSummaryMetrics("—", "—", "—", "—"));
+      els.profileTableBody.innerHTML = '<tr><td colspan="9">No profile yet.</td></tr>';
+      els.resultTableBody.innerHTML = '<tr><td colspan="6">Run the engine to populate the result row.</td></tr>';
+      els.reasonBox.textContent = "The engine will summarize why it leaned over, under, or no play here once it has player history and a line.";
+    }
+
+    function clearRunState() {
+      els.totalLineInput.value = "";
+      clearRunOutputsOnly();
+      setStatus(els.runStatus, "", "");
+    }
+
+    function renderReport() {
+      const log = state.runLog;
+      const overs = log.filter(x => x.pick === "Over").length;
+      const unders = log.filter(x => x.pick === "Under").length;
+      const noPlays = log.filter(x => x.pick === "No Play").length;
+      els.reportRuns.textContent = String(log.length);
+      els.reportOvers.textContent = String(overs);
+      els.reportUnders.textContent = String(unders);
+      els.reportNoPlays.textContent = String(noPlays);
+      if (!log.length) {
+        els.reportHistory.innerHTML = '<div class="report-empty">No engine runs logged yet.</div>';
+        return;
+      }
+      els.reportHistory.innerHTML = log.slice().reverse().slice(0, 20).map(item => `
+        <div class="log-card">
+          <div class="log-head"><span>${escapeHtml(item.players)}</span><span>${escapeHtml(item.pick)} · ${escapeHtml(item.confidence)}</span></div>
+          <div class="log-sub">
+            ${escapeHtml(item.tournament)} · ${escapeHtml(item.round || "Round unknown")}<br/>
+            Projection ${escapeHtml(String(item.projection))} vs line ${escapeHtml(String(item.line))} · edge ${escapeHtml(String(item.edge))}<br/>
+            ${escapeHtml(item.runAt)}
+          </div>
+        </div>`).join("");
+    }
+
+    function persistRun(analysis) {
+      const record = {
+        id: `${analysis.match.id}_${Date.now()}`,
+        players: `${analysis.match.playerA.name} vs ${analysis.match.playerB.name}`,
+        tournament: analysis.match.tournament || "ATP event",
+        round: analysis.match.round || "",
+        line: analysis.line.toFixed(1),
+        projection: analysis.projection !== null ? analysis.projection.toFixed(1) : "—",
+        edge: analysis.edge !== null ? (analysis.edge > 0 ? "+" : "") + analysis.edge.toFixed(1) : "—",
+        pick: analysis.pick,
+        confidence: analysis.confidence,
+        runAt: new Date().toLocaleString()
+      };
+      state.runLog.push(record);
+      state.runLog = state.runLog.slice(-100);
+      localStorage.setItem(RUN_LOG_KEY, JSON.stringify(state.runLog));
+    }
+
+    async function getMatchesForDate(dateValue, forceRefresh) {
+      const key = toYMD(dateValue);
+      if (!forceRefresh && state.dayCache[key]) return state.dayCache[key];
+      const response = await fetch(`${SCOREBOARD_BASE}?dates=${key}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status} from ESPN`);
+      const data = await response.json();
+      const matches = normalizeScoreboard(data);
+      state.dayCache[key] = matches;
+      localStorage.setItem(DAY_CACHE_KEY, JSON.stringify(state.dayCache));
+      return matches;
+    }
+
+    function normalizeScoreboard(data) {
+      const out = [];
+      const events = Array.isArray(data && data.events) ? data.events : [];
+      for (const event of events) {
+        const eventName = event && (event.name || event.shortName) || "ATP Event";
+        const groupings = Array.isArray(event && event.groupings) ? event.groupings : [];
+        for (const groupingEntry of groupings) {
+          const competitions = Array.isArray(groupingEntry && groupingEntry.competitions) ? groupingEntry.competitions : [];
+          for (const comp of competitions) {
+            const competitors = Array.isArray(comp && comp.competitors) ? comp.competitors : [];
+            if (competitors.length < 2) continue;
+            const ordered = competitors.slice().sort((a, b) => (a && a.order || 99) - (b && b.order || 99));
+            const p1 = ordered[0], p2 = ordered[1];
+            const p1Scores = Array.isArray(p1 && p1.linescores) ? p1.linescores : [];
+            const p2Scores = Array.isArray(p2 && p2.linescores) ? p2.linescores : [];
+            const setCount = Math.max(p1Scores.length, p2Scores.length);
+            const sets = [];
+            for (let i = 0; i < setCount; i++) {
+              const aVal = p1Scores[i] && p1Scores[i].value;
+              const bVal = p2Scores[i] && p2Scores[i].value;
+              if (Number.isFinite(aVal) && Number.isFinite(bVal)) sets.push({ a: Number(aVal), b: Number(bVal) });
+            }
+            const totalGames = sets.reduce((sum, s) => sum + s.a + s.b, 0);
+            out.push({
+              id: String(comp && comp.id || `${event && event.id || "evt"}_${comp && comp.date || Math.random()}`),
+              eventId: String(event && event.id || ""),
+              date: comp && comp.date || event && event.date || null,
+              tournament: eventName,
+              round: comp && comp.round && comp.round.displayName || groupingEntry && groupingEntry.grouping && groupingEntry.grouping.displayName || "",
+              venue: comp && comp.venue && comp.venue.fullName || "",
+              court: comp && comp.venue && comp.venue.court || "",
+              statusState: comp && comp.status && comp.status.type && comp.status.type.state || "",
+              statusDetail: comp && comp.status && comp.status.type && (comp.status.type.detail || comp.status.type.description) || "",
+              completed: !!(comp && comp.status && comp.status.type && comp.status.type.completed),
+              notesText: Array.isArray(comp && comp.notes) ? comp.notes.map(n => n && n.text).filter(Boolean).join(" | ") : "",
+              playerA: normalizePlayer(p1),
+              playerB: normalizePlayer(p2),
+              sets,
+              totalGames,
+              periodCount: Number(comp && comp.format && comp.format.regulation && comp.format.regulation.periods || 0)
+            });
+          }
+        }
+      }
+      return out;
+    }
+
+    function normalizePlayer(raw) {
+      return {
+        id: String(raw && raw.id || raw && raw.athlete && raw.athlete.id || raw && raw.athlete && raw.athlete.guid || raw && raw.uid || ""),
+        name: raw && raw.athlete && (raw.athlete.displayName || raw.athlete.fullName) || "Unknown Player",
+        flag: raw && raw.athlete && raw.athlete.flag && raw.athlete.flag.alt || "",
+        winner: !!(raw && raw.winner)
+      };
+    }
+
+    function buildPlayerProfile(playerId, matches) {
+      const usable = matches.filter(isUsableCompletedMatch).filter(m => [m.playerA.id, m.playerB.id].includes(playerId)).slice(0, 12);
+      if (!usable.length) return emptyProfile();
+      const totals = usable.map(m => m.totalGames);
+      const last5 = totals.slice(0, 5);
+      const last10 = totals.slice(0, 10);
+      const totalSets = usable.reduce((sum, m) => sum + m.sets.length, 0);
+      const tiebreakSets = usable.reduce((sum, m) => sum + m.sets.filter(s => (s.a === 7 && s.b === 6) || (s.a === 6 && s.b === 7)).length, 0);
+      const deciders = usable.filter(m => m.sets.length === 3).length;
+      const straightSets = usable.filter(m => m.sets.length === 2).length;
+      return {
+        count: usable.length,
+        totals,
+        last5Avg: meanSafe(last5),
+        last10Avg: meanSafe(last10),
+        median: medianSafe(totals),
+        stdev: stdDevSafe(totals),
+        avgGamesPerSet: totalSets ? usable.reduce((sum, m) => sum + (m.totalGames / m.sets.length), 0) / usable.length : 0,
+        deciderRate: usable.length ? deciders / usable.length : 0,
+        straightSetRate: usable.length ? straightSets / usable.length : 0,
+        tiebreakSetRate: totalSets ? tiebreakSets / totalSets : 0
+      };
+    }
+
+    function buildH2HProfile(playerAId, playerBId, matches) {
+      const usable = matches.filter(isUsableCompletedMatch).filter(m => [m.playerA.id, m.playerB.id].includes(playerAId) && [m.playerA.id, m.playerB.id].includes(playerBId)).slice(0, 8);
+      if (!usable.length) return emptyProfile();
+      const totals = usable.map(m => m.totalGames);
+      const totalSets = usable.reduce((sum, m) => sum + m.sets.length, 0);
+      const tiebreakSets = usable.reduce((sum, m) => sum + m.sets.filter(s => (s.a === 7 && s.b === 6) || (s.a === 6 && s.b === 7)).length, 0);
+      const deciders = usable.filter(m => m.sets.length === 3).length;
+      const straightSets = usable.filter(m => m.sets.length === 2).length;
+      return {
+        count: usable.length,
+        totals,
+        last5Avg: meanSafe(totals.slice(0, 5)),
+        last10Avg: meanSafe(totals.slice(0, 8)),
+        avgTotalGames: meanSafe(totals),
+        median: medianSafe(totals),
+        stdev: stdDevSafe(totals),
+        avgGamesPerSet: totalSets ? usable.reduce((sum, m) => sum + (m.totalGames / m.sets.length), 0) / usable.length : 0,
+        deciderRate: usable.length ? deciders / usable.length : 0,
+        straightSetRate: usable.length ? straightSets / usable.length : 0,
+        tiebreakSetRate: totalSets ? tiebreakSets / totalSets : 0
+      };
+    }
+
+    function emptyProfile() {
+      return { count: 0, totals: [], last5Avg: 0, last10Avg: 0, avgTotalGames: 0, median: 0, stdev: 0, avgGamesPerSet: 0, deciderRate: 0, straightSetRate: 0, tiebreakSetRate: 0 };
+    }
+
+    function isUsableCompletedMatch(match) {
+      if (!match || !match.completed) return false;
+      if (!Array.isArray(match.sets) || !match.sets.length) return false;
+      if (match.sets.length > 3) return false;
+      const note = String(match.notesText || "").toLowerCase();
+      if (note.includes("ret.") || note.includes("retired") || note.includes("walkover") || note.includes("w/o")) return false;
+      return match.sets.every(s => Number.isFinite(s.a) && Number.isFinite(s.b));
+    }
+
+    function isLikelyBestOfFive(match) {
+      const t = String(match && match.tournament || "").toLowerCase();
+      return t.includes("australian open") || t.includes("roland garros") || t.includes("french open") || t.includes("wimbledon") || t.includes("us open");
+    }
+
+    function setStatus(el, text, cls) {
+      el.textContent = text || "";
+      el.className = "status-line" + (cls ? ` ${cls}` : "");
+    }
+
+    function pushError(message) {
+      state.errors.push({ message, at: new Date().toISOString() });
+      state.errors = state.errors.slice(-25);
+    }
+
+    function loadJson(key, fallback) {
+      try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+      catch { return fallback; }
+    }
+
+    function toDateInputValue(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function toYMD(dateValue) { return String(dateValue || "").replaceAll("-", ""); }
+    function formatDateTime(iso) { const d = new Date(iso); return Number.isNaN(d.getTime()) ? String(iso || "Unknown") : d.toLocaleString(); }
+    function meanSafe(arr) { const vals = (arr || []).filter(v => Number.isFinite(v)); return vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : 0; }
+    function medianSafe(arr) { const vals = (arr || []).filter(v => Number.isFinite(v)).slice().sort((a,b) => a-b); if (!vals.length) return 0; const mid = Math.floor(vals.length / 2); return vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2; }
+    function stdDevSafe(arr) { const vals = (arr || []).filter(v => Number.isFinite(v)); if (vals.length < 2) return 0; const mean = meanSafe(vals); const variance = vals.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / vals.length; return Math.sqrt(variance); }
+    function round1(v) { return Math.round(v * 10) / 10; }
+    function pct(v) { return `${Math.round((Number(v) || 0) * 100)}%`; }
+    function fmt(v) { return Number.isFinite(v) ? round1(v).toFixed(1) : "—"; }
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    function clampInt(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    function safeNum(v, fallback) { return Number.isFinite(v) && v > 0 ? v : fallback; }
+    function escapeHtml(str) { return String(str).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
+  </script>
+</body>
+</html>
