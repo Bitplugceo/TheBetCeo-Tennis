@@ -3131,7 +3131,7 @@ body.dark-mode .tracker-analytics-section-head {
     if (g_trackerDebug.lastEngineError) {
       diagnosis = "Engine error blocked saving: " + g_trackerDebug.lastEngineError;
     } else if (g_trackerDebug.lastGeneratedEntries === 0) {
-      diagnosis = "No actionable picks were generated, so nothing was saved.";
+      diagnosis = "No actionable picks were generated, so nothing was saved. This happens when rows end as PASS / NO PLAY, even if the raw projection leans one side.";
     } else if (g_trackerDebug.lastInsertedEntries === 0 && g_trackerDebug.lastDuplicateSkipped > 0) {
       diagnosis = "Save was skipped by duplicate protection. The same match, market, line and pick already exist for this day.";
     } else if (g_trackerDebug.lastGeneratedEntries > 0 && g_trackerDebug.lastInsertedEntries > 0 && items.length === 0) {
@@ -3858,7 +3858,8 @@ body.dark-mode .tracker-analytics-section-head {
     };
   }
 
-  function getPickCellClass(pick) {
+  function getPickCellClass(pick, confidence) {
+    if (confidence === "PASS" || pick === "PASS") return "pred-noplay";
     if (pick === "OVER") return "pred-over";
     if (pick === "UNDER") return "pred-under";
     return "pred-noplay";
@@ -3882,7 +3883,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function getPredictionText(result) {
-    if (!result || result.pick === "PASS") return "NO PLAY";
+    if (!result || result.pick === "PASS" || result.confidence === "PASS") return "NO PLAY";
     const shownLine = getShownLineForResult(result);
     if (shownLine === null || shownLine === undefined || Number.isNaN(shownLine)) {
       return result.pick;
@@ -3942,10 +3943,11 @@ body.dark-mode .tracker-analytics-section-head {
     const rows = results.map(function (result, idx) {
       const shownMid = result && result.lineRange ? result.lineRange.mid : null;
       const shownProjection = fmt(result.projection);
-      const shownEdge = result.pick === "PASS" ? "—" : ((result.edge > 0 ? "+" : "") + fmt(result.edge));
+      const isNoPlay = result.pick === "PASS" || result.confidence === "PASS";
+      const shownEdge = isNoPlay ? "—" : ((result.edge > 0 ? "+" : "") + fmt(result.edge));
       const predictionText = getPredictionText(result);
-      const isLock = idx === lockIdx && result.pick !== "PASS";
-      const gradeText = result.pick === "PASS" ? "—" : result.confidence;
+      const isLock = idx === lockIdx && !isNoPlay;
+      const gradeText = isNoPlay ? "—" : result.confidence;
 
       return (
         '<tr>' +
@@ -3953,7 +3955,7 @@ body.dark-mode .tracker-analytics-section-head {
           '<td>' + shownProjection + (shownMid !== null ? ' vs ' + fmt(shownMid) : '') + '</td>' +
           '<td>' + shownEdge + '</td>' +
           '<td class="' + getConfidenceCellClass(result.confidence) + '">' + htmlEscape(gradeText) + '</td>' +
-          '<td class="' + getPickCellClass(result.pick) + '">' +
+          '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
             htmlEscape(predictionText) +
             (isLock ? ' <span class="lock">🔒</span>' : '') +
           '</td>' +
