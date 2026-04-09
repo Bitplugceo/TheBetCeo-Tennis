@@ -2495,13 +2495,13 @@ body.dark-mode .tracker-analytics-section-head {
     <h3>Market Lines</h3>
 
     <label id="ftMarketLabel">Match Total Games</label>
-    <input id="ftMarket" placeholder="22.5" />
+    <input id="ftMarket" placeholder="e.g. 18.5 - 22.5" />
 
     <label id="h1MarketLabel">Set 1 Total Games</label>
-    <input id="h1Market" placeholder="9.5" />
+    <input id="h1Market" placeholder="e.g. 8.5 - 10.5" />
 
     <div class="section-note">
-      Totals only. No winner market. No handicap market. Match line range: 22.5 to 30.5. Set 1 line range: 9.5 to 12.5.
+      Totals only. No winner market. No handicap market. Enter book ranges like 18.5 - 22.5 or 8.5 - 10.5.
     </div>
   </div>
 
@@ -2862,15 +2862,78 @@ body.dark-mode .tracker-analytics-section-head {
     return "PASS";
   }
 
-  function validateLineRange(line, min, max, name) {
-    if (line < min || line > max) {
-      throw new Error(name + " must be between " + min.toFixed(1) + " and " + max.toFixed(1) + ".");
+  function parseLineRange(raw, name) {
+    const cleaned = String(raw || "").trim().replace(/[–—]/g, "-");
+    if (!cleaned) {
+      throw new Error(name + " is required.");
     }
+
+    const parts = cleaned.split("-").map(function (v) {
+      return v.trim();
+    }).filter(Boolean);
+
+    if (parts.length === 1) {
+      const single = Number(parts[0]);
+      if (!Number.isFinite(single)) {
+        throw new Error(name + " must be a valid number or range.");
+      }
+      return {
+        min: single,
+        max: single,
+        label: fmt(single)
+      };
+    }
+
+    if (parts.length !== 2) {
+      throw new Error(name + " must look like 18.5 - 22.5.");
+    }
+
+    const low = Number(parts[0]);
+    const high = Number(parts[1]);
+
+    if (!Number.isFinite(low) || !Number.isFinite(high)) {
+      throw new Error(name + " must contain valid numbers.");
+    }
+
+    if (low > high) {
+      throw new Error(name + " lower bound cannot be greater than upper bound.");
+    }
+
+    return {
+      min: low,
+      max: high,
+      label: fmt(low) + " - " + fmt(high)
+    };
   }
 
-  function pickFromEdge(edge) {
-    if (Math.abs(edge) < 1.0) return "PASS";
-    return edge > 0 ? "OVER" : "UNDER";
+  function directionFromRange(value, lineRange) {
+    if (value > lineRange.max) return 1;
+    if (value < lineRange.min) return -1;
+    return 0;
+  }
+
+  function pickFromRange(projection, lineRange) {
+    if (projection > lineRange.max) {
+      return {
+        pick: "OVER",
+        edge: projection - lineRange.max,
+        insideRange: false
+      };
+    }
+
+    if (projection < lineRange.min) {
+      return {
+        pick: "UNDER",
+        edge: projection - lineRange.min,
+        insideRange: false
+      };
+    }
+
+    return {
+      pick: "PASS",
+      edge: 0,
+      insideRange: true
+    };
   }
 
   function buildMarketResult(config) {
@@ -2879,12 +2942,19 @@ body.dark-mode .tracker-analytics-section-head {
     const h2hAvg = hasH2H ? mean(config.h2h) : null;
     const projection = hasH2H ? ((baseProjection * 0.7) + (h2hAvg * 0.3)) : baseProjection;
     const volatility = (config.stdA + config.stdB) / 2;
-    const edge = projection - config.line;
 
-    let pick = pickFromEdge(edge);
+    const lineDecision = pickFromRange(projection, config.lineRange);
+    let pick = lineDecision.pick;
+    let edge = lineDecision.edge;
     let confidence = getRawConfidence(edge, volatility);
     const notes = [];
     const filtersTriggered = [];
+
+    if (lineDecision.insideRange) {
+      notes.push("Projection inside market range");
+      confidence = "PASS";
+      pick = "PASS";
+    }
 
     if (!hasH2H) {
       filtersTriggered.push("missingH2H");
@@ -2925,8 +2995,8 @@ body.dark-mode .tracker-analytics-section-head {
     }
 
     if (hasH2H) {
-      const recentDirection = sign(baseProjection - config.line);
-      const h2hDirection = sign(h2hAvg - config.line);
+      const recentDirection = directionFromRange(baseProjection, config.lineRange);
+      const h2hDirection = directionFromRange(h2hAvg, config.lineRange);
 
       if (recentDirection !== 0 && h2hDirection !== 0 && recentDirection !== h2hDirection) {
         filtersTriggered.push("fakeEdge");
@@ -2936,7 +3006,7 @@ body.dark-mode .tracker-analytics-section-head {
       }
     }
 
-    if (Math.abs(edge) < 1.0) {
+    if (!lineDecision.insideRange && Math.abs(edge) < 1.0) {
       notes.push("Edge below minimum threshold");
       confidence = "PASS";
       pick = "PASS";
@@ -2949,7 +3019,8 @@ body.dark-mode .tracker-analytics-section-head {
     return {
       market: config.marketLabel,
       marketKey: config.marketKey,
-      line: config.line,
+      lineDisplay: config.lineRange.label,
+      lineRange: config.lineRange,
       avgA: config.avgA,
       avgB: config.avgB,
       baseProjection: baseProjection,
@@ -2975,11 +3046,8 @@ body.dark-mode .tracker-analytics-section-head {
     if (!playerAName) throw new Error("Player A name is required.");
     if (!playerBName) throw new Error("Player B name is required.");
 
-    const matchLine = parseNumber(qs("ftMarket").value, "Match total line");
-    const set1Line = parseNumber(qs("h1Market").value, "Set 1 total line");
-
-    validateLineRange(matchLine, 22.5, 30.5, "Match total line");
-    validateLineRange(set1Line, 9.5, 12.5, "Set 1 total line");
+    const matchLineRange = parseLineRange(qs("ftMarket").value, "Match total range");
+    const set1LineRange = parseLineRange(qs("h1Market").value, "Set 1 total range");
 
     const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent games won", 5, 10, false);
     const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent games won", 5, 10, false);
@@ -2997,7 +3065,7 @@ body.dark-mode .tracker-analytics-section-head {
     const matchResult = buildMarketResult({
       marketLabel: "Match Total Games",
       marketKey: "match",
-      line: matchLine,
+      lineRange: matchLineRange,
       avgA: mean(matchRecentA),
       avgB: mean(matchRecentB),
       stdA: stdDev(matchRecentA),
@@ -3009,7 +3077,7 @@ body.dark-mode .tracker-analytics-section-head {
     const set1Result = buildMarketResult({
       marketLabel: "Set 1 Total Games",
       marketKey: "set1",
-      line: set1Line,
+      lineRange: set1LineRange,
       avgA: mean(set1RecentA),
       avgB: mean(set1RecentB),
       stdA: stdDev(set1RecentA),
@@ -3079,7 +3147,7 @@ body.dark-mode .tracker-analytics-section-head {
       return (
         '<tr>' +
           '<td class="result-market">' + htmlEscape(result.market) + '</td>' +
-          '<td>' + fmt(result.projection) + ' vs ' + fmt(result.line) + '</td>' +
+          '<td>' + fmt(result.projection) + ' vs ' + htmlEscape(result.lineDisplay) + '</td>' +
           '<td>' + (result.edge > 0 ? '+' : '') + fmt(result.edge) + '</td>' +
           '<td class="' + getConfidenceCellClass(result.confidence) + '">' + htmlEscape(result.confidence) + '</td>' +
           '<td class="' + getPickCellClass(result.pick) + '">' + htmlEscape(displayPrediction) + '</td>' +
@@ -3107,13 +3175,13 @@ body.dark-mode .tracker-analytics-section-head {
 
     qs("aSpreadIntel").value =
       'Proj ' + fmt(match.projection) +
-      ' vs Line ' + fmt(match.line) +
+      ' vs Range ' + match.lineDisplay +
       ' | Edge ' + (match.edge > 0 ? '+' : '') + fmt(match.edge) +
       ' | ' + match.pick + ' ' + match.confidence;
 
     qs("bSpreadIntel").value =
       'Proj ' + fmt(set1.projection) +
-      ' vs Line ' + fmt(set1.line) +
+      ' vs Range ' + set1.lineDisplay +
       ' | Edge ' + (set1.edge > 0 ? '+' : '') + fmt(set1.edge) +
       ' | ' + set1.pick + ' ' + set1.confidence;
 
@@ -3176,6 +3244,30 @@ body.dark-mode .tracker-analytics-section-head {
     }
   }
 
+  function clearFetchedAutofill() {
+    ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTH2H", "a1HH2H", "surfaceDisplay"].forEach(function (id) {
+      const el = qs(id);
+      if (el) el.value = "";
+    });
+
+    const useMatchH2H = qs("useFTH2H");
+    const useSet1H2H = qs("use1HH2H");
+    if (useMatchH2H) useMatchH2H.checked = true;
+    if (useSet1H2H) useSet1H2H.checked = true;
+
+    clearAutoTags();
+    hideFetchNoteBoxes();
+    setFieldPlaceholder("aFTH2H", "22,24,19,27");
+    setFieldPlaceholder("a1HH2H", "10,9,12");
+    clearReadOnlyFields();
+    hideResults();
+    setRunStatus("", "");
+    const body = qs("resultsBody");
+    if (body) {
+      body.innerHTML = '<tr><td colspan="5" class="results-empty-cell">Run the engine to populate results.</td></tr>';
+    }
+  }
+
   function clearAll() {
     document.querySelectorAll("input, select").forEach(function (el) {
       if (el.type === "checkbox") {
@@ -3195,14 +3287,9 @@ body.dark-mode .tracker-analytics-section-head {
     selectedPlayerIds.B = null;
     fixtureRecordMap.clear();
     historyPoolCache.clear();
-    clearAutoTags();
-    hideFetchNoteBoxes();
-    clearReadOnlyFields();
+    clearFetchedAutofill();
     clearHeaderError();
-    hideResults();
     setFetchStatus("Select ATP or WTA, choose a match or type both player names, then fetch stats.", "");
-    setRunStatus("", "");
-    qs("resultsBody").innerHTML = '<tr><td colspan="5" class="results-empty-cell">Run the engine to populate results.</td></tr>';
   }
 
   function openTrackerModal() {
@@ -3567,6 +3654,8 @@ body.dark-mode .tracker-analytics-section-head {
     const opt = select.options[select.selectedIndex];
     if (!opt || !opt.value) return;
 
+    clearFetchedAutofill();
+
     qs("teamAName").value = opt.dataset.playerAName || "";
     qs("teamBName").value = opt.dataset.playerBName || "";
     selectedPlayerIds.A = opt.dataset.playerAId || null;
@@ -3772,13 +3861,42 @@ body.dark-mode .tracker-analytics-section-head {
     el.value = values.join(",");
   }
 
+  function setFieldPlaceholder(id, text) {
+    const el = qs(id);
+    if (!el) return;
+    el.placeholder = text;
+  }
+
   function applyAutofillData(bundle) {
     setFieldValue("aFTScored", bundle.aGames);
     setFieldValue("bFTScored", bundle.bGames);
     setFieldValue("aFTAllowed", bundle.aSet1Games);
     setFieldValue("bFTAllowed", bundle.bSet1Games);
-    setFieldValue("aFTH2H", bundle.h2hMatchTotals);
-    setFieldValue("a1HH2H", bundle.h2hSet1Totals);
+
+    const matchH2HInput = qs("aFTH2H");
+    const set1H2HInput = qs("a1HH2H");
+    const useMatchH2H = qs("useFTH2H");
+    const useSet1H2H = qs("use1HH2H");
+
+    if (bundle.h2hMatchTotals.length) {
+      setFieldValue("aFTH2H", bundle.h2hMatchTotals);
+      setFieldPlaceholder("aFTH2H", "22,24,19,27");
+      if (useMatchH2H) useMatchH2H.checked = true;
+    } else {
+      if (matchH2HInput) matchH2HInput.value = "";
+      setFieldPlaceholder("aFTH2H", "No H2H found");
+      if (useMatchH2H) useMatchH2H.checked = false;
+    }
+
+    if (bundle.h2hSet1Totals.length) {
+      setFieldValue("a1HH2H", bundle.h2hSet1Totals);
+      setFieldPlaceholder("a1HH2H", "10,9,12");
+      if (useSet1H2H) useSet1H2H.checked = true;
+    } else {
+      if (set1H2HInput) set1H2HInput.value = "";
+      setFieldPlaceholder("a1HH2H", "No Set 1 H2H found");
+      if (useSet1H2H) useSet1H2H.checked = false;
+    }
 
     qs("aAutoTag").style.display = bundle.aGames.length ? "inline" : "none";
     qs("bAutoTag").style.display = bundle.bGames.length ? "inline" : "none";
@@ -3907,16 +4025,26 @@ body.dark-mode .tracker-analytics-section-head {
 
       qs("surfaceDisplay").value = surfaceValue || "";
 
+      const h2hNote = h2hMatchTotals.length
+        ? ("<br>H2H found: " + h2hMatchTotals.length + " meeting(s).")
+        : "<br>H2H found: 0 meetings in fetched records.";
       setFetchNotes(
-        buildFetchNotes(qs("teamAName").value, recentA),
-        buildFetchNotes(qs("teamBName").value, recentB)
+        buildFetchNotes(qs("teamAName").value, recentA) + h2hNote,
+        buildFetchNotes(qs("teamBName").value, recentB) + h2hNote
       );
+
+      const h2hStatus = h2hMatchTotals.length
+        ? ("H2H totals: " + h2hMatchTotals.length)
+        : "H2H totals: 0 (0 prior meetings found)";
+      const h2hSet1Status = h2hSet1Totals.length
+        ? ("Set1 H2H totals: " + h2hSet1Totals.length)
+        : "Set1 H2H totals: 0";
 
       const statusParts = [
         qs("teamAName").value + ": " + aGames.length + " player-only game rows",
         qs("teamBName").value + ": " + bGames.length + " player-only game rows",
-        "H2H totals: " + h2hMatchTotals.length,
-        "Set1 H2H totals: " + h2hSet1Totals.length,
+        h2hStatus,
+        h2hSet1Status,
         "Surface: " + (surfaceValue || "not available")
       ];
 
@@ -3987,6 +4115,8 @@ body.dark-mode .tracker-analytics-section-head {
         historyPoolCache.clear();
         updateSectionLocks();
 
+        clearFetchedAutofill();
+
         if (leagueSelect.value) {
           openSection("espnSection");
           loadFixtures(currentFixtureOffset);
@@ -4003,6 +4133,21 @@ body.dark-mode .tracker-analytics-section-head {
     const fixtureSelect = qs("fixtureSelect");
     if (fixtureSelect) {
       fixtureSelect.addEventListener("change", onFixtureSelect);
+    }
+
+    const teamAInput = qs("teamAName");
+    const teamBInput = qs("teamBName");
+    if (teamAInput) {
+      teamAInput.addEventListener("input", function () {
+        selectedPlayerIds.A = null;
+        clearFetchedAutofill();
+      });
+    }
+    if (teamBInput) {
+      teamBInput.addEventListener("input", function () {
+        selectedPlayerIds.B = null;
+        clearFetchedAutofill();
+      });
     }
 
     const fetchBtn = qs("fetchBtn");
