@@ -1958,6 +1958,83 @@ body.dark-mode .tracker-bar-stage {
   padding-top: 0;
 }
 
+.fixture-debug-panel {
+  width: min(1180px, calc(100vw - 24px));
+  max-height: min(86vh, 920px);
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-top: 4px solid #8f1116;
+  box-shadow: 0 18px 48px rgba(0,0,0,0.36);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.fixture-debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--tracker-head-bg);
+  color: var(--tracker-head-text);
+  border-bottom: 1px solid var(--panel-border);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.fixture-debug-summary {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--panel-border);
+  font-weight: 800;
+  font-size: 13px;
+  background: var(--tracker-summary-bg);
+}
+
+.fixture-debug-meta {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--tracker-strong);
+  background: var(--tracker-summary-bg);
+}
+
+.fixture-debug-body-scroll {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.fixture-debug-table-wrap {
+  margin: 0;
+  padding-bottom: 0;
+}
+
+.fixture-debug-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+}
+
+.fixture-debug-table-wrap th,
+.fixture-debug-table-wrap td {
+  border: 1px solid var(--table-border);
+  padding: 9px 8px;
+  font-size: 12px;
+  vertical-align: top;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.fixture-debug-table-wrap th {
+  background: var(--table-head);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+
 
 /* === compact tracker analytics === */
 .tracker-analytics-panel {
@@ -2685,18 +2762,18 @@ body.dark-mode .tracker-analytics-section-head {
   </table>
 </div>
 
-<div id="fixtureDebugModal" class="tracker-modal" aria-hidden="true">
-  <div class="tracker-panel">
-    <div class="tracker-head">
+<div id="fixtureDebugModal" class="tracker-modal fixture-debug-modal" aria-hidden="true">
+  <div class="fixture-debug-panel">
+    <div class="fixture-debug-head">
       <span id="fixtureDebugHeadTitle">Fixture Debug</span>
       <div class="tracker-head-actions">
         <button type="button" id="fixtureDebugCloseBtn" class="tracker-close">✕</button>
       </div>
     </div>
-    <div class="tracker-summary" id="fixtureDebugSummary">No fixture debug loaded yet.</div>
-    <div class="tracker-body-scroll">
-      <div id="fixtureDebugMeta" class="tracker-market-summary"></div>
-      <div class="table-wrap tracker-table-wrap" style="display:block;">
+    <div class="fixture-debug-summary" id="fixtureDebugSummary">No fixture debug loaded yet.</div>
+    <div class="fixture-debug-body-scroll">
+      <div id="fixtureDebugMeta" class="fixture-debug-meta"></div>
+      <div class="table-wrap fixture-debug-table-wrap" style="display:block;">
         <table id="fixtureDebugTable">
           <thead>
             <tr>
@@ -2718,13 +2795,42 @@ body.dark-mode .tracker-analytics-section-head {
   </div>
 </div>
 
+
+<div id="trackerDebugModal" class="tracker-modal" aria-hidden="true">
+  <div class="fixture-debug-panel">
+    <div class="fixture-debug-head">
+      <span id="trackerDebugHeadTitle">Tracker Debug</span>
+      <div class="tracker-head-actions">
+        <button type="button" id="trackerDebugCloseBtn" class="tracker-close">✕</button>
+      </div>
+    </div>
+    <div class="fixture-debug-summary" id="trackerDebugSummary">No tracker debug yet.</div>
+    <div class="fixture-debug-body-scroll">
+      <div id="trackerDebugMeta" class="fixture-debug-meta"></div>
+      <div class="table-wrap fixture-debug-table-wrap" style="display:block;">
+        <table id="trackerDebugTable">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody id="trackerDebugBody">
+            <tr><td colspan="2" class="results-empty-cell">No tracker debug yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="trackerModal" class="tracker-modal" aria-hidden="true">
   <div class="tracker-panel">
     <div class="tracker-head">
       <span id="trackerHeadTitle">Tracked Picks</span>
       <div class="tracker-head-actions">
         <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn state-idle" title="Open report" aria-label="Open report">📊 Report</button>
-        <button type="button" id="trackerDebugBtn" class="tracker-insights-btn state-idle" title="Open debug" aria-label="Open debug" style="display:none;">🐞</button>
+        <button type="button" id="trackerDebugBtn" class="tracker-insights-btn state-idle" title="Open tracker debug" aria-label="Open tracker debug">🐞</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
     </div>
@@ -2794,6 +2900,28 @@ body.dark-mode .tracker-analytics-section-head {
   let lastFixtureDebugRows = [];
   let lastFixtureDebugMeta = null;
   let g_trackerState = { items: [], updatedAt: null };
+  let g_trackerDebug = {
+    key: TRACKER_STORAGE_KEY,
+    apiUrl: TRACKER_API_URL,
+    cacheKey: TRACKER_CACHE_KEY,
+    lastLocalSaveAt: null,
+    lastLocalCount: 0,
+    lastGeneratedEntries: 0,
+    lastGeneratedPicks: [],
+    lastHydrateStartAt: null,
+    lastHydrateEndAt: null,
+    lastHydrateStatus: "idle",
+    lastHydrateError: "",
+    lastWorkerGetStatus: "",
+    lastWorkerGetBodyShape: "",
+    lastWorkerCount: "",
+    lastSyncStartAt: null,
+    lastSyncEndAt: null,
+    lastSyncStatus: "idle",
+    lastSyncError: "",
+    lastWorkerPostStatus: "",
+    lastSavedStateAt: null
+  };
   let g_trackerHydratePromise = null;
   let g_trackerSyncPromise = Promise.resolve();
 
@@ -2964,6 +3092,70 @@ body.dark-mode .tracker-analytics-section-head {
 
   function closeFixtureDebugModal() {
     const modal = qs("fixtureDebugModal");
+    if (!modal) return;
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("tracker-open");
+  }
+
+  function renderTrackerDebug() {
+    const summary = qs("trackerDebugSummary");
+    const meta = qs("trackerDebugMeta");
+    const body = qs("trackerDebugBody");
+    const items = getTrackerItems();
+
+    if (summary) {
+      summary.textContent =
+        items.length + " local items • sync " + String(g_trackerDebug.lastSyncStatus || "idle").toUpperCase() +
+        " • hydrate " + String(g_trackerDebug.lastHydrateStatus || "idle").toUpperCase();
+    }
+
+    if (meta) {
+      meta.textContent =
+        "Key: " + TRACKER_STORAGE_KEY +
+        " • Cache: " + TRACKER_CACHE_KEY +
+        " • API: " + TRACKER_API_URL;
+    }
+
+    if (body) {
+      const rows = [
+        ["Local items now", String(items.length)],
+        ["Last local save at", g_trackerDebug.lastLocalSaveAt || "—"],
+        ["Last local count", String(g_trackerDebug.lastLocalCount || 0)],
+        ["Last generated entries", String(g_trackerDebug.lastGeneratedEntries || 0)],
+        ["Last generated picks", (g_trackerDebug.lastGeneratedPicks || []).join(" | ") || "—"],
+        ["Last hydrate status", g_trackerDebug.lastHydrateStatus || "idle"],
+        ["Last hydrate start", g_trackerDebug.lastHydrateStartAt || "—"],
+        ["Last hydrate end", g_trackerDebug.lastHydrateEndAt || "—"],
+        ["Last hydrate error", g_trackerDebug.lastHydrateError || "—"],
+        ["Worker GET status", g_trackerDebug.lastWorkerGetStatus || "—"],
+        ["Worker GET body shape", g_trackerDebug.lastWorkerGetBodyShape || "—"],
+        ["Worker GET item count", g_trackerDebug.lastWorkerCount || "—"],
+        ["Last sync status", g_trackerDebug.lastSyncStatus || "idle"],
+        ["Last sync start", g_trackerDebug.lastSyncStartAt || "—"],
+        ["Last sync end", g_trackerDebug.lastSyncEndAt || "—"],
+        ["Last sync error", g_trackerDebug.lastSyncError || "—"],
+        ["Worker POST status", g_trackerDebug.lastWorkerPostStatus || "—"],
+        ["Last saved state updatedAt", g_trackerDebug.lastSavedStateAt || "—"]
+      ];
+
+      body.innerHTML = rows.map(function (row) {
+        return "<tr><td>" + htmlEscape(row[0]) + "</td><td>" + htmlEscape(row[1]) + "</td></tr>";
+      }).join("");
+    }
+  }
+
+  function openTrackerDebugModal() {
+    renderTrackerDebug();
+    const modal = qs("trackerDebugModal");
+    if (!modal) return;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("tracker-open");
+  }
+
+  function closeTrackerDebugModal() {
+    const modal = qs("trackerDebugModal");
     if (!modal) return;
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden", "true");
@@ -3985,10 +4177,14 @@ body.dark-mode .tracker-analytics-section-head {
   function saveTrackerStateToLocal(state) {
     const normalized = normalizeTrackerState(state);
     g_trackerState = normalized;
+    g_trackerDebug.lastLocalSaveAt = new Date().toISOString();
+    g_trackerDebug.lastLocalCount = normalized.items.length;
+    g_trackerDebug.lastSavedStateAt = normalized.updatedAt || "";
     try {
       localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(normalized));
       localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(normalized)));
     } catch (err) {
+      g_trackerDebug.lastSyncError = "Local cache write failed: " + (err && err.message ? err.message : String(err));
     }
     return normalized;
   }
@@ -4088,6 +4284,16 @@ body.dark-mode .tracker-analytics-section-head {
         headers: getTrackerHeaders(false)
       });
 
+      g_trackerDebug.lastWorkerGetStatus = String(pre.res.status || "");
+      g_trackerDebug.lastWorkerGetBodyShape =
+        pre.data && pre.data.state
+          ? Object.keys(pre.data.state).join(", ")
+          : (pre.data ? Object.keys(pre.data).join(", ") : "empty");
+      g_trackerDebug.lastWorkerCount =
+        pre.data && pre.data.state
+          ? String(normalizeTrackerState(pre.data.state).items.length)
+          : "0";
+
       if (pre.res.ok && pre.data && pre.data.ok && pre.data.state) {
         payloadState = mergeTrackerStates(payloadState, pre.data.state);
       }
@@ -4105,6 +4311,8 @@ body.dark-mode .tracker-analytics-section-head {
       body: JSON.stringify(payloadBody)
     });
 
+    g_trackerDebug.lastWorkerPostStatus = String(pushed.res.status || "");
+
     if (!pushed.res.ok) {
       throw new Error("Tracker POST failed (" + pushed.res.status + ")");
     }
@@ -4120,11 +4328,21 @@ body.dark-mode .tracker-analytics-section-head {
     const snapshot = normalizeTrackerState(stateSnapshot);
 
     g_trackerSyncPromise = g_trackerSyncPromise.then(async function () {
+      g_trackerDebug.lastSyncStartAt = new Date().toISOString();
+      g_trackerDebug.lastSyncStatus = "running";
+      g_trackerDebug.lastSyncError = "";
       try {
         const merged = await pushTrackerStateToServer(snapshot);
         saveTrackerStateToLocal(merged);
+        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
+        g_trackerDebug.lastSyncStatus = "ok";
+        renderTrackerDebug();
         return merged;
       } catch (err) {
+        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
+        g_trackerDebug.lastSyncStatus = "error";
+        g_trackerDebug.lastSyncError = err && err.message ? err.message : String(err);
+        renderTrackerDebug();
         return snapshot;
       }
     });
@@ -4136,6 +4354,10 @@ body.dark-mode .tracker-analytics-section-head {
     if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
 
     g_trackerHydratePromise = (async function () {
+      g_trackerDebug.lastHydrateStartAt = new Date().toISOString();
+      g_trackerDebug.lastHydrateStatus = "running";
+      g_trackerDebug.lastHydrateError = "";
+
       const localState = loadTrackerStateFromLocal();
       saveTrackerStateToLocal(localState);
 
@@ -4144,6 +4366,16 @@ body.dark-mode .tracker-analytics-section-head {
           method: "GET",
           headers: getTrackerHeaders(false)
         });
+
+        g_trackerDebug.lastWorkerGetStatus = String(pulled.res.status || "");
+        g_trackerDebug.lastWorkerGetBodyShape =
+          pulled.data && pulled.data.state
+            ? Object.keys(pulled.data.state).join(", ")
+            : (pulled.data ? Object.keys(pulled.data).join(", ") : "empty");
+        g_trackerDebug.lastWorkerCount =
+          pulled.data && pulled.data.state
+            ? String(normalizeTrackerState(pulled.data.state).items.length)
+            : "0";
 
         if (!pulled.res.ok || !pulled.data || !pulled.data.ok || !pulled.data.state) {
           throw new Error("Tracker GET failed");
@@ -4164,10 +4396,16 @@ body.dark-mode .tracker-analytics-section-head {
           } catch (err) {
           }
         }
+
+        g_trackerDebug.lastHydrateStatus = "ok";
       } catch (err) {
+        g_trackerDebug.lastHydrateStatus = "error";
+        g_trackerDebug.lastHydrateError = err && err.message ? err.message : String(err);
       }
 
+      g_trackerDebug.lastHydrateEndAt = new Date().toISOString();
       updateTrackerUI();
+      renderTrackerDebug();
       g_trackerHydratePromise = null;
       return g_trackerState;
     })();
@@ -4395,12 +4633,16 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function buildTrackerEntriesFromBundle(bundle) {
-    if (!bundle) return [];
+    if (!bundle) {
+      g_trackerDebug.lastGeneratedEntries = 0;
+      g_trackerDebug.lastGeneratedPicks = [];
+      return [];
+    }
     const results = [bundle.matchResult, bundle.set1Result];
     const lockIdx = selectLockIndex(results);
     const createdAt = new Date().toISOString();
 
-    return results
+    const built = results
       .map(function (result, idx) {
         if (!result || result.pick === "PASS" || result.confidence === "PASS") return null;
 
@@ -4425,6 +4667,13 @@ body.dark-mode .tracker-analytics-section-head {
         };
       })
       .filter(Boolean);
+
+    g_trackerDebug.lastGeneratedEntries = built.length;
+    g_trackerDebug.lastGeneratedPicks = built.map(function (item) {
+      return item.market + " -> " + item.pick;
+    });
+
+    return built;
   }
 
   function renderTrackerAnalytics(items) {
@@ -4609,7 +4858,8 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function setTrackerAnalyticsView(isAnalytics) {
-    const panel = document.querySelector(".tracker-panel");
+    const trackerModal = qs("trackerModal");
+    const panel = trackerModal ? trackerModal.querySelector(".tracker-panel") : null;
     const btn = qs("trackerInsightsBtn");
     if (!panel) return;
     panel.classList.toggle("analytics-view", !!isAnalytics);
@@ -5642,12 +5892,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const trackerDebugBtn = qs("trackerDebugBtn");
     if (trackerDebugBtn) {
-      trackerDebugBtn.addEventListener("click", function () {
-        const panel = qs("trackerAnalyticsPanel");
-        if (!panel) return;
-        const items = getTrackerItems();
-        setTrackerAnalyticsView(true);
-        panel.innerHTML = '<pre style="white-space:pre-wrap;font-size:10px;line-height:1.4;margin:0;">' + htmlEscape(JSON.stringify(items, null, 2)) + '</pre>';
+      trackerDebugBtn.addEventListener("click", openTrackerDebugModal);
+    }
+
+    const trackerDebugCloseBtn = qs("trackerDebugCloseBtn");
+    if (trackerDebugCloseBtn) trackerDebugCloseBtn.addEventListener("click", closeTrackerDebugModal);
+
+    const trackerDebugModal = qs("trackerDebugModal");
+    if (trackerDebugModal) {
+      trackerDebugModal.addEventListener("click", function (e) {
+        if (e.target === trackerDebugModal) closeTrackerDebugModal();
       });
     }
 
@@ -5728,8 +5982,10 @@ document.addEventListener("DOMContentLoaded", function () {
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
 
     updateTrackerUI();
+    renderTrackerDebug();
     hydrateTrackerState(true).then(function () {
       updateTrackerUI();
+      renderTrackerDebug();
       autoSettleTracker(true);
     });
     setInterval(function () {
