@@ -2413,6 +2413,23 @@ body.dark-mode .tracker-analytics-section-head {
   #surfaceWrap {
     margin-top: 6px;
   }
+  .context-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+    margin-top: 6px;
+  }
+
+  .context-grid input {
+    max-width: 100%;
+    margin-bottom: 0;
+  }
+
+  @media (max-width: 640px) {
+    .context-grid {
+      grid-template-columns: 1fr;
+    }
+  }
   </style>
 </head>
 <body>
@@ -2472,9 +2489,41 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
 
     <div id="surfaceWrap">
-      <label style="font-size:12px;">Surface <span style="font-size:10px;color:#888;">(display only)</span></label>
-      <input id="surfaceDisplay" placeholder="Fetched if available" readonly />
-      <div class="section-note">Surface is not used in the engine math in this version.</div>
+      <div class="context-grid">
+        <div>
+          <label style="font-size:12px;">Surface</label>
+          <input id="surfaceDisplay" placeholder="Fetched if available" readonly />
+        </div>
+        <div>
+          <label style="font-size:12px;">Tournament</label>
+          <input id="tournamentDisplay" placeholder="Fetched tournament" readonly />
+        </div>
+        <div>
+          <label style="font-size:12px;">League / Level</label>
+          <input id="leagueLevelDisplay" placeholder="Fetched level" readonly />
+        </div>
+        <div>
+          <label style="font-size:12px;">Format</label>
+          <input id="formatDisplay" placeholder="Fetched format" readonly />
+        </div>
+        <div>
+          <label style="font-size:12px;">Player A Rank</label>
+          <input id="rankADisplay" placeholder="Fetched if available" readonly />
+        </div>
+        <div>
+          <label style="font-size:12px;">Player B Rank</label>
+          <input id="rankBDisplay" placeholder="Fetched if available" readonly />
+        </div>
+        <div>
+          <label style="font-size:12px;">Rank Gap</label>
+          <input id="rankGapDisplay" placeholder="Auto-derived" readonly />
+        </div>
+        <div>
+          <label style="font-size:12px;">Round</label>
+          <input id="roundDisplay" placeholder="Fetched round" readonly />
+        </div>
+      </div>
+      <div class="section-note">These are the auto-fetched upgrade signals the engine is using in the background.</div>
     </div>
 
     <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
@@ -2752,6 +2801,17 @@ body.dark-mode .tracker-analytics-section-head {
     el.textContent = text || "";
   }
 
+  function setContextValue(id, value, fallback) {
+    const el = qs(id);
+    if (!el) return;
+    el.value = value == null || value === "" ? (fallback || "") : String(value);
+  }
+
+  function formatDaysValue(value) {
+    if (value == null || Number.isNaN(Number(value))) return "?d";
+    return String(value) + "d";
+  }
+
   function htmlEscape(value) {
     return String(value == null ? "" : value)
       .replaceAll("&", "&amp;")
@@ -2844,6 +2904,12 @@ body.dark-mode .tracker-analytics-section-head {
   function fmt(value) {
     if (value === null || value === undefined || Number.isNaN(value)) return "-";
     return round2(value).toFixed(2);
+  }
+
+  function fmtCompact(value) {
+    if (value === null || value === undefined || Number.isNaN(value)) return "-";
+    const rounded = round2(value);
+    return Number.isInteger(rounded) ? String(rounded) : String(rounded);
   }
 
   function downgradeConfidence(confidence) {
@@ -3372,7 +3438,7 @@ body.dark-mode .tracker-analytics-section-head {
     if (shownLine === null || shownLine === undefined || Number.isNaN(shownLine)) {
       return result.pick;
     }
-    return result.pick + " " + fmt(shownLine);
+    return result.pick + " " + fmtCompact(shownLine);
   }
 
   function selectLockIndex(results) {
@@ -3501,7 +3567,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function clearReadOnlyFields() {
-    ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel", "surfaceDisplay"].forEach(function (id) {
+    ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel", "surfaceDisplay", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "rankADisplay", "rankBDisplay", "rankGapDisplay", "roundDisplay"].forEach(function (id) {
       const el = qs(id);
       if (el) el.value = "";
     });
@@ -3551,7 +3617,7 @@ body.dark-mode .tracker-analytics-section-head {
 
   function clearFetchedAutofill() {
     latestFetchedContext = null;
-    ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTH2H", "a1HH2H", "surfaceDisplay"].forEach(function (id) {
+    ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTH2H", "a1HH2H", "surfaceDisplay", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "rankADisplay", "rankBDisplay", "rankGapDisplay", "roundDisplay"].forEach(function (id) {
       const el = qs(id);
       if (el) el.value = "";
     });
@@ -4261,6 +4327,17 @@ body.dark-mode .tracker-analytics-section-head {
     );
   }
 
+  function populateFetchedContext(meta) {
+    setContextValue("surfaceDisplay", meta.surface || "", "");
+    setContextValue("tournamentDisplay", meta.tournamentName || "", "");
+    setContextValue("leagueLevelDisplay", meta.eventLevel || "", "");
+    setContextValue("formatDisplay", meta.matchFormat || "", "");
+    setContextValue("rankADisplay", meta.rankA != null ? meta.rankA : "", "");
+    setContextValue("rankBDisplay", meta.rankB != null ? meta.rankB : "", "");
+    setContextValue("rankGapDisplay", meta.rankGapText || "", "");
+    setContextValue("roundDisplay", meta.roundName || "", "");
+  }
+
   async function fetchESPNTennis() {
     const league = String(qs("leagueSelect").value || "").trim();
     const playerAName = String(qs("teamAName").value || "").trim();
@@ -4364,66 +4441,53 @@ body.dark-mode .tracker-analytics-section-head {
         (recentB[0] && recentB[0].surface) ||
         "";
 
-      qs("surfaceDisplay").value = surfaceValue || "";
-
-      const sameSurfaceKey = normalizeSurfaceLabel(surfaceValue);
-      const sameSurfaceRecentA = sameSurfaceKey
-        ? recentA.filter(function (m) { return normalizeSurfaceLabel(m.surface) === sameSurfaceKey; })
-        : [];
-      const sameSurfaceRecentB = sameSurfaceKey
-        ? recentB.filter(function (m) { return normalizeSurfaceLabel(m.surface) === sameSurfaceKey; })
-        : [];
-      const sameSurfaceH2H = sameSurfaceKey
-        ? h2h.filter(function (m) { return normalizeSurfaceLabel(m.surface) === sameSurfaceKey; })
-        : [];
+      const tournamentName =
+        (selectedFixtureRecord && selectedFixtureRecord.tournamentName) ||
+        (recentA[0] && recentA[0].tournamentName) ||
+        (recentB[0] && recentB[0].tournamentName) ||
+        "";
 
       const eventLevel =
         (selectedFixtureRecord && selectedFixtureRecord.eventLevel) ||
-        (recentA[0] && recentA[0].eventLevel) ||
-        "";
+        classifyEventLevel(tournamentName);
+
       const roundName =
         (selectedFixtureRecord && selectedFixtureRecord.roundName) ||
         "";
-      const matchFormat = inferMatchFormat(league, eventLevel);
-      const rankA =
-        (selectedFixtureRecord && Number.isFinite(selectedFixtureRecord.playerARank) ? selectedFixtureRecord.playerARank : null) ||
-        (recentA[0] && Number.isFinite(recentA[0].playerRank) ? recentA[0].playerRank : null);
-      const rankB =
-        (selectedFixtureRecord && Number.isFinite(selectedFixtureRecord.playerBRank) ? selectedFixtureRecord.playerBRank : null) ||
-        (recentB[0] && Number.isFinite(recentB[0].playerRank) ? recentB[0].playerRank : null);
-      const rankMoveA =
-        (selectedFixtureRecord && Number.isFinite(selectedFixtureRecord.playerARankMove) ? selectedFixtureRecord.playerARankMove : null) ||
-        (recentA[0] && Number.isFinite(recentA[0].playerRankMove) ? recentA[0].playerRankMove : null);
-      const rankMoveB =
-        (selectedFixtureRecord && Number.isFinite(selectedFixtureRecord.playerBRankMove) ? selectedFixtureRecord.playerBRankMove : null) ||
-        (recentB[0] && Number.isFinite(recentB[0].playerRankMove) ? recentB[0].playerRankMove : null);
 
-      latestFetchedContext = {
-        matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
-        tour: league,
+      const matchFormat =
+        latestFetchedContext && latestFetchedContext.matchFormat
+          ? latestFetchedContext.matchFormat
+          : inferMatchFormat(league, eventLevel);
+
+      const rankA =
+        latestFetchedContext && Number.isFinite(latestFetchedContext.rankA)
+          ? latestFetchedContext.rankA
+          : null;
+      const rankB =
+        latestFetchedContext && Number.isFinite(latestFetchedContext.rankB)
+          ? latestFetchedContext.rankB
+          : null;
+
+      const fatigueA =
+        latestFetchedContext && latestFetchedContext.fatigueA
+          ? latestFetchedContext.fatigueA
+          : computeFatigueProfile(recentA);
+      const fatigueB =
+        latestFetchedContext && latestFetchedContext.fatigueB
+          ? latestFetchedContext.fatigueB
+          : computeFatigueProfile(recentB);
+
+      populateFetchedContext({
         surface: surfaceValue || "",
+        tournamentName: tournamentName || "",
         eventLevel: eventLevel || "",
-        roundName: roundName || "",
-        matchFormat: matchFormat,
+        matchFormat: matchFormat || "",
         rankA: rankA,
         rankB: rankB,
-        rankMoveA: rankMoveA,
-        rankMoveB: rankMoveB,
-        fatigueA: computeFatigueProfile(recentA),
-        fatigueB: computeFatigueProfile(recentB),
-        recentMatchA: recentA.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite),
-        recentMatchB: recentB.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite),
-        recentSet1A: recentA.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite),
-        recentSet1B: recentB.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite),
-        surfaceRecentMatchA: sameSurfaceRecentA.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite),
-        surfaceRecentMatchB: sameSurfaceRecentB.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite),
-        surfaceRecentSet1A: sameSurfaceRecentA.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite),
-        surfaceRecentSet1B: sameSurfaceRecentB.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite),
-        h2hMatch: h2hMatchTotals,
-        h2hSet1: h2hSet1Totals,
-        surfaceH2HMatch: sameSurfaceH2H.slice(0, 5).map(function (m) { return m.totalGames; }).filter(Number.isFinite),
-        surfaceH2HSet1: sameSurfaceH2H.slice(0, 5).map(function (m) { return m.set1Total; }).filter(Number.isFinite)
-      };
+        rankGapText: (Number.isFinite(rankA) && Number.isFinite(rankB)) ? Math.abs(rankA - rankB) : "",
+        roundName: roundName || ""
+      });
 
       const h2hNote = h2hMatchTotals.length
         ? ("<br>H2H found: " + h2hMatchTotals.length + " meeting(s).")
@@ -4433,21 +4497,11 @@ body.dark-mode .tracker-analytics-section-head {
         buildFetchNotes(qs("teamBName").value, recentB) + h2hNote
       );
 
-      const h2hStatus = h2hMatchTotals.length
-        ? ("H2H totals: " + h2hMatchTotals.length)
-        : "H2H totals: 0 (0 prior meetings found)";
-      const h2hSet1Status = h2hSet1Totals.length
-        ? ("Set1 H2H totals: " + h2hSet1Totals.length)
-        : "Set1 H2H totals: 0";
-
       const statusParts = [
-        qs("teamAName").value + ": " + aGames.length + " player-only game rows",
-        qs("teamBName").value + ": " + bGames.length + " player-only game rows",
-        h2hStatus,
-        h2hSet1Status,
-        "Surface: " + (surfaceValue || "not available"),
-        "Level: " + (eventLevel || "Tour"),
-        "Format: " + matchFormat
+        "Team A: " + aGames.length + " matches",
+        "Team B: " + bGames.length + " matches",
+        "H2H: " + h2hMatchTotals.length + " matches",
+        "Rest: " + formatDaysValue(fatigueA && fatigueA.daysRest) + " / " + formatDaysValue(fatigueB && fatigueB.daysRest)
       ];
 
       setFetchStatus(statusParts.join(" • "), "ok");
