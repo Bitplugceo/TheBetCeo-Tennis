@@ -2425,6 +2425,23 @@ body.dark-mode .tracker-analytics-section-head {
     font-weight: 800;
   }
 
+  .tracker-status-badge {
+    display: inline-block;
+    min-width: 74px;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-weight: 800;
+    border-radius: 6px;
+    text-align: center;
+    background: var(--panel-soft);
+    border: 1px solid var(--panel-border);
+  }
+
+  .tracker-status-badge.status-pending { color: #8a6d00; }
+  .tracker-status-badge.status-win { color: #2f8f4a; }
+  .tracker-status-badge.status-loss { color: #d92d2a; }
+  .tracker-status-badge.status-push { color: #555; }
+
   .tracker-subline {
     display: block;
     font-size: 10px;
@@ -2682,7 +2699,6 @@ body.dark-mode .tracker-analytics-section-head {
     <div class="tracker-head">
       <span id="trackerHeadTitle">Tracked Picks</span>
       <div class="tracker-head-actions">
-        <button type="button" id="trackerAutoSettleBtn" class="tracker-insights-btn state-idle" title="Auto settle pending picks" aria-label="Auto settle pending picks">⚡</button>
         <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn state-idle" title="Open report" aria-label="Open report">📊 Report</button>
         <button type="button" id="trackerDebugBtn" class="tracker-insights-btn state-idle" title="Open debug" aria-label="Open debug" style="display:none;">🐞</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
@@ -2712,6 +2728,24 @@ body.dark-mode .tracker-analytics-section-head {
             </tr>
           </thead>
           <tbody id="trackedPicksBody"></tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap tracker-archive-wrap" id="trackerArchiveWrap" style="display:none;">
+        <div class="tracker-summary" style="padding-top:8px;">Archive</div>
+        <table id="trackerArchiveTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Match</th>
+              <th>Market</th>
+              <th>Line</th>
+              <th>Pick</th>
+              <th>Edge</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="trackerArchiveBody"></tbody>
         </table>
       </div>
     </div>
@@ -3775,6 +3809,37 @@ body.dark-mode .tracker-analytics-section-head {
     return d.toLocaleDateString();
   }
 
+  function ageHoursSince(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return (Date.now() - d.getTime()) / 3600000;
+  }
+
+  function shouldArchiveTrackerItem(item) {
+    if (!item || item.archived) return false;
+    const ageHours = ageHoursSince(item.savedAt);
+    return ageHours !== null && ageHours >= 10;
+  }
+
+  function archiveOldTrackerItems(items) {
+    let changed = false;
+    const updated = (items || []).map(function (item) {
+      if (shouldArchiveTrackerItem(item)) {
+        changed = true;
+        return Object.assign({}, item, {
+          archived: true,
+          archivedAt: new Date().toISOString()
+        });
+      }
+      return item;
+    });
+    return {
+      changed: changed,
+      items: updated
+    };
+  }
+
   function formatTrackerWinRate(items) {
     const wins = items.filter(function (item) { return item.status === "WIN"; }).length;
     const losses = items.filter(function (item) { return item.status === "LOSS"; }).length;
@@ -3884,20 +3949,12 @@ body.dark-mode .tracker-analytics-section-head {
     });
   }
 
-  async function autoSettleTracker() {
+  async function autoSettleTracker(isSilent) {
     const items = getTrackerItems();
-    const pending = items.filter(function (item) {
-      return item.status === "PENDING";
-    });
-
-    if (!pending.length) {
-      openTrackerModal();
-      setRunStatus("No pending picks to auto-settle.", "ok");
+    if (!items.length) {
+      if (!isSilent) setRunStatus("No tracked picks yet.", "ok");
       return;
     }
-
-    openTrackerModal();
-    setRunStatus("Auto-settling tracker...", "loading");
 
     const recordCache = new Map();
     let settledCount = 0;
@@ -3919,18 +3976,25 @@ body.dark-mode .tracker-analytics-section-head {
       }
 
       if (record) {
-        items[i] = settleTrackerItemFromRecord(item, record);
-        if (items[i].status !== "PENDING") settledCount += 1;
+        const settledItem = settleTrackerItemFromRecord(item, record);
+        if (settledItem.status !== item.status) settledCount += 1;
+        items[i] = settledItem;
       }
     }
 
-    saveTrackerItems(items);
+    const archiveResult = archiveOldTrackerItems(items);
+    const finalItems = archiveResult.items;
+    saveTrackerItems(finalItems);
     updateTrackerUI();
 
-    if (settledCount) {
-      setRunStatus("Auto-settled " + settledCount + " pick(s).", "ok");
-    } else {
-      setRunStatus("No completed results found yet for pending picks.", "err");
+    if (!isSilent) {
+      if (settledCount) {
+        setRunStatus("Tracker updated automatically.", "ok");
+      } else if (archiveResult.changed) {
+        setRunStatus("Older picks moved to archive.", "ok");
+      } else {
+        setRunStatus("No new completed results found yet.", "ok");
+      }
     }
   }
 
@@ -4051,9 +4115,12 @@ body.dark-mode .tracker-analytics-section-head {
     const marketSummary = qs("trackerMarketSummary");
     const empty = qs("trackerEmpty");
     const body = qs("trackedPicksBody");
+    const archiveBody = qs("trackerArchiveBody");
     const tableWrap = document.querySelector(".tracker-table-wrap");
-    const autoSettleBtn = qs("trackerAutoSettleBtn");
+    const archiveWrap = qs("trackerArchiveWrap");
 
+    const activeItems = items.filter(function (item) { return !item.archived; });
+    const archivedItems = items.filter(function (item) { return !!item.archived; });
     const settled = items.filter(function (item) { return item.status !== "PENDING"; });
     const wins = items.filter(function (item) { return item.status === "WIN"; }).length;
     const byMarket = items.reduce(function (acc, item) {
@@ -4072,40 +4139,35 @@ body.dark-mode .tracker-analytics-section-head {
       marketSummary.textContent = parts.join(" • ");
     }
 
-    if (autoSettleBtn) {
-      const pendingCount = items.filter(function (item) { return item.status === "PENDING"; }).length;
-      autoSettleBtn.classList.remove("state-idle", "state-good", "state-error");
-      autoSettleBtn.classList.add(pendingCount ? "state-good" : "state-idle");
-      autoSettleBtn.title = pendingCount ? ("Auto settle " + pendingCount + " pending pick(s)") : "No pending picks";
-      autoSettleBtn.setAttribute("aria-label", autoSettleBtn.title);
+    if (empty) empty.style.display = items.length ? "none" : "block";
+    if (tableWrap) tableWrap.style.display = activeItems.length ? "block" : "none";
+    if (archiveWrap) archiveWrap.style.display = archivedItems.length ? "block" : "none";
+
+    function statusBadge(item) {
+      const cls = "tracker-status-badge status-" + String(item.status || "pending").toLowerCase();
+      return '<span class="' + cls + '">' + htmlEscape(item.status || "PENDING") + '</span>';
     }
 
-    if (empty) empty.style.display = items.length ? "none" : "block";
-    if (tableWrap) tableWrap.style.display = items.length ? "block" : "none";
+    function rowHtml(item) {
+      const edgeText = (Number(item.edge) > 0 ? "+" : "") + fmt(item.edge);
+      return (
+        '<tr data-id="' + htmlEscape(item.id) + '">' +
+          '<td>' + htmlEscape(formatTrackerDate(item.savedAt)) + '</td>' +
+          '<td>' + htmlEscape(item.match) + '<span class="tracker-subline">' + htmlEscape(item.tour || "") + (item.archivedAt ? " • Archived " + htmlEscape(formatTrackerDate(item.archivedAt)) : "") + '</span></td>' +
+          '<td>' + htmlEscape(item.market) + '<span class="tracker-subline">' + htmlEscape(item.confidence || "—") + '</span></td>' +
+          '<td>' + htmlEscape(item.line || "—") + '<span class="tracker-subline">' + htmlEscape(item.actualTotal != null ? ("Actual " + fmtCompact(item.actualTotal)) : "Actual —") + '</span></td>' +
+          '<td class="' + getPickCellClass(item.rawPick) + '">' + htmlEscape(item.pick) + (item.isLock ? ' <span class="lock">🔒</span>' : '') + '</td>' +
+          '<td>' + htmlEscape(edgeText) + '</td>' +
+          '<td>' + statusBadge(item) + '<button type="button" class="tracker-delete-btn" data-id="' + htmlEscape(item.id) + '">Delete</button></td>' +
+        '</tr>'
+      );
+    }
 
     if (body) {
-      body.innerHTML = items.map(function (item) {
-        const edgeText = (Number(item.edge) > 0 ? "+" : "") + fmt(item.edge);
-        return (
-          '<tr data-id="' + htmlEscape(item.id) + '">' +
-            '<td>' + htmlEscape(formatTrackerDate(item.savedAt)) + '</td>' +
-            '<td>' + htmlEscape(item.match) + '<span class="tracker-subline">' + htmlEscape(item.tour || "") + '</span></td>' +
-            '<td>' + htmlEscape(item.market) + '<span class="tracker-subline">' + htmlEscape(item.confidence || "—") + '</span></td>' +
-            '<td>' + htmlEscape(item.line || "—") + '<span class="tracker-subline">' + htmlEscape(item.actualTotal != null ? ("Actual " + fmtCompact(item.actualTotal)) : "Actual —") + '</span></td>' +
-            '<td class="' + getPickCellClass(item.rawPick) + '">' + htmlEscape(item.pick) + (item.isLock ? ' <span class="lock">🔒</span>' : '') + '</td>' +
-            '<td>' + htmlEscape(edgeText) + '</td>' +
-            '<td>' +
-              '<select class="tracker-status-select" data-id="' + htmlEscape(item.id) + '">' +
-                '<option value="PENDING"' + (item.status === "PENDING" ? " selected" : "") + '>PENDING</option>' +
-                '<option value="WIN"' + (item.status === "WIN" ? " selected" : "") + '>WIN</option>' +
-                '<option value="LOSS"' + (item.status === "LOSS" ? " selected" : "") + '>LOSS</option>' +
-                '<option value="PUSH"' + (item.status === "PUSH" ? " selected" : "") + '>PUSH</option>' +
-              '</select>' +
-              '<button type="button" class="tracker-delete-btn" data-id="' + htmlEscape(item.id) + '">Delete</button>' +
-            '</td>' +
-          '</tr>'
-        );
-      }).join("");
+      body.innerHTML = activeItems.map(rowHtml).join("");
+    }
+    if (archiveBody) {
+      archiveBody.innerHTML = archivedItems.map(rowHtml).join("");
     }
 
     renderTrackerAnalytics(items);
@@ -4143,6 +4205,7 @@ body.dark-mode .tracker-analytics-section-head {
     saveTrackerItems(items);
     latestRunBundle._trackerSaved = true;
     updateTrackerUI();
+    autoSettleTracker(true);
     return entries.length;
   }
 
@@ -4162,6 +4225,7 @@ body.dark-mode .tracker-analytics-section-head {
     const modal = qs("trackerModal");
     if (!modal) return;
     updateTrackerUI();
+    autoSettleTracker(true);
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("tracker-open");
@@ -5043,11 +5107,6 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
-    const trackerAutoSettleBtn = qs("trackerAutoSettleBtn");
-    if (trackerAutoSettleBtn) {
-      trackerAutoSettleBtn.addEventListener("click", autoSettleTracker);
-    }
-
     const trackerInsightsBtn = qs("trackerInsightsBtn");
     if (trackerInsightsBtn) {
       trackerInsightsBtn.addEventListener("click", function () {
@@ -5072,18 +5131,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const trackedPicksBody = qs("trackedPicksBody");
     if (trackedPicksBody) {
-      trackedPicksBody.addEventListener("change", function (event) {
-        const target = event.target;
-        if (!target || !target.classList.contains("tracker-status-select")) return;
-        const id = target.getAttribute("data-id");
-        const items = getTrackerItems().map(function (item) {
-          if (item.id === id) item.status = target.value;
-          return item;
-        });
-        saveTrackerItems(items);
-        updateTrackerUI();
-      });
-
       trackedPicksBody.addEventListener("click", function (event) {
         const target = event.target;
         if (!target || !target.classList.contains("tracker-delete-btn")) return;
@@ -5169,6 +5216,10 @@ document.addEventListener("DOMContentLoaded", function () {
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
 
     updateTrackerUI();
+    autoSettleTracker(true);
+    setInterval(function () {
+      autoSettleTracker(true);
+    }, 300000);
     setTrackerAnalyticsView(false);
   });
 })();
