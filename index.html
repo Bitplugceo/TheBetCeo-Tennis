@@ -2492,38 +2492,38 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="context-grid">
         <div>
           <label style="font-size:12px;">Surface</label>
-          <input id="surfaceDisplay" placeholder="Fetched if available" readonly />
+          <input id="surfaceDisplay" placeholder="Fetched if available" />
         </div>
         <div>
           <label style="font-size:12px;">Tournament</label>
-          <input id="tournamentDisplay" placeholder="Fetched tournament" readonly />
+          <input id="tournamentDisplay" placeholder="Fetched tournament" />
         </div>
         <div>
           <label style="font-size:12px;">League / Level</label>
-          <input id="leagueLevelDisplay" placeholder="Fetched level" readonly />
+          <input id="leagueLevelDisplay" placeholder="Fetched level" />
         </div>
         <div>
           <label style="font-size:12px;">Format</label>
-          <input id="formatDisplay" placeholder="Fetched format" readonly />
+          <input id="formatDisplay" placeholder="Fetched format" />
         </div>
         <div>
           <label style="font-size:12px;">Player A Rank</label>
-          <input id="rankADisplay" placeholder="Fetched if available" readonly />
+          <input id="rankADisplay" placeholder="Fetched if available" />
         </div>
         <div>
           <label style="font-size:12px;">Player B Rank</label>
-          <input id="rankBDisplay" placeholder="Fetched if available" readonly />
+          <input id="rankBDisplay" placeholder="Fetched if available" />
         </div>
         <div>
           <label style="font-size:12px;">Rank Gap</label>
-          <input id="rankGapDisplay" placeholder="Auto-derived" readonly />
+          <input id="rankGapDisplay" placeholder="Auto-derived" />
         </div>
         <div>
           <label style="font-size:12px;">Round</label>
-          <input id="roundDisplay" placeholder="Fetched round" readonly />
+          <input id="roundDisplay" placeholder="Fetched round" />
         </div>
       </div>
-      <div class="section-note">These are the auto-fetched upgrade signals the engine is using in the background.</div>
+      <div class="section-note">These are auto-fetched upgrade signals. You can also edit them manually if a source misses something.</div>
     </div>
 
     <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
@@ -2812,6 +2812,94 @@ body.dark-mode .tracker-analytics-section-head {
     return String(value) + "d";
   }
 
+  function parseOptionalNumber(value) {
+    const cleaned = String(value == null ? "" : value).trim();
+    if (!cleaned) return null;
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  function scrollResultsIntoView() {
+    const tableWrap = qs("results");
+    if (!tableWrap) return;
+    setTimeout(function () {
+      tableWrap.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 120);
+  }
+
+  function buildDefaultContext(tour, playerAName, playerBName) {
+    return {
+      matchupKey: matchupKey(tour, playerAName, playerBName),
+      tour: tour,
+      tournamentName: "",
+      surface: "",
+      eventLevel: "",
+      roundName: "",
+      matchFormat: "",
+      rankA: null,
+      rankB: null,
+      rankMoveA: null,
+      rankMoveB: null,
+      fatigueA: null,
+      fatigueB: null,
+      recentMatchA: [],
+      recentMatchB: [],
+      recentSet1A: [],
+      recentSet1B: [],
+      surfaceRecentMatchA: [],
+      surfaceRecentMatchB: [],
+      surfaceRecentSet1A: [],
+      surfaceRecentSet1B: [],
+      h2hMatch: [],
+      h2hSet1: [],
+      surfaceH2HMatch: [],
+      surfaceH2HSet1: [],
+      manualRankGap: null
+    };
+  }
+
+  function getManualContextOverride(tour, playerAName, playerBName) {
+    const ctx = buildDefaultContext(tour, playerAName, playerBName);
+
+    ctx.surface = String(qs("surfaceDisplay") && qs("surfaceDisplay").value || "").trim();
+    ctx.tournamentName = String(qs("tournamentDisplay") && qs("tournamentDisplay").value || "").trim();
+    ctx.eventLevel = String(qs("leagueLevelDisplay") && qs("leagueLevelDisplay").value || "").trim();
+    ctx.matchFormat = String(qs("formatDisplay") && qs("formatDisplay").value || "").trim();
+    ctx.roundName = String(qs("roundDisplay") && qs("roundDisplay").value || "").trim();
+    ctx.rankA = parseOptionalNumber(qs("rankADisplay") && qs("rankADisplay").value);
+    ctx.rankB = parseOptionalNumber(qs("rankBDisplay") && qs("rankBDisplay").value);
+    ctx.manualRankGap = parseOptionalNumber(qs("rankGapDisplay") && qs("rankGapDisplay").value);
+
+    if (!ctx.eventLevel && ctx.tournamentName) {
+      ctx.eventLevel = classifyEventLevel(ctx.tournamentName);
+    }
+    if (!ctx.matchFormat) {
+      ctx.matchFormat = inferMatchFormat(tour, ctx.eventLevel);
+    }
+
+    return ctx;
+  }
+
+  function getEffectiveContext(tour, playerAName, playerBName) {
+    const fetched = getActiveFetchedContext(tour, playerAName, playerBName);
+    const base = fetched ? Object.assign(buildDefaultContext(tour, playerAName, playerBName), fetched) : buildDefaultContext(tour, playerAName, playerBName);
+    const manual = getManualContextOverride(tour, playerAName, playerBName);
+
+    if (manual.surface) base.surface = manual.surface;
+    if (manual.tournamentName) base.tournamentName = manual.tournamentName;
+    if (manual.eventLevel) base.eventLevel = manual.eventLevel;
+    if (manual.matchFormat) base.matchFormat = manual.matchFormat;
+    if (manual.roundName) base.roundName = manual.roundName;
+    if (Number.isFinite(manual.rankA)) base.rankA = manual.rankA;
+    if (Number.isFinite(manual.rankB)) base.rankB = manual.rankB;
+    if (Number.isFinite(manual.manualRankGap)) base.manualRankGap = manual.manualRankGap;
+
+    return base;
+  }
+
   function htmlEscape(value) {
     return String(value == null ? "" : value)
       .replaceAll("&", "&amp;")
@@ -3075,6 +3163,47 @@ body.dark-mode .tracker-analytics-section-head {
     return "BO3";
   }
 
+  function inferSurfaceFromTournament(tournamentName) {
+    const value = normalizeName(tournamentName || "");
+    if (!value) return "";
+
+    if (
+      value.includes("monte carlo") ||
+      value.includes("madrid") ||
+      value.includes("rome") ||
+      value.includes("barcelona") ||
+      value.includes("hamburg") ||
+      value.includes("roland garros") ||
+      value.includes("french open") ||
+      value.includes("estoril") ||
+      value.includes("marrakech") ||
+      value.includes("bastad") ||
+      value.includes("geneva") ||
+      value.includes("lyon")
+    ) return "Clay";
+
+    if (
+      value.includes("wimbledon") ||
+      value.includes("halle") ||
+      value.includes("queens") ||
+      value.includes("eastbourne") ||
+      value.includes("mallorca") ||
+      value.includes("stuttgart")
+    ) return "Grass";
+
+    if (
+      value.includes("paris") ||
+      value.includes("atp finals") ||
+      value.includes("wta finals") ||
+      value.includes("rotterdam") ||
+      value.includes("vienna") ||
+      value.includes("basel") ||
+      value.includes("indoor")
+    ) return "Indoor Hard";
+
+    return "Hard";
+  }
+
   function daysBetween(nowDate, earlierDate) {
     if (!nowDate || !earlierDate) return null;
     const a = new Date(nowDate);
@@ -3200,13 +3329,16 @@ body.dark-mode .tracker-analytics-section-head {
       notes.push("Fatigue B");
     }
 
-    if (Number.isFinite(ctx.rankA) && Number.isFinite(ctx.rankB)) {
-      const rankGap = Math.abs(ctx.rankA - ctx.rankB);
-      if (rankGap >= 20) {
+    const rankGap = Number.isFinite(ctx.rankA) && Number.isFinite(ctx.rankB)
+      ? Math.abs(ctx.rankA - ctx.rankB)
+      : (Number.isFinite(ctx.manualRankGap) ? ctx.manualRankGap : null);
+
+    if (Number.isFinite(rankGap) && rankGap >= 20) {
+      if (Number.isFinite(ctx.rankA) && Number.isFinite(ctx.rankB)) {
         if (ctx.rankA < ctx.rankB) avgB = Math.max(0, avgB - (marketKey === "match" ? 0.35 : 0.12));
         else avgA = Math.max(0, avgA - (marketKey === "match" ? 0.35 : 0.12));
-        notes.push("Rank gap");
       }
+      notes.push("Rank gap");
     }
 
     if (ctx.eventLevel) notes.push(ctx.eventLevel);
@@ -3353,7 +3485,7 @@ body.dark-mode .tracker-analytics-section-head {
       ? parseNumericList(qs("a1HH2H").value, "Set 1 H2H totals", 0, 5, true)
       : [];
 
-    const ctx = getActiveFetchedContext(tour, playerAName, playerBName);
+    const ctx = getEffectiveContext(tour, playerAName, playerBName);
 
     const matchDerived = buildDerivedMarketInputs({
       marketKey: "match",
@@ -3514,6 +3646,7 @@ body.dark-mode .tracker-analytics-section-head {
 
     body.innerHTML = rows;
     showResults();
+    scrollResultsIntoView();
   }
 
   function updateIntel(resultBundle) {
@@ -3581,6 +3714,7 @@ body.dark-mode .tracker-analytics-section-head {
     const body = qs("resultsBody");
     if (body) {
       body.innerHTML = '<tr><td colspan="5" class="results-empty-cell" style="color:#d92d2a !important;text-align:left;">' + htmlEscape(message) + '</td></tr>';
+      scrollResultsIntoView();
     }
   }
 
@@ -4439,6 +4573,7 @@ body.dark-mode .tracker-analytics-section-head {
         (h2h[0] && h2h[0].surface) ||
         (recentA[0] && recentA[0].surface) ||
         (recentB[0] && recentB[0].surface) ||
+        inferSurfaceFromTournament(tournamentName) ||
         "";
 
       const tournamentName =
