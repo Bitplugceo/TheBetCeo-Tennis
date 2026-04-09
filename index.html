@@ -3113,6 +3113,39 @@ body.dark-mode .tracker-analytics-section-head {
     return (map[confidence] || 0) * 100 + Math.abs(edge);
   }
 
+  function getShownLineForResult(result) {
+    if (!result || !result.lineRange) return null;
+    if (result.pick === "OVER") return result.lineRange.max;
+    if (result.pick === "UNDER") return result.lineRange.min;
+    return null;
+  }
+
+  function getPredictionText(result) {
+    if (!result || result.pick === "PASS") return "NO PLAY";
+    const shownLine = getShownLineForResult(result);
+    if (shownLine === null || shownLine === undefined || Number.isNaN(shownLine)) {
+      return result.pick;
+    }
+    return result.pick + " " + fmt(shownLine);
+  }
+
+  function selectLockIndex(results) {
+    const actionable = results
+      .map(function (result, idx) { return { result: result, idx: idx }; })
+      .filter(function (item) {
+        return item.result &&
+          item.result.pick !== "PASS" &&
+          item.result.confidence !== "PASS";
+      })
+      .sort(function (a, b) {
+        const scoreA = confidenceScore(a.result.confidence, a.result.edge);
+        const scoreB = confidenceScore(b.result.confidence, b.result.edge);
+        return scoreB - scoreA;
+      });
+
+    return actionable.length ? actionable[0].idx : -1;
+  }
+
   function pickBestResult(match, set1) {
     const ranked = [match, set1].slice().sort(function (a, b) {
       const scoreA = confidenceScore(a.confidence, a.edge);
@@ -3142,15 +3175,27 @@ body.dark-mode .tracker-analytics-section-head {
     const body = qs("resultsBody");
     if (!body) return;
 
-    const rows = [resultBundle.matchResult, resultBundle.set1Result].map(function (result) {
-      const displayPrediction = result.pick === "PASS" ? "NO PLAY" : result.pick;
+    const results = [resultBundle.matchResult, resultBundle.set1Result];
+    const lockIdx = selectLockIndex(results);
+
+    const rows = results.map(function (result, idx) {
+      const shownLine = getShownLineForResult(result);
+      const shownProjection = fmt(result.projection);
+      const shownEdge = result.pick === "PASS" ? "—" : ((result.edge > 0 ? "+" : "") + fmt(result.edge));
+      const predictionText = getPredictionText(result);
+      const isLock = idx === lockIdx && result.pick !== "PASS";
+      const gradeText = result.pick === "PASS" ? "—" : result.confidence;
+
       return (
         '<tr>' +
           '<td class="result-market">' + htmlEscape(result.market) + '</td>' +
-          '<td>' + fmt(result.projection) + ' vs ' + htmlEscape(result.lineDisplay) + '</td>' +
-          '<td>' + (result.edge > 0 ? '+' : '') + fmt(result.edge) + '</td>' +
-          '<td class="' + getConfidenceCellClass(result.confidence) + '">' + htmlEscape(result.confidence) + '</td>' +
-          '<td class="' + getPickCellClass(result.pick) + '">' + htmlEscape(displayPrediction) + '</td>' +
+          '<td>' + shownProjection + (shownLine !== null ? ' vs ' + fmt(shownLine) : '') + '</td>' +
+          '<td>' + shownEdge + '</td>' +
+          '<td class="' + getConfidenceCellClass(result.confidence) + '">' + htmlEscape(gradeText) + '</td>' +
+          '<td class="' + getPickCellClass(result.pick) + '">' +
+            htmlEscape(predictionText) +
+            (isLock ? ' <span class="lock">🔒</span>' : '') +
+          '</td>' +
         '</tr>'
       );
     }).join("");
@@ -3191,7 +3236,7 @@ body.dark-mode .tracker-analytics-section-head {
     const preferred = pickBestResult(match, set1);
     qs("bHitIntel").value =
       preferred.market + ' -> ' +
-      preferred.pick + ' ' + preferred.confidence +
+      getPredictionText(preferred) + ' ' + preferred.confidence +
       ' | Edge ' + (preferred.edge > 0 ? '+' : '') + fmt(preferred.edge);
   }
 
