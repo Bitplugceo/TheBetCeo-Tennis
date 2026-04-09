@@ -2353,6 +2353,24 @@ body.dark-mode .tracker-analytics-section-head {
   display: none !important;
 }
   
+  .tracker-empty {
+    padding: 14px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--tracker-subtext);
+  }
+  .section-note {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 700;
+    margin: 2px 0 8px 0;
+    line-height: 1.45;
+  }
+  #results td.empty-cell {
+    background: var(--panel-soft) !important;
+    color: var(--muted) !important;
+    font-weight: 700 !important;
+  }
   </style>
 </head>
 <body>
@@ -2363,7 +2381,7 @@ body.dark-mode .tracker-analytics-section-head {
     class="header-error-btn"
     type="button"
     id="headerErrorBtn"
-    title="Show fetch/input issues"
+    title="Show issues"
   >
     ⚠️
   </button>
@@ -2377,34 +2395,24 @@ body.dark-mode .tracker-analytics-section-head {
 
 <div class="wrapper">
   <div class="section" id="leagueSection">
-    <h3>Tour Tier</h3>
+    <h3>Tour</h3>
     <label>Select Tour</label>
     <select id="leagueSelect" class="league-box">
       <option value="">- Select Tour -</option>
-      <optgroup label="── Main Tour ─────────────">
-        <option value="atp">ATP</option>
-        <option value="wta">WTA</option>
-      </optgroup>
-      <optgroup label="── Secondary ────────────">
-        <option value="atp_challenger">ATP Challenger</option>
-        <option value="itf_men">ITF Men</option>
-        <option value="itf_women">ITF Women</option>
-      </optgroup>
-      <optgroup label="── Other ────────────────">
-        <option value="unknown">Other / Mixed</option>
-      </optgroup>
+      <option value="atp">ATP</option>
+      <option value="wta">WTA</option>
     </select>
   </div>
 
   <div class="section" id="espnSection">
-    <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(design shell only for now)</span></h3>
+    <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#888;">(design shell only)</span></h3>
 
     <div id="fixtureToolbar" class="fixture-toolbar">
       <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
       <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
     </div>
 
-    <label id="fixtureSelectLabel" style="font-size:12px;">Select match</label>
+    <label id="fixtureSelectLabel" style="font-size:12px;">Select Match</label>
     <select id="fixtureSelect" class="league-box">
       <option value="">- Select match -</option>
     </select>
@@ -2426,12 +2434,12 @@ body.dark-mode .tracker-analytics-section-head {
 
     <div class="injury-box" id="injuryBoxA">
       <div class="inj-title">Player A Notes</div>
-      <div id="injuryContentA"></div>
+      <div id="injuryContentA">No fetched notes yet.</div>
     </div>
 
     <div class="injury-box" id="injuryBoxB">
       <div class="inj-title">Player B Notes</div>
-      <div id="injuryContentB"></div>
+      <div id="injuryContentB">No fetched notes yet.</div>
     </div>
   </div>
 
@@ -2441,21 +2449,12 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="ftMarketLabel">Match Total Games</label>
     <input id="ftMarket" placeholder="22.5" />
 
-    <div id="h1MarketSection" style="display:block;">
-      <label>Set 1 Total Games</label>
-      <input id="h1Market" placeholder="9.5" />
+    <label id="h1MarketLabel">Set 1 Total Games</label>
+    <input id="h1Market" placeholder="9.5" />
+
+    <div class="section-note">
+      We are building for totals only. No winner market. No handicap market.
     </div>
-
-    <div id="h2MarketSection" style="display:none;">
-      <label>Set 2 Total Games</label>
-      <input id="h2Market" placeholder="9.5" />
-    </div>
-
-    <label id="teamAMarketLabel">Player A Reference Line</label>
-    <input id="teamAMarket" placeholder="Optional display only" />
-
-    <label id="teamBMarketLabel">Player B Reference Line</label>
-    <input id="teamBMarket" placeholder="Optional display only" />
   </div>
 
   <div class="section" id="teamASection">
@@ -2464,24 +2463,8 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="aFTScoredLabel">Recent Match Totals <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
     <input id="aFTScored" placeholder="23,18,26,21,19" />
 
-    <div id="aFTAllowedSection">
-      <label id="aFTAllowedLabel">Set 1 Totals</label>
-      <input id="aFTAllowed" placeholder="9,10,8,9,12" />
-    </div>
-
-    <div id="a1HSection" style="display:none;">
-      <label id="a1HScoredLabel">Optional Split Input</label>
-      <input id="a1HScored" placeholder="-" />
-      <label>Optional Split Input</label>
-      <input id="a1HAllowed" placeholder="-" />
-    </div>
-
-    <div id="a2HSection" style="display:none;">
-      <label>Optional Split Input</label>
-      <input id="a2HScored" placeholder="-" />
-      <label>Optional Split Input</label>
-      <input id="a2HAllowed" placeholder="-" />
-    </div>
+    <label id="aFTAllowedLabel">Recent Set 1 Totals</label>
+    <input id="aFTAllowed" placeholder="9,10,8,9,12" />
   </div>
 
   <div class="section" id="teamBSection">
@@ -2490,24 +2473,8 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="bFTScoredLabel">Recent Match Totals <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
     <input id="bFTScored" placeholder="20,24,22,19,21" />
 
-    <div id="bFTAllowedSection">
-      <label id="bFTAllowedLabel">Set 1 Totals</label>
-      <input id="bFTAllowed" placeholder="10,9,9,13,8" />
-    </div>
-
-    <div id="b1HSection" style="display:none;">
-      <label id="b1HScoredLabel">Optional Split Input</label>
-      <input id="b1HScored" placeholder="-" />
-      <label>Optional Split Input</label>
-      <input id="b1HAllowed" placeholder="-" />
-    </div>
-
-    <div id="b2HSection" style="display:none;">
-      <label>Optional Split Input</label>
-      <input id="b2HScored" placeholder="-" />
-      <label>Optional Split Input</label>
-      <input id="b2HAllowed" placeholder="-" />
-    </div>
+    <label id="bFTAllowedLabel">Recent Set 1 Totals</label>
+    <input id="bFTAllowed" placeholder="10,9,9,13,8" />
   </div>
 
   <div class="section" id="h2hSection">
@@ -2515,18 +2482,12 @@ body.dark-mode .tracker-analytics-section-head {
 
     <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" checked /> Use Match H2H</label>
     <input id="aFTH2H" placeholder="22,24,19,27" />
-    <input id="bFTH2H" placeholder="Same shared total list or leave blank" />
 
-    <div id="h2h1HSection" style="display:block;">
-      <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" checked /> Use Set 1 H2H</label>
-      <input id="a1HH2H" placeholder="10,9,12" />
-      <input id="b1HH2H" placeholder="Same shared total list or leave blank" />
-    </div>
+    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" checked /> Use Set 1 H2H</label>
+    <input id="a1HH2H" placeholder="10,9,12" />
 
-    <div id="h2h2HSection" style="display:none;">
-      <label><input type="checkbox" id="use2HH2H" /> Use Set 2 H2H</label>
-      <input id="a2HH2H" placeholder="-" />
-      <input id="b2HH2H" placeholder="-" />
+    <div class="section-note">
+      Use shared H2H totals only. No duplicate A/B totals here because match totals are shared by both players.
     </div>
   </div>
 
@@ -2534,7 +2495,7 @@ body.dark-mode .tracker-analytics-section-head {
     <h3>📈 Intelligence Pack <span class="autofill-indicator" id="intelAutoTag">✅ Auto-derived</span></h3>
 
     <div style="font-size:11px;color:#7b8088;margin:0 0 8px 0;font-weight:700;line-height:1.5;">
-      Layer 2 view placeholder for tennis totals. We keep this shell in place now and wire the calculations later.
+      Design-first shell for the tennis totals engine. We keep this section exactly in place and connect the real calculations next.
     </div>
 
     <label>Player A Summary</label>
@@ -2550,10 +2511,10 @@ body.dark-mode .tracker-analytics-section-head {
     <input id="bSpreadIntel" style="max-width:100%;" placeholder="Projection vs line" readonly />
 
     <label>Filter Notes</label>
-    <input id="aHitIntel" style="max-width:100%;" placeholder="Blowout / chaos / fake-edge notes" readonly />
+    <input id="aHitIntel" style="max-width:100%;" placeholder="Blowout | chaos | fake edge" readonly />
 
     <label>Tracker Notes</label>
-    <input id="bHitIntel" style="max-width:100%;" placeholder="Ready for later tracker logic" readonly />
+    <input id="bHitIntel" style="max-width:100%;" placeholder="Ready for tracked pick output" readonly />
   </div>
 </div>
 
@@ -2570,6 +2531,13 @@ body.dark-mode .tracker-analytics-section-head {
       <th>Edge</th>
       <th>Model Grade</th>
       <th>Prediction</th>
+    </tr>
+    <tr>
+      <td class="empty-cell">-</td>
+      <td class="empty-cell">-</td>
+      <td class="empty-cell">-</td>
+      <td class="empty-cell">-</td>
+      <td class="empty-cell">Waiting for calculation layer</td>
     </tr>
   </table>
 </div>
@@ -2590,7 +2558,7 @@ body.dark-mode .tracker-analytics-section-head {
     <div class="tracker-body-scroll" id="trackedPicksWrap">
       <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
 
-      <div id="trackerEmpty" class="tracker-empty" style="padding:14px 16px;font-size:11px;font-weight:700;color:var(--tracker-subtext);">
+      <div id="trackerEmpty" class="tracker-empty">
         No tracked picks saved yet.
       </div>
 
@@ -2662,11 +2630,11 @@ body.dark-mode .tracker-analytics-section-head {
 
   function toggleTheme() {
     const isDark = document.body.classList.toggle("dark-mode");
-    localStorage.setItem("theme", isDark ? "dark" : "light");
+    localStorage.setItem("tennis_engine_theme", isDark ? "dark" : "light");
   }
 
   function applySavedTheme() {
-    if (localStorage.getItem("theme") === "dark") {
+    if (localStorage.getItem("tennis_engine_theme") === "dark") {
       document.body.classList.add("dark-mode");
     }
   }
@@ -2674,8 +2642,7 @@ body.dark-mode .tracker-analytics-section-head {
   function clearAll() {
     document.querySelectorAll("input, select").forEach(el => {
       if (el.type === "checkbox") {
-        if (el.id === "useFTH2H" || el.id === "use1HH2H") el.checked = true;
-        else el.checked = false;
+        el.checked = el.id === "useFTH2H" || el.id === "use1HH2H";
       } else if (el.tagName === "SELECT") {
         el.selectedIndex = 0;
       } else if (!el.readOnly) {
@@ -2715,6 +2682,8 @@ body.dark-mode .tracker-analytics-section-head {
     document.querySelectorAll(".section").forEach(wrapSection);
     collapseAll();
     openSection("leagueSection");
+    openSection("espnSection");
+    openSection("marketSection");
 
     const themeToggleBtn = document.getElementById("themeToggleBtn");
     if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
@@ -2749,9 +2718,7 @@ body.dark-mode .tracker-analytics-section-head {
     }
 
     const headerErrorBtn = document.getElementById("headerErrorBtn");
-    if (headerErrorBtn) {
-      headerErrorBtn.classList.remove("active");
-    }
+    if (headerErrorBtn) headerErrorBtn.classList.remove("active");
 
     const fetchBtn = document.getElementById("fetchBtn");
     if (fetchBtn) {
@@ -2759,7 +2726,7 @@ body.dark-mode .tracker-analytics-section-head {
         const fetchStatus = document.getElementById("fetchStatus");
         if (fetchStatus) {
           fetchStatus.className = "loading";
-          fetchStatus.textContent = "Design-first shell only. Auto-fetch comes later.";
+          fetchStatus.textContent = "Design shell only. Auto-fetch logic comes after calculations.";
         }
       });
     }
