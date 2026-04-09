@@ -2683,6 +2683,7 @@ body.dark-mode .tracker-analytics-section-head {
     <div class="tracker-head">
       <span id="trackerHeadTitle">Tracked Picks</span>
       <div class="tracker-head-actions">
+        <button type="button" id="trackerAutoSettleBtn" class="tracker-insights-btn state-idle" title="Auto settle pending picks" aria-label="Auto settle pending picks">⚡</button>
         <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn state-idle" title="Open report" aria-label="Open report">📊 Report</button>
         <button type="button" id="trackerDebugBtn" class="tracker-insights-btn state-idle" title="Open debug" aria-label="Open debug" style="display:none;">🐞</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
@@ -3783,6 +3784,157 @@ body.dark-mode .tracker-analytics-section-head {
     return Math.round((wins / decisions) * 100) + "%";
   }
 
+  function parseTrackerMatchNames(matchText) {
+    const text = String(matchText || "");
+    const parts = text.split(" vs ");
+    if (parts.length !== 2) {
+      return { playerAName: "", playerBName: "" };
+    }
+    return {
+      playerAName: parts[0].trim(),
+      playerBName: parts[1].trim()
+    };
+  }
+
+  function sameTrackerMatchRecord(record, playerAName, playerBName) {
+    const recA = normalizeName(record && record.playerAName);
+    const recB = normalizeName(record && record.playerBName);
+    const targetA = normalizeName(playerAName);
+    const targetB = normalizeName(playerBName);
+
+    return (recA === targetA && recB === targetB) || (recA === targetB && recB === targetA);
+  }
+
+  function buildSettlementDateQueries(savedAtIso) {
+    const savedDate = savedAtIso ? new Date(savedAtIso) : new Date();
+    const today = new Date();
+    const start = addDays(new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate()), -1);
+    const end = addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), 1);
+
+    const ranges = [];
+    let cursor = new Date(start.getTime());
+    while (cursor <= end) {
+      const rangeStart = new Date(cursor.getTime());
+      const rangeEnd = addDays(rangeStart, 6);
+      if (rangeEnd > end) {
+        rangeEnd.setTime(end.getTime());
+      }
+      ranges.push(dateKeyFromDate(rangeStart) + "-" + dateKeyFromDate(rangeEnd));
+      cursor = addDays(rangeEnd, 1);
+    }
+    return ranges;
+  }
+
+  async function fetchSettlementRecordForItem(item) {
+    if (!item || !item.tour || !item.match) return null;
+
+    const names = parseTrackerMatchNames(item.match);
+    if (!names.playerAName || !names.playerBName) return null;
+
+    const dateQueries = buildSettlementDateQueries(item.savedAt);
+    let bestRecord = null;
+
+    for (let i = 0; i < dateQueries.length; i += 1) {
+      const payload = await fetchTennisScoreboard(item.tour, dateQueries[i]);
+      const records = extractCompetitionRecords(payload).filter(function (record) {
+        return record.status &&
+          record.status.completed &&
+          Number.isFinite(record.totalGames) &&
+          Number.isFinite(record.set1Total);
+      });
+
+      const exact = records.filter(function (record) {
+        return sameTrackerMatchRecord(record, names.playerAName, names.playerBName);
+      }).sort(function (a, b) {
+        return new Date(a.date) - new Date(b.date);
+      });
+
+      if (exact.length) {
+        bestRecord = exact[0];
+        break;
+      }
+    }
+
+    return bestRecord;
+  }
+
+  function settleTrackerItemFromRecord(item, record) {
+    if (!item || !record) return item;
+
+    const actualValue = item.market === "Set 1 Total Games"
+      ? record.set1Total
+      : record.totalGames;
+
+    if (!Number.isFinite(actualValue)) return item;
+
+    const line = Number(item.line);
+    let status = "PENDING";
+
+    if (actualValue > line) {
+      status = item.rawPick === "OVER" ? "WIN" : "LOSS";
+    } else if (actualValue < line) {
+      status = item.rawPick === "UNDER" ? "WIN" : "LOSS";
+    } else {
+      status = "PUSH";
+    }
+
+    return Object.assign({}, item, {
+      status: status,
+      settledAt: new Date().toISOString(),
+      actualTotal: round2(actualValue)
+    });
+  }
+
+  async function autoSettleTracker() {
+    const items = getTrackerItems();
+    const pending = items.filter(function (item) {
+      return item.status === "PENDING";
+    });
+
+    if (!pending.length) {
+      openTrackerModal();
+      setRunStatus("No pending picks to auto-settle.", "ok");
+      return;
+    }
+
+    openTrackerModal();
+    setRunStatus("Auto-settling tracker...", "loading");
+
+    const recordCache = new Map();
+    let settledCount = 0;
+
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      if (item.status !== "PENDING") continue;
+
+      const cacheKey = [item.tour, item.match, item.savedAt ? item.savedAt.slice(0, 10) : ""].join("|");
+      let record = recordCache.get(cacheKey);
+
+      if (record === undefined) {
+        try {
+          record = await fetchSettlementRecordForItem(item);
+        } catch (err) {
+          record = null;
+        }
+        recordCache.set(cacheKey, record);
+      }
+
+      if (record) {
+        items[i] = settleTrackerItemFromRecord(item, record);
+        if (items[i].status !== "PENDING") settledCount += 1;
+      }
+    }
+
+    saveTrackerItems(items);
+    updateTrackerUI();
+
+    if (settledCount) {
+      setRunStatus("Auto-settled " + settledCount + " pick(s).", "ok");
+    } else {
+      setRunStatus("No completed results found yet for pending picks.", "err");
+    }
+  }
+
   function buildTrackerEntriesFromBundle(bundle) {
     if (!bundle) return [];
     const results = [bundle.matchResult, bundle.set1Result];
@@ -3797,6 +3949,8 @@ body.dark-mode .tracker-analytics-section-head {
           id: "trk_" + Date.now() + "_" + idx + "_" + Math.random().toString(36).slice(2, 8),
           savedAt: createdAt,
           match: bundle.playerAName + " vs " + bundle.playerBName,
+          playerAName: bundle.playerAName,
+          playerBName: bundle.playerBName,
           tour: bundle.tour,
           market: result.market,
           line: fmtCompact(getShownLineForResult(result)),
@@ -3899,6 +4053,7 @@ body.dark-mode .tracker-analytics-section-head {
     const empty = qs("trackerEmpty");
     const body = qs("trackedPicksBody");
     const tableWrap = document.querySelector(".tracker-table-wrap");
+    const autoSettleBtn = qs("trackerAutoSettleBtn");
 
     const settled = items.filter(function (item) { return item.status !== "PENDING"; });
     const wins = items.filter(function (item) { return item.status === "WIN"; }).length;
@@ -3918,6 +4073,14 @@ body.dark-mode .tracker-analytics-section-head {
       marketSummary.textContent = parts.join(" • ");
     }
 
+    if (autoSettleBtn) {
+      const pendingCount = items.filter(function (item) { return item.status === "PENDING"; }).length;
+      autoSettleBtn.classList.remove("state-idle", "state-good", "state-error");
+      autoSettleBtn.classList.add(pendingCount ? "state-good" : "state-idle");
+      autoSettleBtn.title = pendingCount ? ("Auto settle " + pendingCount + " pending pick(s)") : "No pending picks";
+      autoSettleBtn.setAttribute("aria-label", autoSettleBtn.title);
+    }
+
     if (empty) empty.style.display = items.length ? "none" : "block";
     if (tableWrap) tableWrap.style.display = items.length ? "block" : "none";
 
@@ -3929,7 +4092,7 @@ body.dark-mode .tracker-analytics-section-head {
             '<td>' + htmlEscape(formatTrackerDate(item.savedAt)) + '</td>' +
             '<td>' + htmlEscape(item.match) + '<span class="tracker-subline">' + htmlEscape(item.tour || "") + '</span></td>' +
             '<td>' + htmlEscape(item.market) + '<span class="tracker-subline">' + htmlEscape(item.confidence || "—") + '</span></td>' +
-            '<td>' + htmlEscape(item.line || "—") + '</td>' +
+            '<td>' + htmlEscape(item.line || "—") + '<span class="tracker-subline">' + htmlEscape(item.actualTotal != null ? ("Actual " + fmtCompact(item.actualTotal)) : "Actual —") + '</span></td>' +
             '<td class="' + getPickCellClass(item.rawPick) + '">' + htmlEscape(item.pick) + (item.isLock ? ' <span class="lock">🔒</span>' : '') + '</td>' +
             '<td>' + htmlEscape(edgeText) + '</td>' +
             '<td>' +
@@ -4867,6 +5030,11 @@ document.addEventListener("DOMContentLoaded", function () {
         const target = (qs("runStatus") && qs("runStatus").textContent) ? qs("runStatus") : qs("fetchStatus");
         if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
       });
+    }
+
+    const trackerAutoSettleBtn = qs("trackerAutoSettleBtn");
+    if (trackerAutoSettleBtn) {
+      trackerAutoSettleBtn.addEventListener("click", autoSettleTracker);
     }
 
     const trackerInsightsBtn = qs("trackerInsightsBtn");
