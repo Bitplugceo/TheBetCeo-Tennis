@@ -3597,18 +3597,58 @@ body.dark-mode .tracker-analytics-section-head {
     return chunks;
   }
 
-  async function fetchHistoryPool(league) {
-    const key = String(league || "").trim().toUpperCase();
-    if (historyPoolCache.has(key)) {
-      return historyPoolCache.get(key);
+  function getAdaptiveHistoryWindows() {
+    return [
+      { startOffset: 0, endOffset: 120 },
+      { startOffset: 121, endOffset: 300 },
+      { startOffset: 301, endOffset: 600 },
+      { startOffset: 601, endOffset: 1000 },
+      { startOffset: 1001, endOffset: 1600 }
+    ];
+  }
+
+  function offsetsToDateQuery(startOffset, endOffset) {
+    const now = new Date();
+    const older = addDays(now, -endOffset);
+    const newer = addDays(now, -startOffset);
+    return dateKeyFromDate(older) + "-" + dateKeyFromDate(newer);
+  }
+
+  function dedupeRecords(records) {
+    const seen = new Set();
+    return records.filter(function (record) {
+      const key = record.competitionId || (record.playerAId + "|" + record.playerBId + "|" + record.date);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort(function (a, b) {
+      return new Date(b.date) - new Date(a.date);
+    });
+  }
+
+  async function fetchRelevantHistory(league, playerAName, playerBName, seedPlayerAId, seedPlayerBId) {
+    const cacheKey = [
+      String(league || "").trim().toUpperCase(),
+      normalizeName(playerAName),
+      normalizeName(playerBName),
+      seedPlayerAId || "",
+      seedPlayerBId || ""
+    ].join("|");
+
+    if (historyPoolCache.has(cacheKey)) {
+      return historyPoolCache.get(cacheKey);
     }
 
     const promise = (async function () {
-      const chunks = getRangeChunks(2200, 220);
+      const windows = getAdaptiveHistoryWindows();
       const all = [];
+      let resolvedA = seedPlayerAId || null;
+      let resolvedB = seedPlayerBId || null;
 
-      for (const datesQuery of chunks) {
-        const payload = await fetchTennisScoreboard(key, datesQuery);
+      for (let i = 0; i < windows.length; i += 1) {
+        const window = windows[i];
+        const datesQuery = offsetsToDateQuery(window.startOffset, window.endOffset);
+        const payload = await fetchTennisScoreboard(league, datesQuery);
         const records = extractCompetitionRecords(payload).filter(function (record) {
           return record.status.completed &&
             Number.isFinite(record.totalGames) &&
@@ -3618,22 +3658,45 @@ body.dark-mode .tracker-analytics-section-head {
             Number.isFinite(record.playerASet1Games) &&
             Number.isFinite(record.playerBSet1Games);
         });
+
         all.push.apply(all, records);
-        await sleep(60);
+        const deduped = dedupeRecords(all);
+
+        if (!resolvedA) {
+          const candidateA = findPlayerCandidatesByName(playerAName, deduped);
+          if (candidateA) resolvedA = candidateA.id;
+        }
+
+        if (!resolvedB) {
+          const candidateB = findPlayerCandidatesByName(playerBName, deduped);
+          if (candidateB) resolvedB = candidateB.id;
+        }
+
+        if (resolvedA && resolvedB) {
+          const recentA = buildRecentSeries(deduped, resolvedA);
+          const recentB = buildRecentSeries(deduped, resolvedB);
+          const h2h = buildH2HSeries(deduped, resolvedA, resolvedB);
+
+          if (recentA.length >= 10 && recentB.length >= 10 && h2h.length >= 3) {
+            return {
+              records: deduped,
+              playerAId: resolvedA,
+              playerBId: resolvedB
+            };
+          }
+        }
+
+        await sleep(40);
       }
 
-      const seen = new Set();
-      return all.filter(function (record) {
-        const key = record.competitionId || (record.playerAId + "|" + record.playerBId + "|" + record.date);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }).sort(function (a, b) {
-        return new Date(b.date) - new Date(a.date);
-      });
+      return {
+        records: dedupeRecords(all),
+        playerAId: resolvedA,
+        playerBId: resolvedB
+      };
     })();
 
-    historyPoolCache.set(key, promise);
+    historyPoolCache.set(cacheKey, promise);
     return promise;
   }
 
@@ -3756,13 +3819,21 @@ body.dark-mode .tracker-analytics-section-head {
     setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
 
     try {
-      const records = await fetchHistoryPool(league);
+      const historyBundle = await fetchRelevantHistory(
+        league,
+        playerAName,
+        playerBName,
+        selectedPlayerIds.A,
+        selectedPlayerIds.B
+      );
+
+      const records = historyBundle.records || [];
       if (!records.length) {
         throw new Error("No completed singles results were returned from ESPN.");
       }
 
-      let playerAId = selectedPlayerIds.A;
-      let playerBId = selectedPlayerIds.B;
+      let playerAId = historyBundle.playerAId || selectedPlayerIds.A;
+      let playerBId = historyBundle.playerBId || selectedPlayerIds.B;
 
       if (!playerAId) {
         const candidateA = findPlayerCandidatesByName(playerAName, records);
@@ -3839,7 +3910,7 @@ body.dark-mode .tracker-analytics-section-head {
       const statusParts = [
         qs("teamAName").value + ": " + aGames.length + " player-only game rows",
         qs("teamBName").value + ": " + bGames.length + " player-only game rows",
-        "H2H totals: " + h2hMatchTotals.length,
+        "H2H totals: " + h2hMatchTotals.length + " / target 3+",
         "Set1 H2H totals: " + h2hSet1Totals.length
       ];
 
@@ -3855,8 +3926,7 @@ body.dark-mode .tracker-analytics-section-head {
 
     document.querySelectorAll(".section").forEach(wrapSection);
     collapseAll();
-    openSection("leagueSection");
-    openSection("espnSection");
+    updateSectionLocks();
     openSection("marketSection");
 
     hideResults();
@@ -3902,6 +3972,7 @@ body.dark-mode .tracker-analytics-section-head {
         selectedPlayerIds.B = null;
         historyPoolCache.clear();
         updateSectionLocks();
+
         if (leagueSelect.value) {
           accordionToggle("espnSection");
           loadFixtures(currentFixtureOffset);
@@ -3909,6 +3980,8 @@ body.dark-mode .tracker-analytics-section-head {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
           qs("surfaceDisplay").value = "";
           setFetchStatus("Select ATP or WTA first.", "");
+          collapseAll();
+          openSection("marketSection");
         }
       });
     }
