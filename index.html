@@ -2359,6 +2359,7 @@ body.dark-mode .tracker-analytics-section-head {
     font-weight: 700;
     color: var(--tracker-subtext);
   }
+
   .section-note {
     font-size: 10px;
     color: var(--muted);
@@ -2366,17 +2367,7 @@ body.dark-mode .tracker-analytics-section-head {
     margin: 2px 0 8px 0;
     line-height: 1.45;
   }
-  #results td.empty-cell {
-    background: var(--panel-soft) !important;
-    color: var(--muted) !important;
-    font-weight: 700 !important;
-  }
-  .result-market {
-    font-weight: 800 !important;
-  }
-  .results-visible {
-    display: table !important;
-  }
+
   .fetch-note-box {
     background: var(--panel-soft);
     border: 1px solid var(--panel-border);
@@ -2386,10 +2377,41 @@ body.dark-mode .tracker-analytics-section-head {
     line-height: 1.6;
     display: none;
   }
+
   .fetch-note-title {
     color: var(--injury-title);
     font-weight: 800;
     margin-bottom: 3px;
+  }
+
+  .results-hidden {
+    display: none !important;
+  }
+
+  .result-market {
+    font-weight: 800 !important;
+  }
+
+  .results-empty-cell {
+    background: var(--panel-soft) !important;
+    color: var(--muted) !important;
+    font-weight: 700 !important;
+  }
+
+  #runStatus {
+    font-size: 10px;
+    margin-top: 8px;
+    min-height: 16px;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  #runStatus.ok { color: #2f8f4a; }
+  #runStatus.err { color: #d92d2a; }
+  #runStatus.loading { color: #d98a00; }
+
+  #surfaceWrap {
+    margin-top: 6px;
   }
   </style>
 </head>
@@ -2449,6 +2471,12 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="autocomplete-list" id="dropB"></div>
     </div>
 
+    <div id="surfaceWrap">
+      <label style="font-size:12px;">Surface <span style="font-size:10px;color:#888;">(display only)</span></label>
+      <input id="surfaceDisplay" placeholder="Fetched if available" readonly />
+      <div class="section-note">Surface is not used in the engine math in this version.</div>
+    </div>
+
     <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
     <div id="fetchStatus">Select ATP or WTA, choose a match or type both player names, then fetch stats.</div>
 
@@ -2480,34 +2508,34 @@ body.dark-mode .tracker-analytics-section-head {
   <div class="section" id="teamASection">
     <h3>Player A - Last 5 / 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
 
-    <label id="aFTScoredLabel">Recent Match Totals <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
-    <input id="aFTScored" placeholder="23,18,26,21,19" />
+    <label id="aFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player A only • recent → oldest)</span></label>
+    <input id="aFTScored" placeholder="12,10,14,9,11" />
 
-    <label id="aFTAllowedLabel">Recent Set 1 Totals</label>
-    <input id="aFTAllowed" placeholder="9,10,8,9,12" />
+    <label id="aFTAllowedLabel">Recent Set 1 Games Won</label>
+    <input id="aFTAllowed" placeholder="6,4,7,5,6" />
   </div>
 
   <div class="section" id="teamBSection">
     <h3>Player B - Last 5 / 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
 
-    <label id="bFTScoredLabel">Recent Match Totals <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
-    <input id="bFTScored" placeholder="20,24,22,19,21" />
+    <label id="bFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player B only • recent → oldest)</span></label>
+    <input id="bFTScored" placeholder="11,12,9,13,10" />
 
-    <label id="bFTAllowedLabel">Recent Set 1 Totals</label>
-    <input id="bFTAllowed" placeholder="10,9,9,13,8" />
+    <label id="bFTAllowedLabel">Recent Set 1 Games Won</label>
+    <input id="bFTAllowed" placeholder="4,6,5,7,5" />
   </div>
 
   <div class="section" id="h2hSection">
     <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled / manual-ready</span></h3>
 
-    <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" checked /> Use Match H2H</label>
+    <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" checked /> Use Match H2H Totals</label>
     <input id="aFTH2H" placeholder="22,24,19,27" />
 
-    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" checked /> Use Set 1 H2H</label>
+    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" checked /> Use Set 1 H2H Totals</label>
     <input id="a1HH2H" placeholder="10,9,12" />
 
     <div class="section-note">
-      Shared H2H totals only. The fetch layer converts ESPN set scorelines into total-games lists for both match and Set 1.
+      H2H remains shared totals. Player A and Player B recent fields are player-only games won.
     </div>
   </div>
 
@@ -2515,14 +2543,14 @@ body.dark-mode .tracker-analytics-section-head {
     <h3>📈 Intelligence Pack <span class="autofill-indicator" id="intelAutoTag">✅ Auto-derived</span></h3>
 
     <div style="font-size:11px;color:#7b8088;margin:0 0 8px 0;font-weight:700;line-height:1.5;">
-      This shell now runs the core totals math and can auto-fill recent totals + H2H from ESPN tennis scorelines.
+      This shell now uses player-only recent games for Player A and Player B, while H2H stays on shared total-games history.
     </div>
 
     <label>Player A Summary</label>
-    <input id="aFormIntel" style="max-width:100%;" placeholder="Recent avg | set1 avg | volatility" readonly />
+    <input id="aFormIntel" style="max-width:100%;" placeholder="Games avg | Set1 avg | volatility" readonly />
 
     <label>Player B Summary</label>
-    <input id="bFormIntel" style="max-width:100%;" placeholder="Recent avg | set1 avg | volatility" readonly />
+    <input id="bFormIntel" style="max-width:100%;" placeholder="Games avg | Set1 avg | volatility" readonly />
 
     <label>Match Total Summary</label>
     <input id="aSpreadIntel" style="max-width:100%;" placeholder="Projection vs line" readonly />
@@ -2541,10 +2569,11 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
   <button id="clearBtn" type="button">Clear</button>
+  <div id="runStatus"></div>
 </div>
 
 <div class="table-wrap">
-  <table id="results" style="display:none;">
+  <table id="results" class="results-hidden">
     <thead>
       <tr>
         <th>Market</th>
@@ -2558,7 +2587,7 @@ body.dark-mode .tracker-analytics-section-head {
     </thead>
     <tbody id="resultsBody">
       <tr>
-        <td colspan="7" class="empty-cell">Run the engine to populate results.</td>
+        <td colspan="7" class="results-empty-cell">Run the engine to populate results.</td>
       </tr>
     </tbody>
   </table>
@@ -2581,7 +2610,7 @@ body.dark-mode .tracker-analytics-section-head {
       <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
 
       <div id="trackerEmpty" class="tracker-empty">
-        Tracker shell kept in place. Save logic comes after we finish the core engine flow.
+        Tracker shell kept in place. Save logic comes after the core engine flow is settled.
       </div>
 
       <div class="table-wrap tracker-table-wrap">
@@ -2609,6 +2638,7 @@ body.dark-mode .tracker-analytics-section-head {
   const THEME_KEY = "tennis_engine_theme";
   const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
   const selectedPlayerIds = { A: null, B: null };
+  const fixtureRecordMap = new Map();
   let currentFixtureOffset = 0;
   let fixtureLoadToken = 0;
   let historyPoolCache = new Map();
@@ -2678,21 +2708,11 @@ body.dark-mode .tracker-analytics-section-head {
     el.textContent = text;
   }
 
-  function setHeaderError(active, title) {
-    const btn = qs("headerErrorBtn");
-    if (!btn) return;
-    btn.classList.toggle("active", !!active);
-    btn.title = title || "Show issues";
-  }
-
-  function resetEngineAlert() {
-    document.body.classList.remove("engine-alert");
-    setHeaderError(false, "Show issues");
-  }
-
-  function activateEngineAlert(title) {
-    document.body.classList.add("engine-alert");
-    setHeaderError(true, title || "Input or calculation issue");
+  function setRunStatus(text, state) {
+    const el = qs("runStatus");
+    if (!el) return;
+    el.className = state || "";
+    el.textContent = text || "";
   }
 
   function htmlEscape(value) {
@@ -2702,6 +2722,12 @@ body.dark-mode .tracker-analytics-section-head {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
+  }
+
+  function clearHeaderError() {
+    const btn = qs("headerErrorBtn");
+    if (!btn) return;
+    btn.classList.remove("active");
   }
 
   function parseNumber(value, name) {
@@ -2812,7 +2838,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function buildMarketResult(config) {
-    const baseProjection = (config.avgA + config.avgB) / 2;
+    const baseProjection = config.avgA + config.avgB;
     const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
     const h2hAvg = hasH2H ? mean(config.h2h) : null;
     const projection = hasH2H ? ((baseProjection * 0.7) + (h2hAvg * 0.3)) : baseProjection;
@@ -2828,19 +2854,14 @@ body.dark-mode .tracker-analytics-section-head {
       filtersTriggered.push("missingH2H");
       notes.push("No H2H support");
       if (confidence !== "PASS") {
-        if (config.marketKey === "set1" && Math.abs(edge) < 1.5) {
-          confidence = downgradeConfidence(confidence);
+        confidence = downgradeConfidence(confidence);
+        if (confidence === "PASS") {
+          pick = "PASS";
         }
-        if (config.marketKey === "match") {
-          confidence = downgradeConfidence(confidence);
-        }
-      }
-      if (confidence === "PASS" && Math.abs(edge) >= 1.0) {
-        pick = "PASS";
       }
     }
 
-    if (config.avgA < 18 && config.avgB < 18) {
+    if (config.lowAvgThreshold != null && config.avgA < config.lowAvgThreshold && config.avgB < config.lowAvgThreshold) {
       filtersTriggered.push("blowout");
       notes.push("Blowout risk / short-match profile");
       if (pick === "OVER") {
@@ -2924,10 +2945,10 @@ body.dark-mode .tracker-analytics-section-head {
     validateLineRange(matchLine, 22.5, 30.5, "Match total line");
     validateLineRange(set1Line, 9.5, 12.5, "Set 1 total line");
 
-    const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent match totals", 5, 10, false);
-    const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent match totals", 5, 10, false);
-    const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 totals", 5, 10, false);
-    const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 totals", 5, 10, false);
+    const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent games won", 5, 10, false);
+    const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent games won", 5, 10, false);
+    const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 games won", 5, 10, false);
+    const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 games won", 5, 10, false);
 
     const matchH2H = qs("useFTH2H").checked
       ? parseNumericList(qs("aFTH2H").value, "Match H2H totals", 0, 5, true)
@@ -2945,7 +2966,8 @@ body.dark-mode .tracker-analytics-section-head {
       avgB: mean(matchRecentB),
       stdA: stdDev(matchRecentA),
       stdB: stdDev(matchRecentB),
-      h2h: matchH2H
+      h2h: matchH2H,
+      lowAvgThreshold: 9
     });
 
     const set1Result = buildMarketResult({
@@ -2956,7 +2978,8 @@ body.dark-mode .tracker-analytics-section-head {
       avgB: mean(set1RecentB),
       stdA: stdDev(set1RecentA),
       stdB: stdDev(set1RecentB),
-      h2h: set1H2H
+      h2h: set1H2H,
+      lowAvgThreshold: 4.5
     });
 
     return {
@@ -2995,10 +3018,25 @@ body.dark-mode .tracker-analytics-section-head {
     return ranked[0];
   }
 
-  function renderResults(resultBundle) {
+  function showResults() {
     const results = qs("results");
+    if (results) {
+      results.classList.remove("results-hidden");
+      results.style.display = "table";
+    }
+  }
+
+  function hideResults() {
+    const results = qs("results");
+    if (results) {
+      results.classList.add("results-hidden");
+      results.style.display = "none";
+    }
+  }
+
+  function renderResults(resultBundle) {
     const body = qs("resultsBody");
-    if (!results || !body) return;
+    if (!body) return;
 
     const rows = [resultBundle.matchResult, resultBundle.set1Result].map(function (result) {
       const noteText = result.notes.join(" | ");
@@ -3016,7 +3054,7 @@ body.dark-mode .tracker-analytics-section-head {
     }).join("");
 
     body.innerHTML = rows;
-    results.classList.add("results-visible");
+    showResults();
   }
 
   function updateIntel(resultBundle) {
@@ -3024,12 +3062,12 @@ body.dark-mode .tracker-analytics-section-head {
     const set1 = resultBundle.set1Result;
 
     qs("aFormIntel").value =
-      'Match avg ' + fmt(match.avgA) +
+      'Games avg ' + fmt(match.avgA) +
       ' | Set1 avg ' + fmt(set1.avgA) +
       ' | Vol ' + fmt(match.stdA) + '/' + fmt(set1.stdA);
 
     qs("bFormIntel").value =
-      'Match avg ' + fmt(match.avgB) +
+      'Games avg ' + fmt(match.avgB) +
       ' | Set1 avg ' + fmt(set1.avgB) +
       ' | Vol ' + fmt(match.stdB) + '/' + fmt(set1.stdB);
 
@@ -3056,23 +3094,17 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function clearReadOnlyFields() {
-    ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel"].forEach(function (id) {
+    ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel", "surfaceDisplay"].forEach(function (id) {
       const el = qs(id);
       if (el) el.value = "";
     });
   }
 
-  function showError(message) {
-    activateEngineAlert(message);
-    setFetchStatus(message, "err");
+  function showRunError(message) {
+    hideResults();
     clearReadOnlyFields();
-
-    const results = qs("results");
-    const body = qs("resultsBody");
-    if (results && body) {
-      results.classList.add("results-visible");
-      body.innerHTML = '<tr><td colspan="7" class="empty-cell">' + htmlEscape(message) + '</td></tr>';
-    }
+    clearHeaderError();
+    setRunStatus(message, "err");
   }
 
   function clearAutoTags() {
@@ -3094,10 +3126,12 @@ body.dark-mode .tracker-analytics-section-head {
     const boxB = qs("fetchNoteBoxB");
     const contentA = qs("fetchNoteContentA");
     const contentB = qs("fetchNoteContentB");
+
     if (boxA && contentA) {
       contentA.innerHTML = aText || "No fetch notes.";
       boxA.style.display = aText ? "block" : "none";
     }
+
     if (boxB && contentB) {
       contentB.innerHTML = bText || "No fetch notes.";
       boxB.style.display = bText ? "block" : "none";
@@ -3121,14 +3155,16 @@ body.dark-mode .tracker-analytics-section-head {
 
     selectedPlayerIds.A = null;
     selectedPlayerIds.B = null;
+    fixtureRecordMap.clear();
     historyPoolCache.clear();
     clearAutoTags();
     hideFetchNoteBoxes();
     clearReadOnlyFields();
-    resetEngineAlert();
+    clearHeaderError();
+    hideResults();
     setFetchStatus("Select ATP or WTA, choose a match or type both player names, then fetch stats.", "");
-    qs("resultsBody").innerHTML = '<tr><td colspan="7" class="empty-cell">Run the engine to populate results.</td></tr>';
-    qs("results").classList.remove("results-visible");
+    setRunStatus("", "");
+    qs("resultsBody").innerHTML = '<tr><td colspan="7" class="results-empty-cell">Run the engine to populate results.</td></tr>';
   }
 
   function openTrackerModal() {
@@ -3149,16 +3185,12 @@ body.dark-mode .tracker-analytics-section-head {
 
   function runEngine() {
     try {
-      resetEngineAlert();
       const bundle = buildEngineResults();
       renderResults(bundle);
       updateIntel(bundle);
-      setFetchStatus(
-        bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.",
-        "ok"
-      );
+      setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.", "ok");
     } catch (err) {
-      showError(err.message || "Engine run failed.");
+      showRunError(err.message || "Engine run failed.");
     }
   }
 
@@ -3262,7 +3294,7 @@ body.dark-mode .tracker-analytics-section-head {
         lastErr = err;
       }
     }
-    throw new Error("Unable to load ESPN tennis scoreboard data.");
+    throw lastErr || new Error("Unable to load ESPN tennis scoreboard data.");
   }
 
   function isSinglesLabel(text) {
@@ -3304,6 +3336,24 @@ body.dark-mode .tracker-analytics-section-head {
     });
   }
 
+  function pickFirstTruthy(values) {
+    for (let i = 0; i < values.length; i += 1) {
+      if (values[i]) return String(values[i]).trim();
+    }
+    return "";
+  }
+
+  function extractSurfaceText(comp, parentEvent) {
+    return pickFirstTruthy([
+      comp && comp.surface && comp.surface.name,
+      comp && comp.surface && comp.surface.displayName,
+      comp && comp.venue && comp.venue.surface,
+      comp && comp.note,
+      parentEvent && parentEvent.surface && parentEvent.surface.name,
+      parentEvent && parentEvent.venue && parentEvent.venue.surface
+    ]);
+  }
+
   function buildCompetitionRecord(comp, parentEvent) {
     if (!comp) return null;
 
@@ -3329,12 +3379,12 @@ body.dark-mode .tracker-analytics-section-head {
     const aSets = extractLinescores(a);
     const bSets = extractLinescores(b);
     const setCount = Math.min(aSets.length, bSets.length);
-    const hasScore = setCount > 0;
-    const totalGames = hasScore
-      ? aSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0) +
-        bSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0)
-      : null;
-    const set1Total = hasScore ? (aSets[0] || 0) + (bSets[0] || 0) : null;
+    const playerAGames = setCount ? aSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0) : null;
+    const playerBGames = setCount ? bSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0) : null;
+    const totalGames = Number.isFinite(playerAGames) && Number.isFinite(playerBGames) ? playerAGames + playerBGames : null;
+    const playerASet1Games = setCount ? aSets[0] : null;
+    const playerBSet1Games = setCount ? bSets[0] : null;
+    const set1Total = Number.isFinite(playerASet1Games) && Number.isFinite(playerBSet1Games) ? playerASet1Games + playerBSet1Games : null;
 
     return {
       competitionId: String(comp.id || ""),
@@ -3343,15 +3393,17 @@ body.dark-mode .tracker-analytics-section-head {
       roundName: String(comp.round && comp.round.displayName || "").trim(),
       date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || "").trim(),
       status: status,
+      surface: extractSurfaceText(comp, parentEvent),
       playerAId: aId,
       playerAName: aName,
       playerBId: bId,
       playerBName: bName,
-      playerASets: aSets.slice(0, setCount),
-      playerBSets: bSets.slice(0, setCount),
+      playerAGames: playerAGames,
+      playerBGames: playerBGames,
       totalGames: totalGames,
-      set1Total: set1Total,
-      raw: comp
+      playerASet1Games: playerASet1Games,
+      playerBSet1Games: playerBSet1Games,
+      set1Total: set1Total
     };
   }
 
@@ -3376,7 +3428,9 @@ body.dark-mode .tracker-analytics-section-head {
               date: eventObj.date,
               shortName: eventObj.shortName,
               name: eventObj.name,
-              grouping: grouping.grouping || null
+              grouping: grouping.grouping || null,
+              surface: eventObj.surface || null,
+              venue: eventObj.venue || null
             });
             if (record) records.push(record);
           });
@@ -3397,6 +3451,7 @@ body.dark-mode .tracker-analytics-section-head {
     const select = qs("fixtureSelect");
     if (!select) return;
     select.innerHTML = '<option value="">- Select match -</option>';
+    fixtureRecordMap.clear();
 
     if (!records.length) {
       select.innerHTML = '<option value="">No singles matches found</option>';
@@ -3404,13 +3459,15 @@ body.dark-mode .tracker-analytics-section-head {
     }
 
     records.forEach(function (record) {
+      const value = record.competitionId || record.eventId || "";
+      fixtureRecordMap.set(value, record);
+
       const opt = document.createElement("option");
-      opt.value = record.competitionId || record.eventId || "";
+      opt.value = value;
       opt.dataset.playerAId = record.playerAId;
       opt.dataset.playerAName = record.playerAName;
       opt.dataset.playerBId = record.playerBId;
       opt.dataset.playerBName = record.playerBName;
-      opt.dataset.date = record.date || "";
       opt.textContent =
         formatFixtureTime(record.date) +
         " — " +
@@ -3469,7 +3526,11 @@ body.dark-mode .tracker-analytics-section-head {
     qs("teamBName").value = opt.dataset.playerBName || "";
     selectedPlayerIds.A = opt.dataset.playerAId || null;
     selectedPlayerIds.B = opt.dataset.playerBId || null;
-    setFetchStatus("Match selected. Ready to fetch recent totals and H2H.", "");
+
+    const record = fixtureRecordMap.get(opt.value);
+    qs("surfaceDisplay").value = record && record.surface ? record.surface : "";
+
+    setFetchStatus("Match selected. Ready to fetch recent games and H2H.", "");
   }
 
   function getRangeChunks(daysBack, chunkSize) {
@@ -3500,7 +3561,13 @@ body.dark-mode .tracker-analytics-section-head {
       for (const datesQuery of chunks) {
         const payload = await fetchTennisScoreboard(key, datesQuery);
         const records = extractCompetitionRecords(payload).filter(function (record) {
-          return record.status.completed && Number.isFinite(record.totalGames) && Number.isFinite(record.set1Total);
+          return record.status.completed &&
+            Number.isFinite(record.totalGames) &&
+            Number.isFinite(record.set1Total) &&
+            Number.isFinite(record.playerAGames) &&
+            Number.isFinite(record.playerBGames) &&
+            Number.isFinite(record.playerASet1Games) &&
+            Number.isFinite(record.playerBSet1Games);
         });
         all.push.apply(all, records);
         await sleep(60);
@@ -3566,10 +3633,10 @@ body.dark-mode .tracker-analytics-section-head {
         date: record.date,
         opponentId: isA ? record.playerBId : record.playerAId,
         opponentName: isA ? record.playerBName : record.playerAName,
-        totalGames: record.totalGames,
-        set1Total: record.set1Total,
-        roundName: record.roundName,
-        tournamentName: record.tournamentName
+        playerGames: isA ? record.playerAGames : record.playerBGames,
+        playerSet1Games: isA ? record.playerASet1Games : record.playerBSet1Games,
+        tournamentName: record.tournamentName,
+        surface: record.surface
       };
     }).sort(function (a, b) {
       return new Date(b.date) - new Date(a.date);
@@ -3593,33 +3660,32 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function applyAutofillData(bundle) {
-    setFieldValue("aFTScored", bundle.aMatchTotals);
-    setFieldValue("bFTScored", bundle.bMatchTotals);
-    setFieldValue("aFTAllowed", bundle.aSet1Totals);
-    setFieldValue("bFTAllowed", bundle.bSet1Totals);
+    setFieldValue("aFTScored", bundle.aGames);
+    setFieldValue("bFTScored", bundle.bGames);
+    setFieldValue("aFTAllowed", bundle.aSet1Games);
+    setFieldValue("bFTAllowed", bundle.bSet1Games);
     setFieldValue("aFTH2H", bundle.h2hMatchTotals);
     setFieldValue("a1HH2H", bundle.h2hSet1Totals);
 
-    qs("aAutoTag").style.display = bundle.aMatchTotals.length ? "inline" : "none";
-    qs("bAutoTag").style.display = bundle.bMatchTotals.length ? "inline" : "none";
+    qs("aAutoTag").style.display = bundle.aGames.length ? "inline" : "none";
+    qs("bAutoTag").style.display = bundle.bGames.length ? "inline" : "none";
     qs("h2hAutoTag").style.display = (bundle.h2hMatchTotals.length || bundle.h2hSet1Totals.length) ? "inline" : "none";
   }
 
   function buildFetchNotes(playerName, recentSeries) {
     if (!recentSeries.length) return "";
-    const first = recentSeries[0];
-    const latestDate = first.date ? new Date(first.date) : null;
+    const latest = recentSeries[0];
+    const latestDate = latest.date ? new Date(latest.date) : null;
     const latestText = latestDate && !Number.isNaN(latestDate.getTime())
       ? latestDate.toLocaleDateString()
       : "unknown date";
+    const surfaceText = latest.surface ? " • " + htmlEscape(latest.surface) : "";
     return (
       htmlEscape(playerName) +
-      ": " +
-      recentSeries.length +
-      " completed singles matches found.<br>" +
-      "Latest match: " +
-      latestText +
-      (first.tournamentName ? " • " + htmlEscape(first.tournamentName) : "")
+      ": " + recentSeries.length + " completed singles matches found.<br>" +
+      "Latest match: " + latestText +
+      (latest.tournamentName ? " • " + htmlEscape(latest.tournamentName) : "") +
+      surfaceText
     );
   }
 
@@ -3638,7 +3704,6 @@ body.dark-mode .tracker-analytics-section-head {
       return;
     }
 
-    resetEngineAlert();
     setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
 
     try {
@@ -3652,14 +3717,14 @@ body.dark-mode .tracker-analytics-section-head {
 
       if (!playerAId) {
         const candidateA = findPlayerCandidatesByName(playerAName, records);
-        if (!candidateA) throw new Error('Could not resolve Player A from ESPN history. Pick a fixture or use the exact ESPN player name.');
+        if (!candidateA) throw new Error("Could not resolve Player A from ESPN history. Pick a fixture or use the exact ESPN player name.");
         playerAId = candidateA.id;
         qs("teamAName").value = candidateA.name;
       }
 
       if (!playerBId) {
         const candidateB = findPlayerCandidatesByName(playerBName, records);
-        if (!candidateB) throw new Error('Could not resolve Player B from ESPN history. Pick a fixture or use the exact ESPN player name.');
+        if (!candidateB) throw new Error("Could not resolve Player B from ESPN history. Pick a fixture or use the exact ESPN player name.");
         playerBId = candidateB.id;
         qs("teamBName").value = candidateB.name;
       }
@@ -3675,31 +3740,33 @@ body.dark-mode .tracker-analytics-section-head {
       const recentB = buildRecentSeries(records, playerBId);
       const h2h = buildH2HSeries(records, playerAId, playerBId);
 
-      const aMatchTotals = recentA.slice(0, 10).map(function (m) { return m.totalGames; }).filter(Number.isFinite);
-      const bMatchTotals = recentB.slice(0, 10).map(function (m) { return m.totalGames; }).filter(Number.isFinite);
-      const aSet1Totals = recentA.slice(0, 10).map(function (m) { return m.set1Total; }).filter(Number.isFinite);
-      const bSet1Totals = recentB.slice(0, 10).map(function (m) { return m.set1Total; }).filter(Number.isFinite);
+      const aGames = recentA.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite);
+      const bGames = recentB.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite);
+      const aSet1Games = recentA.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
+      const bSet1Games = recentB.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
       const h2hMatchTotals = h2h.slice(0, 5).map(function (m) { return m.totalGames; }).filter(Number.isFinite);
       const h2hSet1Totals = h2h.slice(0, 5).map(function (m) { return m.set1Total; }).filter(Number.isFinite);
 
-      if (aMatchTotals.length < 5) {
+      if (aGames.length < 5) {
         throw new Error("Player A has fewer than 5 recent completed singles matches in the fetched ESPN sample.");
       }
-      if (bMatchTotals.length < 5) {
+      if (bGames.length < 5) {
         throw new Error("Player B has fewer than 5 recent completed singles matches in the fetched ESPN sample.");
       }
-      if (aSet1Totals.length < 5 || bSet1Totals.length < 5) {
+      if (aSet1Games.length < 5 || bSet1Games.length < 5) {
         throw new Error("Set 1 history is too short in the fetched ESPN sample.");
       }
 
       applyAutofillData({
-        aMatchTotals: aMatchTotals,
-        bMatchTotals: bMatchTotals,
-        aSet1Totals: aSet1Totals,
-        bSet1Totals: bSet1Totals,
+        aGames: aGames,
+        bGames: bGames,
+        aSet1Games: aSet1Games,
+        bSet1Games: bSet1Games,
         h2hMatchTotals: h2hMatchTotals,
         h2hSet1Totals: h2hSet1Totals
       });
+
+      qs("surfaceDisplay").value = recentA[0] && recentA[0].surface ? recentA[0].surface : qs("surfaceDisplay").value;
 
       setFetchNotes(
         buildFetchNotes(qs("teamAName").value, recentA),
@@ -3707,15 +3774,14 @@ body.dark-mode .tracker-analytics-section-head {
       );
 
       const statusParts = [
-        qs("teamAName").value + ": " + aMatchTotals.length + " match totals",
-        qs("teamBName").value + ": " + bMatchTotals.length + " match totals",
-        "H2H: " + h2hMatchTotals.length + " match totals",
-        "Set1 H2H: " + h2hSet1Totals.length
+        qs("teamAName").value + ": " + aGames.length + " player-only game rows",
+        qs("teamBName").value + ": " + bGames.length + " player-only game rows",
+        "H2H totals: " + h2hMatchTotals.length,
+        "Set1 H2H totals: " + h2hSet1Totals.length
       ];
 
       setFetchStatus(statusParts.join(" • "), "ok");
     } catch (err) {
-      activateEngineAlert(err.message || "Fetch failed.");
       setFetchStatus(err.message || "Fetch failed.", "err");
     }
   }
@@ -3728,6 +3794,9 @@ body.dark-mode .tracker-analytics-section-head {
     openSection("leagueSection");
     openSection("espnSection");
     openSection("marketSection");
+
+    hideResults();
+    clearHeaderError();
 
     const themeToggleBtn = qs("themeToggleBtn");
     if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
@@ -3787,8 +3856,6 @@ body.dark-mode .tracker-analytics-section-head {
 
     const clearBtn = qs("clearBtn");
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
-
-    setHeaderError(false, "Show issues");
   });
 })();
 </script>
