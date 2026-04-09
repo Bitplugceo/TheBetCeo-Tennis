@@ -2927,6 +2927,7 @@ body.dark-mode .tracker-analytics-section-head {
           "Now: " + fmtDebugDate(lastFixtureDebugMeta.nowIso) +
           " • Offset: " + lastFixtureDebugMeta.offset +
           " • Date Query: " + lastFixtureDebugMeta.dateQuery +
+          " • Target Day: " + new Date(new Date(lastFixtureDebugMeta.nowIso).getFullYear(), new Date(lastFixtureDebugMeta.nowIso).getMonth(), new Date(lastFixtureDebugMeta.nowIso).getDate() + lastFixtureDebugMeta.offset).toLocaleDateString() +
           " • Timezone: " + (Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown");
       }
     }
@@ -5004,6 +5005,9 @@ body.dark-mode .tracker-analytics-section-head {
       if (token !== fixtureLoadToken) return;
 
       const now = new Date();
+      const targetDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+      const targetDayStart = new Date(targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate());
+      const targetDayEnd = new Date(targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate() + 1);
       const rawRecords = extractCompetitionRecords(payload);
       lastFixtureDebugMeta = {
         nowIso: now.toISOString(),
@@ -5033,13 +5037,16 @@ body.dark-mode .tracker-analytics-section-head {
             value === "loser";
         }
 
-        const isUpcomingStatus =
-          state === "pre" ||
+        const isLive =
           state === "in" ||
-          name === "STATUS_SCHEDULED" ||
-          name === "STATUS_TIME_TBD" ||
           name === "STATUS_IN_PROGRESS" ||
           name === "STATUS_HALFTIME";
+
+        const isUpcomingStatus =
+          state === "pre" ||
+          name === "STATUS_SCHEDULED" ||
+          name === "STATUS_TIME_TBD" ||
+          isLive;
 
         const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
         const notPlaceholderPair =
@@ -5054,6 +5061,11 @@ body.dark-mode .tracker-analytics-section-head {
           !aNorm.includes(" bye") &&
           !bNorm.includes(" bye");
 
+        const isOnTargetLocalDay =
+          hasValidDate &&
+          scheduledAt.getTime() >= targetDayStart.getTime() &&
+          scheduledAt.getTime() < targetDayEnd.getTime();
+
         let included = true;
         let reason = "included";
 
@@ -5066,7 +5078,10 @@ body.dark-mode .tracker-analytics-section-head {
         } else if (!isUpcomingStatus || !hasValidDate) {
           included = false;
           reason = !hasValidDate ? "invalid date" : "status not upcoming/live";
-        } else if (offset === 0 && !(scheduledAt.getTime() > now.getTime())) {
+        } else if (!isOnTargetLocalDay) {
+          included = false;
+          reason = "not on target local day";
+        } else if (offset === 0 && !isLive && !(scheduledAt.getTime() > now.getTime())) {
           included = false;
           reason = "scheduled time is not after now";
         }
