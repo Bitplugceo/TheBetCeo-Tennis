@@ -2654,7 +2654,6 @@ body.dark-mode .tracker-analytics-section-head {
 
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
-  <button id="saveTrackerBtn" type="button">Save Picks</button>
   <button id="clearBtn" type="button">Clear</button>
   <div id="runStatus"></div>
 </div>
@@ -4112,33 +4111,39 @@ body.dark-mode .tracker-analytics-section-head {
     renderTrackerAnalytics(items);
   }
 
-  function saveCurrentRunToTracker() {
-    if (!latestRunBundle) {
-      setRunStatus("Run the engine first before saving picks.", "err");
-      return;
-    }
-
-    if (latestRunBundle._trackerSaved) {
-      setRunStatus("Current run already saved.", "ok");
-      openTrackerModal();
-      return;
+  function autoSaveCurrentRunToTracker() {
+    if (!latestRunBundle || latestRunBundle._trackerSaved) {
+      return 0;
     }
 
     const entries = buildTrackerEntriesFromBundle(latestRunBundle);
     if (!entries.length) {
-      setRunStatus("No actionable picks to save from this run.", "err");
-      return;
+      latestRunBundle._trackerSaved = true;
+      updateTrackerUI();
+      return 0;
     }
 
     const items = getTrackerItems();
+
     entries.reverse().forEach(function (entry) {
-      items.unshift(entry);
+      const duplicate = items.some(function (item) {
+        return item.match === entry.match &&
+          item.market === entry.market &&
+          item.line === entry.line &&
+          item.pick === entry.pick &&
+          item.savedAt && entry.savedAt &&
+          item.savedAt.slice(0, 10) === entry.savedAt.slice(0, 10);
+      });
+
+      if (!duplicate) {
+        items.unshift(entry);
+      }
     });
+
     saveTrackerItems(items);
     latestRunBundle._trackerSaved = true;
     updateTrackerUI();
-    openTrackerModal();
-    setRunStatus("Saved " + entries.length + " pick(s) to tracker.", "ok");
+    return entries.length;
   }
 
   function setTrackerAnalyticsView(isAnalytics) {
@@ -4187,7 +4192,13 @@ body.dark-mode .tracker-analytics-section-head {
       renderResults(bundle);
       updateIntel(bundle);
       clearHeaderError();
-      setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.", "ok");
+
+      const savedCount = autoSaveCurrentRunToTracker();
+      if (savedCount > 0) {
+        setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated and auto-saved.", "ok");
+      } else {
+        setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.", "ok");
+      }
     } catch (err) {
       showRunError(err.message || "Engine run failed.");
     }
@@ -5153,9 +5164,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const runBtn = qs("runBtn");
     if (runBtn) runBtn.addEventListener("click", runEngine);
-
-    const saveTrackerBtn = qs("saveTrackerBtn");
-    if (saveTrackerBtn) saveTrackerBtn.addEventListener("click", saveCurrentRunToTracker);
 
     const clearBtn = qs("clearBtn");
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
