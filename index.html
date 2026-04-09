@@ -2491,10 +2491,6 @@ body.dark-mode .tracker-analytics-section-head {
     <div id="surfaceWrap">
       <div class="context-grid">
         <div>
-          <label style="font-size:12px;">Surface</label>
-          <input id="surfaceDisplay" placeholder="Fetched if available" />
-        </div>
-        <div>
           <label style="font-size:12px;">Tournament</label>
           <input id="tournamentDisplay" placeholder="Fetched tournament" />
         </div>
@@ -2507,23 +2503,11 @@ body.dark-mode .tracker-analytics-section-head {
           <input id="formatDisplay" placeholder="Fetched format" />
         </div>
         <div>
-          <label style="font-size:12px;">Player A Rank</label>
-          <input id="rankADisplay" placeholder="Fetched if available" />
-        </div>
-        <div>
-          <label style="font-size:12px;">Player B Rank</label>
-          <input id="rankBDisplay" placeholder="Fetched if available" />
-        </div>
-        <div>
-          <label style="font-size:12px;">Rank Gap</label>
-          <input id="rankGapDisplay" placeholder="Auto-derived" />
-        </div>
-        <div>
           <label style="font-size:12px;">Round</label>
           <input id="roundDisplay" placeholder="Fetched round" />
         </div>
       </div>
-      <div class="section-note">These are auto-fetched upgrade signals. You can also edit them manually if a source misses something.</div>
+      <div class="section-note">Only the context fields that fetch reliably are shown here.</div>
     </div>
 
     <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
@@ -2812,12 +2796,6 @@ body.dark-mode .tracker-analytics-section-head {
     return String(value) + "d";
   }
 
-  function parseOptionalNumber(value) {
-    const cleaned = String(value == null ? "" : value).trim();
-    if (!cleaned) return null;
-    const num = Number(cleaned);
-    return Number.isFinite(num) ? num : null;
-  }
 
   function scrollResultsIntoView() {
     const tableWrap = qs("results");
@@ -2835,43 +2813,27 @@ body.dark-mode .tracker-analytics-section-head {
       matchupKey: matchupKey(tour, playerAName, playerBName),
       tour: tour,
       tournamentName: "",
-      surface: "",
       eventLevel: "",
       roundName: "",
       matchFormat: "",
-      rankA: null,
-      rankB: null,
-      rankMoveA: null,
-      rankMoveB: null,
       fatigueA: null,
       fatigueB: null,
       recentMatchA: [],
       recentMatchB: [],
       recentSet1A: [],
       recentSet1B: [],
-      surfaceRecentMatchA: [],
-      surfaceRecentMatchB: [],
-      surfaceRecentSet1A: [],
-      surfaceRecentSet1B: [],
       h2hMatch: [],
-      h2hSet1: [],
-      surfaceH2HMatch: [],
-      surfaceH2HSet1: [],
-      manualRankGap: null
+      h2hSet1: []
     };
   }
 
   function getManualContextOverride(tour, playerAName, playerBName) {
     const ctx = buildDefaultContext(tour, playerAName, playerBName);
 
-    ctx.surface = String(qs("surfaceDisplay") && qs("surfaceDisplay").value || "").trim();
     ctx.tournamentName = String(qs("tournamentDisplay") && qs("tournamentDisplay").value || "").trim();
     ctx.eventLevel = String(qs("leagueLevelDisplay") && qs("leagueLevelDisplay").value || "").trim();
     ctx.matchFormat = String(qs("formatDisplay") && qs("formatDisplay").value || "").trim();
     ctx.roundName = String(qs("roundDisplay") && qs("roundDisplay").value || "").trim();
-    ctx.rankA = parseOptionalNumber(qs("rankADisplay") && qs("rankADisplay").value);
-    ctx.rankB = parseOptionalNumber(qs("rankBDisplay") && qs("rankBDisplay").value);
-    ctx.manualRankGap = parseOptionalNumber(qs("rankGapDisplay") && qs("rankGapDisplay").value);
 
     if (!ctx.eventLevel && ctx.tournamentName) {
       ctx.eventLevel = classifyEventLevel(ctx.tournamentName);
@@ -2885,17 +2847,15 @@ body.dark-mode .tracker-analytics-section-head {
 
   function getEffectiveContext(tour, playerAName, playerBName) {
     const fetched = getActiveFetchedContext(tour, playerAName, playerBName);
-    const base = fetched ? Object.assign(buildDefaultContext(tour, playerAName, playerBName), fetched) : buildDefaultContext(tour, playerAName, playerBName);
+    const base = fetched
+      ? Object.assign(buildDefaultContext(tour, playerAName, playerBName), fetched)
+      : buildDefaultContext(tour, playerAName, playerBName);
     const manual = getManualContextOverride(tour, playerAName, playerBName);
 
-    if (manual.surface) base.surface = manual.surface;
     if (manual.tournamentName) base.tournamentName = manual.tournamentName;
     if (manual.eventLevel) base.eventLevel = manual.eventLevel;
     if (manual.matchFormat) base.matchFormat = manual.matchFormat;
     if (manual.roundName) base.roundName = manual.roundName;
-    if (Number.isFinite(manual.rankA)) base.rankA = manual.rankA;
-    if (Number.isFinite(manual.rankB)) base.rankB = manual.rankB;
-    if (Number.isFinite(manual.manualRankGap)) base.manualRankGap = manual.manualRankGap;
 
     return base;
   }
@@ -2909,10 +2869,15 @@ body.dark-mode .tracker-analytics-section-head {
       .replaceAll("'", "&#39;");
   }
 
-  function clearHeaderError() {
+  function setHeaderError(active, title) {
     const btn = qs("headerErrorBtn");
     if (!btn) return;
-    btn.classList.remove("active");
+    btn.classList.toggle("active", !!active);
+    btn.title = title || "Show issues";
+  }
+
+  function clearHeaderError() {
+    setHeaderError(false, "Show issues");
   }
 
   function parseNumber(value, name) {
@@ -2971,6 +2936,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function stdDev(values) {
+    if (!Array.isArray(values) || values.length < 2) return 0;
     const avg = mean(values);
     const variance = values.reduce(function (sum, val) {
       const diff = val - avg;
@@ -3009,11 +2975,11 @@ body.dark-mode .tracker-analytics-section-head {
 
   function getRawConfidence(edge, volatility) {
     const absEdge = Math.abs(edge);
-    const lowVolatility = volatility <= 4;
 
-    if (absEdge >= 2.5 && lowVolatility) return "A";
-    if (absEdge >= 1.5) return "B";
-    if (absEdge >= 1.0) return "C";
+    if (volatility > 5) return "PASS";
+    if (absEdge >= 2.5 && volatility <= 4.0) return "A";
+    if (absEdge >= 1.5 && volatility <= 4.5) return "B";
+    if (absEdge >= 1.0 && volatility <= 5.0) return "C";
     return "PASS";
   }
 
@@ -3107,18 +3073,6 @@ body.dark-mode .tracker-analytics-section-head {
     return weightSum ? (weightedTotal / weightSum) : null;
   }
 
-  function normalizeSurfaceLabel(surface) {
-    const raw = normalizeName(surface || "");
-    if (!raw) return "";
-    if (raw.includes("grass")) return "grass";
-    if (raw.includes("clay")) return "clay";
-    if (raw.includes("hard")) {
-      if (raw.includes("indoor")) return "indoor hard";
-      return "hard";
-    }
-    if (raw.includes("indoor")) return "indoor hard";
-    return raw;
-  }
 
   function matchupKey(tour, playerAName, playerBName) {
     return [
@@ -3163,46 +3117,6 @@ body.dark-mode .tracker-analytics-section-head {
     return "BO3";
   }
 
-  function inferSurfaceFromTournament(tournamentName) {
-    const value = normalizeName(tournamentName || "");
-    if (!value) return "";
-
-    if (
-      value.includes("monte carlo") ||
-      value.includes("madrid") ||
-      value.includes("rome") ||
-      value.includes("barcelona") ||
-      value.includes("hamburg") ||
-      value.includes("roland garros") ||
-      value.includes("french open") ||
-      value.includes("estoril") ||
-      value.includes("marrakech") ||
-      value.includes("bastad") ||
-      value.includes("geneva") ||
-      value.includes("lyon")
-    ) return "Clay";
-
-    if (
-      value.includes("wimbledon") ||
-      value.includes("halle") ||
-      value.includes("queens") ||
-      value.includes("eastbourne") ||
-      value.includes("mallorca") ||
-      value.includes("stuttgart")
-    ) return "Grass";
-
-    if (
-      value.includes("paris") ||
-      value.includes("atp finals") ||
-      value.includes("wta finals") ||
-      value.includes("rotterdam") ||
-      value.includes("vienna") ||
-      value.includes("basel") ||
-      value.includes("indoor")
-    ) return "Indoor Hard";
-
-    return "Hard";
-  }
 
   function daysBetween(nowDate, earlierDate) {
     if (!nowDate || !earlierDate) return null;
@@ -3283,17 +3197,8 @@ body.dark-mode .tracker-analytics-section-head {
       };
     }
 
-    const useSurfaceSeries = marketKey === "match"
-      ? (ctx.surfaceRecentMatchA.length >= 3 && ctx.surfaceRecentMatchB.length >= 3)
-      : (ctx.surfaceRecentSet1A.length >= 3 && ctx.surfaceRecentSet1B.length >= 3);
-
-    const seriesA = marketKey === "match"
-      ? (useSurfaceSeries ? ctx.surfaceRecentMatchA : ctx.recentMatchA)
-      : (useSurfaceSeries ? ctx.surfaceRecentSet1A : ctx.recentSet1A);
-
-    const seriesB = marketKey === "match"
-      ? (useSurfaceSeries ? ctx.surfaceRecentMatchB : ctx.recentMatchB)
-      : (useSurfaceSeries ? ctx.surfaceRecentSet1B : ctx.recentSet1B);
+    const seriesA = marketKey === "match" ? ctx.recentMatchA : ctx.recentSet1A;
+    const seriesB = marketKey === "match" ? ctx.recentMatchB : ctx.recentSet1B;
 
     if (seriesA.length >= 3 && seriesB.length >= 3) {
       avgA = weightedMean(seriesA);
@@ -3301,16 +3206,11 @@ body.dark-mode .tracker-analytics-section-head {
       stdA = stdDev(seriesA);
       stdB = stdDev(seriesB);
       notes.push("Recency weighted");
-      if (useSurfaceSeries && ctx.surface) notes.push("Same-surface form");
     }
 
-    const preferredH2H = marketKey === "match" ? ctx.surfaceH2HMatch : ctx.surfaceH2HSet1;
-    const fallbackH2H = marketKey === "match" ? ctx.h2hMatch : ctx.h2hSet1;
-    if (preferredH2H.length >= 1) {
-      h2h = preferredH2H.slice(0, 5);
-      if (ctx.surface) notes.push("Surface H2H");
-    } else if (fallbackH2H.length >= 1) {
-      h2h = fallbackH2H.slice(0, 5);
+    const fetchedH2H = marketKey === "match" ? ctx.h2hMatch : ctx.h2hSet1;
+    if (fetchedH2H.length >= 1) {
+      h2h = fetchedH2H.slice(0, 5);
     }
 
     if (marketKey === "match" && ctx.matchFormat === "BO5") {
@@ -3329,21 +3229,8 @@ body.dark-mode .tracker-analytics-section-head {
       notes.push("Fatigue B");
     }
 
-    const rankGap = Number.isFinite(ctx.rankA) && Number.isFinite(ctx.rankB)
-      ? Math.abs(ctx.rankA - ctx.rankB)
-      : (Number.isFinite(ctx.manualRankGap) ? ctx.manualRankGap : null);
-
-    if (Number.isFinite(rankGap) && rankGap >= 20) {
-      if (Number.isFinite(ctx.rankA) && Number.isFinite(ctx.rankB)) {
-        if (ctx.rankA < ctx.rankB) avgB = Math.max(0, avgB - (marketKey === "match" ? 0.35 : 0.12));
-        else avgA = Math.max(0, avgA - (marketKey === "match" ? 0.35 : 0.12));
-      }
-      notes.push("Rank gap");
-    }
-
     if (ctx.eventLevel) notes.push(ctx.eventLevel);
     if (ctx.roundName) notes.push(ctx.roundName);
-    if (ctx.surface) notes.push(ctx.surface);
 
     return {
       avgA: avgA,
@@ -3427,7 +3314,11 @@ body.dark-mode .tracker-analytics-section-head {
       }
     }
 
-    if (Math.abs(edge) < 1.0) {
+    const edgeFloor = config.marketKey === "set1"
+      ? Math.max(0.75, config.lineRange.mid * 0.08)
+      : Math.max(1.0, config.lineRange.mid * 0.05);
+
+    if (Math.abs(edge) < edgeFloor) {
       notes.push("Midpoint edge below minimum threshold");
       confidence = "PASS";
       pick = "PASS";
@@ -3700,7 +3591,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function clearReadOnlyFields() {
-    ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel", "surfaceDisplay", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "rankADisplay", "rankBDisplay", "rankGapDisplay", "roundDisplay"].forEach(function (id) {
+    ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel"].forEach(function (id) {
       const el = qs(id);
       if (el) el.value = "";
     });
@@ -3708,7 +3599,7 @@ body.dark-mode .tracker-analytics-section-head {
 
   function showRunError(message) {
     clearReadOnlyFields();
-    clearHeaderError();
+    setHeaderError(true, message || "Run failed");
     setRunStatus(message, "err");
     showResults();
     const body = qs("resultsBody");
@@ -3751,7 +3642,7 @@ body.dark-mode .tracker-analytics-section-head {
 
   function clearFetchedAutofill() {
     latestFetchedContext = null;
-    ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTH2H", "a1HH2H", "surfaceDisplay", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "rankADisplay", "rankBDisplay", "rankGapDisplay", "roundDisplay"].forEach(function (id) {
+    ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTH2H", "a1HH2H", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "roundDisplay"].forEach(function (id) {
       const el = qs(id);
       if (el) el.value = "";
     });
@@ -3826,6 +3717,7 @@ body.dark-mode .tracker-analytics-section-head {
       const bundle = buildEngineResults();
       renderResults(bundle);
       updateIntel(bundle);
+      clearHeaderError();
       setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.", "ok");
     } catch (err) {
       showRunError(err.message || "Engine run failed.");
@@ -4196,26 +4088,17 @@ body.dark-mode .tracker-analytics-section-head {
     selectedPlayerIds.B = opt.dataset.playerBId || null;
 
     const record = fixtureRecordMap.get(opt.value);
-    qs("surfaceDisplay").value = record && record.surface ? record.surface : "";
+    populateFetchedContext({
+      tournamentName: record && record.tournamentName ? record.tournamentName : "",
+      eventLevel: record && record.eventLevel ? record.eventLevel : "",
+      matchFormat: inferMatchFormat(qs("leagueSelect").value, record && record.eventLevel ? record.eventLevel : ""),
+      roundName: record && record.roundName ? record.roundName : ""
+    });
 
     setFetchStatus("Match selected. Ready to fetch recent games and full H2H.", "");
     accordionToggle("marketSection");
   }
 
-  function getRangeChunks(daysBack, chunkSize) {
-    const chunks = [];
-    const end = new Date();
-    for (let startOffset = 0; startOffset < daysBack; startOffset += chunkSize) {
-      const chunkEndOffset = startOffset;
-      const chunkStartOffset = Math.min(daysBack - 1, startOffset + chunkSize - 1);
-
-      const rangeEnd = addDays(end, -chunkEndOffset);
-      const rangeStart = addDays(end, -chunkStartOffset);
-
-      chunks.push(dateKeyFromDate(rangeStart) + "-" + dateKeyFromDate(rangeEnd));
-    }
-    return chunks;
-  }
 
   function getChunkedHistoryRanges(totalDays, chunkSize) {
     const chunks = [];
@@ -4361,7 +4244,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
-    const extraRanges = getChunkedHistoryRanges(2160, 120).slice(4);
+    const extraRanges = getChunkedHistoryRanges(1200, 120).slice(4);
     const all = existingRecords.slice();
 
     for (let i = 0; i < extraRanges.length; i += 1) {
@@ -4449,7 +4332,6 @@ body.dark-mode .tracker-analytics-section-head {
     const latestText = latestDate && !Number.isNaN(latestDate.getTime())
       ? latestDate.toLocaleDateString()
       : "unknown date";
-    const surfaceText = latest.surface ? " • " + htmlEscape(latest.surface) : "";
     const levelText = latest.eventLevel ? " • " + htmlEscape(latest.eventLevel) : "";
     return (
       htmlEscape(playerName) +
@@ -4462,13 +4344,9 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function populateFetchedContext(meta) {
-    setContextValue("surfaceDisplay", meta.surface || "", "");
     setContextValue("tournamentDisplay", meta.tournamentName || "", "");
     setContextValue("leagueLevelDisplay", meta.eventLevel || "", "");
     setContextValue("formatDisplay", meta.matchFormat || "", "");
-    setContextValue("rankADisplay", meta.rankA != null ? meta.rankA : "", "");
-    setContextValue("rankBDisplay", meta.rankB != null ? meta.rankB : "", "");
-    setContextValue("rankGapDisplay", meta.rankGapText || "", "");
     setContextValue("roundDisplay", meta.roundName || "", "");
   }
 
@@ -4478,15 +4356,18 @@ body.dark-mode .tracker-analytics-section-head {
     const playerBName = String(qs("teamBName").value || "").trim();
 
     if (!league) {
+      setHeaderError(true, "Select ATP or WTA first.");
       setFetchStatus("Select ATP or WTA first.", "err");
       return;
     }
 
     if (!playerAName || !playerBName) {
+      setHeaderError(true, "Enter both player names first.");
       setFetchStatus("Enter both player names or pick a fixture first.", "err");
       return;
     }
 
+    clearHeaderError();
     setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
 
     try {
@@ -4539,10 +4420,12 @@ body.dark-mode .tracker-analytics-section-head {
         h2h = extraBundle.h2h;
       }
 
-      const aGames = recentA.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite);
-      const bGames = recentB.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite);
-      const aSet1Games = recentA.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
-      const bSet1Games = recentB.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
+      const recentA10 = recentA.slice(0, 10);
+      const recentB10 = recentB.slice(0, 10);
+      const aGames = recentA10.map(function (m) { return m.playerGames; }).filter(Number.isFinite);
+      const bGames = recentB10.map(function (m) { return m.playerGames; }).filter(Number.isFinite);
+      const aSet1Games = recentA10.map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
+      const bSet1Games = recentB10.map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
       const h2hMatchTotals = h2h.slice(0, 5).map(function (m) { return m.totalGames; }).filter(Number.isFinite);
       const h2hSet1Totals = h2h.slice(0, 5).map(function (m) { return m.set1Total; }).filter(Number.isFinite);
 
@@ -4568,13 +4451,6 @@ body.dark-mode .tracker-analytics-section-head {
       const fixtureSelect = qs("fixtureSelect");
       const selectedFixtureKey = fixtureSelect ? fixtureSelect.value : "";
       const selectedFixtureRecord = selectedFixtureKey ? fixtureRecordMap.get(selectedFixtureKey) : null;
-      const surfaceValue =
-        (selectedFixtureRecord && selectedFixtureRecord.surface) ||
-        (h2h[0] && h2h[0].surface) ||
-        (recentA[0] && recentA[0].surface) ||
-        (recentB[0] && recentB[0].surface) ||
-        inferSurfaceFromTournament(tournamentName) ||
-        "";
 
       const tournamentName =
         (selectedFixtureRecord && selectedFixtureRecord.tournamentName) ||
@@ -4590,37 +4466,31 @@ body.dark-mode .tracker-analytics-section-head {
         (selectedFixtureRecord && selectedFixtureRecord.roundName) ||
         "";
 
-      const matchFormat =
-        latestFetchedContext && latestFetchedContext.matchFormat
-          ? latestFetchedContext.matchFormat
-          : inferMatchFormat(league, eventLevel);
+      const matchFormat = inferMatchFormat(league, eventLevel);
+      const fatigueA = computeFatigueProfile(recentA10);
+      const fatigueB = computeFatigueProfile(recentB10);
 
-      const rankA =
-        latestFetchedContext && Number.isFinite(latestFetchedContext.rankA)
-          ? latestFetchedContext.rankA
-          : null;
-      const rankB =
-        latestFetchedContext && Number.isFinite(latestFetchedContext.rankB)
-          ? latestFetchedContext.rankB
-          : null;
-
-      const fatigueA =
-        latestFetchedContext && latestFetchedContext.fatigueA
-          ? latestFetchedContext.fatigueA
-          : computeFatigueProfile(recentA);
-      const fatigueB =
-        latestFetchedContext && latestFetchedContext.fatigueB
-          ? latestFetchedContext.fatigueB
-          : computeFatigueProfile(recentB);
+      latestFetchedContext = {
+        matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
+        tour: league,
+        tournamentName: tournamentName || "",
+        eventLevel: eventLevel || "",
+        roundName: roundName || "",
+        matchFormat: matchFormat || "",
+        fatigueA: fatigueA,
+        fatigueB: fatigueB,
+        recentMatchA: aGames,
+        recentMatchB: bGames,
+        recentSet1A: aSet1Games,
+        recentSet1B: bSet1Games,
+        h2hMatch: h2hMatchTotals,
+        h2hSet1: h2hSet1Totals
+      };
 
       populateFetchedContext({
-        surface: surfaceValue || "",
         tournamentName: tournamentName || "",
         eventLevel: eventLevel || "",
         matchFormat: matchFormat || "",
-        rankA: rankA,
-        rankB: rankB,
-        rankGapText: (Number.isFinite(rankA) && Number.isFinite(rankB)) ? Math.abs(rankA - rankB) : "",
         roundName: roundName || ""
       });
 
@@ -4639,6 +4509,7 @@ body.dark-mode .tracker-analytics-section-head {
         "Rest: " + formatDaysValue(fatigueA && fatigueA.daysRest) + " / " + formatDaysValue(fatigueB && fatigueB.daysRest)
       ];
 
+      clearHeaderError();
       setFetchStatus(statusParts.join(" • "), "ok");
       openSection("teamASection");
       openSection("teamBSection");
@@ -4646,11 +4517,12 @@ body.dark-mode .tracker-analytics-section-head {
       openSection("intelSection");
     } catch (err) {
       latestFetchedContext = null;
+      setHeaderError(true, err.message || "Fetch failed.");
       setFetchStatus(err.message || "Fetch failed.", "err");
     }
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
     applySavedTheme();
 
     document.querySelectorAll(".section").forEach(wrapSection);
@@ -4683,6 +4555,30 @@ body.dark-mode .tracker-analytics-section-head {
       });
     }
 
+    const headerErrorBtn = qs("headerErrorBtn");
+    if (headerErrorBtn) {
+      headerErrorBtn.addEventListener("click", function () {
+        const target = (qs("runStatus") && qs("runStatus").textContent) ? qs("runStatus") : qs("fetchStatus");
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+
+    const trackerInsightsBtn = qs("trackerInsightsBtn");
+    if (trackerInsightsBtn) {
+      trackerInsightsBtn.addEventListener("click", function () {
+        const panel = qs("trackerAnalyticsPanel") || qs("trackedPicksWrap");
+        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
+    const trackerDebugBtn = qs("trackerDebugBtn");
+    if (trackerDebugBtn) {
+      trackerDebugBtn.addEventListener("click", function () {
+        const panel = qs("trackerAnalyticsPanel") || qs("trackedPicksWrap");
+        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
     const fixturesTodayBtn = qs("fixturesTodayBtn");
     const fixturesTomorrowBtn = qs("fixturesTomorrowBtn");
     if (fixturesTodayBtn && fixturesTomorrowBtn) {
@@ -4709,13 +4605,14 @@ body.dark-mode .tracker-analytics-section-head {
         updateSectionLocks();
 
         clearFetchedAutofill();
+        if (qs("teamAName")) qs("teamAName").value = "";
+        if (qs("teamBName")) qs("teamBName").value = "";
 
         if (leagueSelect.value) {
           openSection("espnSection");
           loadFixtures(currentFixtureOffset);
         } else {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
-          qs("surfaceDisplay").value = "";
           setFetchStatus("Select ATP or WTA first.", "");
           collapseAll();
           openSection("marketSection");
