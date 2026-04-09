@@ -1954,7 +1954,24 @@ body.dark-mode .tracker-bar-stage {
   display: none !important;
 }
 
-.tracker-panel.analytics-view .tracker-body-scroll {
+.tracker-panel.debug-view #trackerSummary,
+.tracker-panel.debug-view #trackerMarketSummary,
+.tracker-panel.debug-view #trackerEmpty,
+.tracker-panel.debug-view .tracker-table-wrap,
+.tracker-panel.debug-view #trackerAnalyticsPanel {
+  display: none !important;
+}
+
+.tracker-panel.debug-view #trackerDebugPanel {
+  display: block !important;
+}
+
+.tracker-panel:not(.debug-view) #trackerDebugPanel {
+  display: none !important;
+}
+
+.tracker-panel.analytics-view .tracker-body-scroll,
+.tracker-panel.debug-view .tracker-body-scroll {
   padding-top: 0;
 }
 
@@ -2839,6 +2856,7 @@ body.dark-mode .tracker-analytics-section-head {
 
     <div class="tracker-body-scroll" id="trackedPicksWrap">
       <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
+      <div id="trackerDebugPanel" class="tracker-analytics-panel"></div>
 
       <div id="trackerEmpty" class="tracker-empty">
         No tracked picks saved yet.
@@ -2908,6 +2926,11 @@ body.dark-mode .tracker-analytics-section-head {
     lastLocalCount: 0,
     lastGeneratedEntries: 0,
     lastGeneratedPicks: [],
+    lastInsertedEntries: 0,
+    lastDuplicateSkipped: 0,
+    lastSaveAttemptAt: null,
+    lastSaveDiagnosis: "No tracker save attempt yet.",
+    lastEngineError: "",
     lastHydrateStartAt: null,
     lastHydrateEndAt: null,
     lastHydrateStatus: "idle",
@@ -3099,67 +3122,86 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function renderTrackerDebug() {
-    const summary = qs("trackerDebugSummary");
-    const meta = qs("trackerDebugMeta");
-    const body = qs("trackerDebugBody");
+    const panel = qs("trackerDebugPanel");
+    if (!panel) return;
     const items = getTrackerItems();
 
-    if (summary) {
-      summary.textContent =
-        items.length + " local items • sync " + String(g_trackerDebug.lastSyncStatus || "idle").toUpperCase() +
-        " • hydrate " + String(g_trackerDebug.lastHydrateStatus || "idle").toUpperCase();
+    let diagnosis = g_trackerDebug.lastSaveDiagnosis || "No tracker save attempt yet.";
+
+    if (g_trackerDebug.lastEngineError) {
+      diagnosis = "Engine error blocked saving: " + g_trackerDebug.lastEngineError;
+    } else if (g_trackerDebug.lastGeneratedEntries === 0) {
+      diagnosis = "No actionable picks were generated, so nothing was saved.";
+    } else if (g_trackerDebug.lastInsertedEntries === 0 && g_trackerDebug.lastDuplicateSkipped > 0) {
+      diagnosis = "Save was skipped by duplicate protection. The same match, market, line and pick already exist for this day.";
+    } else if (g_trackerDebug.lastGeneratedEntries > 0 && g_trackerDebug.lastInsertedEntries > 0 && items.length === 0) {
+      diagnosis = "Picks were generated but local tracker still shows 0 items. Local save is being overwritten or failing.";
+    } else if (items.length > 0 && g_trackerDebug.lastSyncStatus === "error") {
+      diagnosis = "Local save worked, but worker sync failed: " + (g_trackerDebug.lastSyncError || "unknown error");
+    } else if (items.length > 0 && (g_trackerDebug.lastSyncStatus === "ok" || g_trackerDebug.lastSyncStatus === "running" || g_trackerDebug.lastSyncStatus === "idle")) {
+      diagnosis = "Picks are in local tracker. Worker state is " + String(g_trackerDebug.lastSyncStatus || "idle") + ".";
+    } else if (items.length === 0 && g_trackerDebug.lastHydrateStatus === "ok" && String(g_trackerDebug.lastWorkerCount || "0") === "0") {
+      diagnosis = "Worker returned 0 tracker items and local cache is empty.";
     }
 
-    if (meta) {
-      meta.textContent =
-        "Key: " + TRACKER_STORAGE_KEY +
-        " • Cache: " + TRACKER_CACHE_KEY +
-        " • API: " + TRACKER_API_URL;
-    }
+    const rows = [
+      ["Diagnosis", diagnosis],
+      ["Tracker key", TRACKER_STORAGE_KEY],
+      ["Cache key", TRACKER_CACHE_KEY],
+      ["Worker endpoint", TRACKER_API_URL],
+      ["Local items now", String(items.length)],
+      ["Last save attempt", g_trackerDebug.lastSaveAttemptAt || "—"],
+      ["Last local save at", g_trackerDebug.lastLocalSaveAt || "—"],
+      ["Last local count", String(g_trackerDebug.lastLocalCount || 0)],
+      ["Last generated entries", String(g_trackerDebug.lastGeneratedEntries || 0)],
+      ["Last inserted entries", String(g_trackerDebug.lastInsertedEntries || 0)],
+      ["Last duplicate-skipped", String(g_trackerDebug.lastDuplicateSkipped || 0)],
+      ["Last generated picks", (g_trackerDebug.lastGeneratedPicks || []).join(" | ") || "—"],
+      ["Last engine error", g_trackerDebug.lastEngineError || "—"],
+      ["Last hydrate status", g_trackerDebug.lastHydrateStatus || "idle"],
+      ["Last hydrate start", g_trackerDebug.lastHydrateStartAt || "—"],
+      ["Last hydrate end", g_trackerDebug.lastHydrateEndAt || "—"],
+      ["Last hydrate error", g_trackerDebug.lastHydrateError || "—"],
+      ["Worker GET status", g_trackerDebug.lastWorkerGetStatus || "—"],
+      ["Worker GET body shape", g_trackerDebug.lastWorkerGetBodyShape || "—"],
+      ["Worker GET item count", g_trackerDebug.lastWorkerCount || "—"],
+      ["Last sync status", g_trackerDebug.lastSyncStatus || "idle"],
+      ["Last sync start", g_trackerDebug.lastSyncStartAt || "—"],
+      ["Last sync end", g_trackerDebug.lastSyncEndAt || "—"],
+      ["Last sync error", g_trackerDebug.lastSyncError || "—"],
+      ["Worker POST status", g_trackerDebug.lastWorkerPostStatus || "—"],
+      ["Last saved state updatedAt", g_trackerDebug.lastSavedStateAt || "—"]
+    ];
 
-    if (body) {
-      const rows = [
-        ["Local items now", String(items.length)],
-        ["Last local save at", g_trackerDebug.lastLocalSaveAt || "—"],
-        ["Last local count", String(g_trackerDebug.lastLocalCount || 0)],
-        ["Last generated entries", String(g_trackerDebug.lastGeneratedEntries || 0)],
-        ["Last generated picks", (g_trackerDebug.lastGeneratedPicks || []).join(" | ") || "—"],
-        ["Last hydrate status", g_trackerDebug.lastHydrateStatus || "idle"],
-        ["Last hydrate start", g_trackerDebug.lastHydrateStartAt || "—"],
-        ["Last hydrate end", g_trackerDebug.lastHydrateEndAt || "—"],
-        ["Last hydrate error", g_trackerDebug.lastHydrateError || "—"],
-        ["Worker GET status", g_trackerDebug.lastWorkerGetStatus || "—"],
-        ["Worker GET body shape", g_trackerDebug.lastWorkerGetBodyShape || "—"],
-        ["Worker GET item count", g_trackerDebug.lastWorkerCount || "—"],
-        ["Last sync status", g_trackerDebug.lastSyncStatus || "idle"],
-        ["Last sync start", g_trackerDebug.lastSyncStartAt || "—"],
-        ["Last sync end", g_trackerDebug.lastSyncEndAt || "—"],
-        ["Last sync error", g_trackerDebug.lastSyncError || "—"],
-        ["Worker POST status", g_trackerDebug.lastWorkerPostStatus || "—"],
-        ["Last saved state updatedAt", g_trackerDebug.lastSavedStateAt || "—"]
-      ];
-
-      body.innerHTML = rows.map(function (row) {
-        return "<tr><td>" + htmlEscape(row[0]) + "</td><td>" + htmlEscape(row[1]) + "</td></tr>";
-      }).join("");
-    }
+    panel.innerHTML =
+      '<div class="tracker-analytics-shell">' +
+        '<div class="tracker-analytics-topbar">' +
+          '<div class="tracker-analytics-kicker">TRACKER DEBUG</div>' +
+          '<h3 class="tracker-analytics-title">Save and sync diagnosis</h3>' +
+          '<p class="tracker-report-subtitle">This page tells you exactly why picks did or did not save: no actionable picks, duplicate block, local save failure, worker sync failure, or worker returned empty.</p>' +
+        '</div>' +
+        '<div class="tracker-report-table-wrap">' +
+          '<table class="tracker-report-table"><tbody>' +
+            rows.map(function (row) {
+              return '<tr><th style="width:34%;">' + htmlEscape(row[0]) + '</th><td>' + htmlEscape(row[1]) + '</td></tr>';
+            }).join('') +
+          '</tbody></table>' +
+        '</div>' +
+      '</div>';
   }
 
   function openTrackerDebugModal() {
-    renderTrackerDebug();
-    const modal = qs("trackerDebugModal");
-    if (!modal) return;
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden", "false");
+    const trackerModal = qs("trackerModal");
+    if (!trackerModal) return;
+    setTrackerView("debug");
+    trackerModal.classList.add("open");
+    trackerModal.setAttribute("aria-hidden", "false");
     document.body.classList.add("tracker-open");
+    renderTrackerDebug();
   }
 
   function closeTrackerDebugModal() {
-    const modal = qs("trackerDebugModal");
-    if (!modal) return;
-    modal.classList.remove("open");
-    modal.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("tracker-open");
+    closeTrackerModal();
   }
 
   function setRunStatus(text, state) {
@@ -4186,6 +4228,7 @@ body.dark-mode .tracker-analytics-section-head {
     } catch (err) {
       g_trackerDebug.lastSyncError = "Local cache write failed: " + (err && err.message ? err.message : String(err));
     }
+    renderTrackerDebug();
     return normalized;
   }
 
@@ -4822,14 +4865,22 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function autoSaveCurrentRunToTracker() {
+    g_trackerDebug.lastSaveAttemptAt = new Date().toISOString();
+    g_trackerDebug.lastInsertedEntries = 0;
+    g_trackerDebug.lastDuplicateSkipped = 0;
+
     if (!latestRunBundle || latestRunBundle._trackerSaved) {
+      g_trackerDebug.lastSaveDiagnosis = "No unsaved run bundle available.";
+      renderTrackerDebug();
       return 0;
     }
 
     const entries = buildTrackerEntriesFromBundle(latestRunBundle);
     if (!entries.length) {
       latestRunBundle._trackerSaved = true;
+      g_trackerDebug.lastSaveDiagnosis = "Run finished, but there were no actionable picks to save.";
       updateTrackerUI();
+      renderTrackerDebug();
       return 0;
     }
 
@@ -4847,26 +4898,55 @@ body.dark-mode .tracker-analytics-section-head {
 
       if (!duplicate) {
         items.unshift(entry);
+        g_trackerDebug.lastInsertedEntries += 1;
+      } else {
+        g_trackerDebug.lastDuplicateSkipped += 1;
       }
     });
 
+    if (g_trackerDebug.lastInsertedEntries === 0) {
+      latestRunBundle._trackerSaved = true;
+      g_trackerDebug.lastSaveDiagnosis = g_trackerDebug.lastDuplicateSkipped
+        ? "All generated picks matched existing same-day tracker entries, so nothing new was added."
+        : "No new tracker entries were inserted.";
+      updateTrackerUI();
+      renderTrackerDebug();
+      return 0;
+    }
+
+    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
     saveTrackerItems(items);
     latestRunBundle._trackerSaved = true;
     updateTrackerUI();
+    renderTrackerDebug();
     autoSettleTracker(true);
-    return entries.length;
+    return g_trackerDebug.lastInsertedEntries;
   }
 
-  function setTrackerAnalyticsView(isAnalytics) {
+  function setTrackerView(mode) {
     const trackerModal = qs("trackerModal");
     const panel = trackerModal ? trackerModal.querySelector(".tracker-panel") : null;
-    const btn = qs("trackerInsightsBtn");
+    const reportBtn = qs("trackerInsightsBtn");
+    const debugBtn = qs("trackerDebugBtn");
     if (!panel) return;
-    panel.classList.toggle("analytics-view", !!isAnalytics);
-    if (btn) {
-      btn.textContent = isAnalytics ? "📋 List" : "📊 Report";
-      btn.title = isAnalytics ? "Show tracked picks" : "Open report";
-      btn.setAttribute("aria-label", btn.title);
+
+    const finalMode = mode === "report" || mode === "debug" ? mode : "list";
+
+    panel.classList.toggle("analytics-view", finalMode === "report");
+    panel.classList.toggle("debug-view", finalMode === "debug");
+
+    if (reportBtn) {
+      reportBtn.classList.toggle("active", finalMode === "report");
+      reportBtn.textContent = finalMode === "report" ? "📋 List" : "📊 Report";
+      reportBtn.title = finalMode === "report" ? "Show tracked picks" : "Open report";
+      reportBtn.setAttribute("aria-label", reportBtn.title);
+    }
+
+    if (debugBtn) {
+      debugBtn.classList.toggle("active", finalMode === "debug");
+      debugBtn.textContent = finalMode === "debug" ? "📋 List" : "🐞";
+      debugBtn.title = finalMode === "debug" ? "Show tracked picks" : "Open tracker debug";
+      debugBtn.setAttribute("aria-label", debugBtn.title);
     }
   }
 
@@ -4886,7 +4966,7 @@ body.dark-mode .tracker-analytics-section-head {
   function closeTrackerModal() {
     const modal = qs("trackerModal");
     if (!modal) return;
-    setTrackerAnalyticsView(false);
+    setTrackerView("list");
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("tracker-open");
@@ -4894,6 +4974,8 @@ body.dark-mode .tracker-analytics-section-head {
 
   function runEngine() {
     latestRunBundle = null;
+    g_trackerDebug.lastEngineError = "";
+    g_trackerDebug.lastSaveDiagnosis = "Run started.";
     showResults();
     setRunStatus("Running engine...", "loading");
     const body = qs("resultsBody");
@@ -4915,6 +4997,7 @@ body.dark-mode .tracker-analytics-section-head {
       } else {
         setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.", "ok");
       }
+      renderTrackerDebug();
     } catch (err) {
       showRunError(err.message || "Engine run failed.");
     }
@@ -5882,17 +5965,28 @@ document.addEventListener("DOMContentLoaded", function () {
     const trackerInsightsBtn = qs("trackerInsightsBtn");
     if (trackerInsightsBtn) {
       trackerInsightsBtn.addEventListener("click", function () {
-        const panel = document.querySelector(".tracker-panel");
-        if (!panel) return;
-        const nextState = !panel.classList.contains("analytics-view");
-        setTrackerAnalyticsView(nextState);
+        const trackerModal = qs("trackerModal");
+        if (!trackerModal) return;
+        const panel = trackerModal.querySelector(".tracker-panel");
+        const isReport = panel && panel.classList.contains("analytics-view");
+        openTrackerModal();
+        setTrackerView(isReport ? "list" : "report");
         updateTrackerUI();
+        renderTrackerDebug();
       });
     }
 
     const trackerDebugBtn = qs("trackerDebugBtn");
     if (trackerDebugBtn) {
-      trackerDebugBtn.addEventListener("click", openTrackerDebugModal);
+      trackerDebugBtn.addEventListener("click", function () {
+        const trackerModal = qs("trackerModal");
+        if (!trackerModal) return;
+        const panel = trackerModal.querySelector(".tracker-panel");
+        const isDebug = panel && panel.classList.contains("debug-view");
+        openTrackerModal();
+        setTrackerView(isDebug ? "list" : "debug");
+        renderTrackerDebug();
+      });
     }
 
     const trackerDebugCloseBtn = qs("trackerDebugCloseBtn");
@@ -5994,7 +6088,7 @@ document.addEventListener("DOMContentLoaded", function () {
         autoSettleTracker(true);
       });
     }, 300000);
-    setTrackerAnalyticsView(false);
+    setTrackerView("list");
   });
 })();
 </script>
