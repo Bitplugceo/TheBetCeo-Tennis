@@ -4852,7 +4852,7 @@ body.dark-mode .tracker-analytics-section-head {
     fixtureRecordMap.clear();
 
     if (!records.length) {
-      select.innerHTML = '<option value="">No singles matches found</option>';
+      select.innerHTML = '<option value="">No real scheduled singles matches found</option>';
       return;
     }
 
@@ -4900,7 +4900,35 @@ body.dark-mode .tracker-analytics-section-head {
 
       const records = extractCompetitionRecords(payload).filter(function (record) {
         const state = record.status && record.status.state || "";
-        return state === "pre" || state === "in" || !record.status.completed;
+        const aName = String(record.playerAName || "").trim();
+        const bName = String(record.playerBName || "").trim();
+        const aNorm = normalizeName(aName);
+        const bNorm = normalizeName(bName);
+
+        function invalidName(value) {
+          return !value ||
+            value === "tbd" ||
+            value === "bye" ||
+            value === "qualifier" ||
+            value === "winner" ||
+            value === "loser";
+        }
+
+        const isUpcoming = state === "pre" || state === "in" || !record.status.completed;
+        const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
+        const notPlaceholderPair =
+          !aNorm.includes(" tbd") &&
+          !bNorm.includes(" tbd") &&
+          !aNorm.startsWith("tbd ") &&
+          !bNorm.startsWith("tbd ") &&
+          !aNorm.includes(" winner") &&
+          !bNorm.includes(" winner") &&
+          !aNorm.includes(" qualifier") &&
+          !bNorm.includes(" qualifier") &&
+          !aNorm.includes(" bye") &&
+          !bNorm.includes(" bye");
+
+        return isUpcoming && hasRealPlayers && notPlaceholderPair;
       }).sort(function (a, b) {
         return new Date(a.date) - new Date(b.date);
       });
