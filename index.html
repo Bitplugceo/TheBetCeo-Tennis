@@ -2410,6 +2410,59 @@ body.dark-mode .tracker-analytics-section-head {
   #runStatus.err { color: #d92d2a; }
   #runStatus.loading { color: #d98a00; }
 
+  .tracker-status-select {
+    width: auto;
+    min-width: 84px;
+    margin: 0;
+    padding: 5px 6px;
+    font-size: 11px;
+  }
+
+  .tracker-delete-btn {
+    margin-top: 4px;
+    padding: 4px 7px;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .tracker-subline {
+    display: block;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .tracker-analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .tracker-analytics-table th,
+  .tracker-analytics-table td {
+    border: 1px solid var(--table-border);
+    padding: 7px 6px;
+    text-align: left;
+  }
+
+  .tracker-analytics-table th {
+    background: var(--table-head);
+    color: #fff;
+  }
+
+  .tracker-analytics-section {
+    display: grid;
+    gap: 6px;
+  }
+
+  .tracker-analytics-section h4 {
+    margin: 0;
+    font-size: 12px;
+    color: var(--tracker-strong);
+  }
+
   #surfaceWrap {
     margin-top: 6px;
   }
@@ -2601,6 +2654,7 @@ body.dark-mode .tracker-analytics-section-head {
 
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
+  <button id="saveTrackerBtn" type="button">Save Picks</button>
   <button id="clearBtn" type="button">Clear</button>
   <div id="runStatus"></div>
 </div>
@@ -2641,7 +2695,7 @@ body.dark-mode .tracker-analytics-section-head {
       <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
 
       <div id="trackerEmpty" class="tracker-empty">
-        Tracker shell kept in place. Save logic comes after the core engine flow is settled.
+        No tracked picks saved yet.
       </div>
 
       <div class="table-wrap tracker-table-wrap">
@@ -2668,12 +2722,14 @@ body.dark-mode .tracker-analytics-section-head {
 (function () {
   const THEME_KEY = "tennis_engine_theme";
   const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+  const TRACKER_STORAGE_KEY = "tennis_engine_tracker_v1";
   const selectedPlayerIds = { A: null, B: null };
   const fixtureRecordMap = new Map();
   let currentFixtureOffset = 0;
   let fixtureLoadToken = 0;
   let historyPoolCache = new Map();
   let latestFetchedContext = null;
+  let latestRunBundle = null;
 
   function qs(id) {
     return document.getElementById(id);
@@ -3666,6 +3722,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function clearAll() {
+    latestRunBundle = null;
     document.querySelectorAll("input, select").forEach(function (el) {
       if (el.type === "checkbox") {
         el.checked = el.id === "useFTH2H" || el.id === "use1HH2H";
@@ -3689,9 +3746,254 @@ body.dark-mode .tracker-analytics-section-head {
     setFetchStatus("Select ATP or WTA, choose a match or type both player names, then fetch stats.", "");
   }
 
+
+  function getTrackerItems() {
+    try {
+      const raw = localStorage.getItem(TRACKER_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function saveTrackerItems(items) {
+    localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(items || []));
+  }
+
+  function getTrackerEdgeBucket(edge) {
+    const absEdge = Math.abs(Number(edge) || 0);
+    if (absEdge < 1.5) return "1.0 - 1.49";
+    if (absEdge < 2.5) return "1.5 - 2.49";
+    return "2.5+";
+  }
+
+  function formatTrackerDate(iso) {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "-";
+    return d.toLocaleDateString();
+  }
+
+  function formatTrackerWinRate(items) {
+    const wins = items.filter(function (item) { return item.status === "WIN"; }).length;
+    const losses = items.filter(function (item) { return item.status === "LOSS"; }).length;
+    const decisions = wins + losses;
+    if (!decisions) return "—";
+    return Math.round((wins / decisions) * 100) + "%";
+  }
+
+  function buildTrackerEntriesFromBundle(bundle) {
+    if (!bundle) return [];
+    const results = [bundle.matchResult, bundle.set1Result];
+    const lockIdx = selectLockIndex(results);
+    const createdAt = new Date().toISOString();
+
+    return results
+      .map(function (result, idx) {
+        if (!result || result.pick === "PASS" || result.confidence === "PASS") return null;
+
+        return {
+          id: "trk_" + Date.now() + "_" + idx + "_" + Math.random().toString(36).slice(2, 8),
+          savedAt: createdAt,
+          match: bundle.playerAName + " vs " + bundle.playerBName,
+          tour: bundle.tour,
+          market: result.market,
+          line: fmtCompact(getShownLineForResult(result)),
+          range: result.lineDisplay || "",
+          projection: round2(result.projection),
+          edge: round2(result.edge),
+          pick: getPredictionText(result),
+          rawPick: result.pick,
+          confidence: result.confidence,
+          status: "PENDING",
+          isLock: idx === lockIdx,
+          notes: Array.isArray(result.notes) ? result.notes.join(" | ") : ""
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function renderTrackerAnalytics(items) {
+    const panel = qs("trackerAnalyticsPanel");
+    if (!panel) return;
+
+    const settled = items.filter(function (item) { return item.status !== "PENDING"; });
+    const wins = settled.filter(function (item) { return item.status === "WIN"; }).length;
+    const losses = settled.filter(function (item) { return item.status === "LOSS"; }).length;
+    const pushes = settled.filter(function (item) { return item.status === "PUSH"; }).length;
+
+    function groupRows(label, rows) {
+      return rows.map(function (row) {
+        return (
+          "<tr>" +
+            "<td>" + htmlEscape(row.label) + "</td>" +
+            "<td>" + row.count + "</td>" +
+            "<td>" + row.winRate + "</td>" +
+          "</tr>"
+        );
+      }).join("");
+    }
+
+    function buildGroup(items, keyFn) {
+      const map = new Map();
+      items.forEach(function (item) {
+        const key = keyFn(item);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(item);
+      });
+
+      return Array.from(map.entries()).map(function (entry) {
+        return {
+          label: entry[0],
+          count: entry[1].length,
+          winRate: formatTrackerWinRate(entry[1])
+        };
+      });
+    }
+
+    const byMarket = buildGroup(settled, function (item) { return item.market; });
+    const byConfidence = buildGroup(settled, function (item) { return item.confidence; });
+    const byEdge = buildGroup(settled, function (item) { return getTrackerEdgeBucket(item.edge); });
+
+    panel.innerHTML =
+      '<div class="tracker-analytics-shell">' +
+        '<div class="tracker-analytics-topbar">' +
+          '<div class="tracker-analytics-kicker">Tracker Report</div>' +
+          '<h3 class="tracker-analytics-title">Performance snapshot</h3>' +
+          '<p class="tracker-analytics-subtitle">Win rates are based on settled WIN/LOSS results. PUSH is shown as settled but excluded from win-rate decisions.</p>' +
+        '</div>' +
+        '<div class="tracker-summary-strip">' +
+          '<div class="tracker-summary-cell"><span class="tracker-summary-label">Saved</span><span class="tracker-summary-value">' + items.length + '</span></div>' +
+          '<div class="tracker-summary-cell"><span class="tracker-summary-label">Settled</span><span class="tracker-summary-value">' + settled.length + '</span></div>' +
+          '<div class="tracker-summary-cell"><span class="tracker-summary-label">Wins</span><span class="tracker-summary-value">' + wins + '</span></div>' +
+          '<div class="tracker-summary-cell"><span class="tracker-summary-label">Win Rate</span><span class="tracker-summary-value">' + formatTrackerWinRate(settled) + '</span></div>' +
+        '</div>' +
+        '<div class="tracker-analytics-section">' +
+          '<h4>By market</h4>' +
+          '<table class="tracker-analytics-table"><thead><tr><th>Market</th><th>Settled</th><th>Win rate</th></tr></thead><tbody>' + groupRows("No data", byMarket.length ? byMarket : [{ label: "No data", count: 0, winRate: "—" }]) + '</tbody></table>' +
+        '</div>' +
+        '<div class="tracker-analytics-section">' +
+          '<h4>By confidence</h4>' +
+          '<table class="tracker-analytics-table"><thead><tr><th>Confidence</th><th>Settled</th><th>Win rate</th></tr></thead><tbody>' + groupRows("No data", byConfidence.length ? byConfidence : [{ label: "No data", count: 0, winRate: "—" }]) + '</tbody></table>' +
+        '</div>' +
+        '<div class="tracker-analytics-section">' +
+          '<h4>By edge bucket</h4>' +
+          '<table class="tracker-analytics-table"><thead><tr><th>Edge bucket</th><th>Settled</th><th>Win rate</th></tr></thead><tbody>' + groupRows("No data", byEdge.length ? byEdge : [{ label: "No data", count: 0, winRate: "—" }]) + '</tbody></table>' +
+        '</div>' +
+        '<div class="tracker-analytics-section">' +
+          '<h4>Settled breakdown</h4>' +
+          '<table class="tracker-analytics-table"><thead><tr><th>Type</th><th>Count</th><th>Rate</th></tr></thead><tbody>' +
+            '<tr><td>Wins</td><td>' + wins + '</td><td>' + (settled.length ? Math.round((wins / settled.length) * 100) + "%" : "—") + '</td></tr>' +
+            '<tr><td>Losses</td><td>' + losses + '</td><td>' + (settled.length ? Math.round((losses / settled.length) * 100) + "%" : "—") + '</td></tr>' +
+            '<tr><td>Pushes</td><td>' + pushes + '</td><td>' + (settled.length ? Math.round((pushes / settled.length) * 100) + "%" : "—") + '</td></tr>' +
+          '</tbody></table>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function updateTrackerUI() {
+    const items = getTrackerItems();
+    const summary = qs("trackerSummary");
+    const marketSummary = qs("trackerMarketSummary");
+    const empty = qs("trackerEmpty");
+    const body = qs("trackedPicksBody");
+    const tableWrap = document.querySelector(".tracker-table-wrap");
+
+    const settled = items.filter(function (item) { return item.status !== "PENDING"; });
+    const wins = items.filter(function (item) { return item.status === "WIN"; }).length;
+    const byMarket = items.reduce(function (acc, item) {
+      acc[item.market] = (acc[item.market] || 0) + 1;
+      return acc;
+    }, {});
+
+    if (summary) {
+      summary.textContent = items.length + " saved • " + settled.length + " settled • " + wins + " wins";
+    }
+
+    if (marketSummary) {
+      const parts = Object.keys(byMarket).sort().map(function (key) {
+        return key + ": " + byMarket[key];
+      });
+      marketSummary.textContent = parts.join(" • ");
+    }
+
+    if (empty) empty.style.display = items.length ? "none" : "block";
+    if (tableWrap) tableWrap.style.display = items.length ? "block" : "none";
+
+    if (body) {
+      body.innerHTML = items.map(function (item) {
+        const edgeText = (Number(item.edge) > 0 ? "+" : "") + fmt(item.edge);
+        return (
+          '<tr data-id="' + htmlEscape(item.id) + '">' +
+            '<td>' + htmlEscape(formatTrackerDate(item.savedAt)) + '</td>' +
+            '<td>' + htmlEscape(item.match) + '<span class="tracker-subline">' + htmlEscape(item.tour || "") + '</span></td>' +
+            '<td>' + htmlEscape(item.market) + '<span class="tracker-subline">' + htmlEscape(item.confidence || "—") + '</span></td>' +
+            '<td>' + htmlEscape(item.line || "—") + '</td>' +
+            '<td class="' + getPickCellClass(item.rawPick) + '">' + htmlEscape(item.pick) + (item.isLock ? ' <span class="lock">🔒</span>' : '') + '</td>' +
+            '<td>' + htmlEscape(edgeText) + '</td>' +
+            '<td>' +
+              '<select class="tracker-status-select" data-id="' + htmlEscape(item.id) + '">' +
+                '<option value="PENDING"' + (item.status === "PENDING" ? " selected" : "") + '>PENDING</option>' +
+                '<option value="WIN"' + (item.status === "WIN" ? " selected" : "") + '>WIN</option>' +
+                '<option value="LOSS"' + (item.status === "LOSS" ? " selected" : "") + '>LOSS</option>' +
+                '<option value="PUSH"' + (item.status === "PUSH" ? " selected" : "") + '>PUSH</option>' +
+              '</select>' +
+              '<button type="button" class="tracker-delete-btn" data-id="' + htmlEscape(item.id) + '">Delete</button>' +
+            '</td>' +
+          '</tr>'
+        );
+      }).join("");
+    }
+
+    renderTrackerAnalytics(items);
+  }
+
+  function saveCurrentRunToTracker() {
+    if (!latestRunBundle) {
+      setRunStatus("Run the engine first before saving picks.", "err");
+      return;
+    }
+
+    if (latestRunBundle._trackerSaved) {
+      setRunStatus("Current run already saved.", "ok");
+      openTrackerModal();
+      return;
+    }
+
+    const entries = buildTrackerEntriesFromBundle(latestRunBundle);
+    if (!entries.length) {
+      setRunStatus("No actionable picks to save from this run.", "err");
+      return;
+    }
+
+    const items = getTrackerItems();
+    entries.reverse().forEach(function (entry) {
+      items.unshift(entry);
+    });
+    saveTrackerItems(items);
+    latestRunBundle._trackerSaved = true;
+    updateTrackerUI();
+    openTrackerModal();
+    setRunStatus("Saved " + entries.length + " pick(s) to tracker.", "ok");
+  }
+
+  function setTrackerAnalyticsView(isAnalytics) {
+    const panel = document.querySelector(".tracker-panel");
+    const btn = qs("trackerInsightsBtn");
+    if (!panel) return;
+    panel.classList.toggle("analytics-view", !!isAnalytics);
+    if (btn) {
+      btn.textContent = isAnalytics ? "📋 List" : "📊 Report";
+      btn.title = isAnalytics ? "Show tracked picks" : "Open report";
+      btn.setAttribute("aria-label", btn.title);
+    }
+  }
+
   function openTrackerModal() {
     const modal = qs("trackerModal");
     if (!modal) return;
+    updateTrackerUI();
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("tracker-open");
@@ -3700,12 +4002,14 @@ body.dark-mode .tracker-analytics-section-head {
   function closeTrackerModal() {
     const modal = qs("trackerModal");
     if (!modal) return;
+    setTrackerAnalyticsView(false);
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("tracker-open");
   }
 
   function runEngine() {
+    latestRunBundle = null;
     showResults();
     setRunStatus("Running engine...", "loading");
     const body = qs("resultsBody");
@@ -3715,6 +4019,8 @@ body.dark-mode .tracker-analytics-section-head {
 
     try {
       const bundle = buildEngineResults();
+      bundle._trackerSaved = false;
+      latestRunBundle = bundle;
       renderResults(bundle);
       updateIntel(bundle);
       clearHeaderError();
@@ -4566,16 +4872,48 @@ document.addEventListener("DOMContentLoaded", function () {
     const trackerInsightsBtn = qs("trackerInsightsBtn");
     if (trackerInsightsBtn) {
       trackerInsightsBtn.addEventListener("click", function () {
-        const panel = qs("trackerAnalyticsPanel") || qs("trackedPicksWrap");
-        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        const panel = document.querySelector(".tracker-panel");
+        if (!panel) return;
+        const nextState = !panel.classList.contains("analytics-view");
+        setTrackerAnalyticsView(nextState);
+        updateTrackerUI();
       });
     }
 
     const trackerDebugBtn = qs("trackerDebugBtn");
     if (trackerDebugBtn) {
       trackerDebugBtn.addEventListener("click", function () {
-        const panel = qs("trackerAnalyticsPanel") || qs("trackedPicksWrap");
-        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        const panel = qs("trackerAnalyticsPanel");
+        if (!panel) return;
+        const items = getTrackerItems();
+        setTrackerAnalyticsView(true);
+        panel.innerHTML = '<pre style="white-space:pre-wrap;font-size:10px;line-height:1.4;margin:0;">' + htmlEscape(JSON.stringify(items, null, 2)) + '</pre>';
+      });
+    }
+
+    const trackedPicksBody = qs("trackedPicksBody");
+    if (trackedPicksBody) {
+      trackedPicksBody.addEventListener("change", function (event) {
+        const target = event.target;
+        if (!target || !target.classList.contains("tracker-status-select")) return;
+        const id = target.getAttribute("data-id");
+        const items = getTrackerItems().map(function (item) {
+          if (item.id === id) item.status = target.value;
+          return item;
+        });
+        saveTrackerItems(items);
+        updateTrackerUI();
+      });
+
+      trackedPicksBody.addEventListener("click", function (event) {
+        const target = event.target;
+        if (!target || !target.classList.contains("tracker-delete-btn")) return;
+        const id = target.getAttribute("data-id");
+        const items = getTrackerItems().filter(function (item) {
+          return item.id !== id;
+        });
+        saveTrackerItems(items);
+        updateTrackerUI();
       });
     }
 
@@ -4648,8 +4986,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const runBtn = qs("runBtn");
     if (runBtn) runBtn.addEventListener("click", runEngine);
 
+    const saveTrackerBtn = qs("saveTrackerBtn");
+    if (saveTrackerBtn) saveTrackerBtn.addEventListener("click", saveCurrentRunToTracker);
+
     const clearBtn = qs("clearBtn");
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
+
+    updateTrackerUI();
+    setTrackerAnalyticsView(false);
   });
 })();
 </script>
