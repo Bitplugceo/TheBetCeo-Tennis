@@ -2748,7 +2748,7 @@ body.dark-mode .tracker-analytics-section-head {
   const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
   const TRACKER_STORAGE_KEY = "The_Bet_Ceo_Key2";
   const TRACKER_API_URL = String(WORKER_URL || "").replace(/\/+$/, "") + "/tracker-state";
-  const TRACKER_CACHE_KEY = TRACKER_STORAGE_KEY + "_cache_v1";
+  const TRACKER_CACHE_KEY = "bb_engine_tracker_state_" + TRACKER_STORAGE_KEY;
   const TRACKER_NETWORK_TIMEOUT_MS = 12000;
   const selectedPlayerIds = { A: null, B: null };
   const fixtureRecordMap = new Map();
@@ -3806,13 +3806,57 @@ body.dark-mode .tracker-analytics-section-head {
 
   function normalizeTrackerState(raw) {
     const source = Array.isArray(raw) ? { items: raw } : (raw && typeof raw === "object" ? raw : {});
-    const items = Array.isArray(source.items) ? source.items.map(normalizeTrackerItem) : [];
+    let items = [];
+
+    if (Array.isArray(source.items)) {
+      items = source.items.map(normalizeTrackerItem);
+    } else {
+      const activePicks = Array.isArray(source.activePicks) ? source.activePicks : [];
+      const archivedPicks = Array.isArray(source.archivedPicks) ? source.archivedPicks : [];
+      items = activePicks.map(function (item) {
+        return normalizeTrackerItem(Object.assign({}, item, { archived: false }));
+      }).concat(
+        archivedPicks.map(function (item) {
+          return normalizeTrackerItem(Object.assign({}, item, { archived: true }));
+        })
+      );
+    }
+
     items.sort(function (a, b) {
       return (Date.parse(b.savedAt || "") || 0) - (Date.parse(a.savedAt || "") || 0);
     });
     return {
       items: items,
       updatedAt: source.updatedAt || null
+    };
+  }
+
+  function exportTrackerStatePayload(state) {
+    const normalized = normalizeTrackerState(state);
+    const activePicks = normalized.items
+      .filter(function (item) { return !item.archived; })
+      .map(function (item) { return Object.assign({}, item, { archived: false }); });
+    const archivedPicks = normalized.items
+      .filter(function (item) { return !!item.archived; })
+      .map(function (item) { return Object.assign({}, item, { archived: true }); });
+
+    const settled = normalized.items.filter(function (item) { return item.status !== "PENDING"; });
+    const wins = normalized.items.filter(function (item) { return item.status === "WIN"; }).length;
+    const losses = normalized.items.filter(function (item) { return item.status === "LOSS"; }).length;
+    const pushes = normalized.items.filter(function (item) { return item.status === "PUSH"; }).length;
+
+    return {
+      activePicks: activePicks,
+      archivedPicks: archivedPicks,
+      stats: {
+        total: normalized.items.length,
+        settled: settled.length,
+        wins: wins,
+        losses: losses,
+        pushes: pushes
+      },
+      updatedAt: normalized.updatedAt || new Date().toISOString(),
+      lineMemory: {}
     };
   }
 
@@ -3837,7 +3881,7 @@ body.dark-mode .tracker-analytics-section-head {
     g_trackerState = normalized;
     try {
       localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(normalized));
-      localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(normalized.items));
+      localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(normalized)));
     } catch (err) {
     }
     return normalized;
@@ -3946,10 +3990,13 @@ body.dark-mode .tracker-analytics-section-head {
 
     payloadState.updatedAt = new Date().toISOString();
 
+    const payloadBody = exportTrackerStatePayload(payloadState);
+    payloadBody.updatedAt = payloadState.updatedAt;
+
     const pushed = await fetchTrackerJson(TRACKER_API_URL, {
       method: "POST",
       headers: getTrackerHeaders(true),
-      body: JSON.stringify(payloadState)
+      body: JSON.stringify(payloadBody)
     });
 
     if (!pushed.res.ok) {
@@ -3998,14 +4045,15 @@ body.dark-mode .tracker-analytics-section-head {
 
         const serverState = normalizeTrackerState(pulled.data.state);
         const merged = mergeTrackerStates(localState, serverState);
-        saveTrackerStateToLocal(merged);
-
         const localHasItems = localState.items.length > 0;
         const serverHasItems = serverState.items.length > 0;
+        const chosenState = (!serverHasItems && localHasItems) ? localState : merged;
 
-        if (localHasItems && (!serverHasItems || merged.items.length > serverState.items.length)) {
+        saveTrackerStateToLocal(chosenState);
+
+        if (localHasItems && (!serverHasItems || chosenState.items.length >= serverState.items.length)) {
           try {
-            const pushed = await pushTrackerStateToServer(merged);
+            const pushed = await pushTrackerStateToServer(chosenState);
             saveTrackerStateToLocal(pushed);
           } catch (err) {
           }
@@ -4470,7 +4518,7 @@ body.dark-mode .tracker-analytics-section-head {
     const modal = qs("trackerModal");
     if (!modal) return;
     updateTrackerUI();
-    hydrateTrackerState(true).then(function () {
+    hydrateTrackerState(false).then(function () {
       updateTrackerUI();
       autoSettleTracker(true);
     });
@@ -5125,6 +5173,7 @@ body.dark-mode .tracker-analytics-section-head {
       ? latestDate.toLocaleDateString()
       : "unknown date";
     const levelText = latest.eventLevel ? " • " + htmlEscape(latest.eventLevel) : "";
+    const surfaceText = latest.surface ? " • " + htmlEscape(latest.surface) : "";
     return (
       htmlEscape(playerName) +
       ": " + recentSeries.length + " completed singles matches found.<br>" +
