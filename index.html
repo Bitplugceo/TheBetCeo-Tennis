@@ -3363,9 +3363,7 @@ body.dark-mode .tracker-analytics-section-head {
 
   function getShownLineForResult(result) {
     if (!result || !result.lineRange) return null;
-    if (result.pick === "OVER") return result.lineRange.max;
-    if (result.pick === "UNDER") return result.lineRange.min;
-    return null;
+    return result.lineRange.mid;
   }
 
   function getPredictionText(result) {
