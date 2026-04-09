@@ -2576,18 +2576,16 @@ body.dark-mode .tracker-analytics-section-head {
   <table id="results" class="results-hidden">
     <thead>
       <tr>
-        <th>Market</th>
-        <th>Projection</th>
-        <th>Line</th>
-        <th>Edge</th>
         <th>Pick</th>
-        <th>Confidence</th>
-        <th>Notes</th>
+        <th>Projection</th>
+        <th>Edge</th>
+        <th>Model Grade</th>
+        <th>Prediction</th>
       </tr>
     </thead>
     <tbody id="resultsBody">
       <tr>
-        <td colspan="7" class="results-empty-cell">Run the engine to populate results.</td>
+        <td colspan="5" class="results-empty-cell">Run the engine to populate results.</td>
       </tr>
     </tbody>
   </table>
@@ -2674,19 +2672,60 @@ body.dark-mode .tracker-analytics-section-head {
     section.appendChild(body);
 
     toggle.addEventListener("click", function () {
-      if (section.classList.contains("locked")) return;
-      section.classList.toggle("collapsed");
+      accordionToggle(section.id);
     });
   }
 
   function openSection(id) {
     const section = qs(id);
-    if (section) section.classList.remove("collapsed");
+    if (!section || section.classList.contains("locked")) return;
+    section.classList.remove("collapsed");
+  }
+
+  function closeSection(id) {
+    const section = qs(id);
+    if (section) section.classList.add("collapsed");
+  }
+
+  function lockSection(id) {
+    const section = qs(id);
+    if (!section) return;
+    section.classList.add("locked");
+    if (id !== "marketSection") section.classList.add("collapsed");
+  }
+
+  function unlockSection(id) {
+    const section = qs(id);
+    if (!section) return;
+    section.classList.remove("locked");
   }
 
   function collapseAll() {
     document.querySelectorAll(".section").forEach(function (s) {
       s.classList.add("collapsed");
+    });
+  }
+
+  function accordionToggle(id) {
+    const target = qs(id);
+    if (!target || target.classList.contains("locked")) return;
+
+    const wasCollapsed = target.classList.contains("collapsed");
+
+    document.querySelectorAll(".section").forEach(function (section) {
+      if (section.id !== id) section.classList.add("collapsed");
+    });
+
+    if (wasCollapsed) target.classList.remove("collapsed");
+    else target.classList.add("collapsed");
+  }
+
+  function updateSectionLocks() {
+    const hasTour = !!String(qs("leagueSelect") && qs("leagueSelect").value || "").trim();
+
+    ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"].forEach(function (id) {
+      if (hasTour) unlockSection(id);
+      else lockSection(id);
     });
   }
 
@@ -3039,16 +3078,14 @@ body.dark-mode .tracker-analytics-section-head {
     if (!body) return;
 
     const rows = [resultBundle.matchResult, resultBundle.set1Result].map(function (result) {
-      const noteText = result.notes.join(" | ");
+      const displayPrediction = result.pick === "PASS" ? "NO PLAY" : result.pick;
       return (
         '<tr>' +
           '<td class="result-market">' + htmlEscape(result.market) + '</td>' +
-          '<td>' + fmt(result.projection) + '</td>' +
-          '<td>' + fmt(result.line) + '</td>' +
+          '<td>' + fmt(result.projection) + ' vs ' + fmt(result.line) + '</td>' +
           '<td>' + (result.edge > 0 ? '+' : '') + fmt(result.edge) + '</td>' +
-          '<td class="' + getPickCellClass(result.pick) + '">' + htmlEscape(result.pick) + '</td>' +
           '<td class="' + getConfidenceCellClass(result.confidence) + '">' + htmlEscape(result.confidence) + '</td>' +
-          '<td>' + htmlEscape(noteText) + '</td>' +
+          '<td class="' + getPickCellClass(result.pick) + '">' + htmlEscape(displayPrediction) + '</td>' +
         '</tr>'
       );
     }).join("");
@@ -3101,10 +3138,14 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function showRunError(message) {
-    hideResults();
     clearReadOnlyFields();
     clearHeaderError();
     setRunStatus(message, "err");
+    showResults();
+    const body = qs("resultsBody");
+    if (body) {
+      body.innerHTML = '<tr><td colspan="5" class="results-empty-cell" style="color:#d92d2a !important;text-align:left;">' + htmlEscape(message) + '</td></tr>';
+    }
   }
 
   function clearAutoTags() {
@@ -3164,7 +3205,7 @@ body.dark-mode .tracker-analytics-section-head {
     hideResults();
     setFetchStatus("Select ATP or WTA, choose a match or type both player names, then fetch stats.", "");
     setRunStatus("", "");
-    qs("resultsBody").innerHTML = '<tr><td colspan="7" class="results-empty-cell">Run the engine to populate results.</td></tr>';
+    qs("resultsBody").innerHTML = '<tr><td colspan="5" class="results-empty-cell">Run the engine to populate results.</td></tr>';
   }
 
   function openTrackerModal() {
@@ -3184,6 +3225,13 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function runEngine() {
+    showResults();
+    setRunStatus("Running engine...", "loading");
+    const body = qs("resultsBody");
+    if (body) {
+      body.innerHTML = '<tr><td colspan="5" class="results-empty-cell">Calculating...</td></tr>';
+    }
+
     try {
       const bundle = buildEngineResults();
       renderResults(bundle);
@@ -3530,7 +3578,8 @@ body.dark-mode .tracker-analytics-section-head {
     const record = fixtureRecordMap.get(opt.value);
     qs("surfaceDisplay").value = record && record.surface ? record.surface : "";
 
-    setFetchStatus("Match selected. Ready to fetch recent games and H2H.", "");
+    setFetchStatus("Match selected. Ready to fetch recent games and full H2H.", "");
+    accordionToggle("marketSection");
   }
 
   function getRangeChunks(daysBack, chunkSize) {
@@ -3555,7 +3604,7 @@ body.dark-mode .tracker-analytics-section-head {
     }
 
     const promise = (async function () {
-      const chunks = getRangeChunks(480, 120);
+      const chunks = getRangeChunks(2200, 220);
       const all = [];
 
       for (const datesQuery of chunks) {
@@ -3766,7 +3815,21 @@ body.dark-mode .tracker-analytics-section-head {
         h2hSet1Totals: h2hSet1Totals
       });
 
-      qs("surfaceDisplay").value = recentA[0] && recentA[0].surface ? recentA[0].surface : qs("surfaceDisplay").value;
+      const fixtureSelect = qs("fixtureSelect");
+      const selectedFixtureKey = fixtureSelect ? fixtureSelect.value : "";
+      const selectedFixtureRecord = selectedFixtureKey ? fixtureRecordMap.get(selectedFixtureKey) : null;
+      const surfaceValue =
+        (selectedFixtureRecord && selectedFixtureRecord.surface) ||
+        (h2h[0] && h2h[0].surface) ||
+        (recentA[0] && recentA[0].surface) ||
+        (recentB[0] && recentB[0].surface) ||
+        "";
+
+      if (!surfaceValue) {
+        throw new Error("Surface could not be fetched from ESPN. Surface is now required.");
+      }
+
+      qs("surfaceDisplay").value = surfaceValue;
 
       setFetchNotes(
         buildFetchNotes(qs("teamAName").value, recentA),
@@ -3781,6 +3844,7 @@ body.dark-mode .tracker-analytics-section-head {
       ];
 
       setFetchStatus(statusParts.join(" • "), "ok");
+      accordionToggle("teamASection");
     } catch (err) {
       setFetchStatus(err.message || "Fetch failed.", "err");
     }
@@ -3837,7 +3901,15 @@ body.dark-mode .tracker-analytics-section-head {
         selectedPlayerIds.A = null;
         selectedPlayerIds.B = null;
         historyPoolCache.clear();
-        loadFixtures(currentFixtureOffset);
+        updateSectionLocks();
+        if (leagueSelect.value) {
+          accordionToggle("espnSection");
+          loadFixtures(currentFixtureOffset);
+        } else {
+          qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
+          qs("surfaceDisplay").value = "";
+          setFetchStatus("Select ATP or WTA first.", "");
+        }
       });
     }
 
