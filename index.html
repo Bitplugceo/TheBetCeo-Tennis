@@ -2371,6 +2371,12 @@ body.dark-mode .tracker-analytics-section-head {
     color: var(--muted) !important;
     font-weight: 700 !important;
   }
+  .result-market {
+    font-weight: 800 !important;
+  }
+  .results-visible {
+    display: table !important;
+  }
   </style>
 </head>
 <body>
@@ -2399,8 +2405,8 @@ body.dark-mode .tracker-analytics-section-head {
     <label>Select Tour</label>
     <select id="leagueSelect" class="league-box">
       <option value="">- Select Tour -</option>
-      <option value="atp">ATP</option>
-      <option value="wta">WTA</option>
+      <option value="ATP">ATP</option>
+      <option value="WTA">WTA</option>
     </select>
   </div>
 
@@ -2430,7 +2436,7 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
 
     <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
-    <div id="fetchStatus">Auto-fetch layout only. Wiring comes later.</div>
+    <div id="fetchStatus">Auto-fetch layout only. Wiring comes after calculations.</div>
 
     <div class="injury-box" id="injuryBoxA">
       <div class="inj-title">Player A Notes</div>
@@ -2453,7 +2459,7 @@ body.dark-mode .tracker-analytics-section-head {
     <input id="h1Market" placeholder="9.5" />
 
     <div class="section-note">
-      We are building for totals only. No winner market. No handicap market.
+      Totals only. No winner market. No handicap market.
     </div>
   </div>
 
@@ -2487,7 +2493,7 @@ body.dark-mode .tracker-analytics-section-head {
     <input id="a1HH2H" placeholder="10,9,12" />
 
     <div class="section-note">
-      Use shared H2H totals only. No duplicate A/B totals here because match totals are shared by both players.
+      Use shared H2H totals only. These are single shared lists, not duplicate A/B totals.
     </div>
   </div>
 
@@ -2495,14 +2501,14 @@ body.dark-mode .tracker-analytics-section-head {
     <h3>📈 Intelligence Pack <span class="autofill-indicator" id="intelAutoTag">✅ Auto-derived</span></h3>
 
     <div style="font-size:11px;color:#7b8088;margin:0 0 8px 0;font-weight:700;line-height:1.5;">
-      Design-first shell for the tennis totals engine. We keep this section exactly in place and connect the real calculations next.
+      This shell now runs the core totals math: averages, H2H adjustment, volatility, edge, confidence, and filter notes.
     </div>
 
     <label>Player A Summary</label>
-    <input id="aFormIntel" style="max-width:100%;" placeholder="Recent avg | volatility | notes" readonly />
+    <input id="aFormIntel" style="max-width:100%;" placeholder="Recent avg | set1 avg | volatility" readonly />
 
     <label>Player B Summary</label>
-    <input id="bFormIntel" style="max-width:100%;" placeholder="Recent avg | volatility | notes" readonly />
+    <input id="bFormIntel" style="max-width:100%;" placeholder="Recent avg | set1 avg | volatility" readonly />
 
     <label>Match Total Summary</label>
     <input id="aSpreadIntel" style="max-width:100%;" placeholder="Projection vs line" readonly />
@@ -2513,8 +2519,8 @@ body.dark-mode .tracker-analytics-section-head {
     <label>Filter Notes</label>
     <input id="aHitIntel" style="max-width:100%;" placeholder="Blowout | chaos | fake edge" readonly />
 
-    <label>Tracker Notes</label>
-    <input id="bHitIntel" style="max-width:100%;" placeholder="Ready for tracked pick output" readonly />
+    <label>Engine Verdict</label>
+    <input id="bHitIntel" style="max-width:100%;" placeholder="Best current totals read" readonly />
   </div>
 </div>
 
@@ -2525,20 +2531,22 @@ body.dark-mode .tracker-analytics-section-head {
 
 <div class="table-wrap">
   <table id="results" style="display:none;">
-    <tr>
-      <th>Pick</th>
-      <th>Projection</th>
-      <th>Edge</th>
-      <th>Model Grade</th>
-      <th>Prediction</th>
-    </tr>
-    <tr>
-      <td class="empty-cell">-</td>
-      <td class="empty-cell">-</td>
-      <td class="empty-cell">-</td>
-      <td class="empty-cell">-</td>
-      <td class="empty-cell">Waiting for calculation layer</td>
-    </tr>
+    <thead>
+      <tr>
+        <th>Market</th>
+        <th>Projection</th>
+        <th>Line</th>
+        <th>Edge</th>
+        <th>Pick</th>
+        <th>Confidence</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody id="resultsBody">
+      <tr>
+        <td colspan="7" class="empty-cell">Run the engine to populate results.</td>
+      </tr>
+    </tbody>
   </table>
 </div>
 
@@ -2559,7 +2567,7 @@ body.dark-mode .tracker-analytics-section-head {
       <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
 
       <div id="trackerEmpty" class="tracker-empty">
-        No tracked picks saved yet.
+        Tracker shell kept in place. Save logic comes after we finish the core engine flow.
       </div>
 
       <div class="table-wrap tracker-table-wrap">
@@ -2584,6 +2592,12 @@ body.dark-mode .tracker-analytics-section-head {
 
 <script>
 (function () {
+  const THEME_KEY = "tennis_engine_theme";
+
+  function qs(id) {
+    return document.getElementById(id);
+  }
+
   function wrapSection(section) {
     if (!section || section.querySelector(".section-toggle")) return;
 
@@ -2594,10 +2608,7 @@ body.dark-mode .tracker-analytics-section-head {
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "section-toggle";
-    toggle.innerHTML = `
-      <span class="toggle-title">${titleHTML}</span>
-      <span class="toggle-icon">▾</span>
-    `;
+    toggle.innerHTML = '<span class="toggle-title">' + titleHTML + '</span><span class="toggle-icon">▾</span>';
 
     const body = document.createElement("div");
     body.className = "section-body";
@@ -2613,34 +2624,426 @@ body.dark-mode .tracker-analytics-section-head {
     section.appendChild(toggle);
     section.appendChild(body);
 
-    toggle.addEventListener("click", () => {
+    toggle.addEventListener("click", function () {
       if (section.classList.contains("locked")) return;
       section.classList.toggle("collapsed");
     });
   }
 
   function openSection(id) {
-    const section = document.getElementById(id);
+    const section = qs(id);
     if (section) section.classList.remove("collapsed");
   }
 
   function collapseAll() {
-    document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
+    document.querySelectorAll(".section").forEach(function (s) {
+      s.classList.add("collapsed");
+    });
   }
 
   function toggleTheme() {
     const isDark = document.body.classList.toggle("dark-mode");
-    localStorage.setItem("tennis_engine_theme", isDark ? "dark" : "light");
+    localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
   }
 
   function applySavedTheme() {
-    if (localStorage.getItem("tennis_engine_theme") === "dark") {
+    if (localStorage.getItem(THEME_KEY) === "dark") {
       document.body.classList.add("dark-mode");
     }
   }
 
+  function setFetchStatus(text, state) {
+    const el = qs("fetchStatus");
+    if (!el) return;
+    el.className = state || "";
+    el.textContent = text;
+  }
+
+  function setHeaderError(active, title) {
+    const btn = qs("headerErrorBtn");
+    if (!btn) return;
+    btn.classList.toggle("active", !!active);
+    btn.title = title || "Show issues";
+  }
+
+  function resetEngineAlert() {
+    document.body.classList.remove("engine-alert");
+    setHeaderError(false, "Show issues");
+  }
+
+  function activateEngineAlert(title) {
+    document.body.classList.add("engine-alert");
+    setHeaderError(true, title || "Input or calculation issue");
+  }
+
+  function parseNumber(value, name) {
+    const cleaned = String(value || "").trim();
+    if (!cleaned) {
+      throw new Error(name + " is required.");
+    }
+    const num = Number(cleaned);
+    if (!Number.isFinite(num)) {
+      throw new Error(name + " must be a valid number.");
+    }
+    return num;
+  }
+
+  function parseNumericList(raw, name, minLen, maxLen, allowEmpty) {
+    const text = String(raw || "").trim();
+
+    if (!text) {
+      if (allowEmpty) return [];
+      throw new Error(name + " is required.");
+    }
+
+    const parts = text.split(",").map(function (v) {
+      return v.trim();
+    }).filter(Boolean);
+
+    if (!parts.length) {
+      if (allowEmpty) return [];
+      throw new Error(name + " is required.");
+    }
+
+    const numbers = parts.map(function (part) {
+      if (!/^-?\d+(\.\d+)?$/.test(part)) {
+        throw new Error(name + " must contain numbers only, comma-separated.");
+      }
+      const num = Number(part);
+      if (!Number.isFinite(num)) {
+        throw new Error(name + " contains an invalid number.");
+      }
+      return num;
+    });
+
+    if (typeof minLen === "number" && numbers.length < minLen) {
+      throw new Error(name + " must contain at least " + minLen + " values.");
+    }
+
+    if (typeof maxLen === "number" && numbers.length > maxLen) {
+      throw new Error(name + " must contain at most " + maxLen + " values.");
+    }
+
+    return numbers;
+  }
+
+  function mean(values) {
+    return values.reduce(function (sum, val) { return sum + val; }, 0) / values.length;
+  }
+
+  function stdDev(values) {
+    const avg = mean(values);
+    const variance = values.reduce(function (sum, val) {
+      const diff = val - avg;
+      return sum + (diff * diff);
+    }, 0) / values.length;
+    return Math.sqrt(variance);
+  }
+
+  function sign(value) {
+    if (value > 0) return 1;
+    if (value < 0) return -1;
+    return 0;
+  }
+
+  function round2(value) {
+    return Math.round(value * 100) / 100;
+  }
+
+  function fmt(value) {
+    if (value === null || value === undefined || Number.isNaN(value)) return "-";
+    return round2(value).toFixed(2);
+  }
+
+  function downgradeConfidence(confidence) {
+    if (confidence === "A") return "B";
+    if (confidence === "B") return "C";
+    if (confidence === "C") return "PASS";
+    return "PASS";
+  }
+
+  function getRawConfidence(edge) {
+    if (edge >= 2.5) return "A";
+    if (edge >= 1.5) return "B";
+    if (edge >= 1.0) return "C";
+    if (edge <= -2.5) return "A";
+    if (edge <= -1.5) return "B";
+    if (edge <= -1.0) return "C";
+    return "PASS";
+  }
+
+  function pickFromEdge(edge) {
+    if (Math.abs(edge) < 1.0) return "PASS";
+    return edge > 0 ? "OVER" : "UNDER";
+  }
+
+  function buildMarketResult(config) {
+    const baseProjection = (config.avgA + config.avgB) / 2;
+    const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
+    const h2hAvg = hasH2H ? mean(config.h2h) : null;
+    const projection = hasH2H ? ((baseProjection * 0.7) + (h2hAvg * 0.3)) : baseProjection;
+    const volatility = (config.stdA + config.stdB) / 2;
+    const edge = projection - config.line;
+
+    let pick = pickFromEdge(edge);
+    let confidence = getRawConfidence(edge);
+    const notes = [];
+    const filtersTriggered = [];
+
+    if (!hasH2H) {
+      filtersTriggered.push("missingH2H");
+      notes.push("No H2H support");
+      if (confidence !== "PASS") {
+        if (config.marketKey === "set1" && Math.abs(edge) < 1.5) {
+          confidence = downgradeConfidence(confidence);
+        }
+        if (config.marketKey === "match") {
+          confidence = downgradeConfidence(confidence);
+        }
+      }
+      if (confidence === "PASS" && Math.abs(edge) >= 1.0) {
+        pick = "PASS";
+      }
+    }
+
+    if (config.avgA < 18 && config.avgB < 18) {
+      filtersTriggered.push("blowout");
+      notes.push("Blowout risk / short-match profile");
+      if (pick === "OVER") {
+        confidence = downgradeConfidence(confidence);
+        if (confidence === "PASS") {
+          pick = "PASS";
+        }
+      }
+    }
+
+    if (volatility > 4) {
+      filtersTriggered.push("chaos");
+      notes.push("High volatility");
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") {
+        pick = "PASS";
+      }
+    }
+
+    if (volatility > 5) {
+      if (!filtersTriggered.includes("chaos")) filtersTriggered.push("chaos");
+      notes.push("Extreme volatility / skip zone");
+      confidence = "PASS";
+      pick = "PASS";
+    }
+
+    if (hasH2H) {
+      const recentDirection = sign(baseProjection - config.line);
+      const h2hDirection = sign(h2hAvg - config.line);
+
+      if (recentDirection !== 0 && h2hDirection !== 0 && recentDirection !== h2hDirection) {
+        filtersTriggered.push("fakeEdge");
+        notes.push("Recent and H2H conflict");
+        confidence = "PASS";
+        pick = "PASS";
+      }
+    }
+
+    if (Math.abs(edge) < 1.0) {
+      notes.push("Edge below minimum threshold");
+      confidence = "PASS";
+      pick = "PASS";
+    }
+
+    if (!notes.length) {
+      notes.push("Clean read");
+    }
+
+    return {
+      market: config.marketLabel,
+      marketKey: config.marketKey,
+      line: config.line,
+      avgA: config.avgA,
+      avgB: config.avgB,
+      baseProjection: baseProjection,
+      h2hAvg: h2hAvg,
+      projection: projection,
+      stdA: config.stdA,
+      stdB: config.stdB,
+      volatility: volatility,
+      edge: edge,
+      pick: pick,
+      confidence: confidence,
+      notes: notes,
+      filtersTriggered: filtersTriggered
+    };
+  }
+
+  function buildEngineResults() {
+    const tour = String(qs("leagueSelect").value || "").trim();
+    const playerAName = String(qs("teamAName").value || "").trim();
+    const playerBName = String(qs("teamBName").value || "").trim();
+
+    if (!tour) throw new Error("Tour is required.");
+    if (!playerAName) throw new Error("Player A name is required.");
+    if (!playerBName) throw new Error("Player B name is required.");
+
+    const matchLine = parseNumber(qs("ftMarket").value, "Match total line");
+    const set1Line = parseNumber(qs("h1Market").value, "Set 1 total line");
+
+    const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent match totals", 5, 10, false);
+    const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent match totals", 5, 10, false);
+    const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 totals", 5, 10, false);
+    const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 totals", 5, 10, false);
+
+    const matchH2H = qs("useFTH2H").checked
+      ? parseNumericList(qs("aFTH2H").value, "Match H2H totals", 0, 5, true)
+      : [];
+
+    const set1H2H = qs("use1HH2H").checked
+      ? parseNumericList(qs("a1HH2H").value, "Set 1 H2H totals", 0, 5, true)
+      : [];
+
+    const matchResult = buildMarketResult({
+      marketLabel: "Match Total Games",
+      marketKey: "match",
+      line: matchLine,
+      avgA: mean(matchRecentA),
+      avgB: mean(matchRecentB),
+      stdA: stdDev(matchRecentA),
+      stdB: stdDev(matchRecentB),
+      h2h: matchH2H
+    });
+
+    const set1Result = buildMarketResult({
+      marketLabel: "Set 1 Total Games",
+      marketKey: "set1",
+      line: set1Line,
+      avgA: mean(set1RecentA),
+      avgB: mean(set1RecentB),
+      stdA: stdDev(set1RecentA),
+      stdB: stdDev(set1RecentB),
+      h2h: set1H2H
+    });
+
+    return {
+      tour: tour,
+      playerAName: playerAName,
+      playerBName: playerBName,
+      matchRecentA: matchRecentA,
+      matchRecentB: matchRecentB,
+      set1RecentA: set1RecentA,
+      set1RecentB: set1RecentB,
+      matchResult: matchResult,
+      set1Result: set1Result
+    };
+  }
+
+  function getPickCellClass(pick) {
+    if (pick === "OVER") return "pred-over";
+    if (pick === "UNDER") return "pred-under";
+    return "pred-noplay";
+  }
+
+  function getConfidenceCellClass(confidence) {
+    if (confidence === "A") return "conf-a";
+    if (confidence === "B") return "conf-b";
+    if (confidence === "C") return "conf-c";
+    return "conf-none";
+  }
+
+  function renderResults(resultBundle) {
+    const results = qs("results");
+    const body = qs("resultsBody");
+    if (!results || !body) return;
+
+    const rows = [resultBundle.matchResult, resultBundle.set1Result].map(function (result) {
+      const noteText = result.notes.join(" | ");
+      return (
+        '<tr>' +
+          '<td class="result-market">' + result.market + '</td>' +
+          '<td>' + fmt(result.projection) + '</td>' +
+          '<td>' + fmt(result.line) + '</td>' +
+          '<td>' + (result.edge > 0 ? '+' : '') + fmt(result.edge) + '</td>' +
+          '<td class="' + getPickCellClass(result.pick) + '">' + result.pick + '</td>' +
+          '<td class="' + getConfidenceCellClass(result.confidence) + '">' + result.confidence + '</td>' +
+          '<td>' + noteText + '</td>' +
+        '</tr>'
+      );
+    }).join("");
+
+    body.innerHTML = rows;
+    results.classList.add("results-visible");
+  }
+
+  function updateIntel(resultBundle) {
+    const match = resultBundle.matchResult;
+    const set1 = resultBundle.set1Result;
+
+    qs("aFormIntel").value =
+      'Match avg ' + fmt(match.avgA) +
+      ' | Set1 avg ' + fmt(set1.avgA) +
+      ' | Vol ' + fmt(match.stdA) + '/' + fmt(set1.stdA);
+
+    qs("bFormIntel").value =
+      'Match avg ' + fmt(match.avgB) +
+      ' | Set1 avg ' + fmt(set1.avgB) +
+      ' | Vol ' + fmt(match.stdB) + '/' + fmt(set1.stdB);
+
+    qs("aSpreadIntel").value =
+      'Proj ' + fmt(match.projection) +
+      ' vs Line ' + fmt(match.line) +
+      ' | Edge ' + (match.edge > 0 ? '+' : '') + fmt(match.edge) +
+      ' | ' + match.pick + ' ' + match.confidence;
+
+    qs("bSpreadIntel").value =
+      'Proj ' + fmt(set1.projection) +
+      ' vs Line ' + fmt(set1.line) +
+      ' | Edge ' + (set1.edge > 0 ? '+' : '') + fmt(set1.edge) +
+      ' | ' + set1.pick + ' ' + set1.confidence;
+
+    const allNotes = Array.from(new Set(match.notes.concat(set1.notes)));
+    qs("aHitIntel").value = allNotes.join(" | ");
+
+    const preferred = pickBestResult(match, set1);
+    qs("bHitIntel").value =
+      preferred.market + ' -> ' +
+      preferred.pick + ' ' + preferred.confidence +
+      ' | Edge ' + (preferred.edge > 0 ? '+' : '') + fmt(preferred.edge);
+  }
+
+  function pickBestResult(match, set1) {
+    const ranked = [match, set1].slice().sort(function (a, b) {
+      const scoreA = confidenceScore(a.confidence, a.edge);
+      const scoreB = confidenceScore(b.confidence, b.edge);
+      return scoreB - scoreA;
+    });
+    return ranked[0];
+  }
+
+  function confidenceScore(confidence, edge) {
+    const map = { "A": 4, "B": 3, "C": 2, "PASS": 1 };
+    return (map[confidence] || 0) * 100 + Math.abs(edge);
+  }
+
+  function clearReadOnlyFields() {
+    ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel"].forEach(function (id) {
+      const el = qs(id);
+      if (el) el.value = "";
+    });
+  }
+
+  function showError(message) {
+    activateEngineAlert(message);
+    setFetchStatus(message, "err");
+    clearReadOnlyFields();
+
+    const results = qs("results");
+    const body = qs("resultsBody");
+    if (results && body) {
+      results.classList.add("results-visible");
+      body.innerHTML = '<tr><td colspan="7" class="empty-cell">' + message + '</td></tr>';
+    }
+  }
+
   function clearAll() {
-    document.querySelectorAll("input, select").forEach(el => {
+    document.querySelectorAll("input, select").forEach(function (el) {
       if (el.type === "checkbox") {
         el.checked = el.id === "useFTH2H" || el.id === "use1HH2H";
       } else if (el.tagName === "SELECT") {
@@ -2650,18 +3053,15 @@ body.dark-mode .tracker-analytics-section-head {
       }
     });
 
-    const fetchStatus = document.getElementById("fetchStatus");
-    if (fetchStatus) {
-      fetchStatus.className = "";
-      fetchStatus.textContent = "Auto-fetch layout only. Wiring comes later.";
-    }
-
-    const results = document.getElementById("results");
-    if (results) results.style.display = "none";
+    clearReadOnlyFields();
+    resetEngineAlert();
+    setFetchStatus("Auto-fetch layout only. Wiring comes after calculations.", "");
+    qs("resultsBody").innerHTML = '<tr><td colspan="7" class="empty-cell">Run the engine to populate results.</td></tr>';
+    qs("results").classList.remove("results-visible");
   }
 
   function openTrackerModal() {
-    const modal = document.getElementById("trackerModal");
+    const modal = qs("trackerModal");
     if (!modal) return;
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
@@ -2669,14 +3069,29 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function closeTrackerModal() {
-    const modal = document.getElementById("trackerModal");
+    const modal = qs("trackerModal");
     if (!modal) return;
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("tracker-open");
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
+  function runEngine() {
+    try {
+      resetEngineAlert();
+      const bundle = buildEngineResults();
+      renderResults(bundle);
+      updateIntel(bundle);
+      setFetchStatus(
+        bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.",
+        "ok"
+      );
+    } catch (err) {
+      showError(err.message || "Engine run failed.");
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
     applySavedTheme();
 
     document.querySelectorAll(".section").forEach(wrapSection);
@@ -2685,59 +3100,49 @@ body.dark-mode .tracker-analytics-section-head {
     openSection("espnSection");
     openSection("marketSection");
 
-    const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const themeToggleBtn = qs("themeToggleBtn");
     if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
 
-    const trackerToggleBtn = document.getElementById("trackerToggleBtn");
+    const trackerToggleBtn = qs("trackerToggleBtn");
     if (trackerToggleBtn) trackerToggleBtn.addEventListener("click", openTrackerModal);
 
-    const trackerCloseBtn = document.getElementById("trackerCloseBtn");
+    const trackerCloseBtn = qs("trackerCloseBtn");
     if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
 
-    const trackerModal = document.getElementById("trackerModal");
+    const trackerModal = qs("trackerModal");
     if (trackerModal) {
-      trackerModal.addEventListener("click", e => {
+      trackerModal.addEventListener("click", function (e) {
         if (e.target === trackerModal) closeTrackerModal();
       });
     }
 
-    const clearBtn = document.getElementById("clearBtn");
-    if (clearBtn) clearBtn.addEventListener("click", clearAll);
-
-    const fixturesTodayBtn = document.getElementById("fixturesTodayBtn");
-    const fixturesTomorrowBtn = document.getElementById("fixturesTomorrowBtn");
+    const fixturesTodayBtn = qs("fixturesTodayBtn");
+    const fixturesTomorrowBtn = qs("fixturesTomorrowBtn");
     if (fixturesTodayBtn && fixturesTomorrowBtn) {
-      fixturesTodayBtn.addEventListener("click", () => {
+      fixturesTodayBtn.addEventListener("click", function () {
         fixturesTodayBtn.classList.add("active");
         fixturesTomorrowBtn.classList.remove("active");
       });
-      fixturesTomorrowBtn.addEventListener("click", () => {
+      fixturesTomorrowBtn.addEventListener("click", function () {
         fixturesTomorrowBtn.classList.add("active");
         fixturesTodayBtn.classList.remove("active");
       });
     }
 
-    const headerErrorBtn = document.getElementById("headerErrorBtn");
-    if (headerErrorBtn) headerErrorBtn.classList.remove("active");
-
-    const fetchBtn = document.getElementById("fetchBtn");
+    const fetchBtn = qs("fetchBtn");
     if (fetchBtn) {
-      fetchBtn.addEventListener("click", () => {
-        const fetchStatus = document.getElementById("fetchStatus");
-        if (fetchStatus) {
-          fetchStatus.className = "loading";
-          fetchStatus.textContent = "Design shell only. Auto-fetch logic comes after calculations.";
-        }
+      fetchBtn.addEventListener("click", function () {
+        setFetchStatus("Design shell only. Auto-fetch logic comes after calculations.", "loading");
       });
     }
 
-    const runBtn = document.getElementById("runBtn");
-    if (runBtn) {
-      runBtn.addEventListener("click", () => {
-        const results = document.getElementById("results");
-        if (results) results.style.display = "table";
-      });
-    }
+    const runBtn = qs("runBtn");
+    if (runBtn) runBtn.addEventListener("click", runEngine);
+
+    const clearBtn = qs("clearBtn");
+    if (clearBtn) clearBtn.addEventListener("click", clearAll);
+
+    setHeaderError(false, "Show issues");
   });
 })();
 </script>
