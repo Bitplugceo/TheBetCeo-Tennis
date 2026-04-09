@@ -2672,7 +2672,7 @@ body.dark-mode .tracker-analytics-section-head {
     section.appendChild(body);
 
     toggle.addEventListener("click", function () {
-      accordionToggle(section.id);
+      section.classList.toggle("collapsed");
     });
   }
 
@@ -2721,11 +2721,8 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function updateSectionLocks() {
-    const hasTour = !!String(qs("leagueSelect") && qs("leagueSelect").value || "").trim();
-
-    ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"].forEach(function (id) {
-      if (hasTour) unlockSection(id);
-      else lockSection(id);
+    ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"].forEach(function (id) {
+      unlockSection(id);
     });
   }
 
@@ -3597,21 +3594,21 @@ body.dark-mode .tracker-analytics-section-head {
     return chunks;
   }
 
-  function getAdaptiveHistoryWindows() {
-    return [
-      { startOffset: 0, endOffset: 120 },
-      { startOffset: 121, endOffset: 300 },
-      { startOffset: 301, endOffset: 600 },
-      { startOffset: 601, endOffset: 1000 },
-      { startOffset: 1001, endOffset: 1600 }
-    ];
-  }
+  function getChunkedHistoryRanges(totalDays, chunkSize) {
+    const chunks = [];
+    const end = new Date();
 
-  function offsetsToDateQuery(startOffset, endOffset) {
-    const now = new Date();
-    const older = addDays(now, -endOffset);
-    const newer = addDays(now, -startOffset);
-    return dateKeyFromDate(older) + "-" + dateKeyFromDate(newer);
+    for (let startOffset = 0; startOffset < totalDays; startOffset += chunkSize) {
+      const chunkEndOffset = startOffset;
+      const chunkStartOffset = Math.min(totalDays - 1, startOffset + chunkSize - 1);
+
+      const rangeEnd = addDays(end, -chunkEndOffset);
+      const rangeStart = addDays(end, -chunkStartOffset);
+
+      chunks.push(dateKeyFromDate(rangeStart) + "-" + dateKeyFromDate(rangeEnd));
+    }
+
+    return chunks;
   }
 
   function dedupeRecords(records) {
@@ -3626,29 +3623,19 @@ body.dark-mode .tracker-analytics-section-head {
     });
   }
 
-  async function fetchRelevantHistory(league, playerAName, playerBName, seedPlayerAId, seedPlayerBId) {
-    const cacheKey = [
-      String(league || "").trim().toUpperCase(),
-      normalizeName(playerAName),
-      normalizeName(playerBName),
-      seedPlayerAId || "",
-      seedPlayerBId || ""
-    ].join("|");
-
-    if (historyPoolCache.has(cacheKey)) {
-      return historyPoolCache.get(cacheKey);
+  async function fetchHistoryPool(league) {
+    const key = String(league || "").trim().toUpperCase();
+    if (historyPoolCache.has(key)) {
+      return historyPoolCache.get(key);
     }
 
     const promise = (async function () {
-      const windows = getAdaptiveHistoryWindows();
+      const chunks = getChunkedHistoryRanges(2160, 120);
       const all = [];
-      let resolvedA = seedPlayerAId || null;
-      let resolvedB = seedPlayerBId || null;
 
-      for (let i = 0; i < windows.length; i += 1) {
-        const window = windows[i];
-        const datesQuery = offsetsToDateQuery(window.startOffset, window.endOffset);
-        const payload = await fetchTennisScoreboard(league, datesQuery);
+      for (let i = 0; i < chunks.length; i += 1) {
+        const datesQuery = chunks[i];
+        const payload = await fetchTennisScoreboard(key, datesQuery);
         const records = extractCompetitionRecords(payload).filter(function (record) {
           return record.status.completed &&
             Number.isFinite(record.totalGames) &&
@@ -3660,43 +3647,13 @@ body.dark-mode .tracker-analytics-section-head {
         });
 
         all.push.apply(all, records);
-        const deduped = dedupeRecords(all);
-
-        if (!resolvedA) {
-          const candidateA = findPlayerCandidatesByName(playerAName, deduped);
-          if (candidateA) resolvedA = candidateA.id;
-        }
-
-        if (!resolvedB) {
-          const candidateB = findPlayerCandidatesByName(playerBName, deduped);
-          if (candidateB) resolvedB = candidateB.id;
-        }
-
-        if (resolvedA && resolvedB) {
-          const recentA = buildRecentSeries(deduped, resolvedA);
-          const recentB = buildRecentSeries(deduped, resolvedB);
-          const h2h = buildH2HSeries(deduped, resolvedA, resolvedB);
-
-          if (recentA.length >= 10 && recentB.length >= 10 && h2h.length >= 3) {
-            return {
-              records: deduped,
-              playerAId: resolvedA,
-              playerBId: resolvedB
-            };
-          }
-        }
-
-        await sleep(40);
+        await sleep(50);
       }
 
-      return {
-        records: dedupeRecords(all),
-        playerAId: resolvedA,
-        playerBId: resolvedB
-      };
+      return dedupeRecords(all);
     })();
 
-    historyPoolCache.set(cacheKey, promise);
+    historyPoolCache.set(key, promise);
     return promise;
   }
 
@@ -3816,24 +3773,16 @@ body.dark-mode .tracker-analytics-section-head {
       return;
     }
 
-    setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
+    setFetchStatus("Fetching recent tennis scorelines from ESPN. Deep H2H search may take a little longer...", "loading");
 
     try {
-      const historyBundle = await fetchRelevantHistory(
-        league,
-        playerAName,
-        playerBName,
-        selectedPlayerIds.A,
-        selectedPlayerIds.B
-      );
-
-      const records = historyBundle.records || [];
+      const records = await fetchHistoryPool(league);
       if (!records.length) {
         throw new Error("No completed singles results were returned from ESPN.");
       }
 
-      let playerAId = historyBundle.playerAId || selectedPlayerIds.A;
-      let playerBId = historyBundle.playerBId || selectedPlayerIds.B;
+      let playerAId = selectedPlayerIds.A;
+      let playerBId = selectedPlayerIds.B;
 
       if (!playerAId) {
         const candidateA = findPlayerCandidatesByName(playerAName, records);
@@ -3915,7 +3864,9 @@ body.dark-mode .tracker-analytics-section-head {
       ];
 
       setFetchStatus(statusParts.join(" • "), "ok");
-      accordionToggle("teamASection");
+      openSection("teamASection");
+      openSection("teamBSection");
+      openSection("h2hSection");
     } catch (err) {
       setFetchStatus(err.message || "Fetch failed.", "err");
     }
@@ -3928,6 +3879,12 @@ body.dark-mode .tracker-analytics-section-head {
     collapseAll();
     updateSectionLocks();
     openSection("marketSection");
+    closeSection("leagueSection");
+    closeSection("espnSection");
+    closeSection("teamASection");
+    closeSection("teamBSection");
+    closeSection("h2hSection");
+    closeSection("intelSection");
 
     hideResults();
     clearHeaderError();
@@ -3974,7 +3931,7 @@ body.dark-mode .tracker-analytics-section-head {
         updateSectionLocks();
 
         if (leagueSelect.value) {
-          accordionToggle("espnSection");
+          openSection("espnSection");
           loadFixtures(currentFixtureOffset);
         } else {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
