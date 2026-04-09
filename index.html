@@ -2747,6 +2747,9 @@ body.dark-mode .tracker-analytics-section-head {
   const THEME_KEY = "tennis_engine_theme";
   const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
   const TRACKER_STORAGE_KEY = "The_Bet_Ceo_Key2";
+  const TRACKER_API_URL = String(WORKER_URL || "").replace(/\/+$/, "") + "/tracker-state";
+  const TRACKER_CACHE_KEY = TRACKER_STORAGE_KEY + "_cache_v1";
+  const TRACKER_NETWORK_TIMEOUT_MS = 12000;
   const selectedPlayerIds = { A: null, B: null };
   const fixtureRecordMap = new Map();
   let currentFixtureOffset = 0;
@@ -2754,6 +2757,9 @@ body.dark-mode .tracker-analytics-section-head {
   let historyPoolCache = new Map();
   let latestFetchedContext = null;
   let latestRunBundle = null;
+  let g_trackerState = { items: [], updatedAt: null };
+  let g_trackerHydratePromise = null;
+  let g_trackerSyncPromise = Promise.resolve();
 
   function qs(id) {
     return document.getElementById(id);
@@ -3771,18 +3777,263 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
 
-  function getTrackerItems() {
+  function normalizeTrackerItem(item) {
+    const base = item && typeof item === "object" ? item : {};
+    return Object.assign({
+      id: "",
+      savedAt: null,
+      match: "",
+      playerAName: "",
+      playerBName: "",
+      tour: "",
+      market: "",
+      line: "",
+      range: "",
+      projection: null,
+      edge: null,
+      pick: "",
+      rawPick: "",
+      confidence: "",
+      status: "PENDING",
+      isLock: false,
+      notes: "",
+      actualTotal: null,
+      settledAt: null,
+      archived: false,
+      archivedAt: null
+    }, base);
+  }
+
+  function normalizeTrackerState(raw) {
+    const source = Array.isArray(raw) ? { items: raw } : (raw && typeof raw === "object" ? raw : {});
+    const items = Array.isArray(source.items) ? source.items.map(normalizeTrackerItem) : [];
+    items.sort(function (a, b) {
+      return (Date.parse(b.savedAt || "") || 0) - (Date.parse(a.savedAt || "") || 0);
+    });
+    return {
+      items: items,
+      updatedAt: source.updatedAt || null
+    };
+  }
+
+  function getTrackerHeaders(includeJson) {
+    const headers = { "X-Tracker-User": TRACKER_STORAGE_KEY };
+    if (includeJson) headers["Content-Type"] = "application/json";
+    return headers;
+  }
+
+  function loadTrackerStateFromLocal() {
     try {
-      const raw = localStorage.getItem(TRACKER_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
+      const raw = localStorage.getItem(TRACKER_CACHE_KEY) || localStorage.getItem(TRACKER_STORAGE_KEY) || "";
+      if (!raw) return normalizeTrackerState({});
+      return normalizeTrackerState(JSON.parse(raw));
     } catch (err) {
-      return [];
+      return normalizeTrackerState({});
     }
   }
 
+  function saveTrackerStateToLocal(state) {
+    const normalized = normalizeTrackerState(state);
+    g_trackerState = normalized;
+    try {
+      localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(normalized));
+      localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(normalized.items));
+    } catch (err) {
+    }
+    return normalized;
+  }
+
+  function trackerItemMergeKey(item) {
+    const savedDay = item && item.savedAt ? String(item.savedAt).slice(0, 10) : "";
+    return [
+      String(item && item.match || "").trim(),
+      String(item && item.market || "").trim(),
+      String(item && item.line || "").trim(),
+      String(item && item.pick || "").trim(),
+      savedDay
+    ].join("|");
+  }
+
+  function trackerItemScore(item) {
+    const status = String(item && item.status || "PENDING").toUpperCase();
+    const settledScore = status === "PENDING" ? 0 : 50;
+    const archivedScore = item && item.archived ? 20 : 0;
+    const actualScore = item && item.actualTotal != null ? 10 : 0;
+    const lockScore = item && item.isLock ? 1 : 0;
+    const timeScore = Date.parse(item && (item.archivedAt || item.settledAt || item.savedAt) || "") || 0;
+    return settledScore + archivedScore + actualScore + lockScore + (timeScore / 1000000000000000);
+  }
+
+  function mergeTrackerStates(localState, serverState) {
+    const local = normalizeTrackerState(localState);
+    const server = normalizeTrackerState(serverState);
+    const map = new Map();
+
+    local.items.forEach(function (item) {
+      map.set(trackerItemMergeKey(item), normalizeTrackerItem(item));
+    });
+
+    server.items.forEach(function (item) {
+      const key = trackerItemMergeKey(item);
+      const existing = map.get(key);
+      const candidate = normalizeTrackerItem(item);
+      if (!existing || trackerItemScore(candidate) >= trackerItemScore(existing)) {
+        map.set(key, candidate);
+      }
+    });
+
+    return normalizeTrackerState({
+      items: Array.from(map.values()),
+      updatedAt: new Date(Math.max(
+        Date.parse(local.updatedAt || "") || 0,
+        Date.parse(server.updatedAt || "") || 0,
+        Date.now()
+      )).toISOString()
+    });
+  }
+
+  function withTrackerCacheBust(url) {
+    try {
+      const u = new URL(url, window.location.href);
+      u.searchParams.set("_ts", String(Date.now()));
+      return u.toString();
+    } catch (err) {
+      const joiner = String(url).includes("?") ? "&" : "?";
+      return String(url) + joiner + "_ts=" + Date.now();
+    }
+  }
+
+  async function fetchTrackerJson(url, options, timeoutMs) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(function () {
+      ctrl.abort();
+    }, timeoutMs || TRACKER_NETWORK_TIMEOUT_MS);
+
+    try {
+      const method = String(options && options.method || "GET").toUpperCase();
+      const finalUrl = method === "GET" ? withTrackerCacheBust(url) : url;
+      const res = await fetch(finalUrl, Object.assign({}, options || {}, {
+        cache: "no-store",
+        signal: ctrl.signal
+      }));
+      const text = await res.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (err) {
+        if (res.ok) throw new Error("Tracker returned invalid JSON");
+      }
+      return { res: res, data: data };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function pushTrackerStateToServer(stateSnapshot) {
+    let payloadState = normalizeTrackerState(stateSnapshot);
+
+    try {
+      const pre = await fetchTrackerJson(TRACKER_API_URL, {
+        method: "GET",
+        headers: getTrackerHeaders(false)
+      });
+
+      if (pre.res.ok && pre.data && pre.data.ok && pre.data.state) {
+        payloadState = mergeTrackerStates(payloadState, pre.data.state);
+      }
+    } catch (err) {
+    }
+
+    payloadState.updatedAt = new Date().toISOString();
+
+    const pushed = await fetchTrackerJson(TRACKER_API_URL, {
+      method: "POST",
+      headers: getTrackerHeaders(true),
+      body: JSON.stringify(payloadState)
+    });
+
+    if (!pushed.res.ok) {
+      throw new Error("Tracker POST failed (" + pushed.res.status + ")");
+    }
+
+    if (pushed.data && pushed.data.ok && pushed.data.state) {
+      return normalizeTrackerState(pushed.data.state);
+    }
+
+    return payloadState;
+  }
+
+  function queueTrackerSync(stateSnapshot) {
+    const snapshot = normalizeTrackerState(stateSnapshot);
+
+    g_trackerSyncPromise = g_trackerSyncPromise.then(async function () {
+      try {
+        const merged = await pushTrackerStateToServer(snapshot);
+        saveTrackerStateToLocal(merged);
+        return merged;
+      } catch (err) {
+        return snapshot;
+      }
+    });
+
+    return g_trackerSyncPromise;
+  }
+
+  async function hydrateTrackerState(force) {
+    if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
+
+    g_trackerHydratePromise = (async function () {
+      const localState = loadTrackerStateFromLocal();
+      saveTrackerStateToLocal(localState);
+
+      try {
+        const pulled = await fetchTrackerJson(TRACKER_API_URL, {
+          method: "GET",
+          headers: getTrackerHeaders(false)
+        });
+
+        if (!pulled.res.ok || !pulled.data || !pulled.data.ok || !pulled.data.state) {
+          throw new Error("Tracker GET failed");
+        }
+
+        const serverState = normalizeTrackerState(pulled.data.state);
+        const merged = mergeTrackerStates(localState, serverState);
+        saveTrackerStateToLocal(merged);
+
+        const localHasItems = localState.items.length > 0;
+        const serverHasItems = serverState.items.length > 0;
+
+        if (localHasItems && (!serverHasItems || merged.items.length > serverState.items.length)) {
+          try {
+            const pushed = await pushTrackerStateToServer(merged);
+            saveTrackerStateToLocal(pushed);
+          } catch (err) {
+          }
+        }
+      } catch (err) {
+      }
+
+      updateTrackerUI();
+      g_trackerHydratePromise = null;
+      return g_trackerState;
+    })();
+
+    return g_trackerHydratePromise;
+  }
+
+  function getTrackerItems() {
+    if (!g_trackerState || !Array.isArray(g_trackerState.items)) {
+      g_trackerState = loadTrackerStateFromLocal();
+    }
+    return g_trackerState.items.slice();
+  }
+
   function saveTrackerItems(items) {
-    localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(items || []));
+    const normalized = saveTrackerStateToLocal({
+      items: Array.isArray(items) ? items : [],
+      updatedAt: new Date().toISOString()
+    });
+    queueTrackerSync(normalized);
   }
 
   function getTrackerEdgeBucket(edge) {
@@ -3940,6 +4191,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   async function autoSettleTracker(isSilent) {
+    await hydrateTrackerState(false);
     const items = getTrackerItems();
     if (!items.length) {
       if (!isSilent) setRunStatus("No tracked picks yet.", "ok");
@@ -4218,7 +4470,10 @@ body.dark-mode .tracker-analytics-section-head {
     const modal = qs("trackerModal");
     if (!modal) return;
     updateTrackerUI();
-    autoSettleTracker(true);
+    hydrateTrackerState(true).then(function () {
+      updateTrackerUI();
+      autoSettleTracker(true);
+    });
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("tracker-open");
@@ -5199,9 +5454,15 @@ document.addEventListener("DOMContentLoaded", function () {
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
 
     updateTrackerUI();
-    autoSettleTracker(true);
-    setInterval(function () {
+    hydrateTrackerState(true).then(function () {
+      updateTrackerUI();
       autoSettleTracker(true);
+    });
+    setInterval(function () {
+      hydrateTrackerState(true).then(function () {
+        updateTrackerUI();
+        autoSettleTracker(true);
+      });
     }, 300000);
     setTrackerAnalyticsView(false);
   });
