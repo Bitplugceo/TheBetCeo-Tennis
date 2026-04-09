@@ -2,96 +2,184 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+  />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="TheBetCeo Tennis" />
+  <meta name="apple-mobile-web-app-title" content="Tennis Engine" />
   <meta name="theme-color" content="#d4af37" />
-  <title>TheBetCeo Tennis Engine</title>
+  <title>Tennis Prediction Engine</title>
+
   <style>
-    :root {
-      --bg: #efefef;
-      --text: #1f2430;
-      --panel: #ffffff;
-      --panel-border: #dedede;
-      --panel-soft: #f6f7f9;
-      --panel-soft-2: #eceff3;
-      --input-bg: #ffffff;
-      --input-border: #cfd4da;
-      --table-head: #3a404c;
-      --muted: #7b8088;
-      --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      --section-toggle-text: #20242c;
-      --section-toggle-icon: #d91f26;
-      --table-border: #dfe2e7;
-      --tracker-head-bg: #3a404c;
-      --tracker-head-text: #ffffff;
-      --success: #2f8f4a;
-      --warning: #d98a00;
-      --danger: #c91920;
-      --accent: #d91f26;
+
+        /* ── CSS custom properties ── */
+    /*
+══════════════════════════════════════════════════════
+AUDIT FIREWALL — LOCKED UI / UX SECTION
+══════════════════════════════════════════════════════
+
+THIS BLOCK IS NOT OPEN FOR DESIGN REVIEW.
+
+A COMPLIANT AUDIT MUST TREAT THE FOLLOWING AS CLOSED:
+- square / sharp UI
+- compact spacing and dense layout
+- current dark/light palette
+- current header layout and icon placement
+- right-docked tracker modal
+- current table/chip/panel styling
+- compact control sizing
+- current section collapse/lock behavior
+- current autocomplete structure
+- current tracker modal scroll-lock behavior
+- current mobile-first safe-area behavior
+
+FORBIDDEN AUDIT OUTPUT INSIDE THIS LOCKED UI AREA:
+- redesign suggestions
+- modernization suggestions
+- “improve UX” suggestions
+- spacing increase suggestions
+- icon size suggestions
+- border-radius suggestions
+- color suggestions
+- modal placement suggestions
+- typography/style preference suggestions
+- “cleaner look” / “better layout” / “more modern” comments
+- accessibility/style comments unless a real current usability failure is proven
+- maintainability/refactor comments about this locked visual layer unless a real break is proven
+
+THE ONLY VALID REASONS TO FLAG ANYTHING IN THIS LOCKED UI AREA ARE:
+1) runtime break
+2) unreadable state
+3) clipped/hidden critical content
+4) impossible interaction
+5) broken responsiveness
+6) contradiction with the stated locked behavior
+
+CRITICAL RULE:
+If no concrete current break is proven, this section must be ignored completely.
+Mentioning locked UI by preference, taste, best-practice, or alternative style is a failed audit.
+
+DEFAULT AUDIT ACTION:
+LEAVE LOCKED UI / UX ALONE.
+*/
+:root {
+  --bg: #efefef;
+  --text: #1f2430;
+  --panel: #ffffff;
+  --panel-border: #dedede;
+  --panel-soft: #f6f7f9;
+  --panel-soft-2: #eceff3;
+  --input-bg: #ffffff;
+  --input-border: #cfd4da;
+  --table-head: #3a404c;
+  --muted: #7b8088;
+  --chip-text: #2a2f38;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    --section-toggle-text: #20242c;
+  --section-toggle-icon: #d91f26;
+  --injury-title: #20242c;
+  --table-border: #dfe2e7;
+  --tracker-head-bg: #3a404c;
+  --tracker-head-text: #ffffff;
+  --tracker-summary-bg: #f6f7f9;
+  --tracker-chip-bg: #f6f7f9;
+  --tracker-chip-border: #dfe2e7;
+  --tracker-strong: #20242c;
+  --tracker-subtext: #5a5f6b;
+  --tracker-mini-head-bg: #eceff3;
+  --tracker-mini-head-text: #2a2f38;
+}
+body.tracker-open {
+  position: fixed;
+  width: 100%;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+}
+body.dark-mode {
+  --bg: #111;
+  --text: #d4af37;
+  --panel: #1a1a1a;
+  --panel-border: #333;
+  --panel-soft: #151515;
+  --panel-soft-2: #111;
+  --input-bg: #222;
+  --input-border: #444;
+  --table-head: #111;
+  --muted: #9aa0a8;
+  --chip-text: #d4af37;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+    --section-toggle-text: #d4af37;
+  --section-toggle-icon: #d4af37;
+  --injury-title: #aac;
+  --table-border: #333;
+  --tracker-head-bg: #111;
+  --tracker-head-text: #d4af37;
+  --tracker-summary-bg: #151515;
+  --tracker-chip-bg: #151515;
+  --tracker-chip-border: #333;
+  --tracker-strong: #d4af37;
+  --tracker-subtext: #c3aa55;
+  --tracker-mini-head-bg: #111;
+  --tracker-mini-head-text: #d4af37;
+}
+
+    /* ── Zero border-radius on all UI controls ── */
+    button,
+    input,
+    select,
+    .section,
+    table,
+    th,
+    td,
+    .tracker-panel,
+    .fixture-day,
+    .autocomplete-list,
+    .league-box {
+      border-radius: 0;
     }
 
-    body.dark-mode {
-      --bg: #111;
-      --text: #d4af37;
-      --panel: #1a1a1a;
-      --panel-border: #333;
-      --panel-soft: #151515;
-      --panel-soft-2: #111;
-      --input-bg: #222;
-      --input-border: #444;
-      --table-head: #111;
-      --muted: #9aa0a8;
-      --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
-      --section-toggle-text: #d4af37;
-      --section-toggle-icon: #d4af37;
-      --table-border: #333;
-      --tracker-head-bg: #111;
-      --tracker-head-text: #d4af37;
-      --success: #49d45f;
-      --warning: #ffcf73;
-      --danger: #ff5c61;
-      --accent: #d4af37;
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html { -webkit-text-size-adjust: 100%; }
-    body {
-      margin: 0;
-      padding: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    html {
       -webkit-text-size-adjust: 100%;
     }
-    body.tracker-open {
-      position: fixed;
-      width: 100%;
-      overflow: hidden;
-    }
-    button, input, select, .section, table, th, td, .tracker-panel { border-radius: 0; }
 
-    .app-header {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin: 0 0 10px 0;
-      padding-top: max(10px, env(safe-area-inset-top));
-      padding-left: max(14px, env(safe-area-inset-left));
-      padding-right: max(14px, env(safe-area-inset-right));
-      padding-bottom: 10px;
-      background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #b91520 100%);
-      color: #fff;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
-    }
+    body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+   .app-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 10px 0;
+  padding-top: max(10px, env(safe-area-inset-top));
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  padding-bottom: 10px;
+  background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #b91520 100%);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+
     .brand-name {
       font-size: 15px;
       font-weight: 800;
       letter-spacing: 0.3px;
       color: #fff;
     }
+
     .brand-right {
       display: flex;
       align-items: center;
@@ -102,33 +190,58 @@
       color: rgba(255, 255, 255, 0.85);
       text-transform: uppercase;
     }
-    .theme-toggle {
-      background: none !important;
-      border: none !important;
-      box-shadow: none !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      font-size: 11px !important;
-      font-weight: 700 !important;
-      letter-spacing: 1.5px !important;
-      color: rgba(255, 255, 255, 0.85) !important;
-      text-transform: uppercase !important;
-      cursor: pointer !important;
-    }
 
+  .theme-toggle {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.5px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+}
+
+.header-error-btn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.header-error-btn.active {
+  opacity: 1;
+  pointer-events: auto;
+}
     .wrapper {
       max-width: 760px;
       margin: 10px auto;
-      padding: 0 10px 24px;
+      padding: 0 10px;
     }
-    .section {
-      border: 1px solid var(--panel-border);
-      background: var(--panel);
-      margin: 8px auto;
-      box-shadow: var(--shadow);
-      color: var(--text);
-    }
-    .section-toggle {
+
+
+   .section {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  margin: 8px auto;
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+       .section-toggle {
       width: 100%;
       background: none !important;
       border: none;
@@ -141,102 +254,111 @@
       text-align: left;
       cursor: pointer;
     }
-    .section-toggle .toggle-title {
+
+       .section-toggle .toggle-title {
       display: block;
       font-weight: 800;
       color: var(--section-toggle-text) !important;
     }
-    .section-toggle .toggle-meta {
-      display: block;
-      margin-top: 2px;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--muted);
-      line-height: 1.35;
-    }
+
     .section-toggle .toggle-icon {
       font-size: 15px;
       line-height: 1;
       transition: transform 0.2s ease;
       color: var(--section-toggle-icon) !important;
     }
-    .section.collapsed .section-body { display: none; }
-    .section.collapsed .section-toggle .toggle-icon { transform: rotate(-90deg); }
-    .section-body { padding: 0 10px 10px; }
 
-    h3 { margin: 0; font-size: 16px; font-weight: 800; }
-    label {
-      display: block;
-      font-size: 12px;
-      margin-bottom: 4px;
-      color: var(--text);
-      font-weight: 600;
+    .section-body {
+      padding: 0 10px 10px;
+      margin-top: 0;
     }
-    label span, small, .muted-note { color: var(--muted); }
 
-    input, select {
-      display: block;
+    .section.collapsed .section-body {
+      display: none;
+    }
+
+    .section.collapsed .section-toggle .toggle-icon {
+      transform: rotate(-90deg);
+    }
+
+    .section.locked .section-body {
+      display: none !important;
+    }
+
+    .section.locked .section-toggle {
+      opacity: 0.4 !important;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .section.locked .section-toggle .toggle-icon {
+      display: none;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+h3 span,
+label span,
+small {
+  color: var(--muted);
+}
+
+    input,
+    .league-box,
+    .autocomplete-wrap {
       width: 100%;
-      max-width: 100%;
-      padding: 8px 8px;
+      max-width: 260px;
+      box-sizing: border-box;
+    }
+
+input,
+    .league-box {
+      display: block;
+      padding: 6px 8px;
       font-size: 12px;
       background: var(--input-bg);
       color: var(--text);
       border: 1px solid var(--input-border);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       appearance: none;
       -webkit-appearance: none;
       -moz-appearance: none;
     }
-    input::placeholder { color: var(--muted); opacity: 0.8; }
-    input:focus, select:focus {
+    input::placeholder {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+    input:focus,
+    select:focus {
       outline: none;
       border-color: #4aa346;
       box-shadow: 0 0 0 2px rgba(74, 163, 70, 0.12);
     }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-    @media (min-width: 700px) {
-      .grid-2 { grid-template-columns: 1fr 1fr; }
-    }
 
-    .hero-note {
-      margin: 0 0 10px 0;
-      padding: 10px;
-      border: 1px solid var(--panel-border);
-      background: var(--panel-soft);
-      font-size: 11px;
-      line-height: 1.5;
-      font-weight: 700;
-      color: var(--text);
-      box-shadow: var(--shadow);
-    }
-    .sub-note {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--muted);
-      line-height: 1.4;
-      margin: -2px 0 8px 0;
-    }
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin: 4px 0 10px;
-    }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 6px 8px;
-      border: 1px solid var(--table-border);
-      background: var(--panel-soft);
-      color: var(--text);
-      font-size: 10px;
-      font-weight: 800;
+    input[type="checkbox"] {
+      width: 12px !important;
+      height: 12px !important;
+      min-width: 12px !important;
+      min-height: 12px !important;
+      max-width: 12px !important;
+      max-height: 12px !important;
+      margin-right: 6px !important;
+      vertical-align: middle !important;
+      appearance: checkbox !important;
+      -webkit-appearance: checkbox !important;
     }
 
     button {
@@ -248,27 +370,195 @@
       border: none;
       cursor: pointer;
     }
-    button:hover { opacity: 0.96; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    button:hover {
+      opacity: 0.95;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .fetch-btn {
+      background: #49a443 !important;
+      color: #fff !important;
+      padding: 6px 12px !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      border: none !important;
+      cursor: pointer;
+      margin-top: 4px;
+      box-shadow: 0 2px 6px rgba(73, 164, 67, 0.2);
+    }
+
+    .fixture-toolbar {
+      display: flex;
+      gap: 8px;
+      margin: 10px 0 8px;
+      flex-wrap: wrap;
+    }
+
+    .fixture-day {
+      background: #eceff3 !important;
+      color: #2a2f38 !important;
+      border: 1px solid #d7dbe1 !important;
+      padding: 6px 10px !important;
+      font-size: 12px !important;
+      font-weight: 700;
+      margin: 0;
+      min-width: 90px !important;
+      text-align: center;
+    }
+
+    .fixture-day.active {
+      background: #49a443 !important;
+      color: #fff !important;
+      border-color: #49a443 !important;
+    }
+
+    .autocomplete-wrap {
+      position: relative;
+      margin-bottom: 4px;
+    }
+
+    .autocomplete-wrap input {
+      width: 100%;
+      margin-bottom: 0;
+      box-sizing: border-box;
+    }
+
+   .autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--panel);
+  border: 1px solid var(--input-border);
+  border-top: none;
+  z-index: 999;
+  max-height: 180px;
+  overflow-y: auto;
+  display: none;
+}
+
+  .autocomplete-list div {
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+    .autocomplete-list div:hover,
+    .autocomplete-list div.active {
+      background: #49a443 !important;
+      color: #fff !important;
+    }
+
+   .autocomplete-list div.group-label {
+  color: var(--muted) !important;
+  font-size: 10px;
+  padding: 4px 8px;
+  cursor: default;
+  background: var(--panel-soft) !important;
+  pointer-events: none;
+}
+
+    .autocomplete-list strong {
+      color: inherit;
+      font-weight: 800;
+      text-decoration: underline;
+    }
+
+   .injury-box {
+  background: var(--panel-soft);
+  border: 1px solid var(--panel-border);
+  padding: 6px;
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.8;
+  display: none;
+}
+
+    .injury-box .inj-title {
+      color: var(--injury-title);
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+
+    .inj-out {
+      color: #d92d2a;
+    }
+
+    .inj-dtd {
+      color: #d98a00;
+    }
+
+    #fetchStatus {
+      font-size: 10px;
+      margin-top: 6px;
+      min-height: 16px;
+    }
+
+    #fetchStatus.ok {
+      color: #2f8f4a;
+    }
+
+    #fetchStatus.err {
+      color: #d92d2a;
+    }
+
+    #fetchStatus.loading {
+      color: #d98a00;
+    }
+
+    .autofill-indicator {
+      font-size: 10px;
+      color: #2f8f4a;
+      display: none;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 10px;
+      height: 8px;
+      border: 2px solid #4aa346;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
     .actions {
       text-align: center;
       padding-bottom: 20px;
     }
-    #runBtn, #clearBtn {
+
+    #runBtn,
+    #clearBtn {
       opacity: 1 !important;
       border: none !important;
       cursor: pointer !important;
-      padding: 7px 16px !important;
+      padding: 5px 14px !important;
       font-size: 12px !important;
       font-weight: 700 !important;
       min-width: 0 !important;
       width: auto !important;
     }
+
     #runBtn {
       background: #3a9c35 !important;
       color: #fff !important;
       box-shadow: 0 2px 8px rgba(58, 156, 53, 0.35) !important;
     }
+
     #clearBtn {
       background: #3a404c !important;
       color: #fff !important;
@@ -279,907 +569,2210 @@
       overflow-x: auto;
       margin: 0 10px 10px;
     }
+
     table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 12px;
-      background: var(--panel) !important;
-    }
-    th, td {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 12px;
+  background: var(--panel) !important;
+}
+
+        th,
+    td {
       border: 1px solid var(--table-border);
       padding: 8px 6px;
       text-align: center;
     }
+
     th {
-      background: var(--table-head) !important;
-      color: #fff !important;
-      font-weight: 700;
-    }
+  background: var(--table-head) !important;
+  color: #fff !important;
+  font-weight: 700;
+}
+
     td {
-      background: var(--panel) !important;
-      color: var(--text) !important;
-      font-weight: 600 !important;
-      vertical-align: top;
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  font-weight: 600 !important;
+}
+
+    .pred-over {
+      background: #3a9c35 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
     }
-    .pred-over { background: #3a9c35 !important; color: #fff !important; font-weight: 800 !important; }
-    .pred-under { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
-    .pred-pass { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
-    .conf-a { background: #2f8f4a !important; color: #fff !important; font-weight: 800 !important; }
-    .conf-b { background: #4aa346 !important; color: #fff !important; font-weight: 800 !important; }
-    .conf-c { background: #d98a00 !important; color: #fff !important; font-weight: 800 !important; }
-    .conf-pass { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
-    body.dark-mode .conf-pass, body.dark-mode .pred-pass {
+
+    .pred-under {
+      background: #c91920 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .pred-noplay {
+      background: var(--panel-soft-2) !important;
+      color: var(--muted) !important;
+      font-weight: 700 !important;
+    }
+    small.error-note {
+      color: #c91920 !important;
+      font-size: 10px !important;
+      font-weight: 600 !important;
+      display: block;
+      margin-top: 3px;
+    }
+
+    small.warn-note {
+      color: #d98a00 !important;
+      font-size: 10px !important;
+      font-weight: 600 !important;
+      display: block;
+      margin-top: 3px;
+    }
+
+    small.info-note {
+      color: #2f8f4a !important;
+      font-size: 10px !important;
+      font-weight: 600 !important;
+      display: block;
+      margin-top: 3px;
+    }
+
+    small.muted-note {
+      color: var(--muted) !important;
+      font-size: 10px !important;
+      font-weight: 600 !important;
+      display: block;
+      margin-top: 3px;
+    }
+
+    .conf-a {
+      background: #2f8f4a !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .conf-b {
+      background: #4aa346 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .conf-c {
+      background: #d98a00 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .conf-d {
+      background: #c91920 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+   .conf-none {
+  background: var(--panel-soft-2) !important;
+  color: var(--muted) !important;
+  font-weight: 700 !important;
+}
+
+    body.dark-mode .conf-none {
       background: #2a2f3a !important;
       color: #9aa0a8 !important;
     }
 
-    .status-line {
-      min-height: 18px;
-      font-size: 11px;
-      font-weight: 800;
-      margin: 4px 0 0;
-    }
-    .status-line.ok { color: var(--success); }
-    .status-line.err { color: var(--danger); }
-    .status-line.warn { color: var(--warning); }
+   .lock {
+  font-size: 4px !important;
+  display: inline-block;
+  vertical-align: middle;
+  transform: translateY(-1px);
+  margin-left: 4px;
+  margin-right: 0;
+}
 
-    .explain-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-      margin: 10px;
-    }
-    .explain-card {
-      border: 1px solid var(--panel-border);
-      background: var(--panel-soft);
-      padding: 10px;
-      font-size: 11px;
-      line-height: 1.45;
-      font-weight: 700;
-    }
-    .explain-card strong { color: var(--text); }
-    .flag-list { margin-top: 6px; }
-    .flag-list span {
-      display: inline-block;
-      margin: 2px 4px 0 0;
-      padding: 4px 6px;
-      border: 1px solid var(--table-border);
-      background: var(--panel);
-      font-size: 10px;
-      font-weight: 800;
-    }
-
-    .tracker-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.45);
-      display: none;
-      align-items: flex-start;
-      justify-content: flex-end;
-      padding-top: max(8px, env(safe-area-inset-top));
-      padding-right: max(8px, env(safe-area-inset-right));
-      padding-bottom: max(8px, env(safe-area-inset-bottom));
-      padding-left: max(8px, env(safe-area-inset-left));
-      z-index: 9999;
-      overscroll-behavior: none;
-    }
-    .tracker-modal.open { display: flex; }
-    .tracker-panel {
-      width: min(96vw, 560px);
-      height: calc(100dvh - 16px);
-      max-height: calc(100dvh - 16px);
-      background: var(--panel);
-      color: var(--text);
-      border: 1px solid var(--panel-border);
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .tracker-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 16px;
-      background: var(--tracker-head-bg);
-      color: var(--tracker-head-text);
-      border-bottom: 1px solid var(--panel-border);
-      font-weight: 800;
-      font-size: 13px;
-    }
-    .tracker-head button {
-      background: none !important;
-      border: none !important;
-      box-shadow: none !important;
-      color: var(--tracker-head-text) !important;
-      font-size: 18px !important;
-      line-height: 1 !important;
-      padding: 0 !important;
-      margin: 0 !important;
-    }
-    .tracker-summary {
-      padding: 12px 16px;
-      background: var(--panel-soft);
-      border-bottom: 1px solid var(--panel-border);
-      font-size: 11px;
-      font-weight: 800;
-      line-height: 1.5;
-    }
-    .tracker-body-scroll {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: max(8px, env(safe-area-inset-bottom));
-    }
-    .tracker-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      justify-content: center;
-    }
-    .tracker-actions button {
-      padding: 4px 6px !important;
-      margin: 0 !important;
-      font-size: 10px !important;
+    .track-pending {
+      background: #eceff3 !important;
+      color: #2a2f38 !important;
       font-weight: 800 !important;
-      background: var(--panel-soft-2) !important;
-      color: var(--text) !important;
-      border: 1px solid var(--table-border) !important;
-      box-shadow: none !important;
     }
-    .tracker-empty {
-      padding: 16px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
+
+    .track-win {
+      background: #3a9c35 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
     }
-    .small-right {
-      text-align: right;
-      font-size: 10px;
-      color: var(--muted);
-      font-weight: 700;
-      margin: 2px 10px 0;
+
+    .track-loss {
+      background: #c91920 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
     }
+
+    .track-push {
+      background: #3a404c !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+.tracker-status-stack {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.tracker-manual-settle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tracker-manual-btn {
+  background: #eceff3 !important;
+  color: #2a2f38 !important;
+  border: 1px solid #d7dbe1 !important;
+  box-shadow: none !important;
+  padding: 3px 6px !important;
+  margin: 0 !important;
+  min-width: 26px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+}
+
+body.dark-mode .tracker-manual-btn {
+  background: #151515 !important;
+  color: #d4af37 !important;
+  border-color: #333 !important;
+}
+
+.tracker-manual-hint {
+  font-size: 9px;
+  line-height: 1.2;
+  color: var(--tracker-subtext);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.tracker-debug-panel {
+  display: none;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--tracker-summary-bg);
+}
+
+.tracker-debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.tracker-debug-title {
+  color: var(--tracker-strong);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.tracker-debug-meta {
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tracker-debug-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.tracker-debug-log li {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 7px 8px;
+  font-size: 10px;
+  line-height: 1.35;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.engine-debug-panel {
+  display: none;
+  margin: 0 10px 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-soft);
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+}
+
+.engine-debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.engine-debug-title {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.engine-debug-meta {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.engine-debug-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.engine-debug-log li {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 7px 8px;
+  font-size: 10px;
+  line-height: 1.35;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.report-debug-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.report-debug-empty {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  color: var(--tracker-subtext);
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.debug-ok {
+  border-left: 3px solid #2f8f4a !important;
+}
+
+.debug-warn {
+  border-left: 3px solid #d98a00 !important;
+  color: #8a5a00 !important;
+  background: rgba(217, 138, 0, 0.08) !important;
+}
+
+.debug-error {
+  border-left: 4px solid #ff0000 !important;
+  background: #fff0f0 !important;
+  color: #d10000 !important;
+  font-weight: 900 !important;
+}
+
+body.dark-mode .debug-warn {
+  color: #ffcf73 !important;
+  background: rgba(217, 138, 0, 0.14) !important;
+}
+
+body.dark-mode .debug-error {
+  color: #ff5c61 !important;
+  background: rgba(201, 25, 32, 0.18) !important;
+}
+
+@keyframes engineAlertPulse {
+  from {
+    box-shadow: 0 0 0 0 rgba(217, 31, 38, 0.10);
+  }
+  to {
+    box-shadow: 0 0 0 1px rgba(217, 31, 38, 0.30), 0 0 24px rgba(217, 31, 38, 0.14);
+  }
+}
+
+body.engine-alert {
+  background: #2a0608 !important;
+}
+
+body.engine-alert .app-header {
+  background: linear-gradient(90deg, #7b0007 0%, #cf1119 52%, #820008 100%) !important;
+  animation: engineAlertPulse 1.15s ease-in-out infinite alternate;
+}
+
+body.engine-alert .section,
+body.engine-alert .table-wrap,
+body.engine-alert .actions {
+  border-color: #d91f26 !important;
+  animation: engineAlertPulse 1.15s ease-in-out infinite alternate;
+}
+
+body.engine-alert .section {
+  background: #fff6f6 !important;
+}
+
+body.engine-alert #trackerToggleBtn,
+body.engine-alert #headerErrorBtn.active {
+  color: #ffffff !important;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.55);
+}
+
+body.engine-alert #runBtn,
+body.engine-alert #clearBtn {
+  box-shadow: 0 0 0 1px rgba(217, 31, 38, 0.40), 0 0 18px rgba(217, 31, 38, 0.18) !important;
+}
+
+body.dark-mode.engine-alert {
+  background: #140203 !important;
+}
+
+body.dark-mode.engine-alert .section {
+  background: #220b0d !important;
+  border-color: #ff3a41 !important;
+}
+
+@media (min-width: 720px) {
+  .report-debug-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.tracker-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: none;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-right: max(8px, env(safe-area-inset-right));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  padding-left: max(8px, env(safe-area-inset-left));
+  z-index: 9999;
+  overscroll-behavior: none;
+}
+.tracker-modal.open {
+  display: flex;
+}
+.tracker-panel {
+  width: min(96vw, 520px);
+  height: calc(100dvh - 16px);
+  max-height: calc(100dvh - 16px);
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tracker-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.tracker-table-wrap {
+  margin: 0;
+  padding-bottom: 0;
+}
+    .tracker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--tracker-head-bg);
+  color: var(--tracker-head-text);
+  border-bottom: 1px solid var(--panel-border);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.tracker-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tracker-close,
+.tracker-insights-btn {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--tracker-head-text) !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+}
+
+.tracker-insights-btn {
+  font-size: 18px !important;
+  opacity: 0.88;
+}
+
+.tracker-insights-btn.state-good:not(.active) {
+  color: #49d45f !important;
+  text-shadow: 0 0 10px rgba(73, 212, 95, 0.28);
+}
+
+.tracker-insights-btn.state-error:not(.active) {
+  color: #ff3b30 !important;
+  text-shadow: 0 0 10px rgba(255, 59, 48, 0.30);
+}
+
+.tracker-insights-btn.state-idle:not(.active) {
+  color: var(--tracker-head-text) !important;
+}
+
+.tracker-insights-btn.active {
+  opacity: 1;
+  color: var(--tracker-head-text) !important;
+  text-shadow: none !important;
+}
+
+.tracker-summary {
+  padding: 14px 16px;
+  background: var(--tracker-summary-bg);
+  color: var(--tracker-strong);
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.tracker-market-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.tracker-market-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  background: var(--tracker-chip-bg);
+  border: 1px solid var(--tracker-chip-border);
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.tracker-analytics-panel {
+  padding: 14px;
+  border-bottom: 1px solid var(--panel-border);
+  background:
+    linear-gradient(180deg, rgba(217,31,38,0.04) 0%, rgba(23,144,63,0.05) 38%, rgba(255,255,255,0) 100%);
+}
+
+body.dark-mode .tracker-analytics-panel {
+  background:
+    linear-gradient(180deg, rgba(217,31,38,0.10) 0%, rgba(23,144,63,0.08) 38%, rgba(0,0,0,0) 100%);
+}
+
+.tracker-analytics-title {
+  margin-bottom: 4px;
+  color: var(--tracker-strong);
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+.tracker-report-subtitle {
+  margin: 0 0 12px 0;
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.tracker-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tracker-market-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 11px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f7f9 100%);
+  border: 1px solid #d9dee5;
+  color: var(--tracker-strong);
+  font-size: 10px;
+  font-weight: 800;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+body.dark-mode .tracker-market-chip {
+  background: linear-gradient(180deg, #171717 0%, #121212 100%);
+  border-color: #2f3338;
+}
+
+.tracker-market-chip.good {
+  background: linear-gradient(180deg, rgba(47,143,74,0.16) 0%, rgba(47,143,74,0.08) 100%);
+  border-color: rgba(47, 143, 74, 0.38);
+  color: #1e6e39;
+}
+
+.tracker-market-chip.warn {
+  background: linear-gradient(180deg, rgba(217,138,0,0.16) 0%, rgba(217,138,0,0.08) 100%);
+  border-color: rgba(217, 138, 0, 0.36);
+  color: #9a6200;
+}
+
+.tracker-market-chip.neutral {
+  background: linear-gradient(180deg, rgba(58, 64, 76, 0.07) 0%, rgba(58, 64, 76, 0.03) 100%);
+}
+
+body.dark-mode .tracker-market-chip.good {
+  color: #8fe29b;
+  background: linear-gradient(180deg, rgba(47,143,74,0.25) 0%, rgba(47,143,74,0.14) 100%);
+  border-color: rgba(143, 226, 155, 0.24);
+}
+
+body.dark-mode .tracker-market-chip.warn {
+  color: #ffcf73;
+  background: linear-gradient(180deg, rgba(217,138,0,0.22) 0%, rgba(217,138,0,0.12) 100%);
+  border-color: rgba(255, 207, 115, 0.22);
+}
+
+.tracker-report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tracker-report-card {
+  border: 1px solid #d9dee5;
+  border-top: 3px solid #d91f26;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
+  padding: 12px;
+  min-width: 0;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+}
+
+body.dark-mode .tracker-report-card {
+  border-color: #2f3338;
+  border-top-color: #d91f26;
+  background: linear-gradient(180deg, #171717 0%, #121212 100%);
+  box-shadow: none;
+}
+
+.tracker-report-card.hero {
+  background: linear-gradient(135deg, #15963f 0%, #0f6f30 100%);
+  border-color: #0f6f30;
+  border-top-color: #0f6f30;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(15,111,48,0.22);
+}
+
+.tracker-report-label {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  opacity: 0.82;
+  margin-bottom: 6px;
+}
+
+.tracker-report-card.hero .tracker-report-label {
+  color: rgba(255,255,255,0.82);
+}
+
+.tracker-report-value {
+  font-size: 16px;
+  line-height: 1.08;
+  font-weight: 900;
+  color: inherit;
+}
+
+.tracker-report-sub {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.25;
+  font-weight: 700;
+  color: inherit;
+  opacity: 0.96;
+}
+
+.tracker-report-section {
+  margin-top: 12px;
+  border: 1px solid #d9dee5;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.025);
+}
+
+body.dark-mode .tracker-report-section {
+  border-color: #2f3338;
+  background: linear-gradient(180deg, #171717 0%, #121212 100%);
+  box-shadow: none;
+}
+
+.tracker-report-section-head {
+  padding: 10px 12px;
+  border-bottom: 1px solid #d9dee5;
+  background: linear-gradient(90deg, #3a404c 0%, #2f3440 100%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+body.dark-mode .tracker-report-section-head {
+  border-bottom-color: #2f3338;
+  background: linear-gradient(90deg, #111 0%, #1a1a1a 100%);
+}
+
+.tracker-report-section-body {
+  padding: 10px;
+}
+
+.tracker-report-list {
+  display: grid;
+  gap: 5px;
+}
+
+.tracker-report-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--tracker-strong);
+}
+
+.tracker-report-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  background: #17903f;
+  flex: 0 0 8px;
+}
+
+.tracker-report-dot.warn {
+  background: #d98a00;
+}
+
+.tracker-report-dot.neutral {
+  background: #3a404c;
+}
+
+body.dark-mode .tracker-report-dot.neutral {
+  background: #d4af37;
+}
+
+.tracker-recommendation {
+  padding: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
+  border: 1px solid #d9dee5;
+  color: var(--tracker-strong);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+body.dark-mode .tracker-recommendation {
+  background: linear-gradient(180deg, #171717 0%, #121212 100%);
+  border-color: #2f3338;
+}
+
+@media (max-width: 560px) {
+  .tracker-report-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tracker-empty {
+  padding: 18px 16px;
+  color: var(--tracker-subtext);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tracker-analytics-panel {
+  padding: 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--tracker-summary-bg);
+}
+
+body.dark-mode .tracker-analytics-panel {
+  background: var(--tracker-summary-bg);
+}
+
+.tracker-report-subtitle {
+  margin: 0 0 10px 0;
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.tracker-report-inline-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.tracker-report-table-wrap {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.tracker-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 10px;
+  line-height: 1.2;
+  background: var(--panel);
+}
+
+.tracker-report-table th,
+.tracker-report-table td {
+  border: 1px solid var(--table-border);
+  padding: 5px 4px;
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
+
+.tracker-report-table th {
+  background: var(--table-head);
+  color: #fff;
+  font-weight: 800;
+}
+
+.tracker-report-table td {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.tracker-report-table td.num,
+.tracker-report-table th.num {
+  text-align: center;
+  width: 12%;
+}
+
+.tracker-report-table td.rate,
+.tracker-report-table th.rate {
+  text-align: center;
+  width: 16%;
+}
+
+.tracker-report-table td.note {
+  color: var(--tracker-subtext);
+  font-weight: 700;
+}
+
+.tracker-report-mini-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.tracker-report-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tracker-report-empty-row {
+  color: var(--tracker-subtext);
+}
+
+.tracker-report-table th,
+.tracker-report-table td,
+.tracker-analytics-table th,
+.tracker-analytics-table td,
+.tracker-rate-table th,
+.tracker-rate-table td {
+  max-width: none;
+}
+
+@media (min-width: 700px) {
+  .tracker-report-mini-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+
+.league-trust-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  padding: 4px 8px;
+  border: 1px solid var(--table-border);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.league-trust-pill.trust-trusted {
+  background: rgba(47,143,74,0.14);
+  border-color: rgba(47,143,74,0.34);
+  color: #1f6a39;
+}
+
+.league-trust-pill.trust-advisory {
+  background: rgba(217,138,0,0.14);
+  border-color: rgba(217,138,0,0.34);
+  color: #9a6200;
+}
+
+.league-trust-pill.trust-blocked {
+  background: rgba(201,25,32,0.14);
+  border-color: rgba(201,25,32,0.30);
+  color: #b11a20;
+}
+
+body.dark-mode .league-trust-pill.trust-trusted {
+  color: #9ae2a7;
+  border-color: rgba(154,226,167,0.24);
+  background: rgba(47,143,74,0.22);
+}
+
+body.dark-mode .league-trust-pill.trust-advisory {
+  color: #ffcf73;
+  border-color: rgba(255,207,115,0.24);
+  background: rgba(217,138,0,0.22);
+}
+
+body.dark-mode .league-trust-pill.trust-blocked {
+  color: #ff8f95;
+  border-color: rgba(255,143,149,0.24);
+  background: rgba(201,25,32,0.24);
+}
+
+.league-trust-note {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--tracker-subtext);
+  font-weight: 700;
+}
+
+
+/* === tracker analytics redesign === */
+.tracker-analytics-panel {
+  padding: 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--tracker-summary-bg);
+}
+.tracker-analytics-shell {
+  display: grid;
+  gap: 8px;
+}
+.tracker-analytics-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tracker-analytics-heading {
+  display: grid;
+  gap: 4px;
+}
+.tracker-analytics-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tracker-analytics-title {
+  margin: 0;
+  color: var(--tracker-strong);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+.tracker-analytics-subtitle {
+  margin: 0;
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+.tracker-analytics-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.tracker-analytics-tab {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  color: var(--tracker-strong);
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.tracker-analytics-tab.active {
+  background: var(--tracker-head-bg);
+  color: var(--tracker-head-text);
+  border-color: var(--tracker-head-bg);
+}
+.tracker-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.tracker-kpi-card {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+.tracker-kpi-card.featured {
+  background: linear-gradient(135deg, #17973f 0%, #127731 100%);
+  border-color: #17973f;
+  color: #fff;
+}
+body.dark-mode .tracker-kpi-card.featured {
+  background: linear-gradient(135deg, #167d35 0%, #115f29 100%);
+  border-color: #167d35;
+}
+.tracker-kpi-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tracker-kpi-card.featured .tracker-kpi-label,
+.tracker-kpi-card.featured .tracker-kpi-sub {
+  color: rgba(255,255,255,0.9);
+}
+.tracker-kpi-value {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--tracker-strong);
+}
+.tracker-kpi-card.featured .tracker-kpi-value {
+  color: #fff;
+}
+.tracker-kpi-sub {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tracker-subtext);
+  line-height: 1.25;
+}
+.tracker-analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.tracker-analytics-card {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+}
+.tracker-analytics-card-head {
+  padding: 9px 10px 8px;
+  border-bottom: 1px solid var(--table-border);
+  background: linear-gradient(90deg, var(--tracker-head-bg) 0%, #434b5a 100%);
+  color: var(--tracker-head-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+body.dark-mode .tracker-analytics-card-head {
+  background: linear-gradient(90deg, #111 0%, #1a1a1a 100%);
+}
+.tracker-analytics-card-title {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+}
+.tracker-analytics-card-meta {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.82);
+}
+.tracker-analytics-card-body {
+  padding: 10px;
+}
+.tracker-mini-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.tracker-mini-stat {
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+.tracker-mini-stat .name {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.tracker-mini-stat .value {
+  color: var(--tracker-strong);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.tracker-mini-stat .sub {
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  font-weight: 700;
+}
+.tracker-bar-chart {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+  min-height: 132px;
+  padding-top: 8px;
+}
+.tracker-bar-col {
+  display: grid;
+  gap: 5px;
+}
+.tracker-bar-stage {
+  height: 92px;
+  border: 1px solid var(--table-border);
+  background:
+    linear-gradient(to top, transparent 24%, rgba(0,0,0,0.04) 24%, rgba(0,0,0,0.04) 25%, transparent 25%, transparent 49%, rgba(0,0,0,0.04) 49%, rgba(0,0,0,0.04) 50%, transparent 50%, transparent 74%, rgba(0,0,0,0.04) 74%, rgba(0,0,0,0.04) 75%, transparent 75%),
+    var(--panel-soft);
+  display: flex;
+  align-items: flex-end;
+  padding: 6px;
+}
+body.dark-mode .tracker-bar-stage {
+  background:
+    linear-gradient(to top, transparent 24%, rgba(255,255,255,0.05) 24%, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 49%, rgba(255,255,255,0.05) 49%, rgba(255,255,255,0.05) 50%, transparent 50%, transparent 74%, rgba(255,255,255,0.05) 74%, rgba(255,255,255,0.05) 75%, transparent 75%),
+    var(--panel-soft);
+}
+.tracker-bar-fill {
+  width: 100%;
+  background: linear-gradient(180deg, #4ea9ff 0%, #2976d6 100%);
+  min-height: 6px;
+}
+.tracker-bar-fill.warn {
+  background: linear-gradient(180deg, #f0ad2f 0%, #d98a00 100%);
+}
+.tracker-bar-fill.good {
+  background: linear-gradient(180deg, #31be5e 0%, #17973f 100%);
+}
+.tracker-bar-fill.soft {
+  background: linear-gradient(180deg, #75a8f8 0%, #4b80d6 100%);
+}
+.tracker-bar-label {
+  color: var(--tracker-strong);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.tracker-bar-value {
+  color: var(--tracker-strong);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+}
+.tracker-bar-meta {
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.tracker-progress-card {
+  display: grid;
+  gap: 8px;
+}
+.tracker-progress-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tracker-progress-value {
+  color: var(--tracker-strong);
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+}
+.tracker-progress-sub {
+  color: var(--tracker-subtext);
+  font-size: 12px;
+  font-weight: 700;
+}
+.tracker-progress-track {
+  height: 8px;
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+}
+.tracker-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #31be5e 0%, #17973f 100%);
+}
+.tracker-insight-list {
+  display: grid;
+  gap: 8px;
+}
+.tracker-insight-row {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.tracker-insight-dot {
+  width: 10px;
+  height: 8px;
+  margin-top: 4px;
+  background: #31be5e;
+}
+.tracker-insight-dot.warn {
+  background: #d98a00;
+}
+.tracker-insight-dot.neutral {
+  background: #4b5568;
+}
+.tracker-insight-text strong {
+  display: block;
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 2px;
+}
+.tracker-insight-text span {
+  color: var(--tracker-subtext);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.tracker-analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 10px;
+  line-height: 1.2;
+  background: var(--panel);
+}
+.tracker-analytics-table th,
+.tracker-analytics-table td {
+  border: 1px solid var(--table-border);
+  padding: 5px 4px;
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
+.tracker-analytics-table th {
+  background: var(--table-head);
+  color: #fff;
+  font-weight: 800;
+}
+.tracker-analytics-table td {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+}
+.tracker-analytics-table td.num,
+.tracker-analytics-table th.num,
+.tracker-analytics-table td.rate,
+.tracker-analytics-table th.rate {
+  text-align: center;
+}
+.tracker-analytics-table td.note {
+  color: var(--tracker-subtext);
+}
+
+.tracker-review-list {
+  display: grid;
+  gap: 10px;
+}
+.tracker-review-row {
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+.tracker-review-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tracker-review-area {
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+.tracker-review-status {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  color: var(--tracker-strong);
+  padding: 4px 7px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.tracker-review-status.confirmed {
+  border-color: #17973f;
+  color: #17973f;
+}
+.tracker-review-status.candidate {
+  border-color: #d98a00;
+  color: #d98a00;
+}
+.tracker-review-status.watching {
+  border-color: #4b5568;
+  color: #4b5568;
+}
+.tracker-review-text {
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.tracker-review-action {
+  color: var(--tracker-subtext);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.tracker-line-list {
+  display: grid;
+  gap: 8px;
+}
+.tracker-line-row {
+  display: grid;
+  gap: 6px;
+}
+.tracker-line-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tracker-line-name {
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+.tracker-line-meta {
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  font-weight: 700;
+}
+.tracker-line-track {
+  height: 8px;
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+}
+.tracker-line-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ea9ff 0%, #2976d6 100%);
+}
+.tracker-table-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.tracker-empty-note {
+  color: var(--tracker-subtext);
+  font-size: 12px;
+  font-weight: 700;
+}
+@media (min-width: 720px) {
+  .tracker-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .tracker-analytics-grid.two {
+    grid-template-columns: 1.2fr 1fr;
+  }
+  .tracker-table-grid.two {
+    grid-template-columns: 1.2fr 1fr;
+  }
+}
+
+
+.tracker-panel.analytics-view #trackerSummary,
+.tracker-panel.analytics-view #trackerMarketSummary,
+.tracker-panel.analytics-view #trackerEmpty,
+.tracker-panel.analytics-view .tracker-table-wrap {
+  display: none !important;
+}
+
+.tracker-panel.analytics-view #trackerAnalyticsPanel {
+  display: block !important;
+}
+
+.tracker-panel:not(.analytics-view) #trackerAnalyticsPanel {
+  display: none !important;
+}
+
+.tracker-panel.analytics-view .tracker-body-scroll {
+  padding-top: 0;
+}
+
+
+/* === compact tracker analytics === */
+.tracker-analytics-panel {
+  padding: 10px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--tracker-summary-bg);
+}
+.tracker-analytics-shell {
+  display: grid;
+  gap: 10px;
+}
+.tracker-analytics-topbar {
+  display: grid;
+  gap: 4px;
+}
+.tracker-analytics-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tracker-analytics-title {
+  margin: 0;
+  color: var(--tracker-strong);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.tracker-analytics-subtitle {
+  margin: 0;
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.tracker-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.tracker-summary-cell {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  padding: 9px 10px;
+  display: grid;
+  gap: 3px;
+}
+.tracker-summary-cell.primary {
+  background: linear-gradient(135deg, #17973f 0%, #127731 100%);
+  border-color: #17973f;
+}
+body.dark-mode .tracker-summary-cell.primary {
+  background: linear-gradient(135deg, #167d35 0%, #115f29 100%);
+  border-color: #167d35;
+}
+.tracker-summary-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tracker-summary-cell.primary .tracker-summary-label,
+.tracker-summary-cell.primary .tracker-summary-sub,
+.tracker-summary-cell.primary .tracker-summary-value {
+  color: #fff;
+}
+.tracker-summary-value {
+  color: var(--tracker-strong);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+.tracker-summary-sub {
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.tracker-analytics-section {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+}
+.tracker-analytics-section-head {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--table-border);
+  background: linear-gradient(90deg, var(--tracker-head-bg) 0%, #434b5a 100%);
+  color: var(--tracker-head-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+body.dark-mode .tracker-analytics-section-head {
+  background: linear-gradient(90deg, #111 0%, #1a1a1a 100%);
+}
+.tracker-analytics-section-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.tracker-analytics-section-meta {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.85);
+}
+.tracker-analytics-section-body {
+  padding: 10px;
+}
+.tracker-rate-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 10px;
+  line-height: 1.2;
+}
+.tracker-rate-table th,
+.tracker-rate-table td {
+  border: 1px solid var(--table-border);
+  padding: 5px 4px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
+.tracker-rate-table th {
+  background: var(--table-head);
+  color: #fff;
+  font-weight: 800;
+}
+.tracker-rate-table td {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+}
+.tracker-rate-table td.center,
+.tracker-rate-table th.center {
+  text-align: center;
+}
+
+.tracker-report-table td.num,
+.tracker-report-table th.num,
+.tracker-report-table td.rate,
+.tracker-report-table th.rate,
+.tracker-analytics-table td.num,
+.tracker-analytics-table th.num,
+.tracker-analytics-table td.rate,
+.tracker-analytics-table th.rate,
+.tracker-rate-table td.center,
+.tracker-rate-table th.center {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.league-trust-pill {
+  font-size: 9px;
+  line-height: 1.1;
+  padding: 4px 6px;
+}
+
+.league-trust-desktop-table {
+  display: block;
+}
+
+.league-trust-mobile-list {
+  display: none;
+}
+
+.league-trust-mobile-card {
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.league-trust-mobile-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.league-trust-mobile-league {
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.league-trust-mobile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.league-trust-mobile-stat {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  padding: 6px 5px;
+  display: grid;
+  gap: 3px;
+}
+
+.league-trust-mobile-stat strong {
+  color: var(--tracker-subtext);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.league-trust-mobile-stat span {
+  color: var(--tracker-strong);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.league-trust-mobile-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.league-trust-mobile-guidance {
+  color: var(--tracker-strong);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  .tracker-report-table,
+  .tracker-analytics-table,
+  .tracker-rate-table {
+    font-size: 8.5px;
+    line-height: 1.15;
+  }
+
+  .tracker-report-table th,
+  .tracker-report-table td,
+  .tracker-analytics-table th,
+  .tracker-analytics-table td,
+  .tracker-rate-table th,
+  .tracker-rate-table td {
+    padding: 4px 3px;
+  }
+
+  .tracker-analytics-table th {
+    white-space: nowrap;
+  }
+
+  .tracker-analytics-table td.note,
+  .tracker-analytics-table td:first-child {
+    white-space: normal;
+  }
+
+  .tracker-analytics-section-head,
+  .tracker-analytics-card-head {
+    padding: 7px 8px;
+    display: grid;
+    gap: 4px;
+    justify-items: start;
+  }
+
+  .tracker-analytics-card-title {
+    letter-spacing: 0.5px;
+  }
+
+  .tracker-analytics-section-meta,
+  .tracker-analytics-card-meta {
+    font-size: 9px;
+    line-height: 1.2;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .league-trust-desktop-table {
+    display: none;
+  }
+
+  .league-trust-mobile-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .league-trust-pill {
+    font-size: 8px;
+    padding: 3px 5px;
+  }
+}
+.tracker-horizontal-bars {
+  display: grid;
+  gap: 8px;
+}
+.tracker-hbar-row {
+  display: grid;
+  gap: 4px;
+}
+.tracker-hbar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tracker-hbar-name {
+  color: var(--tracker-strong);
+  font-size: 11px;
+  font-weight: 800;
+}
+.tracker-hbar-value {
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  font-weight: 800;
+}
+.tracker-hbar-track {
+  height: 8px;
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+}
+.tracker-hbar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ea9ff 0%, #2976d6 100%);
+}
+.tracker-hbar-fill.good {
+  background: linear-gradient(90deg, #31be5e 0%, #17973f 100%);
+}
+.tracker-hbar-fill.warn {
+  background: linear-gradient(90deg, #f0ad2f 0%, #d98a00 100%);
+}
+.tracker-two-col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.tracker-insight-list {
+  display: grid;
+  gap: 8px;
+}
+.tracker-insight-item {
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.tracker-insight-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  background: #31be5e;
+}
+.tracker-insight-dot.warn { background: #d98a00; }
+.tracker-insight-dot.neutral { background: #4b5568; }
+.tracker-insight-title {
+  color: var(--tracker-strong);
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+.tracker-insight-text {
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.tracker-empty-note {
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  font-weight: 700;
+}
+@media (min-width: 720px) {
+  .tracker-summary-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .tracker-two-col {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.tracker-hidden {
+  display: none !important;
+}
+
+#trackedPicksTable {
+  margin-top: 0;
+}
+
+#intelSection {
+  display: none !important;
+}
+  
   </style>
 </head>
 <body>
-  <header class="app-header">
-    <span class="brand-name">TheBetCeo ⚡️</span>
-    <span class="brand-right">
-      <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🎾</button>
-      <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
-      TENNIS
-    </span>
-  </header>
+<header class="app-header">
+  <span class="brand-name">TheBetCeo ⚡️</span>
 
-  <div class="wrapper">
-    <div class="hero-note">
-      Clean tennis totals build. Basketball baggage is gone. This version only models <strong>Match Total Games</strong> and <strong>Set 1 Total Games</strong> using recent totals, H2H totals, volatility, filters, edge, and confidence.
-    </div>
+  <button
+    class="header-error-btn"
+    type="button"
+    id="headerErrorBtn"
+    title="Show fetch/input issues"
+  >
+    ⚠️
+  </button>
 
-    <section class="section" id="setupSection">
-      <button class="section-toggle" type="button">
-        <span>
-          <span class="toggle-title">Match Setup</span>
-          <span class="toggle-meta">Player names and tour only. Because not every model needs to cosplay as a space program.</span>
-        </span>
-        <span class="toggle-icon">▾</span>
-      </button>
-      <div class="section-body">
-        <div class="grid-2">
-          <div>
-            <label for="tourSelect">Tour</label>
-            <select id="tourSelect">
-              <option value="ATP">ATP</option>
-              <option value="WTA">WTA</option>
-            </select>
-          </div>
-          <div>
-            <label for="matchDate">Date</label>
-            <input id="matchDate" type="date" />
-          </div>
-        </div>
-        <div class="grid-2">
-          <div>
-            <label for="playerAName">Player A</label>
-            <input id="playerAName" placeholder="e.g. Jannik Sinner" />
-          </div>
-          <div>
-            <label for="playerBName">Player B</label>
-            <input id="playerBName" placeholder="e.g. Carlos Alcaraz" />
-          </div>
-        </div>
-        <div class="chips">
-          <span class="chip">Markets: Match Total Games</span>
-          <span class="chip">Markets: Set 1 Total Games</span>
-          <span class="chip">No handicap</span>
-          <span class="chip">No winner</span>
-        </div>
-      </div>
-    </section>
+  <span class="brand-right">
+    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🎾</button>
+    <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
+    PREDICTIONS
+  </span>
+</header>
 
-    <section class="section" id="matchSection">
-      <button class="section-toggle" type="button">
-        <span>
-          <span class="toggle-title">Match Total Engine</span>
-          <span class="toggle-meta">Recent totals, H2H totals, line, volatility.</span>
-        </span>
-        <span class="toggle-icon">▾</span>
-      </button>
-      <div class="section-body">
-        <label for="matchLine">Match Total Line</label>
-        <input id="matchLine" placeholder="22.5 or 22.5 - 23.5" />
-        <div class="sub-note">If you enter a range, the engine uses the midpoint.</div>
-        <div class="grid-2">
-          <div>
-            <label for="aRecentTotals">Player A last 5-10 match totals <span>(recent → oldest)</span></label>
-            <input id="aRecentTotals" placeholder="23,18,26,21,19" />
-          </div>
-          <div>
-            <label for="bRecentTotals">Player B last 5-10 match totals <span>(recent → oldest)</span></label>
-            <input id="bRecentTotals" placeholder="22,20,24,19,21" />
-          </div>
-        </div>
-        <label for="h2hMatchTotals">H2H match totals <span>(last 3-5 if possible)</span></label>
-        <input id="h2hMatchTotals" placeholder="22,24,19,27" />
-      </div>
-    </section>
-
-    <section class="section" id="set1Section">
-      <button class="section-toggle" type="button">
-        <span>
-          <span class="toggle-title">Set 1 Engine</span>
-          <span class="toggle-meta">Separate model. No lazy reuse of match logic.</span>
-        </span>
-        <span class="toggle-icon">▾</span>
-      </button>
-      <div class="section-body">
-        <label for="set1Line">Set 1 Total Line</label>
-        <input id="set1Line" placeholder="9.5 or 9.5 - 10.5" />
-        <div class="grid-2">
-          <div>
-            <label for="aSet1Totals">Player A last 5-10 Set 1 totals <span>(recent → oldest)</span></label>
-            <input id="aSet1Totals" placeholder="10,9,12,10,8" />
-          </div>
-          <div>
-            <label for="bSet1Totals">Player B last 5-10 Set 1 totals <span>(recent → oldest)</span></label>
-            <input id="bSet1Totals" placeholder="9,10,11,8,10" />
-          </div>
-        </div>
-        <label for="h2hSet1Totals">H2H Set 1 totals <span>(optional)</span></label>
-        <input id="h2hSet1Totals" placeholder="10,9,12" />
-      </div>
-    </section>
-
-    <section class="section" id="helperSection">
-      <button class="section-toggle" type="button">
-        <span>
-          <span class="toggle-title">Engine Rules</span>
-          <span class="toggle-meta">What gets applied automatically.</span>
-        </span>
-        <span class="toggle-icon">▾</span>
-      </button>
-      <div class="section-body">
-        <div class="chips">
-          <span class="chip">H2H weighting: 70/30 recent/H2H</span>
-          <span class="chip">Chaos filter: volatility &gt; 4</span>
-          <span class="chip">Blowout filter: both avgs &lt; 18</span>
-          <span class="chip">Fake edge: recent vs H2H conflict</span>
-        </div>
-        <div class="sub-note">
-          Match confidence: A at edge ≥ 2.5 with low volatility, B at edge ≥ 1.5, C at edge ≥ 1.0. Set 1 uses tighter thresholds. WTA chaos can auto-pass. The model tracks what you told it to track, instead of inventing fake genius.
-        </div>
-      </div>
-    </section>
-
-    <div class="actions">
-      <button id="runBtn" type="button">Run</button>
-      <button id="clearBtn" type="button">Clear</button>
-    </div>
-
-    <div id="statusLine" class="status-line"></div>
-    <div class="small-right">Saved locally in your browser: tracker + theme</div>
-
-    <div class="table-wrap">
-      <table id="results" style="display:none;">
-        <thead>
-          <tr>
-            <th>Market</th>
-            <th>Line</th>
-            <th>Projection</th>
-            <th>Edge</th>
-            <th>Grade</th>
-            <th>Pick</th>
-            <th>Flags</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div id="explainWrap" class="explain-grid" style="display:none;"></div>
+<div class="wrapper">
+  <div class="section" id="leagueSection">
+    <h3>Tour Tier</h3>
+    <label>Select Tour</label>
+    <select id="leagueSelect" class="league-box">
+      <option value="">- Select Tour -</option>
+      <optgroup label="── Main Tour ─────────────">
+        <option value="atp">ATP</option>
+        <option value="wta">WTA</option>
+      </optgroup>
+      <optgroup label="── Secondary ────────────">
+        <option value="atp_challenger">ATP Challenger</option>
+        <option value="itf_men">ITF Men</option>
+        <option value="itf_women">ITF Women</option>
+      </optgroup>
+      <optgroup label="── Other ────────────────">
+        <option value="unknown">Other / Mixed</option>
+      </optgroup>
+    </select>
   </div>
 
-  <div id="trackerModal" class="tracker-modal" aria-hidden="true">
-    <div class="tracker-panel">
-      <div class="tracker-head">
-        <span>Tracked Picks</span>
-        <button type="button" id="trackerCloseBtn">✕</button>
-      </div>
-      <div class="tracker-summary" id="trackerSummary">0 saved</div>
-      <div class="tracker-body-scroll">
-        <div id="trackerEmpty" class="tracker-empty">No tracked picks saved yet.</div>
-        <div class="table-wrap tracker-table-wrap">
-          <table id="trackedPicksTable" style="display:none;">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Match</th>
-                <th>Market</th>
-                <th>Line</th>
-                <th>Pick</th>
-                <th>Edge</th>
-                <th>Conf</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="trackedPicksBody"></tbody>
-          </table>
-        </div>
-      </div>
+  <div class="section" id="espnSection">
+    <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(design shell only for now)</span></h3>
+
+    <div id="fixtureToolbar" class="fixture-toolbar">
+      <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
+      <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
+    </div>
+
+    <label id="fixtureSelectLabel" style="font-size:12px;">Select match</label>
+    <select id="fixtureSelect" class="league-box">
+      <option value="">- Select match -</option>
+    </select>
+
+    <label id="teamALabel" style="font-size:12px;">Player A Name</label>
+    <div class="autocomplete-wrap">
+      <input id="teamAName" placeholder="e.g. Novak Djokovic" autocomplete="off" />
+      <div class="autocomplete-list" id="dropA"></div>
+    </div>
+
+    <label id="teamBLabel" style="font-size:12px;margin-top:6px;">Player B Name</label>
+    <div class="autocomplete-wrap">
+      <input id="teamBName" placeholder="e.g. Carlos Alcaraz" autocomplete="off" />
+      <div class="autocomplete-list" id="dropB"></div>
+    </div>
+
+    <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
+    <div id="fetchStatus">Auto-fetch layout only. Wiring comes later.</div>
+
+    <div class="injury-box" id="injuryBoxA">
+      <div class="inj-title">Player A Notes</div>
+      <div id="injuryContentA"></div>
+    </div>
+
+    <div class="injury-box" id="injuryBoxB">
+      <div class="inj-title">Player B Notes</div>
+      <div id="injuryContentB"></div>
     </div>
   </div>
 
-  <script>
-    const STORAGE_THEME = "thebetceo_tennis_theme_v1";
-    const STORAGE_TRACKER = "thebetceo_tennis_tracker_v1";
+  <div class="section" id="marketSection">
+    <h3>Market Lines</h3>
 
-    const sections = Array.from(document.querySelectorAll(".section"));
-    sections.forEach(section => {
-      const btn = section.querySelector(".section-toggle");
-      if (!btn) return;
-      btn.addEventListener("click", () => section.classList.toggle("collapsed"));
+    <label id="ftMarketLabel">Match Total Games</label>
+    <input id="ftMarket" placeholder="22.5" />
+
+    <div id="h1MarketSection" style="display:block;">
+      <label>Set 1 Total Games</label>
+      <input id="h1Market" placeholder="9.5" />
+    </div>
+
+    <div id="h2MarketSection" style="display:none;">
+      <label>Set 2 Total Games</label>
+      <input id="h2Market" placeholder="9.5" />
+    </div>
+
+    <label id="teamAMarketLabel">Player A Reference Line</label>
+    <input id="teamAMarket" placeholder="Optional display only" />
+
+    <label id="teamBMarketLabel">Player B Reference Line</label>
+    <input id="teamBMarket" placeholder="Optional display only" />
+  </div>
+
+  <div class="section" id="teamASection">
+    <h3>Player A - Last 5 / 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
+
+    <label id="aFTScoredLabel">Recent Match Totals <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+    <input id="aFTScored" placeholder="23,18,26,21,19" />
+
+    <div id="aFTAllowedSection">
+      <label id="aFTAllowedLabel">Set 1 Totals</label>
+      <input id="aFTAllowed" placeholder="9,10,8,9,12" />
+    </div>
+
+    <div id="a1HSection" style="display:none;">
+      <label id="a1HScoredLabel">Optional Split Input</label>
+      <input id="a1HScored" placeholder="-" />
+      <label>Optional Split Input</label>
+      <input id="a1HAllowed" placeholder="-" />
+    </div>
+
+    <div id="a2HSection" style="display:none;">
+      <label>Optional Split Input</label>
+      <input id="a2HScored" placeholder="-" />
+      <label>Optional Split Input</label>
+      <input id="a2HAllowed" placeholder="-" />
+    </div>
+  </div>
+
+  <div class="section" id="teamBSection">
+    <h3>Player B - Last 5 / 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
+
+    <label id="bFTScoredLabel">Recent Match Totals <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+    <input id="bFTScored" placeholder="20,24,22,19,21" />
+
+    <div id="bFTAllowedSection">
+      <label id="bFTAllowedLabel">Set 1 Totals</label>
+      <input id="bFTAllowed" placeholder="10,9,9,13,8" />
+    </div>
+
+    <div id="b1HSection" style="display:none;">
+      <label id="b1HScoredLabel">Optional Split Input</label>
+      <input id="b1HScored" placeholder="-" />
+      <label>Optional Split Input</label>
+      <input id="b1HAllowed" placeholder="-" />
+    </div>
+
+    <div id="b2HSection" style="display:none;">
+      <label>Optional Split Input</label>
+      <input id="b2HScored" placeholder="-" />
+      <label>Optional Split Input</label>
+      <input id="b2HAllowed" placeholder="-" />
+    </div>
+  </div>
+
+  <div class="section" id="h2hSection">
+    <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled / manual-ready</span></h3>
+
+    <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" checked /> Use Match H2H</label>
+    <input id="aFTH2H" placeholder="22,24,19,27" />
+    <input id="bFTH2H" placeholder="Same shared total list or leave blank" />
+
+    <div id="h2h1HSection" style="display:block;">
+      <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" checked /> Use Set 1 H2H</label>
+      <input id="a1HH2H" placeholder="10,9,12" />
+      <input id="b1HH2H" placeholder="Same shared total list or leave blank" />
+    </div>
+
+    <div id="h2h2HSection" style="display:none;">
+      <label><input type="checkbox" id="use2HH2H" /> Use Set 2 H2H</label>
+      <input id="a2HH2H" placeholder="-" />
+      <input id="b2HH2H" placeholder="-" />
+    </div>
+  </div>
+
+  <div class="section" id="intelSection">
+    <h3>📈 Intelligence Pack <span class="autofill-indicator" id="intelAutoTag">✅ Auto-derived</span></h3>
+
+    <div style="font-size:11px;color:#7b8088;margin:0 0 8px 0;font-weight:700;line-height:1.5;">
+      Layer 2 view placeholder for tennis totals. We keep this shell in place now and wire the calculations later.
+    </div>
+
+    <label>Player A Summary</label>
+    <input id="aFormIntel" style="max-width:100%;" placeholder="Recent avg | volatility | notes" readonly />
+
+    <label>Player B Summary</label>
+    <input id="bFormIntel" style="max-width:100%;" placeholder="Recent avg | volatility | notes" readonly />
+
+    <label>Match Total Summary</label>
+    <input id="aSpreadIntel" style="max-width:100%;" placeholder="Projection vs line" readonly />
+
+    <label>Set 1 Summary</label>
+    <input id="bSpreadIntel" style="max-width:100%;" placeholder="Projection vs line" readonly />
+
+    <label>Filter Notes</label>
+    <input id="aHitIntel" style="max-width:100%;" placeholder="Blowout / chaos / fake-edge notes" readonly />
+
+    <label>Tracker Notes</label>
+    <input id="bHitIntel" style="max-width:100%;" placeholder="Ready for later tracker logic" readonly />
+  </div>
+</div>
+
+<div class="actions">
+  <button id="runBtn" type="button">Run</button>
+  <button id="clearBtn" type="button">Clear</button>
+</div>
+
+<div class="table-wrap">
+  <table id="results" style="display:none;">
+    <tr>
+      <th>Pick</th>
+      <th>Projection</th>
+      <th>Edge</th>
+      <th>Model Grade</th>
+      <th>Prediction</th>
+    </tr>
+  </table>
+</div>
+
+<div id="trackerModal" class="tracker-modal" aria-hidden="true">
+  <div class="tracker-panel">
+    <div class="tracker-head">
+      <span id="trackerHeadTitle">Tracked Picks</span>
+      <div class="tracker-head-actions">
+        <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn state-idle" title="Open report" aria-label="Open report">📊 Report</button>
+        <button type="button" id="trackerDebugBtn" class="tracker-insights-btn state-idle" title="Open debug" aria-label="Open debug" style="display:none;">🐞</button>
+        <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
+      </div>
+    </div>
+    <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
+    <div class="tracker-market-summary" id="trackerMarketSummary"></div>
+
+    <div class="tracker-body-scroll" id="trackedPicksWrap">
+      <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
+
+      <div id="trackerEmpty" class="tracker-empty" style="padding:14px 16px;font-size:11px;font-weight:700;color:var(--tracker-subtext);">
+        No tracked picks saved yet.
+      </div>
+
+      <div class="table-wrap tracker-table-wrap">
+        <table id="trackedPicksTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Match</th>
+              <th>Market</th>
+              <th>Line</th>
+              <th>Pick</th>
+              <th>Edge</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="trackedPicksBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  function wrapSection(section) {
+    if (!section || section.querySelector(".section-toggle")) return;
+
+    const heading = section.querySelector("h3");
+    if (!heading) return;
+
+    const titleHTML = heading.innerHTML;
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "section-toggle";
+    toggle.innerHTML = `
+      <span class="toggle-title">${titleHTML}</span>
+      <span class="toggle-icon">▾</span>
+    `;
+
+    const body = document.createElement("div");
+    body.className = "section-body";
+
+    let node = heading.nextSibling;
+    while (node) {
+      const next = node.nextSibling;
+      body.appendChild(node);
+      node = next;
+    }
+
+    heading.remove();
+    section.appendChild(toggle);
+    section.appendChild(body);
+
+    toggle.addEventListener("click", () => {
+      if (section.classList.contains("locked")) return;
+      section.classList.toggle("collapsed");
     });
+  }
+
+  function openSection(id) {
+    const section = document.getElementById(id);
+    if (section) section.classList.remove("collapsed");
+  }
+
+  function collapseAll() {
+    document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
+  }
+
+  function toggleTheme() {
+    const isDark = document.body.classList.toggle("dark-mode");
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+  }
+
+  function applySavedTheme() {
+    if (localStorage.getItem("theme") === "dark") {
+      document.body.classList.add("dark-mode");
+    }
+  }
+
+  function clearAll() {
+    document.querySelectorAll("input, select").forEach(el => {
+      if (el.type === "checkbox") {
+        if (el.id === "useFTH2H" || el.id === "use1HH2H") el.checked = true;
+        else el.checked = false;
+      } else if (el.tagName === "SELECT") {
+        el.selectedIndex = 0;
+      } else if (!el.readOnly) {
+        el.value = "";
+      }
+    });
+
+    const fetchStatus = document.getElementById("fetchStatus");
+    if (fetchStatus) {
+      fetchStatus.className = "";
+      fetchStatus.textContent = "Auto-fetch layout only. Wiring comes later.";
+    }
+
+    const results = document.getElementById("results");
+    if (results) results.style.display = "none";
+  }
+
+  function openTrackerModal() {
+    const modal = document.getElementById("trackerModal");
+    if (!modal) return;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("tracker-open");
+  }
+
+  function closeTrackerModal() {
+    const modal = document.getElementById("trackerModal");
+    if (!modal) return;
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("tracker-open");
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    applySavedTheme();
+
+    document.querySelectorAll(".section").forEach(wrapSection);
+    collapseAll();
+    openSection("leagueSection");
 
     const themeToggleBtn = document.getElementById("themeToggleBtn");
+    if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
+
     const trackerToggleBtn = document.getElementById("trackerToggleBtn");
-    const trackerModal = document.getElementById("trackerModal");
+    if (trackerToggleBtn) trackerToggleBtn.addEventListener("click", openTrackerModal);
+
     const trackerCloseBtn = document.getElementById("trackerCloseBtn");
-    const statusLine = document.getElementById("statusLine");
-    const resultsTable = document.getElementById("results");
-    const resultsBody = resultsTable.querySelector("tbody");
-    const explainWrap = document.getElementById("explainWrap");
-    const trackerSummary = document.getElementById("trackerSummary");
-    const trackerEmpty = document.getElementById("trackerEmpty");
-    const trackedPicksTable = document.getElementById("trackedPicksTable");
-    const trackedPicksBody = document.getElementById("trackedPicksBody");
+    if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
 
-    function setStatus(text = "", type = "") {
-      statusLine.textContent = text;
-      statusLine.className = "status-line" + (type ? " " + type : "");
+    const trackerModal = document.getElementById("trackerModal");
+    if (trackerModal) {
+      trackerModal.addEventListener("click", e => {
+        if (e.target === trackerModal) closeTrackerModal();
+      });
     }
 
-    function safeText(value) {
-      return String(value ?? "").replace(/[&<>"']/g, ch => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      }[ch]));
+    const clearBtn = document.getElementById("clearBtn");
+    if (clearBtn) clearBtn.addEventListener("click", clearAll);
+
+    const fixturesTodayBtn = document.getElementById("fixturesTodayBtn");
+    const fixturesTomorrowBtn = document.getElementById("fixturesTomorrowBtn");
+    if (fixturesTodayBtn && fixturesTomorrowBtn) {
+      fixturesTodayBtn.addEventListener("click", () => {
+        fixturesTodayBtn.classList.add("active");
+        fixturesTomorrowBtn.classList.remove("active");
+      });
+      fixturesTomorrowBtn.addEventListener("click", () => {
+        fixturesTomorrowBtn.classList.add("active");
+        fixturesTodayBtn.classList.remove("active");
+      });
     }
 
-    function clamp(value, min, max) {
-      return Math.max(min, Math.min(max, value));
+    const headerErrorBtn = document.getElementById("headerErrorBtn");
+    if (headerErrorBtn) {
+      headerErrorBtn.classList.remove("active");
     }
 
-    function mean(arr) {
-      const clean = (Array.isArray(arr) ? arr : []).map(Number).filter(Number.isFinite);
-      if (!clean.length) return NaN;
-      return clean.reduce((sum, v) => sum + v, 0) / clean.length;
-    }
-
-    function std(arr) {
-      const clean = (Array.isArray(arr) ? arr : []).map(Number).filter(Number.isFinite);
-      if (clean.length < 2) return 0;
-      const avg = mean(clean);
-      const variance = clean.reduce((sum, v) => sum + ((v - avg) ** 2), 0) / clean.length;
-      return Math.sqrt(variance);
-    }
-
-    function normalizeDashes(str) {
-      return String(str ?? "").replace(/[–—−]/g, "-");
-    }
-
-    function parseSeries(id, { min = 3, max = 10, maxValue = 60 } = {}) {
-      const raw = document.getElementById(id)?.value?.trim() || "";
-      if (!raw) return [];
-      const parts = raw.split(",").map(x => x.trim()).filter(Boolean);
-      if (parts.length < min || parts.length > max) return null;
-      const out = [];
-      for (const part of parts) {
-        const value = Number(part);
-        if (!Number.isFinite(value) || value <= 0 || value > maxValue) return null;
-        out.push(Math.round(value * 100) / 100);
-      }
-      return out;
-    }
-
-    function parseOptionalSeries(id, { max = 10, maxValue = 60 } = {}) {
-      const raw = document.getElementById(id)?.value?.trim() || "";
-      if (!raw) return [];
-      const parts = raw.split(",").map(x => x.trim()).filter(Boolean);
-      if (!parts.length || parts.length > max) return null;
-      const out = [];
-      for (const part of parts) {
-        const value = Number(part);
-        if (!Number.isFinite(value) || value <= 0 || value > maxValue) return null;
-        out.push(Math.round(value * 100) / 100);
-      }
-      return out;
-    }
-
-    function parseMarketRangeMeta(raw) {
-      const text = normalizeDashes(String(raw ?? "").trim());
-      if (!text) return null;
-      const nums = text.match(/\d+(?:\.\d+)?/g);
-      if (!nums || !nums.length) return null;
-      const values = nums.map(Number).filter(Number.isFinite);
-      if (!values.length) return null;
-      const low = Math.min(...values);
-      const high = Math.max(...values);
-      return {
-        raw: text,
-        low,
-        high,
-        mid: Math.round(((low + high) / 2) * 100) / 100
-      };
-    }
-
-    function formatNum(value, digits = 2) {
-      return Number.isFinite(value) ? Number(value).toFixed(digits) : "—";
-    }
-
-    function formatLine(value) {
-      return Number.isFinite(value) ? Number(value).toFixed(1) : "—";
-    }
-
-    function getPickFromEdge(edge) {
-      if (!Number.isFinite(edge)) return "PASS";
-      if (edge > 0) return "OVER";
-      if (edge < 0) return "UNDER";
-      return "PASS";
-    }
-
-    function matchConfidence(edge, volatility) {
-      const absEdge = Math.abs(Number(edge));
-      if (absEdge >= 2.5 && volatility <= 3.0) return "A";
-      if (absEdge >= 1.5 && volatility <= 4.0) return "B";
-      if (absEdge >= 1.0) return "C";
-      return "PASS";
-    }
-
-    function set1Confidence(edge, volatility) {
-      const absEdge = Math.abs(Number(edge));
-      if (absEdge >= 1.0 && volatility <= 1.5) return "A";
-      if (absEdge >= 0.7) return "B";
-      if (absEdge >= 0.5) return "C";
-      return "PASS";
-    }
-
-    function downgradeConfidence(conf) {
-      if (conf === "A") return "B";
-      if (conf === "B") return "C";
-      if (conf === "C") return "PASS";
-      return "PASS";
-    }
-
-    function confidenceClass(conf) {
-      if (conf === "A") return "conf-a";
-      if (conf === "B") return "conf-b";
-      if (conf === "C") return "conf-c";
-      return "conf-pass";
-    }
-
-    function predictionClass(pick) {
-      if (pick === "OVER") return "pred-over";
-      if (pick === "UNDER") return "pred-under";
-      return "pred-pass";
-    }
-
-    function evaluateMatchMarket({ marketLabel, lineMeta, tour, aRecent, bRecent, h2h, confidenceFn, isSet1 = false }) {
-      const avgA = mean(aRecent);
-      const avgB = mean(bRecent);
-      const baseProjection = (avgA + avgB) / 2;
-      const h2hAvg = h2h.length ? mean(h2h) : NaN;
-      const projection = Number.isFinite(h2hAvg)
-        ? ((baseProjection * 0.7) + (h2hAvg * 0.3))
-        : baseProjection;
-
-      const stdA = std(aRecent);
-      const stdB = std(bRecent);
-      const volatility = (stdA + stdB) / 2;
-      const line = lineMeta.mid;
-      const edge = projection - line;
-      const recentEdge = baseProjection - line;
-      const h2hEdge = Number.isFinite(h2hAvg) ? h2hAvg - line : NaN;
-
-      let pick = getPickFromEdge(edge);
-      let confidence = confidenceFn(edge, volatility);
-      const flags = [];
-      const notes = [];
-
-      const blowout = !isSet1 && avgA < 18 && avgB < 18;
-      if (blowout) {
-        flags.push("BLOWOUT_FILTER");
-        if (pick === "OVER") {
-          confidence = downgradeConfidence(confidence);
-          notes.push("Both players trend short. OVER downgraded.");
-        } else if (pick === "UNDER") {
-          notes.push("Both players trend short. UNDER bias confirmed.");
+    const fetchBtn = document.getElementById("fetchBtn");
+    if (fetchBtn) {
+      fetchBtn.addEventListener("click", () => {
+        const fetchStatus = document.getElementById("fetchStatus");
+        if (fetchStatus) {
+          fetchStatus.className = "loading";
+          fetchStatus.textContent = "Design-first shell only. Auto-fetch comes later.";
         }
-      }
-
-      const fakeEdge = Number.isFinite(h2hEdge)
-        && (recentEdge * h2hEdge < 0)
-        && Math.abs(recentEdge) >= 1
-        && Math.abs(h2hEdge) >= 1;
-      if (fakeEdge) {
-        flags.push("FAKE_EDGE_FILTER");
-        pick = "PASS";
-        confidence = "PASS";
-        notes.push("Recent form and H2H disagree in opposite directions.");
-      }
-
-      const chaos = volatility > (isSet1 ? 1.8 : 4.0);
-      if (chaos) {
-        flags.push("CHAOS_FILTER");
-        if (tour === "WTA") {
-          pick = "PASS";
-          confidence = "PASS";
-          notes.push("WTA chaos filter tripped. Auto-pass.");
-        } else {
-          confidence = downgradeConfidence(confidence);
-          notes.push("Volatility is high. Confidence downgraded.");
-        }
-      }
-
-      if (confidence === "PASS") pick = "PASS";
-      if (!Number.isFinite(edge) || !Number.isFinite(projection)) {
-        pick = "PASS";
-        confidence = "PASS";
-        flags.push("BAD_INPUTS");
-        notes.push("Projection could not be computed.");
-      }
-
-      return {
-        marketLabel,
-        lineMeta,
-        line,
-        avgA,
-        avgB,
-        baseProjection,
-        h2hAvg,
-        projection,
-        stdA,
-        stdB,
-        volatility,
-        edge,
-        recentEdge,
-        h2hEdge,
-        pick,
-        confidence,
-        flags,
-        notes,
-        tour,
-        usedH2H: Number.isFinite(h2hAvg)
-      };
-    }
-
-    function explainHtml(result) {
-      const h2hText = result.usedH2H ? formatNum(result.h2hAvg) : "not used";
-      const flagsHtml = result.flags.length
-        ? `<div class="flag-list">${result.flags.map(flag => `<span>${safeText(flag)}</span>`).join("")}</div>`
-        : "<div class=\"flag-list\"><span>CLEAN</span></div>";
-      return `
-        <div class="explain-card">
-          <strong>${safeText(result.marketLabel)}</strong><br>
-          Avg A: ${safeText(formatNum(result.avgA))} • Avg B: ${safeText(formatNum(result.avgB))}<br>
-          Base: ${safeText(formatNum(result.baseProjection))} • H2H: ${safeText(h2hText)}<br>
-          Projection: ${safeText(formatNum(result.projection))} • Line: ${safeText(formatLine(result.line))}<br>
-          Edge: ${safeText(formatNum(result.edge))} • Volatility: ${safeText(formatNum(result.volatility))}<br>
-          Notes: ${safeText(result.notes.join(" ") || "None")}
-          ${flagsHtml}
-        </div>
-      `;
-    }
-
-    function loadTracker() {
-      try {
-        const raw = localStorage.getItem(STORAGE_TRACKER);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (err) {
-        return [];
-      }
-    }
-
-    function saveTracker(rows) {
-      localStorage.setItem(STORAGE_TRACKER, JSON.stringify(rows));
-    }
-
-    function summarizeTracker(rows) {
-      const saved = rows.length;
-      const settled = rows.filter(r => ["win", "loss", "push"].includes(String(r.status || "").toLowerCase())).length;
-      const wins = rows.filter(r => String(r.status || "").toLowerCase() === "win").length;
-      const losses = rows.filter(r => String(r.status || "").toLowerCase() === "loss").length;
-      const pushes = rows.filter(r => String(r.status || "").toLowerCase() === "push").length;
-      const atp = rows.filter(r => r.tour === "ATP").length;
-      const wta = rows.filter(r => r.tour === "WTA").length;
-      const a = rows.filter(r => r.confidence === "A").length;
-      const b = rows.filter(r => r.confidence === "B").length;
-      const c = rows.filter(r => r.confidence === "C").length;
-      trackerSummary.innerHTML = `
-        ${saved} saved • ${settled} settled • ${wins} wins • ${losses} losses • ${pushes} pushes<br>
-        ATP ${atp} • WTA ${wta} • A ${a} • B ${b} • C ${c}
-      `;
-    }
-
-    function updateTrackerStatus(index, status) {
-      const rows = loadTracker();
-      if (!rows[index]) return;
-      rows[index].status = status;
-      saveTracker(rows);
-      renderTracker();
-    }
-
-    function deleteTrackerRow(index) {
-      const rows = loadTracker();
-      rows.splice(index, 1);
-      saveTracker(rows);
-      renderTracker();
-    }
-
-    function renderTracker() {
-      const rows = loadTracker();
-      summarizeTracker(rows);
-      trackedPicksBody.innerHTML = "";
-
-      if (!rows.length) {
-        trackerEmpty.style.display = "block";
-        trackedPicksTable.style.display = "none";
-        return;
-      }
-
-      trackerEmpty.style.display = "none";
-      trackedPicksTable.style.display = "table";
-
-      rows.forEach((row, index) => {
-        const tr = document.createElement("tr");
-        const flags = Array.isArray(row.flags) && row.flags.length ? row.flags.join(" | ") : "—";
-        tr.innerHTML = `
-          <td>${safeText(row.date || "—")}</td>
-          <td>${safeText(row.matchup || "—")}</td>
-          <td>${safeText(row.market || "—")}<br><small>${safeText(flags)}</small></td>
-          <td>${safeText(formatLine(Number(row.line)))}</td>
-          <td class="${predictionClass(row.pick)}">${safeText(row.pick || "PASS")}</td>
-          <td>${safeText(formatNum(Number(row.edge)))}</td>
-          <td class="${confidenceClass(row.confidence)}">${safeText(row.confidence || "PASS")}</td>
-          <td>
-            <div>${safeText(String(row.status || "pending").toUpperCase())}</div>
-            <div class="tracker-actions" style="margin-top:4px;">
-              <button type="button" data-action="win" data-index="${index}">W</button>
-              <button type="button" data-action="loss" data-index="${index}">L</button>
-              <button type="button" data-action="push" data-index="${index}">P</button>
-              <button type="button" data-action="pending" data-index="${index}">⏳</button>
-              <button type="button" data-action="delete" data-index="${index}">✕</button>
-            </div>
-          </td>
-        `;
-        trackedPicksBody.appendChild(tr);
       });
     }
 
-    trackedPicksBody.addEventListener("click", event => {
-      const btn = event.target.closest("button[data-action]");
-      if (!btn) return;
-      const index = Number(btn.dataset.index);
-      const action = String(btn.dataset.action || "");
-      if (!Number.isInteger(index)) return;
-      if (action === "delete") {
-        deleteTrackerRow(index);
-        return;
-      }
-      updateTrackerStatus(index, action);
-    });
-
-    function addResultsToTracker(results) {
-      const rows = loadTracker();
-      const matchup = `${document.getElementById("playerAName").value.trim() || "Player A"} vs ${document.getElementById("playerBName").value.trim() || "Player B"}`;
-      const dateValue = document.getElementById("matchDate").value || new Date().toISOString().slice(0, 10);
-      results
-        .filter(row => row.pick !== "PASS")
-        .forEach(row => {
-          rows.unshift({
-            date: dateValue,
-            matchup,
-            tour: row.tour,
-            market: row.marketLabel,
-            line: row.line,
-            projection: row.projection,
-            edge: row.edge,
-            pick: row.pick,
-            confidence: row.confidence,
-            flags: row.flags,
-            status: "pending"
-          });
-        });
-      saveTracker(rows.slice(0, 200));
-      renderTracker();
-    }
-
-    function validateNames(playerA, playerB) {
-      if (!playerA || !playerB) return "Player names are required.";
-      if (playerA.trim().toLowerCase() === playerB.trim().toLowerCase()) return "Player A and Player B cannot be the same.";
-      return "";
-    }
-
-    function runEngine() {
-      setStatus("", "");
-      resultsBody.innerHTML = "";
-      explainWrap.innerHTML = "";
-      explainWrap.style.display = "none";
-
-      const tour = document.getElementById("tourSelect").value || "ATP";
-      const playerA = document.getElementById("playerAName").value.trim();
-      const playerB = document.getElementById("playerBName").value.trim();
-      const nameError = validateNames(playerA, playerB);
-      if (nameError) {
-        resultsTable.style.display = "none";
-        setStatus(nameError, "err");
-        return;
-      }
-
-      const aRecent = parseSeries("aRecentTotals");
-      const bRecent = parseSeries("bRecentTotals");
-      const h2hMatch = parseOptionalSeries("h2hMatchTotals");
-      const aSet1 = parseSeries("aSet1Totals", { min: 3, max: 10, maxValue: 20 });
-      const bSet1 = parseSeries("bSet1Totals", { min: 3, max: 10, maxValue: 20 });
-      const h2hSet1 = parseOptionalSeries("h2hSet1Totals", { max: 10, maxValue: 20 });
-      const matchLineMeta = parseMarketRangeMeta(document.getElementById("matchLine").value);
-      const set1LineMeta = parseMarketRangeMeta(document.getElementById("set1Line").value);
-
-      const errors = [];
-      if (aRecent === null) errors.push("Player A recent match totals must be 3-10 positive comma-separated numbers.");
-      if (bRecent === null) errors.push("Player B recent match totals must be 3-10 positive comma-separated numbers.");
-      if (h2hMatch === null) errors.push("H2H match totals must be positive comma-separated numbers.");
-      if (aSet1 === null) errors.push("Player A Set 1 totals must be 3-10 positive comma-separated numbers.");
-      if (bSet1 === null) errors.push("Player B Set 1 totals must be 3-10 positive comma-separated numbers.");
-      if (h2hSet1 === null) errors.push("H2H Set 1 totals must be positive comma-separated numbers.");
-      if (!matchLineMeta && !set1LineMeta) errors.push("Enter at least one market line.");
-      if (!aRecent || !bRecent) errors.push("Match totals are required for both players.");
-      if (!aSet1 || !bSet1) errors.push("Set 1 totals are required for both players.");
-
-      if (errors.length) {
-        resultsTable.style.display = "none";
-        setStatus(errors[0], "err");
-        return;
-      }
-
-      const finalResults = [];
-      if (matchLineMeta) {
-        finalResults.push(evaluateMatchMarket({
-          marketLabel: "Match Total Games",
-          lineMeta: matchLineMeta,
-          tour,
-          aRecent,
-          bRecent,
-          h2h: h2hMatch || [],
-          confidenceFn: matchConfidence,
-          isSet1: false
-        }));
-      }
-
-      if (set1LineMeta) {
-        finalResults.push(evaluateMatchMarket({
-          marketLabel: "Set 1 Total Games",
-          lineMeta: set1LineMeta,
-          tour,
-          aRecent: aSet1,
-          bRecent: bSet1,
-          h2h: h2hSet1 || [],
-          confidenceFn: set1Confidence,
-          isSet1: true
-        }));
-      }
-
-      if (!finalResults.length) {
-        resultsTable.style.display = "none";
-        setStatus("No valid market could be computed.", "err");
-        return;
-      }
-
-      resultsTable.style.display = "table";
-      finalResults.forEach(result => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${safeText(result.marketLabel)}</td>
-          <td>${safeText(formatLine(result.line))}</td>
-          <td>${safeText(formatNum(result.projection))}</td>
-          <td>${safeText(formatNum(result.edge))}</td>
-          <td class="${confidenceClass(result.confidence)}">${safeText(result.confidence)}</td>
-          <td class="${predictionClass(result.pick)}">${safeText(result.pick)}</td>
-          <td>${safeText(result.flags.join(" | ") || "—")}</td>
-        `;
-        resultsBody.appendChild(tr);
-        explainWrap.insertAdjacentHTML("beforeend", explainHtml(result));
+    const runBtn = document.getElementById("runBtn");
+    if (runBtn) {
+      runBtn.addEventListener("click", () => {
+        const results = document.getElementById("results");
+        if (results) results.style.display = "table";
       });
-      explainWrap.style.display = "grid";
-
-      addResultsToTracker(finalResults);
-      const passCount = finalResults.filter(r => r.pick === "PASS").length;
-      const playable = finalResults.filter(r => r.pick !== "PASS").length;
-      if (playable) {
-        setStatus(`${playable} playable result${playable === 1 ? "" : "s"} saved to tracker. ${passCount ? passCount + " pass" + (passCount === 1 ? "" : "es") + " held back." : ""}`, playable === finalResults.length ? "ok" : "warn");
-      } else {
-        setStatus("Everything came back PASS. Which is annoying, but cheaper than pretending the edge is real.", "warn");
-      }
     }
-
-    function clearEngine() {
-      [
-        "playerAName", "playerBName", "matchLine", "set1Line", "aRecentTotals", "bRecentTotals",
-        "h2hMatchTotals", "aSet1Totals", "bSet1Totals", "h2hSet1Totals"
-      ].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = "";
-      });
-      document.getElementById("tourSelect").value = "ATP";
-      document.getElementById("matchDate").value = new Date().toISOString().slice(0, 10);
-      resultsBody.innerHTML = "";
-      resultsTable.style.display = "none";
-      explainWrap.innerHTML = "";
-      explainWrap.style.display = "none";
-      setStatus("Cleared.", "ok");
-    }
-
-    function openTracker() {
-      trackerModal.classList.add("open");
-      trackerModal.setAttribute("aria-hidden", "false");
-      document.body.classList.add("tracker-open");
-      renderTracker();
-    }
-
-    function closeTracker() {
-      trackerModal.classList.remove("open");
-      trackerModal.setAttribute("aria-hidden", "true");
-      document.body.classList.remove("tracker-open");
-    }
-
-    trackerToggleBtn.addEventListener("click", openTracker);
-    trackerCloseBtn.addEventListener("click", closeTracker);
-    trackerModal.addEventListener("click", event => {
-      if (event.target === trackerModal) closeTracker();
-    });
-
-    document.getElementById("runBtn").addEventListener("click", runEngine);
-    document.getElementById("clearBtn").addEventListener("click", clearEngine);
-
-    themeToggleBtn.addEventListener("click", () => {
-      document.body.classList.toggle("dark-mode");
-      localStorage.setItem(STORAGE_THEME, document.body.classList.contains("dark-mode") ? "dark" : "light");
-    });
-
-    (function init() {
-      const storedTheme = localStorage.getItem(STORAGE_THEME);
-      if (storedTheme === "dark") document.body.classList.add("dark-mode");
-      document.getElementById("matchDate").value = new Date().toISOString().slice(0, 10);
-      renderTracker();
-      setStatus("Ready.", "ok");
-    })();
-  </script>
+  });
+})();
+</script>
 </body>
 </html>
