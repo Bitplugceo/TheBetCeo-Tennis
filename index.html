@@ -2418,13 +2418,6 @@ body.dark-mode .tracker-analytics-section-head {
     font-size: 11px;
   }
 
-  .tracker-delete-btn {
-    margin-top: 4px;
-    padding: 4px 7px;
-    font-size: 10px;
-    font-weight: 800;
-  }
-
   .tracker-status-badge {
     display: inline-block;
     min-width: 74px;
@@ -2603,9 +2596,6 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="h1MarketLabel">Set 1 Total Games</label>
     <input id="h1Market" placeholder="e.g. 8.5 - 10.5" />
 
-    <div class="section-note">
-      Totals only. No winner market. No handicap market. Enter book ranges like 18.5 - 22.5 or 8.5 - 10.5.
-    </div>
   </div>
 
   <div class="section" id="teamASection">
@@ -2756,7 +2746,7 @@ body.dark-mode .tracker-analytics-section-head {
 (function () {
   const THEME_KEY = "tennis_engine_theme";
   const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
-  const TRACKER_STORAGE_KEY = "tennis_engine_tracker_v1";
+  const TRACKER_STORAGE_KEY = "The_Bet_Ceo_Key2";
   const selectedPlayerIds = { A: null, B: null };
   const fixtureRecordMap = new Map();
   let currentFixtureOffset = 0;
@@ -4129,14 +4119,17 @@ body.dark-mode .tracker-analytics-section-head {
     }, {});
 
     if (summary) {
-      summary.textContent = items.length + " saved • " + settled.length + " settled • " + wins + " wins";
+      const pending = items.filter(function (item) { return item.status === "PENDING"; }).length;
+      const losses = items.filter(function (item) { return item.status === "LOSS"; }).length;
+      const pushes = items.filter(function (item) { return item.status === "PUSH"; }).length;
+      summary.textContent = activeItems.length + " live/recent • " + pending + " pending • " + wins + " wins • " + losses + " losses • " + pushes + " pushes";
     }
 
     if (marketSummary) {
       const parts = Object.keys(byMarket).sort().map(function (key) {
-        return key + ": " + byMarket[key];
+        return key + " " + byMarket[key];
       });
-      marketSummary.textContent = parts.join(" • ");
+      marketSummary.textContent = parts.join("   ");
     }
 
     if (empty) empty.style.display = items.length ? "none" : "block";
@@ -4158,7 +4151,7 @@ body.dark-mode .tracker-analytics-section-head {
           '<td>' + htmlEscape(item.line || "—") + '<span class="tracker-subline">' + htmlEscape(item.actualTotal != null ? ("Actual " + fmtCompact(item.actualTotal)) : "Actual —") + '</span></td>' +
           '<td class="' + getPickCellClass(item.rawPick) + '">' + htmlEscape(item.pick) + (item.isLock ? ' <span class="lock">🔒</span>' : '') + '</td>' +
           '<td>' + htmlEscape(edgeText) + '</td>' +
-          '<td>' + statusBadge(item) + '<button type="button" class="tracker-delete-btn" data-id="' + htmlEscape(item.id) + '">Delete</button></td>' +
+          '<td>' + statusBadge(item) + '</td>' +
         '</tr>'
       );
     }
@@ -5131,16 +5124,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const trackedPicksBody = qs("trackedPicksBody");
     if (trackedPicksBody) {
-      trackedPicksBody.addEventListener("click", function (event) {
-        const target = event.target;
-        if (!target || !target.classList.contains("tracker-delete-btn")) return;
-        const id = target.getAttribute("data-id");
-        const items = getTrackerItems().filter(function (item) {
-          return item.id !== id;
-        });
-        saveTrackerItems(items);
-        updateTrackerUI();
-      });
     }
 
     const fixturesTodayBtn = qs("fixturesTodayBtn");
