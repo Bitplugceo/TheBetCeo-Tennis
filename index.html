@@ -2459,7 +2459,7 @@ body.dark-mode .tracker-analytics-section-head {
     <input id="h1Market" placeholder="9.5" />
 
     <div class="section-note">
-      Totals only. No winner market. No handicap market.
+      Totals only. No winner market. No handicap market. Match line range: 22.5 to 30.5. Set 1 line range: 9.5 to 12.5.
     </div>
   </div>
 
@@ -2762,14 +2762,20 @@ body.dark-mode .tracker-analytics-section-head {
     return "PASS";
   }
 
-  function getRawConfidence(edge) {
-    if (edge >= 2.5) return "A";
-    if (edge >= 1.5) return "B";
-    if (edge >= 1.0) return "C";
-    if (edge <= -2.5) return "A";
-    if (edge <= -1.5) return "B";
-    if (edge <= -1.0) return "C";
+  function getRawConfidence(edge, volatility) {
+    const absEdge = Math.abs(edge);
+    const lowVolatility = volatility <= 4;
+
+    if (absEdge >= 2.5 && lowVolatility) return "A";
+    if (absEdge >= 1.5) return "B";
+    if (absEdge >= 1.0) return "C";
     return "PASS";
+  }
+
+  function validateLineRange(line, min, max, name) {
+    if (line < min || line > max) {
+      throw new Error(name + " must be between " + min.toFixed(1) + " and " + max.toFixed(1) + ".");
+    }
   }
 
   function pickFromEdge(edge) {
@@ -2786,7 +2792,7 @@ body.dark-mode .tracker-analytics-section-head {
     const edge = projection - config.line;
 
     let pick = pickFromEdge(edge);
-    let confidence = getRawConfidence(edge);
+    let confidence = getRawConfidence(edge, volatility);
     const notes = [];
     const filtersTriggered = [];
 
@@ -2886,6 +2892,9 @@ body.dark-mode .tracker-analytics-section-head {
 
     const matchLine = parseNumber(qs("ftMarket").value, "Match total line");
     const set1Line = parseNumber(qs("h1Market").value, "Set 1 total line");
+
+    validateLineRange(matchLine, 22.5, 30.5, "Match total line");
+    validateLineRange(set1Line, 9.5, 12.5, "Set 1 total line");
 
     const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent match totals", 5, 10, false);
     const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent match totals", 5, 10, false);
