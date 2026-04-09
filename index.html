@@ -13876,27 +13876,16 @@ window.addEventListener("unhandledrejection", event => {
 
 <script>
 (function(){
-  const TENNIS_APP_VERSION = "tennis_bb_exact_v1";
+  const TENNIS_APP_VERSION = "tennis_bb_exact_v5_atp_wta_only";
   const TENNIS_DAY_CACHE_PREFIX = "tennis_engine_day_cache_";
   const TENNIS_HISTORY_TARGET = 10;
   const TENNIS_H2H_TARGET = 8;
   const TENNIS_HISTORY_MAX_DAYS = 150;
-  const TENNIS_MANIFEST_KEY = "tennis_engine_standalone_build";
+  const TENNIS_MANIFEST_KEY = "tennis_engine_standalone_build_v5";
   const TENNIS_FIXED_TRACKER_KEY = "The_Bet_Ceo_Tennis_Key";
   const TENNIS_TOURS = [
     { value: "atp", label: "ATP - Main Tour", fetch: true, endpoint: "https://site.api.espn.com/apis/site/v2/sports/tennis/atp" },
-    { value: "wta", label: "WTA - Main Tour", fetch: false },
-    { value: "atp_challenger", label: "ATP Challenger Tour", fetch: false },
-    { value: "wta125", label: "WTA 125", fetch: false },
-    { value: "itf_men", label: "ITF Men", fetch: false },
-    { value: "itf_women", label: "ITF Women", fetch: false },
-    { value: "davis_cup", label: "Davis Cup", fetch: false },
-    { value: "billie_jean_king", label: "Billie Jean King Cup", fetch: false },
-    { value: "united_cup", label: "United Cup", fetch: false },
-    { value: "atp_finals", label: "ATP Finals", fetch: false },
-    { value: "wta_finals", label: "WTA Finals", fetch: false },
-    { value: "olympics", label: "Olympics", fetch: false },
-    { value: "unknown", label: "Other / Mixed Tennis", fetch: false }
+    { value: "wta", label: "WTA - Main Tour", fetch: true, endpoint: "https://site.api.espn.com/apis/site/v2/sports/tennis/wta" }
   ];
 
   const tennisState = {
@@ -14025,11 +14014,12 @@ window.addEventListener("unhandledrejection", event => {
   window.getTrackedLeagueBase = function(league) {
     const key = String(league || '').toLowerCase();
     if (key === 'atp') return 'https://site.api.espn.com/apis/site/v2/sports/tennis/atp';
+    if (key === 'wta') return 'https://site.api.espn.com/apis/site/v2/sports/tennis/wta';
     return '';
   };
   window.isTrackerSupportedLeague = function(league) {
     const key = String(league || '').toLowerCase();
-    return key === 'atp';
+    return key === 'atp' || key === 'wta';
   };
   window.isManualSettlementLeague = function(league) {
     return !window.isTrackerSupportedLeague(league);
@@ -14043,7 +14033,7 @@ window.addEventListener("unhandledrejection", event => {
       return { key, level: 'trusted', label: 'Trusted', mode: 'full', guidance: 'Full plays are allowed for ATP totals. Keep checking the record and report board.' };
     }
     if (key === 'wta') {
-      return { key, level: 'advisory', label: 'Needs retune', mode: 'advisory', guidance: 'WTA is listed for future support. Treat as advisory only until dedicated weights are built.' };
+      return { key, level: 'trusted', label: 'Trusted', mode: 'full', guidance: 'WTA main tour totals are enabled through ESPN auto-fetch. Keep checking the report board because the sample is still young.' };
     }
     return { key, level: 'blocked', label: 'Do not use', mode: 'block', guidance: 'Auto-fetch and model support are not live for this tour yet.' };
   };
@@ -14119,7 +14109,7 @@ window.addEventListener("unhandledrejection", event => {
 
   async function fetchTennisDay(tourKey, dateKey) {
     const tour = TENNIS_TOURS.find(t => t.value === tourKey) || TENNIS_TOURS[0];
-    if (!tour.fetch || !tour.endpoint) throw new Error('Auto-fetch is only live for ATP right now.');
+    if (!tour.fetch || !tour.endpoint) throw new Error('Auto-fetch is not live for this league yet. ATP and WTA are supported; the rest are listed but disabled until verified.');
     const cacheKey = TENNIS_DAY_CACHE_PREFIX + tourKey + '_' + dateKey;
     try {
       const cached = localStorage.getItem(cacheKey);
@@ -14194,7 +14184,7 @@ window.addEventListener("unhandledrejection", event => {
       const payload = await fetchTennisDay(tour.value, dateKey);
       const fixtures = payload.matches.filter(match => !match.completed || match.completed);
       renderFixtureList(fixtures);
-      setStatusTextSafe(fixtures.length ? `✅ Loaded ${fixtures.length} ATP fixtures.` : '⚠️ No ATP fixtures found for the selected day.', fixtures.length ? 'ok' : 'err');
+      setStatusTextSafe(fixtures.length ? `✅ Loaded ${fixtures.length} ${tour.label} fixtures.` : `⚠️ No ${tour.label} fixtures found for the selected day.`, fixtures.length ? 'ok' : 'err');
       logEngine('tennis fixtures loaded', { tour: tour.value, dateKey, fixtures: fixtures.length });
     } catch (err) {
       renderFixtureList([]);
@@ -14217,6 +14207,11 @@ window.addEventListener("unhandledrejection", event => {
     if (byId('teamBName')) byId('teamBName').value = match.playerB;
     setStatusTextSafe('✅ Match selected. Tap Fetch Stats to build totals history.', 'ok');
     validateFetchSection();
+    updateSectionLocks();
+    if (typeof accordionOpen === 'function') {
+      accordionOpen('espnSection');
+      accordionOpen('marketSection');
+    }
   }
 
   function collectPlayerHistory(matches, playerName) {
@@ -14233,7 +14228,7 @@ window.addEventListener("unhandledrejection", event => {
     for (let day = 0; day < TENNIS_HISTORY_MAX_DAYS; day++) {
       if (history.playerA.length >= TENNIS_HISTORY_TARGET && history.playerB.length >= TENNIS_HISTORY_TARGET && history.h2h.length >= Math.min(3, TENNIS_H2H_TARGET)) break;
       try {
-        const payload = await fetchTennisDay('atp', cursor);
+        const payload = await fetchTennisDay(String(fixture.tour || getSelectedTourMeta().value || 'atp'), cursor);
         const completed = payload.matches.filter(match => match.completed && match.totalGames > 0);
         completed.forEach(match => {
           if ((normalizePlayerName(match.playerA) === normalizePlayerName(fixture.playerA) && normalizePlayerName(match.playerB) === normalizePlayerName(fixture.playerB)) ||
@@ -14289,7 +14284,7 @@ window.addEventListener("unhandledrejection", event => {
   async function fetchESPN_Tennis() {
     const fixture = tennisState.selectedFixture;
     if (!fixture) {
-      setStatusTextSafe('❌ Select an ATP match first.', 'err');
+      setStatusTextSafe('❌ Select a supported tennis match first.', 'err');
       return;
     }
     const token = ++tennisState.fetchToken;
@@ -14318,7 +14313,8 @@ window.addEventListener("unhandledrejection", event => {
     const a = byId('teamAName')?.value.trim() || '';
     const b = byId('teamBName')?.value.trim() || '';
     const fetchBtn = byId('fetchBtn');
-    const valid = league === 'atp' && !!a && !!b && !!tennisState.selectedFixture;
+    const tour = getSelectedTourMeta();
+    const valid = !!tour.fetch && !!a && !!b && !!tennisState.selectedFixture;
     if (fetchBtn) fetchBtn.disabled = !valid;
     return valid;
   };
@@ -14328,11 +14324,17 @@ window.addEventListener("unhandledrejection", event => {
     const hasPlayers = !!(byId('teamAName')?.value.trim()) && !!(byId('teamBName')?.value.trim());
     const hasLine = Number.isFinite(Number(byId('ftMarket')?.value));
     const hasStats = getFullSeries('aFTScored').length >= 3 && getFullSeries('bFTScored').length >= 3;
-    ['marketSection','teamASection','teamBSection','h2hSection'].forEach(id => {
+    const lockMap = {
+      espnSection: !hasLeague,
+      marketSection: !hasLeague,
+      teamASection: !(hasLeague && hasPlayers),
+      teamBSection: !(hasLeague && hasPlayers),
+      h2hSection: !(hasLeague && hasPlayers)
+    };
+    Object.entries(lockMap).forEach(([id, locked]) => {
       const el = byId(id);
       if (!el) return;
-      el.classList.toggle('locked', !(hasLeague && hasPlayers));
-      el.classList.remove('collapsed');
+      el.classList.toggle('locked', !!locked);
     });
     const runBtn = byId('runBtn');
     if (runBtn) runBtn.disabled = !(hasLeague && hasPlayers && hasLine && hasStats);
@@ -14490,7 +14492,7 @@ window.addEventListener("unhandledrejection", event => {
       const all = [...active, ...archived];
       if (!all.length) { if (typeof renderTrackedPicks === 'function') renderTrackedPicks(); return; }
       let changed = false;
-      const pending = all.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === 'pending') && String(p.league || '').toLowerCase() === 'atp');
+      const pending = all.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === 'pending') && window.isTrackerSupportedLeague(String(p.league || '').toLowerCase()));
       const unique = [...new Map(pending.map(p => [`${p.eventId}|${(p.eventDate||'').slice(0,10)}`, p])).values()];
       const competitionMap = new Map();
       for (const pick of unique) {
@@ -14498,7 +14500,7 @@ window.addEventListener("unhandledrejection", event => {
         const d = dateIso ? new Date(dateIso) : new Date();
         const dateKey = toDateKey(d);
         try {
-          const payload = await fetchTennisDay('atp', dateKey);
+          const payload = await fetchTennisDay(String(pick.league || 'atp').toLowerCase(), dateKey);
           const comp = payload.matches.find(m => String(m.id) === String(pick.eventId));
           if (comp) competitionMap.set(String(pick.eventId), comp);
         } catch (err) {
@@ -14541,14 +14543,17 @@ window.addEventListener("unhandledrejection", event => {
     if (brand) brand.textContent = 'TheBetCeo ⚡️';
     const themeBtn = byId('themeToggleBtn');
     if (themeBtn) themeBtn.textContent = '🎾';
+    const brandRight = document.querySelector('.brand-right');
+    if (brandRight) brandRight.innerHTML = '🎾 📊 <span>PREDICTIONS</span>';
 
     setSectionTitle('leagueSection', 'League Tier');
+    setLabel('leagueSelectLabel', 'Select Tour');
     setLabel('fixtureSelectLabel', 'Select match');
     setLabel('teamALabel', 'Player A Name');
     setLabel('teamBLabel', 'Player B Name');
     setPlaceholder('teamAName', 'e.g. Novak Djokovic');
     setPlaceholder('teamBName', 'e.g. Daniil Medvedev');
-    setSectionTitle('espnSection', '⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(ATP auto-fetch)</span>');
+    setSectionTitle('espnSection', '⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(ATP &amp; WTA only)</span>');
     setSectionTitle('marketSection', 'Market Lines');
     setLabel('ftMarketLabel', 'Full Match Total Games');
     setPlaceholder('ftMarket', 'e.g. 22.5');
@@ -14568,22 +14573,41 @@ window.addEventListener("unhandledrejection", event => {
     setPlaceholder('aFTH2H', 'e.g. 23,28,21,26');
     hide('bFTH2H'); hide('h2h1HSection'); hide('h2h2HSection');
     hide('injuryBoxA'); hide('injuryBoxB'); hide('intelSection');
+    show('espnSection', 'block');
 
     const leagueSelect = byId('leagueSelect');
     if (leagueSelect) {
       leagueSelect.innerHTML = [
-        '<option value="">- Select Tour -</option>',
-        '<optgroup label="── Main Tours ─────────────">',
-        ...TENNIS_TOURS.map(t => `<option value="${t.value}">${t.label}</option>`),
-        '</optgroup>'
+        '<option value="">- Select League -</option>',
+        ...TENNIS_TOURS.map(t => `<option value="${t.value}">${t.label}</option>`)
       ].join('');
       leagueSelect.value = 'atp';
     }
   }
 
   function rebindTennisControls() {
-    rebindNode('leagueSelect', function(){ tennisState.selectedFixture = null; tennisState.historyReady = false; loadFixturesForOffset(tennisState.fixtureOffset || 0); updateSectionLocks(); }, 'change');
-    rebindNode('fixturesTodayBtn', function(){ loadFixturesForOffset(0); }, 'click');
+    rebindNode('leagueSelect', function(){
+      tennisState.selectedFixture = null;
+      tennisState.historyReady = false;
+      if (byId('fixtureSelect')) byId('fixtureSelect').value = '';
+      if (byId('teamAName')) byId('teamAName').value = '';
+      if (byId('teamBName')) byId('teamBName').value = '';
+      ['aFTScored','bFTScored','aFTH2H'].forEach(id => { const el = byId(id); if (el) { el.value = ''; delete el.dataset.fullSeries; } });
+      const selected = getSelectedTourMeta();
+      if (typeof accordionOpen === 'function') {
+        accordionOpen('leagueSection');
+        accordionOpen('espnSection');
+      }
+      if (selected.fetch) {
+        loadFixturesForOffset(tennisState.fixtureOffset || 0);
+      } else {
+        renderFixtureList([]);
+        setStatusTextSafe('❌ Auto-fetch is limited to ATP and WTA main tour in this build.', 'err');
+      }
+      updateSectionLocks();
+    }, 'change');
+    rebindNode('fixturesTodayBtn', function(){ setStatusTextSafe('Loading ATP fixtures…', 'loading');
+    loadFixturesForOffset(0); }, 'click');
     rebindNode('fixturesTomorrowBtn', function(){ loadFixturesForOffset(1); }, 'click');
     rebindNode('fixtureSelect', onFixtureSelect, 'change');
     rebindNode('fetchBtn', function(){ fetchESPN_Tennis(); }, 'click');
@@ -14600,6 +14624,9 @@ window.addEventListener("unhandledrejection", event => {
   function finalBoot() {
     applyStaticTennisLayout();
     rebindTennisControls();
+    if (typeof makeSectionsCollapsible === 'function') {
+      try { makeSectionsCollapsible(); } catch (err) {}
+    }
     trackInitStamp();
     resetTennisResults();
     try {
@@ -14608,12 +14635,26 @@ window.addEventListener("unhandledrejection", event => {
         if (typeof hydrateTrackedPicks === 'function') hydrateTrackedPicks(true).catch(()=>{});
       }
     } catch (err) {}
+    const espnEl = byId('espnSection');
+    if (espnEl) {
+      espnEl.style.display = 'block';
+      espnEl.classList.remove('collapsed','locked');
+    }
+    ['marketSection','teamASection','teamBSection','h2hSection'].forEach(id => {
+      const el = byId(id);
+      if (el) el.classList.remove('collapsed');
+    });
     setTodayTomorrowButtons();
+    if (typeof accordionOpen === 'function') {
+      accordionOpen('leagueSection');
+      accordionOpen('espnSection');
+    }
+    setStatusTextSafe('Loading ATP fixtures…', 'loading');
     loadFixturesForOffset(0);
     updateSectionLocks();
   }
 
-  finalBoot();
+  window.addEventListener('load', () => setTimeout(finalBoot, 60));
 })();
 </script>
 
