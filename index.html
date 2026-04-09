@@ -5,664 +5,615 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="TT Engine" />
+  <meta name="apple-mobile-web-app-title" content="TheBetCeo Tennis" />
   <meta name="theme-color" content="#d4af37" />
-
-  <link rel="manifest" href="manifest.json?v=tennis_v6_slim" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tennis_v6_slim" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tennis_v6_slim" />
-
-  <title>Tennis Prediction Engine</title>
-
+  <title>TheBetCeo Tennis Engine</title>
   <style>
-:root {
-  --bg: #efefef;
-  --text: #1f2430;
-  --panel: #ffffff;
-  --panel-border: #dedede;
-  --panel-soft: #f6f7f9;
-  --panel-soft-2: #eceff3;
-  --input-bg: #ffffff;
-  --input-border: #cfd4da;
-  --table-head: #3a404c;
-  --muted: #7b8088;
-  --chip-text: #2a2f38;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  --section-toggle-text: #20242c;
-  --section-toggle-icon: #d91f26;
-  --table-border: #dfe2e7;
-  --tracker-head-bg: #3a404c;
-  --tracker-head-text: #ffffff;
-  --tracker-summary-bg: #f6f7f9;
-  --tracker-chip-bg: #f6f7f9;
-  --tracker-chip-border: #dfe2e7;
-  --tracker-strong: #20242c;
-  --tracker-subtext: #5a5f6b;
-}
-body.tracker-open {
-  position: fixed;
-  width: 100%;
-  left: 0;
-  right: 0;
-  overflow: hidden;
-}
-body.dark-mode {
-  --bg: #111;
-  --text: #d4af37;
-  --panel: #1a1a1a;
-  --panel-border: #333;
-  --panel-soft: #151515;
-  --panel-soft-2: #111;
-  --input-bg: #222;
-  --input-border: #444;
-  --table-head: #111;
-  --muted: #9aa0a8;
-  --chip-text: #d4af37;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
-  --section-toggle-text: #d4af37;
-  --section-toggle-icon: #d4af37;
-  --table-border: #333;
-  --tracker-head-bg: #111;
-  --tracker-head-text: #d4af37;
-  --tracker-summary-bg: #151515;
-  --tracker-chip-bg: #151515;
-  --tracker-chip-border: #333;
-  --tracker-strong: #d4af37;
-  --tracker-subtext: #c3aa55;
-}
-button,
-input,
-select,
-.section,
-table,
-th,
-td,
-.tracker-panel,
-.fixture-day {
-  border-radius: 0;
-}
-* {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
-html {
-  -webkit-text-size-adjust: 100%;
-}
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-  -webkit-text-size-adjust: 100%;
-}
-.app-header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 0 10px 0;
-  padding-top: max(10px, env(safe-area-inset-top));
-  padding-left: max(14px, env(safe-area-inset-left));
-  padding-right: max(14px, env(safe-area-inset-right));
-  padding-bottom: 10px;
-  background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #b91520 100%);
-  color: #fff;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
-}
-.brand-name {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  color: #fff;
-}
-.brand-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: rgba(255, 255, 255, 0.85);
-  text-transform: uppercase;
-}
-.theme-toggle {
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: 1.5px !important;
-  color: rgba(255, 255, 255, 0.85) !important;
-  text-transform: uppercase !important;
-  cursor: pointer !important;
-  opacity: 1 !important;
-}
-.header-error-btn {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  font-size: 18px !important;
-  line-height: 1 !important;
-  cursor: pointer !important;
-  opacity: 0;
-  pointer-events: none;
-}
-.header-error-btn.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-.wrapper {
-  max-width: 760px;
-  margin: 10px auto;
-  padding: 0 10px;
-}
-.section {
-  border: 1px solid var(--panel-border);
-  background: var(--panel);
-  margin: 8px auto;
-  box-shadow: var(--shadow);
-  color: var(--text);
-}
-.section-toggle {
-  width: 100%;
-  background: none !important;
-  border: none;
-  padding: 12px 10px;
-  margin: 0 !important;
-  color: var(--section-toggle-text) !important;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  text-align: left;
-  cursor: pointer;
-}
-.section-toggle .toggle-title {
-  display: block;
-  font-weight: 800;
-  color: var(--section-toggle-text) !important;
-}
-.section-toggle .toggle-icon {
-  font-size: 15px;
-  line-height: 1;
-  transition: transform 0.2s ease;
-  color: var(--section-toggle-icon) !important;
-}
-.section-body {
-  padding: 0 10px 10px;
-  margin-top: 0;
-}
-.section.collapsed .section-body {
-  display: none;
-}
-.section.collapsed .section-toggle .toggle-icon {
-  transform: rotate(-90deg);
-}
-.section.locked .section-body {
-  display: none !important;
-}
-.section.locked .section-toggle {
-  opacity: 0.4 !important;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-.section.locked .section-toggle .toggle-icon {
-  display: none;
-}
-h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-}
-label {
-  display: block;
-  font-size: 12px;
-  margin-bottom: 4px;
-  color: var(--text);
-  font-weight: 600;
-}
-h3 span,
-label span,
-small {
-  color: var(--muted);
-}
-input,
-.league-box,
-textarea {
-  width: 100%;
-  max-width: 260px;
-  box-sizing: border-box;
-}
-input,
-.league-box,
-textarea {
-  display: block;
-  padding: 6px 8px;
-  font-size: 12px;
-  background: var(--input-bg);
-  color: var(--text);
-  border: 1px solid var(--input-border);
-  margin-bottom: 6px;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-}
-textarea {
-  max-width: 100%;
-  min-height: 70px;
-  resize: vertical;
-  line-height: 1.45;
-}
-input::placeholder,
-textarea::placeholder {
-  color: var(--muted);
-  opacity: 0.75;
-}
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  border-color: #4aa346;
-  box-shadow: 0 0 0 2px rgba(74, 163, 70, 0.12);
-}
-button {
-  padding: 8px 16px;
-  margin: 6px;
-  font-weight: 700;
-  background: #313744;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-}
-button:hover { opacity: 0.95; }
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.fetch-btn {
-  background: #49a443 !important;
-  color: #fff !important;
-  padding: 6px 12px !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  border: none !important;
-  cursor: pointer;
-  margin-top: 4px;
-  box-shadow: 0 2px 6px rgba(73, 164, 67, 0.2);
-}
-.fixture-toolbar {
-  display: flex;
-  gap: 8px;
-  margin: 10px 0 8px;
-  flex-wrap: wrap;
-}
-.fixture-day {
-  background: #eceff3 !important;
-  color: #2a2f38 !important;
-  border: 1px solid #d7dbe1 !important;
-  padding: 6px 10px !important;
-  font-size: 12px !important;
-  font-weight: 700;
-  margin: 0;
-  min-width: 90px !important;
-  text-align: center;
-}
-.fixture-day.active {
-  background: #49a443 !important;
-  color: #fff !important;
-  border-color: #49a443 !important;
-}
-#fetchStatus {
-  font-size: 10px;
-  margin-top: 6px;
-  min-height: 16px;
-}
-#fetchStatus.ok { color: #2f8f4a; }
-#fetchStatus.err { color: #d92d2a; }
-#fetchStatus.loading { color: #d98a00; }
-.actions {
-  text-align: center;
-  padding-bottom: 20px;
-}
-#runBtn,
-#clearBtn {
-  opacity: 1 !important;
-  border: none !important;
-  cursor: pointer !important;
-  padding: 5px 14px !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  min-width: 0 !important;
-  width: auto !important;
-}
-#runBtn {
-  background: #3a9c35 !important;
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(58, 156, 53, 0.35) !important;
-}
-#clearBtn {
-  background: #3a404c !important;
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-}
-.table-wrap {
-  overflow-x: auto;
-  margin: 0 10px 10px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  font-size: 12px;
-  background: var(--panel) !important;
-}
-th,
-td {
-  border: 1px solid var(--table-border);
-  padding: 8px 6px;
-  text-align: center;
-}
-th {
-  background: var(--table-head) !important;
-  color: #fff !important;
-  font-weight: 700;
-}
-td {
-  background: var(--panel) !important;
-  color: var(--text) !important;
-  font-weight: 600 !important;
-}
-.pred-over { background: #3a9c35 !important; color: #fff !important; font-weight: 800 !important; }
-.pred-under { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
-.pred-noplay { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
-small.error-note { color: #c91920 !important; font-size: 10px !important; font-weight: 600 !important; display: block; margin-top: 3px; }
-small.warn-note { color: #d98a00 !important; font-size: 10px !important; font-weight: 600 !important; display: block; margin-top: 3px; }
-small.info-note { color: #2f8f4a !important; font-size: 10px !important; font-weight: 600 !important; display: block; margin-top: 3px; }
-small.muted-note { color: var(--muted) !important; font-size: 10px !important; font-weight: 600 !important; display: block; margin-top: 3px; }
-.conf-a { background: #2f8f4a !important; color: #fff !important; font-weight: 800 !important; }
-.conf-b { background: #4aa346 !important; color: #fff !important; font-weight: 800 !important; }
-.conf-c { background: #d98a00 !important; color: #fff !important; font-weight: 800 !important; }
-.conf-d { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
-.conf-none { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
-body.dark-mode .conf-none { background: #2a2f3a !important; color: #9aa0a8 !important; }
-.track-pending { background: #eceff3 !important; color: #2a2f38 !important; font-weight: 800 !important; }
-.track-win { background: #3a9c35 !important; color: #fff !important; font-weight: 800 !important; }
-.track-loss { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
-.track-push { background: #3a404c !important; color: #fff !important; font-weight: 800 !important; }
-.tracker-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: none;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding-top: max(8px, env(safe-area-inset-top));
-  padding-right: max(8px, env(safe-area-inset-right));
-  padding-bottom: max(8px, env(safe-area-inset-bottom));
-  padding-left: max(8px, env(safe-area-inset-left));
-  z-index: 9999;
-  overscroll-behavior: none;
-}
-.tracker-modal.open { display: flex; }
-.tracker-panel {
-  width: min(96vw, 520px);
-  height: calc(100dvh - 16px);
-  max-height: calc(100dvh - 16px);
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--panel-border);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.tracker-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  background: var(--tracker-head-bg);
-  color: var(--tracker-head-text);
-  border-bottom: 1px solid var(--panel-border);
-  font-weight: 800;
-  font-size: 13px;
-}
-.tracker-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.tracker-close,
-.tracker-insights-btn {
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: var(--tracker-head-text) !important;
-  font-size: 18px !important;
-  line-height: 1 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  cursor: pointer !important;
-}
-.tracker-summary {
-  padding: 14px 16px;
-  background: var(--tracker-summary-bg);
-  color: var(--tracker-strong);
-  border-bottom: 1px solid var(--panel-border);
-  font-size: 12px;
-  font-weight: 800;
-}
-.tracker-body-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: max(8px, env(safe-area-inset-bottom));
-}
-.tracker-empty {
-  padding: 16px;
-  color: var(--tracker-subtext);
-  font-size: 11px;
-  font-weight: 700;
-}
-.tracker-hidden { display: none !important; }
-.debug-list {
-  margin: 0;
-  padding: 12px 16px 0;
-  list-style: none;
-  display: grid;
-  gap: 6px;
-}
-.debug-list li {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  color: var(--text);
-  padding: 7px 8px;
-  font-size: 10px;
-  line-height: 1.35;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-body.engine-alert {
-  background: #2a0608 !important;
-}
-body.engine-alert .app-header {
-  background: linear-gradient(90deg, #7b0007 0%, #cf1119 52%, #820008 100%) !important;
-}
-.inline-grid {
-  display: grid;
-  gap: 8px;
-}
-.dual-grid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr;
-}
-@media (min-width: 640px) {
-  .dual-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-.metric-box {
-  background: var(--panel-soft);
-  border: 1px solid var(--panel-border);
-  padding: 8px;
-  font-size: 11px;
-  line-height: 1.5;
-}
-.metric-title {
-  font-weight: 800;
-  margin-bottom: 3px;
-}
-.reason-box {
-  background: var(--panel-soft);
-  border: 1px solid var(--panel-border);
-  padding: 8px;
-  margin-top: 8px;
-  font-size: 11px;
-  line-height: 1.45;
-}
-.hidden { display: none !important; }
+    :root {
+      --bg: #efefef;
+      --text: #1f2430;
+      --panel: #ffffff;
+      --panel-border: #dedede;
+      --panel-soft: #f6f7f9;
+      --panel-soft-2: #eceff3;
+      --input-bg: #ffffff;
+      --input-border: #cfd4da;
+      --table-head: #3a404c;
+      --muted: #7b8088;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      --section-toggle-text: #20242c;
+      --section-toggle-icon: #d91f26;
+      --table-border: #dfe2e7;
+      --tracker-head-bg: #3a404c;
+      --tracker-head-text: #ffffff;
+      --success: #2f8f4a;
+      --warning: #d98a00;
+      --danger: #c91920;
+      --accent: #d91f26;
+    }
+
+    body.dark-mode {
+      --bg: #111;
+      --text: #d4af37;
+      --panel: #1a1a1a;
+      --panel-border: #333;
+      --panel-soft: #151515;
+      --panel-soft-2: #111;
+      --input-bg: #222;
+      --input-border: #444;
+      --table-head: #111;
+      --muted: #9aa0a8;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+      --section-toggle-text: #d4af37;
+      --section-toggle-icon: #d4af37;
+      --table-border: #333;
+      --tracker-head-bg: #111;
+      --tracker-head-text: #d4af37;
+      --success: #49d45f;
+      --warning: #ffcf73;
+      --danger: #ff5c61;
+      --accent: #d4af37;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      -webkit-text-size-adjust: 100%;
+    }
+    body.tracker-open {
+      position: fixed;
+      width: 100%;
+      overflow: hidden;
+    }
+    button, input, select, .section, table, th, td, .tracker-panel { border-radius: 0; }
+
+    .app-header {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 10px 0;
+      padding-top: max(10px, env(safe-area-inset-top));
+      padding-left: max(14px, env(safe-area-inset-left));
+      padding-right: max(14px, env(safe-area-inset-right));
+      padding-bottom: 10px;
+      background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #b91520 100%);
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    }
+    .brand-name {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      color: #fff;
+    }
+    .brand-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: rgba(255, 255, 255, 0.85);
+      text-transform: uppercase;
+    }
+    .theme-toggle {
+      background: none !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      letter-spacing: 1.5px !important;
+      color: rgba(255, 255, 255, 0.85) !important;
+      text-transform: uppercase !important;
+      cursor: pointer !important;
+    }
+
+    .wrapper {
+      max-width: 760px;
+      margin: 10px auto;
+      padding: 0 10px 24px;
+    }
+    .section {
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      margin: 8px auto;
+      box-shadow: var(--shadow);
+      color: var(--text);
+    }
+    .section-toggle {
+      width: 100%;
+      background: none !important;
+      border: none;
+      padding: 12px 10px;
+      margin: 0 !important;
+      color: var(--section-toggle-text) !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      text-align: left;
+      cursor: pointer;
+    }
+    .section-toggle .toggle-title {
+      display: block;
+      font-weight: 800;
+      color: var(--section-toggle-text) !important;
+    }
+    .section-toggle .toggle-meta {
+      display: block;
+      margin-top: 2px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .section-toggle .toggle-icon {
+      font-size: 15px;
+      line-height: 1;
+      transition: transform 0.2s ease;
+      color: var(--section-toggle-icon) !important;
+    }
+    .section.collapsed .section-body { display: none; }
+    .section.collapsed .section-toggle .toggle-icon { transform: rotate(-90deg); }
+    .section-body { padding: 0 10px 10px; }
+
+    h3 { margin: 0; font-size: 16px; font-weight: 800; }
+    label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    label span, small, .muted-note { color: var(--muted); }
+
+    input, select {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      padding: 8px 8px;
+      font-size: 12px;
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--input-border);
+      margin-bottom: 8px;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+    }
+    input::placeholder { color: var(--muted); opacity: 0.8; }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #4aa346;
+      box-shadow: 0 0 0 2px rgba(74, 163, 70, 0.12);
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 700px) {
+      .grid-2 { grid-template-columns: 1fr 1fr; }
+    }
+
+    .hero-note {
+      margin: 0 0 10px 0;
+      padding: 10px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel-soft);
+      font-size: 11px;
+      line-height: 1.5;
+      font-weight: 700;
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+    .sub-note {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      line-height: 1.4;
+      margin: -2px 0 8px 0;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 4px 0 10px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 8px;
+      border: 1px solid var(--table-border);
+      background: var(--panel-soft);
+      color: var(--text);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    button {
+      padding: 8px 16px;
+      margin: 6px;
+      font-weight: 700;
+      background: #313744;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.96; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .actions {
+      text-align: center;
+      padding-bottom: 20px;
+    }
+    #runBtn, #clearBtn {
+      opacity: 1 !important;
+      border: none !important;
+      cursor: pointer !important;
+      padding: 7px 16px !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      min-width: 0 !important;
+      width: auto !important;
+    }
+    #runBtn {
+      background: #3a9c35 !important;
+      color: #fff !important;
+      box-shadow: 0 2px 8px rgba(58, 156, 53, 0.35) !important;
+    }
+    #clearBtn {
+      background: #3a404c !important;
+      color: #fff !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin: 0 10px 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 12px;
+      background: var(--panel) !important;
+    }
+    th, td {
+      border: 1px solid var(--table-border);
+      padding: 8px 6px;
+      text-align: center;
+    }
+    th {
+      background: var(--table-head) !important;
+      color: #fff !important;
+      font-weight: 700;
+    }
+    td {
+      background: var(--panel) !important;
+      color: var(--text) !important;
+      font-weight: 600 !important;
+      vertical-align: top;
+    }
+    .pred-over { background: #3a9c35 !important; color: #fff !important; font-weight: 800 !important; }
+    .pred-under { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
+    .pred-pass { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
+    .conf-a { background: #2f8f4a !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-b { background: #4aa346 !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-c { background: #d98a00 !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-pass { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
+    body.dark-mode .conf-pass, body.dark-mode .pred-pass {
+      background: #2a2f3a !important;
+      color: #9aa0a8 !important;
+    }
+
+    .status-line {
+      min-height: 18px;
+      font-size: 11px;
+      font-weight: 800;
+      margin: 4px 0 0;
+    }
+    .status-line.ok { color: var(--success); }
+    .status-line.err { color: var(--danger); }
+    .status-line.warn { color: var(--warning); }
+
+    .explain-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin: 10px;
+    }
+    .explain-card {
+      border: 1px solid var(--panel-border);
+      background: var(--panel-soft);
+      padding: 10px;
+      font-size: 11px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+    .explain-card strong { color: var(--text); }
+    .flag-list { margin-top: 6px; }
+    .flag-list span {
+      display: inline-block;
+      margin: 2px 4px 0 0;
+      padding: 4px 6px;
+      border: 1px solid var(--table-border);
+      background: var(--panel);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .tracker-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: none;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding-top: max(8px, env(safe-area-inset-top));
+      padding-right: max(8px, env(safe-area-inset-right));
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      padding-left: max(8px, env(safe-area-inset-left));
+      z-index: 9999;
+      overscroll-behavior: none;
+    }
+    .tracker-modal.open { display: flex; }
+    .tracker-panel {
+      width: min(96vw, 560px);
+      height: calc(100dvh - 16px);
+      max-height: calc(100dvh - 16px);
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .tracker-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--tracker-head-bg);
+      color: var(--tracker-head-text);
+      border-bottom: 1px solid var(--panel-border);
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .tracker-head button {
+      background: none !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: var(--tracker-head-text) !important;
+      font-size: 18px !important;
+      line-height: 1 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    .tracker-summary {
+      padding: 12px 16px;
+      background: var(--panel-soft);
+      border-bottom: 1px solid var(--panel-border);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.5;
+    }
+    .tracker-body-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    .tracker-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: center;
+    }
+    .tracker-actions button {
+      padding: 4px 6px !important;
+      margin: 0 !important;
+      font-size: 10px !important;
+      font-weight: 800 !important;
+      background: var(--panel-soft-2) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--table-border) !important;
+      box-shadow: none !important;
+    }
+    .tracker-empty {
+      padding: 16px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .small-right {
+      text-align: right;
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 700;
+      margin: 2px 10px 0;
+    }
   </style>
 </head>
 <body>
-<header class="app-header">
-  <span class="brand-name">TheBetCeo ⚡️</span>
-  <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show engine issues">⚠️</button>
-  <span class="brand-right">
-    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🎾</button>
-    <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
-    PREDICTIONS
-  </span>
-</header>
+  <header class="app-header">
+    <span class="brand-name">TheBetCeo ⚡️</span>
+    <span class="brand-right">
+      <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🎾</button>
+      <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
+      TENNIS
+    </span>
+  </header>
 
-<div class="wrapper">
-  <div class="section" id="leagueSection">
-    <h3>League Tier</h3>
-    <label>Select League</label>
-    <select id="leagueSelect" class="league-box">
-      <option value="atp">ATP - Main Tour</option>
-      <option value="wta">WTA - Main Tour</option>
-    </select>
-  </div>
-
-  <div class="section" id="espnSection">
-    <h3>⚡ ESPN Auto-Fetch <span>(ATP &amp; WTA only)</span></h3>
-    <div id="fixtureToolbar" class="fixture-toolbar">
-      <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
-      <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
+  <div class="wrapper">
+    <div class="hero-note">
+      Clean tennis totals build. Basketball baggage is gone. This version only models <strong>Match Total Games</strong> and <strong>Set 1 Total Games</strong> using recent totals, H2H totals, volatility, filters, edge, and confidence.
     </div>
 
-    <label id="fixtureSelectLabel">Select match</label>
-    <select id="fixtureSelect" class="league-box">
-      <option value="">- Select match -</option>
-    </select>
-
-    <label id="teamALabel">Player A Name</label>
-    <input id="teamAName" placeholder="e.g. Novak Djokovic" autocomplete="off" />
-
-    <label id="teamBLabel" style="margin-top:6px;">Player B Name</label>
-    <input id="teamBName" placeholder="e.g. Carlos Alcaraz" autocomplete="off" />
-
-    <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
-    <div id="fetchStatus"></div>
-  </div>
-
-  <div class="section" id="marketSection">
-    <h3>Market Lines</h3>
-    <label>Full Match Total Games</label>
-    <input id="totalGamesLine" placeholder="e.g. 22.5" />
-    <small class="muted-note">Only one market is active in this tennis build.</small>
-  </div>
-
-  <div class="section" id="teamASection">
-    <h3>Player A - Last 5 Overall</h3>
-    <div class="inline-grid">
-      <textarea id="playerARecent" readonly placeholder="Recent totals will appear here after fetch."></textarea>
-      <div class="metric-box" id="playerAMetrics">
-        <div class="metric-title">Profile</div>
-        Waiting for fetch.
+    <section class="section" id="setupSection">
+      <button class="section-toggle" type="button">
+        <span>
+          <span class="toggle-title">Match Setup</span>
+          <span class="toggle-meta">Player names and tour only. Because not every model needs to cosplay as a space program.</span>
+        </span>
+        <span class="toggle-icon">▾</span>
+      </button>
+      <div class="section-body">
+        <div class="grid-2">
+          <div>
+            <label for="tourSelect">Tour</label>
+            <select id="tourSelect">
+              <option value="ATP">ATP</option>
+              <option value="WTA">WTA</option>
+            </select>
+          </div>
+          <div>
+            <label for="matchDate">Date</label>
+            <input id="matchDate" type="date" />
+          </div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label for="playerAName">Player A</label>
+            <input id="playerAName" placeholder="e.g. Jannik Sinner" />
+          </div>
+          <div>
+            <label for="playerBName">Player B</label>
+            <input id="playerBName" placeholder="e.g. Carlos Alcaraz" />
+          </div>
+        </div>
+        <div class="chips">
+          <span class="chip">Markets: Match Total Games</span>
+          <span class="chip">Markets: Set 1 Total Games</span>
+          <span class="chip">No handicap</span>
+          <span class="chip">No winner</span>
+        </div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div class="section" id="teamBSection">
-    <h3>Player B - Last 5 Overall</h3>
-    <div class="inline-grid">
-      <textarea id="playerBRecent" readonly placeholder="Recent totals will appear here after fetch."></textarea>
-      <div class="metric-box" id="playerBMetrics">
-        <div class="metric-title">Profile</div>
-        Waiting for fetch.
+    <section class="section" id="matchSection">
+      <button class="section-toggle" type="button">
+        <span>
+          <span class="toggle-title">Match Total Engine</span>
+          <span class="toggle-meta">Recent totals, H2H totals, line, volatility.</span>
+        </span>
+        <span class="toggle-icon">▾</span>
+      </button>
+      <div class="section-body">
+        <label for="matchLine">Match Total Line</label>
+        <input id="matchLine" placeholder="22.5 or 22.5 - 23.5" />
+        <div class="sub-note">If you enter a range, the engine uses the midpoint.</div>
+        <div class="grid-2">
+          <div>
+            <label for="aRecentTotals">Player A last 5-10 match totals <span>(recent → oldest)</span></label>
+            <input id="aRecentTotals" placeholder="23,18,26,21,19" />
+          </div>
+          <div>
+            <label for="bRecentTotals">Player B last 5-10 match totals <span>(recent → oldest)</span></label>
+            <input id="bRecentTotals" placeholder="22,20,24,19,21" />
+          </div>
+        </div>
+        <label for="h2hMatchTotals">H2H match totals <span>(last 3-5 if possible)</span></label>
+        <input id="h2hMatchTotals" placeholder="22,24,19,27" />
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div class="section" id="h2hSection">
-    <h3>H2H TEST</h3>
-    <div class="inline-grid">
-      <textarea id="h2hRecent" readonly placeholder="Recent H2H totals will appear here after fetch."></textarea>
-      <div class="metric-box" id="h2hMetrics">
-        <div class="metric-title">H2H Profile</div>
-        Waiting for fetch.
+    <section class="section" id="set1Section">
+      <button class="section-toggle" type="button">
+        <span>
+          <span class="toggle-title">Set 1 Engine</span>
+          <span class="toggle-meta">Separate model. No lazy reuse of match logic.</span>
+        </span>
+        <span class="toggle-icon">▾</span>
+      </button>
+      <div class="section-body">
+        <label for="set1Line">Set 1 Total Line</label>
+        <input id="set1Line" placeholder="9.5 or 9.5 - 10.5" />
+        <div class="grid-2">
+          <div>
+            <label for="aSet1Totals">Player A last 5-10 Set 1 totals <span>(recent → oldest)</span></label>
+            <input id="aSet1Totals" placeholder="10,9,12,10,8" />
+          </div>
+          <div>
+            <label for="bSet1Totals">Player B last 5-10 Set 1 totals <span>(recent → oldest)</span></label>
+            <input id="bSet1Totals" placeholder="9,10,11,8,10" />
+          </div>
+        </div>
+        <label for="h2hSet1Totals">H2H Set 1 totals <span>(optional)</span></label>
+        <input id="h2hSet1Totals" placeholder="10,9,12" />
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div class="actions">
-    <button id="runBtn" type="button">Run</button>
-    <button id="clearBtn" type="button">Clear</button>
-  </div>
-
-  <div class="table-wrap">
-    <table id="resultsTable">
-      <thead>
-        <tr>
-          <th>Match</th>
-          <th>Market</th>
-          <th>Line</th>
-          <th>Projection</th>
-          <th>Edge</th>
-          <th>Pick</th>
-          <th>Model Grade</th>
-        </tr>
-      </thead>
-      <tbody id="resultsBody">
-        <tr id="placeholderRow">
-          <td colspan="7">Run the tennis engine to see a pick.</td>
-        </tr>
-      </tbody>
-    </table>
-    <div id="reasonBox" class="reason-box hidden"></div>
-  </div>
-</div>
-
-<div id="trackerModal" class="tracker-modal" aria-hidden="true">
-  <div class="tracker-panel">
-    <div class="tracker-head">
-      <span id="trackerHeadTitle">Tracked Picks</span>
-      <div class="tracker-head-actions">
-        <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn" title="Open report">📊</button>
-        <button type="button" id="trackerDebugBtn" class="tracker-insights-btn" title="Open debug">🐞</button>
-        <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
+    <section class="section" id="helperSection">
+      <button class="section-toggle" type="button">
+        <span>
+          <span class="toggle-title">Engine Rules</span>
+          <span class="toggle-meta">What gets applied automatically.</span>
+        </span>
+        <span class="toggle-icon">▾</span>
+      </button>
+      <div class="section-body">
+        <div class="chips">
+          <span class="chip">H2H weighting: 70/30 recent/H2H</span>
+          <span class="chip">Chaos filter: volatility &gt; 4</span>
+          <span class="chip">Blowout filter: both avgs &lt; 18</span>
+          <span class="chip">Fake edge: recent vs H2H conflict</span>
+        </div>
+        <div class="sub-note">
+          Match confidence: A at edge ≥ 2.5 with low volatility, B at edge ≥ 1.5, C at edge ≥ 1.0. Set 1 uses tighter thresholds. WTA chaos can auto-pass. The model tracks what you told it to track, instead of inventing fake genius.
+        </div>
       </div>
+    </section>
+
+    <div class="actions">
+      <button id="runBtn" type="button">Run</button>
+      <button id="clearBtn" type="button">Clear</button>
     </div>
-    <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
-    <div class="tracker-body-scroll">
-      <div id="trackerView">
+
+    <div id="statusLine" class="status-line"></div>
+    <div class="small-right">Saved locally in your browser: tracker + theme</div>
+
+    <div class="table-wrap">
+      <table id="results" style="display:none;">
+        <thead>
+          <tr>
+            <th>Market</th>
+            <th>Line</th>
+            <th>Projection</th>
+            <th>Edge</th>
+            <th>Grade</th>
+            <th>Pick</th>
+            <th>Flags</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="explainWrap" class="explain-grid" style="display:none;"></div>
+  </div>
+
+  <div id="trackerModal" class="tracker-modal" aria-hidden="true">
+    <div class="tracker-panel">
+      <div class="tracker-head">
+        <span>Tracked Picks</span>
+        <button type="button" id="trackerCloseBtn">✕</button>
+      </div>
+      <div class="tracker-summary" id="trackerSummary">0 saved</div>
+      <div class="tracker-body-scroll">
         <div id="trackerEmpty" class="tracker-empty">No tracked picks saved yet.</div>
-        <div class="table-wrap">
-          <table id="trackedPicksTable">
+        <div class="table-wrap tracker-table-wrap">
+          <table id="trackedPicksTable" style="display:none;">
             <thead>
               <tr>
                 <th>Date</th>
@@ -671,6 +622,7 @@ body.engine-alert .app-header {
                 <th>Line</th>
                 <th>Pick</th>
                 <th>Edge</th>
+                <th>Conf</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -678,680 +630,556 @@ body.engine-alert .app-header {
           </table>
         </div>
       </div>
-      <div id="debugView" class="tracker-hidden">
-        <ul id="debugList" class="debug-list"></ul>
-      </div>
     </div>
   </div>
-</div>
 
-<script>
-(function () {
-  if (window.__BETCEO_WATCHDOG_LOADED) return;
-  window.__BETCEO_WATCHDOG_LOADED = true;
-  window.__BETCEO_ENGINE_BOOT_SEEN = false;
-  window.__BETCEO_WATCHDOG_PANIC = function (message) {
-    try {
-      logEngine('panic', String(message || 'Unknown engine failure'));
-      const btn = document.getElementById('headerErrorBtn');
-      if (btn) btn.classList.add('active');
-      if (document.body) document.body.classList.add('engine-alert');
-    } catch (e) {}
-  };
-  window.addEventListener('error', function (event) {
-    const msg = event && event.message ? event.message : 'Unknown script error';
-    window.__BETCEO_WATCHDOG_PANIC(msg);
-  });
-  window.addEventListener('unhandledrejection', function (event) {
-    const reason = event && event.reason;
-    const msg = reason && reason.message ? reason.message : String(reason || 'Unhandled promise rejection');
-    window.__BETCEO_WATCHDOG_PANIC(msg);
-  });
-  window.addEventListener('load', function () {
-    setTimeout(function () {
-      if (!window.__BETCEO_ENGINE_BOOT_SEEN) {
-        window.__BETCEO_WATCHDOG_PANIC('Main tennis script failed to boot.');
-      }
-    }, 700);
-  });
-})();
-</script>
+  <script>
+    const STORAGE_THEME = "thebetceo_tennis_theme_v1";
+    const STORAGE_TRACKER = "thebetceo_tennis_tracker_v1";
 
-<script>
-window.__BETCEO_ENGINE_BOOT_SEEN = true;
-
-const APP_VERSION = 'tennis_v6_slim';
-const TRACKER_KEY = 'betceo_tennis_tracker_' + APP_VERSION;
-const THEME_KEY = 'betceo_tennis_theme';
-const CACHE_PREFIX = 'betceo_tennis_scoreboard_';
-const MAX_CACHE_AGE_MS = 12 * 60 * 60 * 1000;
-const DEFAULT_LOOKBACK_DAYS = 75;
-const TARGET_MATCH_COUNT = 5;
-const TARGET_H2H_COUNT = 5;
-
-const state = {
-  dayOffset: 0,
-  fixtures: [],
-  currentFixture: null,
-  currentTour: 'atp',
-  profile: null,
-  trackedPicks: loadTrackedPicks(),
-  engineDebug: [],
-  activeTrackerView: 'tracker'
-};
-
-function safeText(value) {
-  return String(value == null ? '' : value);
-}
-
-function logEngine(tag, detail) {
-  state.engineDebug.unshift({ ts: Date.now(), tag: safeText(tag), detail: safeText(detail) });
-  state.engineDebug = state.engineDebug.slice(0, 80);
-  const btn = document.getElementById('headerErrorBtn');
-  if (btn && state.engineDebug.length) btn.classList.add('active');
-  renderDebugList();
-}
-
-function clearEngineDebug() {
-  state.engineDebug = [];
-  const btn = document.getElementById('headerErrorBtn');
-  if (btn) btn.classList.remove('active');
-  if (document.body) document.body.classList.remove('engine-alert');
-  renderDebugList();
-}
-
-function loadTrackedPicks() {
-  try {
-    const raw = localStorage.getItem(TRACKER_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveTrackedPicks() {
-  localStorage.setItem(TRACKER_KEY, JSON.stringify(state.trackedPicks));
-  renderTracker();
-}
-
-function formatDateISO(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function formatESPNDate(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}${m}${d}`;
-}
-
-function displayDate(date) {
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
-}
-
-function shiftDate(base, offset) {
-  const next = new Date(base);
-  next.setDate(next.getDate() + offset);
-  return next;
-}
-
-function getSelectedDate(offset) {
-  const now = new Date();
-  return shiftDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()), offset);
-}
-
-function normalizeName(name) {
-  return safeText(name).toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
-}
-
-function average(nums) {
-  if (!nums.length) return null;
-  return nums.reduce((sum, n) => sum + n, 0) / nums.length;
-}
-
-function median(nums) {
-  if (!nums.length) return null;
-  const sorted = [...nums].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-function stddev(nums) {
-  if (nums.length < 2) return 0;
-  const avg = average(nums);
-  const variance = average(nums.map(n => Math.pow(n - avg, 2)));
-  return Math.sqrt(variance);
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function getTourConfig() {
-  const tour = document.getElementById('leagueSelect').value || 'atp';
-  if (tour === 'wta') {
-    return {
-      key: 'wta',
-      label: 'WTA - Main Tour',
-      endpoint: 'https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard',
-      minProjection: 14,
-      maxProjection: 34
-    };
-  }
-  return {
-    key: 'atp',
-    label: 'ATP - Main Tour',
-    endpoint: 'https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard',
-    minProjection: 16,
-    maxProjection: 42
-  };
-}
-
-async function fetchScoreboardForDate(tourKey, dateStr) {
-  const cacheKey = CACHE_PREFIX + tourKey + '_' + dateStr;
-  try {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (parsed && parsed.savedAt && (Date.now() - parsed.savedAt) < MAX_CACHE_AGE_MS && parsed.data) {
-        return parsed.data;
-      }
-    }
-  } catch (e) {}
-
-  const config = getTourConfig();
-  const endpoint = config.key === tourKey
-    ? config.endpoint
-    : (tourKey === 'wta'
-      ? 'https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard'
-      : 'https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard');
-
-  const res = await fetch(`${endpoint}?dates=${dateStr}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  try {
-    localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), data }));
-  } catch (e) {}
-  return data;
-}
-
-function flattenCompetitions(scoreboard, tourKey, dateStr) {
-  const items = [];
-  const events = Array.isArray(scoreboard && scoreboard.events) ? scoreboard.events : [];
-  events.forEach(event => {
-    const groupings = Array.isArray(event.groupings) ? event.groupings : [];
-    groupings.forEach(group => {
-      const competitions = Array.isArray(group && group.competitions) ? group.competitions : [];
-      competitions.forEach(comp => {
-        const competitors = Array.isArray(comp.competitors) ? comp.competitors : [];
-        if (competitors.length < 2) return;
-        const ordered = [...competitors].sort((a, b) => (a.order || 0) - (b.order || 0));
-        const a = ordered[0];
-        const b = ordered[1];
-        const playerA = a.athlete || {};
-        const playerB = b.athlete || {};
-        const roundName = comp.round && comp.round.displayName ? comp.round.displayName : ((group.grouping && group.grouping.displayName) || 'Match');
-        const tournamentName = event.shortName || event.name || 'Tournament';
-        const statusType = comp.status && comp.status.type ? comp.status.type : {};
-        const linesA = Array.isArray(a.linescores) ? a.linescores : [];
-        const linesB = Array.isArray(b.linescores) ? b.linescores : [];
-        const totalGames = linesA.reduce((sum, set, idx) => {
-          const av = Number(set && set.value || 0);
-          const bv = Number(linesB[idx] && linesB[idx].value || 0);
-          return sum + av + bv;
-        }, 0);
-        items.push({
-          id: comp.id,
-          eventId: event.id,
-          tour: tourKey,
-          date: comp.date || event.date || dateStr,
-          dateKey: dateStr,
-          tournament: tournamentName,
-          round: roundName,
-          venue: comp.venue && comp.venue.fullName ? comp.venue.fullName : '',
-          court: comp.venue && comp.venue.court ? comp.venue.court : '',
-          playerA: playerA.displayName || playerA.fullName || 'Player A',
-          playerB: playerB.displayName || playerB.fullName || 'Player B',
-          playerAId: playerA.id || a.id || '',
-          playerBId: playerB.id || b.id || '',
-          setScores: linesA.map((set, idx) => `${Number(set && set.value || 0)}-${Number(linesB[idx] && linesB[idx].value || 0)}`),
-          totalGames,
-          completed: !!(statusType && statusType.completed),
-          status: statusType && (statusType.detail || statusType.description) || 'Scheduled'
-        });
-      });
+    const sections = Array.from(document.querySelectorAll(".section"));
+    sections.forEach(section => {
+      const btn = section.querySelector(".section-toggle");
+      if (!btn) return;
+      btn.addEventListener("click", () => section.classList.toggle("collapsed"));
     });
-  });
-  return items;
-}
 
-function setFetchStatus(text, type) {
-  const box = document.getElementById('fetchStatus');
-  box.textContent = text || '';
-  box.className = type || '';
-}
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const trackerToggleBtn = document.getElementById("trackerToggleBtn");
+    const trackerModal = document.getElementById("trackerModal");
+    const trackerCloseBtn = document.getElementById("trackerCloseBtn");
+    const statusLine = document.getElementById("statusLine");
+    const resultsTable = document.getElementById("results");
+    const resultsBody = resultsTable.querySelector("tbody");
+    const explainWrap = document.getElementById("explainWrap");
+    const trackerSummary = document.getElementById("trackerSummary");
+    const trackerEmpty = document.getElementById("trackerEmpty");
+    const trackedPicksTable = document.getElementById("trackedPicksTable");
+    const trackedPicksBody = document.getElementById("trackedPicksBody");
 
-function setDayButtons() {
-  document.getElementById('fixturesTodayBtn').classList.toggle('active', state.dayOffset === 0);
-  document.getElementById('fixturesTomorrowBtn').classList.toggle('active', state.dayOffset === 1);
-}
-
-async function loadFixtures(offset) {
-  state.dayOffset = offset;
-  setDayButtons();
-  const config = getTourConfig();
-  state.currentTour = config.key;
-  state.currentFixture = null;
-  document.getElementById('fixtureSelect').innerHTML = '<option value="">- Select match -</option>';
-  document.getElementById('teamAName').value = '';
-  document.getElementById('teamBName').value = '';
-  setFetchStatus('Loading fixtures…', 'loading');
-
-  try {
-    const date = getSelectedDate(offset);
-    const scoreboard = await fetchScoreboardForDate(config.key, formatESPNDate(date));
-    const allFixtures = flattenCompetitions(scoreboard, config.key, formatESPNDate(date));
-    state.fixtures = allFixtures.filter(item => !item.completed || item.status.toLowerCase().includes('scheduled') || true);
-    const select = document.getElementById('fixtureSelect');
-    state.fixtures.forEach(fixture => {
-      const option = document.createElement('option');
-      option.value = fixture.id;
-      option.textContent = `${fixture.playerA} vs ${fixture.playerB} • ${fixture.tournament} • ${fixture.round}`;
-      select.appendChild(option);
-    });
-    setFetchStatus(`${state.fixtures.length} ${config.key.toUpperCase()} matches loaded for ${displayDate(date)}.`, 'ok');
-  } catch (error) {
-    logEngine('fixtures', `Fixture fetch failed: ${error.message || error}`);
-    setFetchStatus(`Fixture fetch failed: ${error.message || error}`, 'err');
-  }
-}
-
-function onFixtureSelect() {
-  const fixtureId = document.getElementById('fixtureSelect').value;
-  state.currentFixture = state.fixtures.find(item => String(item.id) === String(fixtureId)) || null;
-  if (!state.currentFixture) {
-    document.getElementById('teamAName').value = '';
-    document.getElementById('teamBName').value = '';
-    return;
-  }
-  document.getElementById('teamAName').value = state.currentFixture.playerA;
-  document.getElementById('teamBName').value = state.currentFixture.playerB;
-  setFetchStatus(`${state.currentFixture.tournament} • ${state.currentFixture.round}`, 'ok');
-}
-
-async function buildProfilesForFixture() {
-  if (!state.currentFixture) throw new Error('Select a match first.');
-  const config = getTourConfig();
-  const targetA = normalizeName(state.currentFixture.playerA);
-  const targetB = normalizeName(state.currentFixture.playerB);
-  const recentA = [];
-  const recentB = [];
-  const h2h = [];
-  const seenIds = new Set();
-
-  for (let back = 1; back <= DEFAULT_LOOKBACK_DAYS; back += 1) {
-    const date = shiftDate(getSelectedDate(state.dayOffset), -back);
-    const dateStr = formatESPNDate(date);
-    let dayData;
-    try {
-      dayData = await fetchScoreboardForDate(config.key, dateStr);
-    } catch (error) {
-      logEngine('history', `Skipped ${dateStr}: ${error.message || error}`);
-      continue;
+    function setStatus(text = "", type = "") {
+      statusLine.textContent = text;
+      statusLine.className = "status-line" + (type ? " " + type : "");
     }
-    const competitions = flattenCompetitions(dayData, config.key, dateStr).filter(item => item.completed && item.totalGames > 0);
-    competitions.forEach(match => {
-      if (seenIds.has(match.id)) return;
-      seenIds.add(match.id);
-      const aName = normalizeName(match.playerA);
-      const bName = normalizeName(match.playerB);
-      const involvesA = aName === targetA || bName === targetA;
-      const involvesB = aName === targetB || bName === targetB;
-      if (involvesA && recentA.length < TARGET_MATCH_COUNT) recentA.push(match);
-      if (involvesB && recentB.length < TARGET_MATCH_COUNT) recentB.push(match);
-      if (((aName === targetA && bName === targetB) || (aName === targetB && bName === targetA)) && h2h.length < TARGET_H2H_COUNT) {
-        h2h.push(match);
+
+    function safeText(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[ch]));
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function mean(arr) {
+      const clean = (Array.isArray(arr) ? arr : []).map(Number).filter(Number.isFinite);
+      if (!clean.length) return NaN;
+      return clean.reduce((sum, v) => sum + v, 0) / clean.length;
+    }
+
+    function std(arr) {
+      const clean = (Array.isArray(arr) ? arr : []).map(Number).filter(Number.isFinite);
+      if (clean.length < 2) return 0;
+      const avg = mean(clean);
+      const variance = clean.reduce((sum, v) => sum + ((v - avg) ** 2), 0) / clean.length;
+      return Math.sqrt(variance);
+    }
+
+    function normalizeDashes(str) {
+      return String(str ?? "").replace(/[–—−]/g, "-");
+    }
+
+    function parseSeries(id, { min = 3, max = 10, maxValue = 60 } = {}) {
+      const raw = document.getElementById(id)?.value?.trim() || "";
+      if (!raw) return [];
+      const parts = raw.split(",").map(x => x.trim()).filter(Boolean);
+      if (parts.length < min || parts.length > max) return null;
+      const out = [];
+      for (const part of parts) {
+        const value = Number(part);
+        if (!Number.isFinite(value) || value <= 0 || value > maxValue) return null;
+        out.push(Math.round(value * 100) / 100);
       }
-    });
-    if (recentA.length >= TARGET_MATCH_COUNT && recentB.length >= TARGET_MATCH_COUNT && h2h.length >= Math.min(3, TARGET_H2H_COUNT)) {
-      break;
+      return out;
     }
-  }
 
-  const aTotals = recentA.map(item => item.totalGames);
-  const bTotals = recentB.map(item => item.totalGames);
-  const h2hTotals = h2h.map(item => item.totalGames);
+    function parseOptionalSeries(id, { max = 10, maxValue = 60 } = {}) {
+      const raw = document.getElementById(id)?.value?.trim() || "";
+      if (!raw) return [];
+      const parts = raw.split(",").map(x => x.trim()).filter(Boolean);
+      if (!parts.length || parts.length > max) return null;
+      const out = [];
+      for (const part of parts) {
+        const value = Number(part);
+        if (!Number.isFinite(value) || value <= 0 || value > maxValue) return null;
+        out.push(Math.round(value * 100) / 100);
+      }
+      return out;
+    }
 
-  const profile = {
-    recentA,
-    recentB,
-    h2h,
-    avgA: average(aTotals),
-    avgB: average(bTotals),
-    medA: median(aTotals),
-    medB: median(bTotals),
-    stdA: stddev(aTotals),
-    stdB: stddev(bTotals),
-    avgH2H: average(h2hTotals),
-    medH2H: median(h2hTotals)
-  };
-  state.profile = profile;
-  renderProfiles();
-  return profile;
-}
+    function parseMarketRangeMeta(raw) {
+      const text = normalizeDashes(String(raw ?? "").trim());
+      if (!text) return null;
+      const nums = text.match(/\d+(?:\.\d+)?/g);
+      if (!nums || !nums.length) return null;
+      const values = nums.map(Number).filter(Number.isFinite);
+      if (!values.length) return null;
+      const low = Math.min(...values);
+      const high = Math.max(...values);
+      return {
+        raw: text,
+        low,
+        high,
+        mid: Math.round(((low + high) / 2) * 100) / 100
+      };
+    }
 
-function renderRecentList(items) {
-  if (!items.length) return 'No completed matches found in scan window.';
-  return items.map(item => `${item.tournament} | ${item.playerA} vs ${item.playerB} | ${item.setScores.join(', ')} | total ${item.totalGames}`).join('\n');
-}
+    function formatNum(value, digits = 2) {
+      return Number.isFinite(value) ? Number(value).toFixed(digits) : "—";
+    }
 
-function renderProfiles() {
-  const profile = state.profile;
-  document.getElementById('playerARecent').value = profile ? renderRecentList(profile.recentA) : '';
-  document.getElementById('playerBRecent').value = profile ? renderRecentList(profile.recentB) : '';
-  document.getElementById('h2hRecent').value = profile ? renderRecentList(profile.h2h) : '';
+    function formatLine(value) {
+      return Number.isFinite(value) ? Number(value).toFixed(1) : "—";
+    }
 
-  document.getElementById('playerAMetrics').innerHTML = profile
-    ? `<div class="metric-title">Profile</div>Avg total: ${fmt(profile.avgA)}<br>Median: ${fmt(profile.medA)}<br>Volatility: ${fmt(profile.stdA)}<br>Sample: ${profile.recentA.length}`
-    : '<div class="metric-title">Profile</div>Waiting for fetch.';
+    function getPickFromEdge(edge) {
+      if (!Number.isFinite(edge)) return "PASS";
+      if (edge > 0) return "OVER";
+      if (edge < 0) return "UNDER";
+      return "PASS";
+    }
 
-  document.getElementById('playerBMetrics').innerHTML = profile
-    ? `<div class="metric-title">Profile</div>Avg total: ${fmt(profile.avgB)}<br>Median: ${fmt(profile.medB)}<br>Volatility: ${fmt(profile.stdB)}<br>Sample: ${profile.recentB.length}`
-    : '<div class="metric-title">Profile</div>Waiting for fetch.';
+    function matchConfidence(edge, volatility) {
+      const absEdge = Math.abs(Number(edge));
+      if (absEdge >= 2.5 && volatility <= 3.0) return "A";
+      if (absEdge >= 1.5 && volatility <= 4.0) return "B";
+      if (absEdge >= 1.0) return "C";
+      return "PASS";
+    }
 
-  document.getElementById('h2hMetrics').innerHTML = profile
-    ? `<div class="metric-title">H2H Profile</div>Avg total: ${fmt(profile.avgH2H)}<br>Median: ${fmt(profile.medH2H)}<br>Sample: ${profile.h2h.length}<br>Tour: ${(getTourConfig().label)}`
-    : '<div class="metric-title">H2H Profile</div>Waiting for fetch.';
-}
+    function set1Confidence(edge, volatility) {
+      const absEdge = Math.abs(Number(edge));
+      if (absEdge >= 1.0 && volatility <= 1.5) return "A";
+      if (absEdge >= 0.7) return "B";
+      if (absEdge >= 0.5) return "C";
+      return "PASS";
+    }
 
-function fmt(value) {
-  return value == null || Number.isNaN(value) ? '—' : Number(value).toFixed(1);
-}
+    function downgradeConfidence(conf) {
+      if (conf === "A") return "B";
+      if (conf === "B") return "C";
+      if (conf === "C") return "PASS";
+      return "PASS";
+    }
 
-function getConfidence(edgeAbs, profile) {
-  const sample = Math.min(profile.recentA.length, profile.recentB.length);
-  const avgVol = average([profile.stdA || 0, profile.stdB || 0]) || 0;
-  if (sample >= 5 && edgeAbs >= 2.0 && avgVol <= 4.5) return 'A';
-  if (sample >= 4 && edgeAbs >= 1.5 && avgVol <= 5.5) return 'B';
-  if (sample >= 3 && edgeAbs >= 1.0) return 'C';
-  return 'D';
-}
+    function confidenceClass(conf) {
+      if (conf === "A") return "conf-a";
+      if (conf === "B") return "conf-b";
+      if (conf === "C") return "conf-c";
+      return "conf-pass";
+    }
 
-function runEngine() {
-  try {
-    if (!state.currentFixture) throw new Error('Select a match first.');
-    if (!state.profile) throw new Error('Fetch stats first.');
-    const line = Number(document.getElementById('totalGamesLine').value);
-    if (!Number.isFinite(line)) throw new Error('Enter a valid total games line.');
+    function predictionClass(pick) {
+      if (pick === "OVER") return "pred-over";
+      if (pick === "UNDER") return "pred-under";
+      return "pred-pass";
+    }
 
-    const profile = state.profile;
-    const baseBlend = average([profile.avgA || null, profile.avgB || null].filter(v => v != null));
-    if (baseBlend == null) throw new Error('Not enough recent totals to project this match.');
+    function evaluateMatchMarket({ marketLabel, lineMeta, tour, aRecent, bRecent, h2h, confidenceFn, isSet1 = false }) {
+      const avgA = mean(aRecent);
+      const avgB = mean(bRecent);
+      const baseProjection = (avgA + avgB) / 2;
+      const h2hAvg = h2h.length ? mean(h2h) : NaN;
+      const projection = Number.isFinite(h2hAvg)
+        ? ((baseProjection * 0.7) + (h2hAvg * 0.3))
+        : baseProjection;
 
-    let projection = 0.40 * (profile.avgA || baseBlend)
-      + 0.40 * (profile.avgB || baseBlend)
-      + 0.10 * (profile.medA || baseBlend)
-      + 0.10 * (profile.medB || baseBlend);
+      const stdA = std(aRecent);
+      const stdB = std(bRecent);
+      const volatility = (stdA + stdB) / 2;
+      const line = lineMeta.mid;
+      const edge = projection - line;
+      const recentEdge = baseProjection - line;
+      const h2hEdge = Number.isFinite(h2hAvg) ? h2hAvg - line : NaN;
 
-    if (profile.avgH2H != null) projection = 0.80 * projection + 0.20 * profile.avgH2H;
+      let pick = getPickFromEdge(edge);
+      let confidence = confidenceFn(edge, volatility);
+      const flags = [];
+      const notes = [];
 
-    projection = clamp(projection, getTourConfig().minProjection, getTourConfig().maxProjection);
-    const edge = projection - line;
-    const edgeAbs = Math.abs(edge);
-    let pick = 'NO PLAY';
-    if (edgeAbs >= 0.75) pick = edge > 0 ? 'OVER' : 'UNDER';
-    const confidence = pick === 'NO PLAY' ? 'D' : getConfidence(edgeAbs, profile);
+      const blowout = !isSet1 && avgA < 18 && avgB < 18;
+      if (blowout) {
+        flags.push("BLOWOUT_FILTER");
+        if (pick === "OVER") {
+          confidence = downgradeConfidence(confidence);
+          notes.push("Both players trend short. OVER downgraded.");
+        } else if (pick === "UNDER") {
+          notes.push("Both players trend short. UNDER bias confirmed.");
+        }
+      }
 
-    renderResult({ line, projection, edge, pick, confidence });
-    saveTrackedPick({ line, projection, edge, pick, confidence });
-  } catch (error) {
-    logEngine('run', error.message || error);
-    setFetchStatus(error.message || String(error), 'err');
-  }
-}
+      const fakeEdge = Number.isFinite(h2hEdge)
+        && (recentEdge * h2hEdge < 0)
+        && Math.abs(recentEdge) >= 1
+        && Math.abs(h2hEdge) >= 1;
+      if (fakeEdge) {
+        flags.push("FAKE_EDGE_FILTER");
+        pick = "PASS";
+        confidence = "PASS";
+        notes.push("Recent form and H2H disagree in opposite directions.");
+      }
 
-function renderResult(result) {
-  const body = document.getElementById('resultsBody');
-  body.innerHTML = '';
-  const row = document.createElement('tr');
-  const matchName = state.currentFixture ? `${state.currentFixture.playerA} vs ${state.currentFixture.playerB}` : '—';
-  const pickClass = result.pick === 'OVER' ? 'pred-over' : result.pick === 'UNDER' ? 'pred-under' : 'pred-noplay';
-  const confClass = result.confidence === 'A' ? 'conf-a' : result.confidence === 'B' ? 'conf-b' : result.confidence === 'C' ? 'conf-c' : 'conf-d';
-  row.innerHTML = `
-    <td>${escapeHtml(matchName)}</td>
-    <td>Full Match Total Games</td>
-    <td>${fmt(result.line)}</td>
-    <td>${fmt(result.projection)}</td>
-    <td>${fmt(result.edge)}</td>
-    <td class="${pickClass}">${escapeHtml(result.pick)}</td>
-    <td class="${confClass}">${escapeHtml(result.confidence)}</td>
-  `;
-  body.appendChild(row);
+      const chaos = volatility > (isSet1 ? 1.8 : 4.0);
+      if (chaos) {
+        flags.push("CHAOS_FILTER");
+        if (tour === "WTA") {
+          pick = "PASS";
+          confidence = "PASS";
+          notes.push("WTA chaos filter tripped. Auto-pass.");
+        } else {
+          confidence = downgradeConfidence(confidence);
+          notes.push("Volatility is high. Confidence downgraded.");
+        }
+      }
 
-  const reason = [];
-  const profile = state.profile;
-  reason.push(`Tour: ${getTourConfig().label}`);
-  reason.push(`Player A avg total: ${fmt(profile.avgA)} from ${profile.recentA.length} matches.`);
-  reason.push(`Player B avg total: ${fmt(profile.avgB)} from ${profile.recentB.length} matches.`);
-  if (profile.avgH2H != null) reason.push(`H2H avg total: ${fmt(profile.avgH2H)} from ${profile.h2h.length} meetings.`);
-  else reason.push('H2H sample is thin, so the model leaned more on player recents.');
-  if (result.pick === 'NO PLAY') reason.push('Edge is too small for a clean over/under call.');
-  else reason.push(`Model leans ${result.pick} by ${fmt(Math.abs(result.edge))} games.`);
-  const box = document.getElementById('reasonBox');
-  box.classList.remove('hidden');
-  box.innerHTML = reason.map(line => `<div>${escapeHtml(line)}</div>`).join('');
-}
+      if (confidence === "PASS") pick = "PASS";
+      if (!Number.isFinite(edge) || !Number.isFinite(projection)) {
+        pick = "PASS";
+        confidence = "PASS";
+        flags.push("BAD_INPUTS");
+        notes.push("Projection could not be computed.");
+      }
 
-function saveTrackedPick(result) {
-  if (!state.currentFixture || result.pick === 'NO PLAY') {
-    renderTracker();
-    return;
-  }
-  const item = {
-    id: `${state.currentFixture.id}_${Date.now()}`,
-    date: formatDateISO(new Date()),
-    match: `${state.currentFixture.playerA} vs ${state.currentFixture.playerB}`,
-    market: 'Full Match Total Games',
-    line: Number(result.line),
-    projection: Number(result.projection),
-    edge: Number(result.edge),
-    pick: result.pick,
-    confidence: result.confidence,
-    status: 'pending'
-  };
-  state.trackedPicks.unshift(item);
-  state.trackedPicks = state.trackedPicks.slice(0, 200);
-  saveTrackedPicks();
-}
+      return {
+        marketLabel,
+        lineMeta,
+        line,
+        avgA,
+        avgB,
+        baseProjection,
+        h2hAvg,
+        projection,
+        stdA,
+        stdB,
+        volatility,
+        edge,
+        recentEdge,
+        h2hEdge,
+        pick,
+        confidence,
+        flags,
+        notes,
+        tour,
+        usedH2H: Number.isFinite(h2hAvg)
+      };
+    }
 
-function renderTracker() {
-  const body = document.getElementById('trackedPicksBody');
-  const empty = document.getElementById('trackerEmpty');
-  body.innerHTML = '';
-  if (!state.trackedPicks.length) {
-    empty.classList.remove('tracker-hidden');
-  } else {
-    empty.classList.add('tracker-hidden');
-    state.trackedPicks.forEach(item => {
-      const tr = document.createElement('tr');
-      const statusClass = item.status === 'win' ? 'track-win' : item.status === 'loss' ? 'track-loss' : item.status === 'push' ? 'track-push' : 'track-pending';
-      tr.innerHTML = `
-        <td>${escapeHtml(item.date)}</td>
-        <td>${escapeHtml(item.match)}</td>
-        <td>${escapeHtml(item.market)}</td>
-        <td>${fmt(item.line)}</td>
-        <td>${escapeHtml(item.pick)}</td>
-        <td>${fmt(item.edge)}</td>
-        <td class="${statusClass}">${escapeHtml(item.status.toUpperCase())}</td>
+    function explainHtml(result) {
+      const h2hText = result.usedH2H ? formatNum(result.h2hAvg) : "not used";
+      const flagsHtml = result.flags.length
+        ? `<div class="flag-list">${result.flags.map(flag => `<span>${safeText(flag)}</span>`).join("")}</div>`
+        : "<div class=\"flag-list\"><span>CLEAN</span></div>";
+      return `
+        <div class="explain-card">
+          <strong>${safeText(result.marketLabel)}</strong><br>
+          Avg A: ${safeText(formatNum(result.avgA))} • Avg B: ${safeText(formatNum(result.avgB))}<br>
+          Base: ${safeText(formatNum(result.baseProjection))} • H2H: ${safeText(h2hText)}<br>
+          Projection: ${safeText(formatNum(result.projection))} • Line: ${safeText(formatLine(result.line))}<br>
+          Edge: ${safeText(formatNum(result.edge))} • Volatility: ${safeText(formatNum(result.volatility))}<br>
+          Notes: ${safeText(result.notes.join(" ") || "None")}
+          ${flagsHtml}
+        </div>
       `;
-      body.appendChild(tr);
-    });
-  }
-  const settled = state.trackedPicks.filter(p => p.status !== 'pending');
-  const wins = settled.filter(p => p.status === 'win').length;
-  document.getElementById('trackerSummary').textContent = `${state.trackedPicks.length} saved • ${settled.length} settled • ${wins} wins`;
-}
+    }
 
-function renderDebugList() {
-  const list = document.getElementById('debugList');
-  if (!list) return;
-  list.innerHTML = '';
-  if (!state.engineDebug.length) {
-    const li = document.createElement('li');
-    li.textContent = 'No engine issues logged.';
-    list.appendChild(li);
-    return;
-  }
-  state.engineDebug.forEach(entry => {
-    const li = document.createElement('li');
-    const time = new Date(entry.ts).toLocaleTimeString();
-    li.textContent = `[${time}] ${entry.tag} | ${entry.detail}`;
-    list.appendChild(li);
-  });
-}
+    function loadTracker() {
+      try {
+        const raw = localStorage.getItem(STORAGE_TRACKER);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (err) {
+        return [];
+      }
+    }
 
-function openTracker(view) {
-  state.activeTrackerView = view || 'tracker';
-  document.getElementById('trackerModal').classList.add('open');
-  document.body.classList.add('tracker-open');
-  document.getElementById('trackerView').classList.toggle('tracker-hidden', state.activeTrackerView !== 'tracker');
-  document.getElementById('debugView').classList.toggle('tracker-hidden', state.activeTrackerView !== 'debug');
-}
+    function saveTracker(rows) {
+      localStorage.setItem(STORAGE_TRACKER, JSON.stringify(rows));
+    }
 
-function closeTracker() {
-  document.getElementById('trackerModal').classList.remove('open');
-  document.body.classList.remove('tracker-open');
-}
+    function summarizeTracker(rows) {
+      const saved = rows.length;
+      const settled = rows.filter(r => ["win", "loss", "push"].includes(String(r.status || "").toLowerCase())).length;
+      const wins = rows.filter(r => String(r.status || "").toLowerCase() === "win").length;
+      const losses = rows.filter(r => String(r.status || "").toLowerCase() === "loss").length;
+      const pushes = rows.filter(r => String(r.status || "").toLowerCase() === "push").length;
+      const atp = rows.filter(r => r.tour === "ATP").length;
+      const wta = rows.filter(r => r.tour === "WTA").length;
+      const a = rows.filter(r => r.confidence === "A").length;
+      const b = rows.filter(r => r.confidence === "B").length;
+      const c = rows.filter(r => r.confidence === "C").length;
+      trackerSummary.innerHTML = `
+        ${saved} saved • ${settled} settled • ${wins} wins • ${losses} losses • ${pushes} pushes<br>
+        ATP ${atp} • WTA ${wta} • A ${a} • B ${b} • C ${c}
+      `;
+    }
 
-function clearAll() {
-  document.getElementById('totalGamesLine').value = '';
-  document.getElementById('fixtureSelect').value = '';
-  document.getElementById('teamAName').value = '';
-  document.getElementById('teamBName').value = '';
-  document.getElementById('playerARecent').value = '';
-  document.getElementById('playerBRecent').value = '';
-  document.getElementById('h2hRecent').value = '';
-  document.getElementById('playerAMetrics').innerHTML = '<div class="metric-title">Profile</div>Waiting for fetch.';
-  document.getElementById('playerBMetrics').innerHTML = '<div class="metric-title">Profile</div>Waiting for fetch.';
-  document.getElementById('h2hMetrics').innerHTML = '<div class="metric-title">H2H Profile</div>Waiting for fetch.';
-  document.getElementById('resultsBody').innerHTML = '<tr id="placeholderRow"><td colspan="7">Run the tennis engine to see a pick.</td></tr>';
-  document.getElementById('reasonBox').classList.add('hidden');
-  state.profile = null;
-  state.currentFixture = null;
-  clearEngineDebug();
-  setFetchStatus('', '');
-}
+    function updateTrackerStatus(index, status) {
+      const rows = loadTracker();
+      if (!rows[index]) return;
+      rows[index].status = status;
+      saveTracker(rows);
+      renderTracker();
+    }
 
-function escapeHtml(text) {
-  return safeText(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+    function deleteTrackerRow(index) {
+      const rows = loadTracker();
+      rows.splice(index, 1);
+      saveTracker(rows);
+      renderTracker();
+    }
 
-function applyTheme() {
-  const saved = localStorage.getItem(THEME_KEY);
-  document.body.classList.toggle('dark-mode', saved === 'dark');
-}
+    function renderTracker() {
+      const rows = loadTracker();
+      summarizeTracker(rows);
+      trackedPicksBody.innerHTML = "";
 
-function toggleTheme() {
-  const nextDark = !document.body.classList.contains('dark-mode');
-  document.body.classList.toggle('dark-mode', nextDark);
-  localStorage.setItem(THEME_KEY, nextDark ? 'dark' : 'light');
-}
+      if (!rows.length) {
+        trackerEmpty.style.display = "block";
+        trackedPicksTable.style.display = "none";
+        return;
+      }
 
-function makeSectionsCollapsible() {
-  document.querySelectorAll('.section').forEach(section => {
-    if (section.dataset.collapsibleReady === '1') return;
-    const heading = section.querySelector('h3');
-    if (!heading) return;
-    const titleHTML = heading.innerHTML;
-    const body = document.createElement('div');
-    body.className = 'section-body';
-    const children = [...section.childNodes];
-    children.forEach(node => {
-      if (node !== heading) body.appendChild(node);
-    });
+      trackerEmpty.style.display = "none";
+      trackedPicksTable.style.display = "table";
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'section-toggle';
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'toggle-title';
-    titleSpan.innerHTML = titleHTML;
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'toggle-icon';
-    iconSpan.innerHTML = '&#9662;';
-    btn.appendChild(titleSpan);
-    btn.appendChild(iconSpan);
-    btn.addEventListener('click', () => {
-      section.classList.toggle('collapsed');
+      rows.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        const flags = Array.isArray(row.flags) && row.flags.length ? row.flags.join(" | ") : "—";
+        tr.innerHTML = `
+          <td>${safeText(row.date || "—")}</td>
+          <td>${safeText(row.matchup || "—")}</td>
+          <td>${safeText(row.market || "—")}<br><small>${safeText(flags)}</small></td>
+          <td>${safeText(formatLine(Number(row.line)))}</td>
+          <td class="${predictionClass(row.pick)}">${safeText(row.pick || "PASS")}</td>
+          <td>${safeText(formatNum(Number(row.edge)))}</td>
+          <td class="${confidenceClass(row.confidence)}">${safeText(row.confidence || "PASS")}</td>
+          <td>
+            <div>${safeText(String(row.status || "pending").toUpperCase())}</div>
+            <div class="tracker-actions" style="margin-top:4px;">
+              <button type="button" data-action="win" data-index="${index}">W</button>
+              <button type="button" data-action="loss" data-index="${index}">L</button>
+              <button type="button" data-action="push" data-index="${index}">P</button>
+              <button type="button" data-action="pending" data-index="${index}">⏳</button>
+              <button type="button" data-action="delete" data-index="${index}">✕</button>
+            </div>
+          </td>
+        `;
+        trackedPicksBody.appendChild(tr);
+      });
+    }
+
+    trackedPicksBody.addEventListener("click", event => {
+      const btn = event.target.closest("button[data-action]");
+      if (!btn) return;
+      const index = Number(btn.dataset.index);
+      const action = String(btn.dataset.action || "");
+      if (!Number.isInteger(index)) return;
+      if (action === "delete") {
+        deleteTrackerRow(index);
+        return;
+      }
+      updateTrackerStatus(index, action);
     });
 
-    section.innerHTML = '';
-    section.appendChild(btn);
-    section.appendChild(body);
-    section.dataset.collapsibleReady = '1';
-  });
+    function addResultsToTracker(results) {
+      const rows = loadTracker();
+      const matchup = `${document.getElementById("playerAName").value.trim() || "Player A"} vs ${document.getElementById("playerBName").value.trim() || "Player B"}`;
+      const dateValue = document.getElementById("matchDate").value || new Date().toISOString().slice(0, 10);
+      results
+        .filter(row => row.pick !== "PASS")
+        .forEach(row => {
+          rows.unshift({
+            date: dateValue,
+            matchup,
+            tour: row.tour,
+            market: row.marketLabel,
+            line: row.line,
+            projection: row.projection,
+            edge: row.edge,
+            pick: row.pick,
+            confidence: row.confidence,
+            flags: row.flags,
+            status: "pending"
+          });
+        });
+      saveTracker(rows.slice(0, 200));
+      renderTracker();
+    }
 
-  ['teamASection', 'teamBSection', 'h2hSection'].forEach(id => {
-    const section = document.getElementById(id);
-    if (section) section.classList.add('collapsed');
-  });
-}
+    function validateNames(playerA, playerB) {
+      if (!playerA || !playerB) return "Player names are required.";
+      if (playerA.trim().toLowerCase() === playerB.trim().toLowerCase()) return "Player A and Player B cannot be the same.";
+      return "";
+    }
 
-async function handleFetchStats() {
-  try {
-    if (!state.currentFixture) throw new Error('Select a match first.');
-    setFetchStatus('Building recent profiles…', 'loading');
-    await buildProfilesForFixture();
-    setFetchStatus('Tennis stats loaded. Recent totals and H2H are ready.', 'ok');
-    ['teamASection', 'teamBSection', 'h2hSection', 'marketSection'].forEach(id => {
-      const section = document.getElementById(id);
-      if (section) section.classList.remove('collapsed');
+    function runEngine() {
+      setStatus("", "");
+      resultsBody.innerHTML = "";
+      explainWrap.innerHTML = "";
+      explainWrap.style.display = "none";
+
+      const tour = document.getElementById("tourSelect").value || "ATP";
+      const playerA = document.getElementById("playerAName").value.trim();
+      const playerB = document.getElementById("playerBName").value.trim();
+      const nameError = validateNames(playerA, playerB);
+      if (nameError) {
+        resultsTable.style.display = "none";
+        setStatus(nameError, "err");
+        return;
+      }
+
+      const aRecent = parseSeries("aRecentTotals");
+      const bRecent = parseSeries("bRecentTotals");
+      const h2hMatch = parseOptionalSeries("h2hMatchTotals");
+      const aSet1 = parseSeries("aSet1Totals", { min: 3, max: 10, maxValue: 20 });
+      const bSet1 = parseSeries("bSet1Totals", { min: 3, max: 10, maxValue: 20 });
+      const h2hSet1 = parseOptionalSeries("h2hSet1Totals", { max: 10, maxValue: 20 });
+      const matchLineMeta = parseMarketRangeMeta(document.getElementById("matchLine").value);
+      const set1LineMeta = parseMarketRangeMeta(document.getElementById("set1Line").value);
+
+      const errors = [];
+      if (aRecent === null) errors.push("Player A recent match totals must be 3-10 positive comma-separated numbers.");
+      if (bRecent === null) errors.push("Player B recent match totals must be 3-10 positive comma-separated numbers.");
+      if (h2hMatch === null) errors.push("H2H match totals must be positive comma-separated numbers.");
+      if (aSet1 === null) errors.push("Player A Set 1 totals must be 3-10 positive comma-separated numbers.");
+      if (bSet1 === null) errors.push("Player B Set 1 totals must be 3-10 positive comma-separated numbers.");
+      if (h2hSet1 === null) errors.push("H2H Set 1 totals must be positive comma-separated numbers.");
+      if (!matchLineMeta && !set1LineMeta) errors.push("Enter at least one market line.");
+      if (!aRecent || !bRecent) errors.push("Match totals are required for both players.");
+      if (!aSet1 || !bSet1) errors.push("Set 1 totals are required for both players.");
+
+      if (errors.length) {
+        resultsTable.style.display = "none";
+        setStatus(errors[0], "err");
+        return;
+      }
+
+      const finalResults = [];
+      if (matchLineMeta) {
+        finalResults.push(evaluateMatchMarket({
+          marketLabel: "Match Total Games",
+          lineMeta: matchLineMeta,
+          tour,
+          aRecent,
+          bRecent,
+          h2h: h2hMatch || [],
+          confidenceFn: matchConfidence,
+          isSet1: false
+        }));
+      }
+
+      if (set1LineMeta) {
+        finalResults.push(evaluateMatchMarket({
+          marketLabel: "Set 1 Total Games",
+          lineMeta: set1LineMeta,
+          tour,
+          aRecent: aSet1,
+          bRecent: bSet1,
+          h2h: h2hSet1 || [],
+          confidenceFn: set1Confidence,
+          isSet1: true
+        }));
+      }
+
+      if (!finalResults.length) {
+        resultsTable.style.display = "none";
+        setStatus("No valid market could be computed.", "err");
+        return;
+      }
+
+      resultsTable.style.display = "table";
+      finalResults.forEach(result => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${safeText(result.marketLabel)}</td>
+          <td>${safeText(formatLine(result.line))}</td>
+          <td>${safeText(formatNum(result.projection))}</td>
+          <td>${safeText(formatNum(result.edge))}</td>
+          <td class="${confidenceClass(result.confidence)}">${safeText(result.confidence)}</td>
+          <td class="${predictionClass(result.pick)}">${safeText(result.pick)}</td>
+          <td>${safeText(result.flags.join(" | ") || "—")}</td>
+        `;
+        resultsBody.appendChild(tr);
+        explainWrap.insertAdjacentHTML("beforeend", explainHtml(result));
+      });
+      explainWrap.style.display = "grid";
+
+      addResultsToTracker(finalResults);
+      const passCount = finalResults.filter(r => r.pick === "PASS").length;
+      const playable = finalResults.filter(r => r.pick !== "PASS").length;
+      if (playable) {
+        setStatus(`${playable} playable result${playable === 1 ? "" : "s"} saved to tracker. ${passCount ? passCount + " pass" + (passCount === 1 ? "" : "es") + " held back." : ""}`, playable === finalResults.length ? "ok" : "warn");
+      } else {
+        setStatus("Everything came back PASS. Which is annoying, but cheaper than pretending the edge is real.", "warn");
+      }
+    }
+
+    function clearEngine() {
+      [
+        "playerAName", "playerBName", "matchLine", "set1Line", "aRecentTotals", "bRecentTotals",
+        "h2hMatchTotals", "aSet1Totals", "bSet1Totals", "h2hSet1Totals"
+      ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      document.getElementById("tourSelect").value = "ATP";
+      document.getElementById("matchDate").value = new Date().toISOString().slice(0, 10);
+      resultsBody.innerHTML = "";
+      resultsTable.style.display = "none";
+      explainWrap.innerHTML = "";
+      explainWrap.style.display = "none";
+      setStatus("Cleared.", "ok");
+    }
+
+    function openTracker() {
+      trackerModal.classList.add("open");
+      trackerModal.setAttribute("aria-hidden", "false");
+      document.body.classList.add("tracker-open");
+      renderTracker();
+    }
+
+    function closeTracker() {
+      trackerModal.classList.remove("open");
+      trackerModal.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("tracker-open");
+    }
+
+    trackerToggleBtn.addEventListener("click", openTracker);
+    trackerCloseBtn.addEventListener("click", closeTracker);
+    trackerModal.addEventListener("click", event => {
+      if (event.target === trackerModal) closeTracker();
     });
-  } catch (error) {
-    logEngine('fetch', error.message || error);
-    setFetchStatus(error.message || String(error), 'err');
-  }
-}
 
-function bindEvents() {
-  document.getElementById('leagueSelect').addEventListener('change', () => {
-    clearAll();
-    loadFixtures(0);
-  });
-  document.getElementById('fixturesTodayBtn').addEventListener('click', () => loadFixtures(0));
-  document.getElementById('fixturesTomorrowBtn').addEventListener('click', () => loadFixtures(1));
-  document.getElementById('fixtureSelect').addEventListener('change', onFixtureSelect);
-  document.getElementById('fetchBtn').addEventListener('click', handleFetchStats);
-  document.getElementById('runBtn').addEventListener('click', runEngine);
-  document.getElementById('clearBtn').addEventListener('click', clearAll);
-  document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
-  document.getElementById('trackerToggleBtn').addEventListener('click', () => openTracker('tracker'));
-  document.getElementById('trackerInsightsBtn').addEventListener('click', () => openTracker('tracker'));
-  document.getElementById('trackerDebugBtn').addEventListener('click', () => openTracker('debug'));
-  document.getElementById('trackerCloseBtn').addEventListener('click', closeTracker);
-  document.getElementById('headerErrorBtn').addEventListener('click', () => openTracker('debug'));
-  document.getElementById('trackerModal').addEventListener('click', (event) => {
-    if (event.target.id === 'trackerModal') closeTracker();
-  });
-}
+    document.getElementById("runBtn").addEventListener("click", runEngine);
+    document.getElementById("clearBtn").addEventListener("click", clearEngine);
 
-(function init() {
-  applyTheme();
-  makeSectionsCollapsible();
-  renderTracker();
-  renderDebugList();
-  bindEvents();
-  loadFixtures(0);
-})();
-</script>
+    themeToggleBtn.addEventListener("click", () => {
+      document.body.classList.toggle("dark-mode");
+      localStorage.setItem(STORAGE_THEME, document.body.classList.contains("dark-mode") ? "dark" : "light");
+    });
+
+    (function init() {
+      const storedTheme = localStorage.getItem(STORAGE_THEME);
+      if (storedTheme === "dark") document.body.classList.add("dark-mode");
+      document.getElementById("matchDate").value = new Date().toISOString().slice(0, 10);
+      renderTracker();
+      setStatus("Ready.", "ok");
+    })();
+  </script>
 </body>
 </html>
