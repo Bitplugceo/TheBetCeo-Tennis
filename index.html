@@ -3630,7 +3630,7 @@ body.dark-mode .tracker-analytics-section-head {
     }
 
     const promise = (async function () {
-      const chunks = getChunkedHistoryRanges(2160, 120);
+      const chunks = getChunkedHistoryRanges(480, 120);
       const all = [];
 
       for (let i = 0; i < chunks.length; i += 1) {
@@ -3647,7 +3647,7 @@ body.dark-mode .tracker-analytics-section-head {
         });
 
         all.push.apply(all, records);
-        await sleep(50);
+        await sleep(40);
       }
 
       return dedupeRecords(all);
@@ -3712,14 +3712,58 @@ body.dark-mode .tracker-analytics-section-head {
     });
   }
 
-  function buildH2HSeries(records, playerAId, playerBId) {
+  function buildH2HSeries(records, playerAId, playerBId, playerAName, playerBName) {
+    const normA = normalizeName(playerAName);
+    const normB = normalizeName(playerBName);
+
     return records.filter(function (record) {
-      const hasA = record.playerAId === playerAId || record.playerBId === playerAId;
-      const hasB = record.playerAId === playerBId || record.playerBId === playerBId;
-      return hasA && hasB;
+      const byIdA = record.playerAId === playerAId || record.playerBId === playerAId;
+      const byIdB = record.playerAId === playerBId || record.playerBId === playerBId;
+      if (byIdA && byIdB) return true;
+
+      const recA = normalizeName(record.playerAName);
+      const recB = normalizeName(record.playerBName);
+      const byName =
+        ((recA === normA && recB === normB) || (recA === normB && recB === normA));
+
+      return byName;
     }).sort(function (a, b) {
       return new Date(b.date) - new Date(a.date);
     });
+  }
+
+  async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
+    const extraRanges = getChunkedHistoryRanges(2160, 120).slice(4);
+    const all = existingRecords.slice();
+
+    for (let i = 0; i < extraRanges.length; i += 1) {
+      const datesQuery = extraRanges[i];
+      const payload = await fetchTennisScoreboard(league, datesQuery);
+      const records = extractCompetitionRecords(payload).filter(function (record) {
+        return record.status.completed &&
+          Number.isFinite(record.totalGames) &&
+          Number.isFinite(record.set1Total) &&
+          Number.isFinite(record.playerAGames) &&
+          Number.isFinite(record.playerBGames) &&
+          Number.isFinite(record.playerASet1Games) &&
+          Number.isFinite(record.playerBSet1Games);
+      });
+
+      all.push.apply(all, records);
+      const deduped = dedupeRecords(all);
+      const h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
+      if (h2h.length >= targetCount) {
+        return { records: deduped, h2h: h2h };
+      }
+
+      await sleep(40);
+    }
+
+    const deduped = dedupeRecords(all);
+    return {
+      records: deduped,
+      h2h: buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName)
+    };
   }
 
   function setFieldValue(id, values) {
@@ -3773,7 +3817,7 @@ body.dark-mode .tracker-analytics-section-head {
       return;
     }
 
-    setFetchStatus("Fetching recent tennis scorelines from ESPN. Deep H2H search may take a little longer...", "loading");
+    setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
 
     try {
       const records = await fetchHistoryPool(league);
@@ -3805,9 +3849,25 @@ body.dark-mode .tracker-analytics-section-head {
       selectedPlayerIds.A = playerAId;
       selectedPlayerIds.B = playerBId;
 
-      const recentA = buildRecentSeries(records, playerAId);
-      const recentB = buildRecentSeries(records, playerBId);
-      const h2h = buildH2HSeries(records, playerAId, playerBId);
+      let workingRecords = records.slice();
+      const recentA = buildRecentSeries(workingRecords, playerAId);
+      const recentB = buildRecentSeries(workingRecords, playerBId);
+      let h2h = buildH2HSeries(workingRecords, playerAId, playerBId, qs("teamAName").value, qs("teamBName").value);
+
+      if (h2h.length < 3) {
+        setFetchStatus("Recent stats found. Searching older windows for more H2H...", "loading");
+        const extraBundle = await fetchExtraH2HRecords(
+          league,
+          workingRecords,
+          playerAId,
+          playerBId,
+          qs("teamAName").value,
+          qs("teamBName").value,
+          3
+        );
+        workingRecords = extraBundle.records;
+        h2h = extraBundle.h2h;
+      }
 
       const aGames = recentA.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite);
       const bGames = recentB.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite);
@@ -3845,11 +3905,7 @@ body.dark-mode .tracker-analytics-section-head {
         (recentB[0] && recentB[0].surface) ||
         "";
 
-      if (!surfaceValue) {
-        throw new Error("Surface could not be fetched from ESPN. Surface is now required.");
-      }
-
-      qs("surfaceDisplay").value = surfaceValue;
+      qs("surfaceDisplay").value = surfaceValue || "";
 
       setFetchNotes(
         buildFetchNotes(qs("teamAName").value, recentA),
@@ -3859,8 +3915,9 @@ body.dark-mode .tracker-analytics-section-head {
       const statusParts = [
         qs("teamAName").value + ": " + aGames.length + " player-only game rows",
         qs("teamBName").value + ": " + bGames.length + " player-only game rows",
-        "H2H totals: " + h2hMatchTotals.length + " / target 3+",
-        "Set1 H2H totals: " + h2hSet1Totals.length
+        "H2H totals: " + h2hMatchTotals.length,
+        "Set1 H2H totals: " + h2hSet1Totals.length,
+        "Surface: " + (surfaceValue || "not available")
       ];
 
       setFetchStatus(statusParts.join(" • "), "ok");
