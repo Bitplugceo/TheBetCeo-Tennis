@@ -4920,15 +4920,13 @@ body.dark-mode .tracker-analytics-section-head {
             value === "loser";
         }
 
-        const isLive =
+        const isUpcomingStatus =
+          state === "pre" ||
           state === "in" ||
+          name === "STATUS_SCHEDULED" ||
+          name === "STATUS_TIME_TBD" ||
           name === "STATUS_IN_PROGRESS" ||
           name === "STATUS_HALFTIME";
-
-        const isScheduled =
-          state === "pre" ||
-          name === "STATUS_SCHEDULED" ||
-          name === "STATUS_TIME_TBD";
 
         const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
         const notPlaceholderPair =
@@ -4945,11 +4943,10 @@ body.dark-mode .tracker-analytics-section-head {
 
         if (completed) return false;
         if (!hasRealPlayers || !notPlaceholderPair) return false;
-        if (isLive) return true;
-        if (!isScheduled || !hasValidDate) return false;
+        if (!isUpcomingStatus || !hasValidDate) return false;
 
         if (offset === 0) {
-          return scheduledAt.getTime() >= now.getTime();
+          return scheduledAt.getTime() > now.getTime();
         }
 
         return true;
@@ -4958,7 +4955,7 @@ body.dark-mode .tracker-analytics-section-head {
       });
 
       renderFixtureOptions(records);
-      setFetchStatus(records.length ? "Loaded " + records.length + " real future/live singles matches." : "No real future/live singles matches found for this day.", records.length ? "ok" : "");
+      setFetchStatus(records.length ? "Loaded " + records.length + " real future singles matches." : "No real future singles matches found for this day.", records.length ? "ok" : "");
     } catch (err) {
       if (token !== fixtureLoadToken) return;
       select.innerHTML = '<option value="">Unable to load matches</option>';
