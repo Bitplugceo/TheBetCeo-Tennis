@@ -4898,12 +4898,15 @@ body.dark-mode .tracker-analytics-section-head {
       const payload = await fetchTennisScoreboard(league, dateQuery);
       if (token !== fixtureLoadToken) return;
 
+      const now = new Date();
       const records = extractCompetitionRecords(payload).filter(function (record) {
         const state = record.status && record.status.state || "";
         const aName = String(record.playerAName || "").trim();
         const bName = String(record.playerBName || "").trim();
         const aNorm = normalizeName(aName);
         const bNorm = normalizeName(bName);
+        const scheduledAt = new Date(record.date);
+        const hasValidDate = !Number.isNaN(scheduledAt.getTime());
 
         function invalidName(value) {
           return !value ||
@@ -4914,7 +4917,8 @@ body.dark-mode .tracker-analytics-section-head {
             value === "loser";
         }
 
-        const isUpcoming = state === "pre" || state === "in" || !record.status.completed;
+        const isLive = state === "in";
+        const isPre = state === "pre" || (!record.status.completed && state !== "post");
         const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
         const notPlaceholderPair =
           !aNorm.includes(" tbd") &&
@@ -4928,13 +4932,18 @@ body.dark-mode .tracker-analytics-section-head {
           !aNorm.includes(" bye") &&
           !bNorm.includes(" bye");
 
-        return isUpcoming && hasRealPlayers && notPlaceholderPair;
+        const notPastForToday =
+          currentFixtureOffset !== 0 ||
+          isLive ||
+          (hasValidDate && scheduledAt.getTime() >= now.getTime() - (15 * 60 * 1000));
+
+        return (isLive || isPre) && hasRealPlayers && notPlaceholderPair && notPastForToday;
       }).sort(function (a, b) {
         return new Date(a.date) - new Date(b.date);
       });
 
       renderFixtureOptions(records);
-      setFetchStatus(records.length ? "Loaded " + records.length + " singles matches." : "No singles matches found for this day.", records.length ? "ok" : "");
+      setFetchStatus(records.length ? "Loaded " + records.length + " real upcoming singles matches." : "No real upcoming singles matches found for this day.", records.length ? "ok" : "");
     } catch (err) {
       if (token !== fixtureLoadToken) return;
       select.innerHTML = '<option value="">Unable to load matches</option>';
