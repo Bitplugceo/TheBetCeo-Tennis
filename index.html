@@ -2640,6 +2640,7 @@ body.dark-mode .tracker-analytics-section-head {
   let currentFixtureOffset = 0;
   let fixtureLoadToken = 0;
   let historyPoolCache = new Map();
+  let latestFetchedContext = null;
 
   function qs(id) {
     return document.getElementById(id);
@@ -2880,6 +2881,7 @@ body.dark-mode .tracker-analytics-section-head {
       return {
         min: single,
         max: single,
+        mid: single,
         label: fmt(single)
       };
     }
@@ -2902,37 +2904,257 @@ body.dark-mode .tracker-analytics-section-head {
     return {
       min: low,
       max: high,
+      mid: (low + high) / 2,
       label: fmt(low) + " - " + fmt(high)
     };
   }
 
   function directionFromRange(value, lineRange) {
-    if (value > lineRange.max) return 1;
-    if (value < lineRange.min) return -1;
+    if (value > lineRange.mid) return 1;
+    if (value < lineRange.mid) return -1;
     return 0;
   }
 
   function pickFromRange(projection, lineRange) {
-    if (projection > lineRange.max) {
+    if (projection > lineRange.mid) {
       return {
         pick: "OVER",
-        edge: projection - lineRange.max,
-        insideRange: false
+        edge: projection - lineRange.mid,
+        atMid: false
       };
     }
 
-    if (projection < lineRange.min) {
+    if (projection < lineRange.mid) {
       return {
         pick: "UNDER",
-        edge: projection - lineRange.min,
-        insideRange: false
+        edge: projection - lineRange.mid,
+        atMid: false
       };
     }
 
     return {
       pick: "PASS",
       edge: 0,
-      insideRange: true
+      atMid: true
+    };
+  }
+
+
+  function weightedMean(values) {
+    if (!Array.isArray(values) || !values.length) return null;
+    let weightedTotal = 0;
+    let weightSum = 0;
+    const n = values.length;
+    for (let i = 0; i < n; i += 1) {
+      const weight = n - i;
+      weightedTotal += values[i] * weight;
+      weightSum += weight;
+    }
+    return weightSum ? (weightedTotal / weightSum) : null;
+  }
+
+  function normalizeSurfaceLabel(surface) {
+    const raw = normalizeName(surface || "");
+    if (!raw) return "";
+    if (raw.includes("grass")) return "grass";
+    if (raw.includes("clay")) return "clay";
+    if (raw.includes("hard")) {
+      if (raw.includes("indoor")) return "indoor hard";
+      return "hard";
+    }
+    if (raw.includes("indoor")) return "indoor hard";
+    return raw;
+  }
+
+  function matchupKey(tour, playerAName, playerBName) {
+    return [
+      String(tour || "").trim().toUpperCase(),
+      normalizeName(playerAName),
+      normalizeName(playerBName)
+    ].join("|");
+  }
+
+  function getActiveFetchedContext(tour, playerAName, playerBName) {
+    if (!latestFetchedContext) return null;
+    return latestFetchedContext.matchupKey === matchupKey(tour, playerAName, playerBName)
+      ? latestFetchedContext
+      : null;
+  }
+
+  function classifyEventLevel(tournamentName) {
+    const value = normalizeName(tournamentName || "");
+    if (!value) return "";
+
+    if (
+      value.includes("australian open") ||
+      value.includes("french open") ||
+      value.includes("roland garros") ||
+      value.includes("wimbledon") ||
+      value.includes("us open")
+    ) return "Grand Slam";
+
+    if (value.includes("atp finals") || value.includes("wta finals")) return "Finals";
+    if (value.includes("masters") || value.includes("1000")) return "Masters / 1000";
+    if (value.includes("500")) return "500";
+    if (value.includes("250")) return "250";
+    if (value.includes("challenger")) return "Challenger";
+    if (value.includes("olympic")) return "Olympics";
+    return "Tour";
+  }
+
+  function inferMatchFormat(tour, eventLevel) {
+    const tourKey = String(tour || "").trim().toUpperCase();
+    const level = String(eventLevel || "");
+    if (tourKey === "ATP" && level === "Grand Slam") return "BO5";
+    return "BO3";
+  }
+
+  function daysBetween(nowDate, earlierDate) {
+    if (!nowDate || !earlierDate) return null;
+    const a = new Date(nowDate);
+    const b = new Date(earlierDate);
+    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
+    return Math.max(0, Math.round((a.getTime() - b.getTime()) / 86400000));
+  }
+
+  function computeFatigueProfile(series) {
+    const recent = Array.isArray(series) ? series.slice(0, 10) : [];
+    if (!recent.length) {
+      return {
+        daysRest: null,
+        matches7: 0,
+        longLoad: 0
+      };
+    }
+
+    const nowish = new Date();
+    const latestDate = recent[0].date || null;
+    let matches7 = 0;
+    let longLoad = 0;
+
+    recent.forEach(function (entry) {
+      const diff = daysBetween(nowish, entry.date);
+      if (diff !== null && diff <= 7) matches7 += 1;
+      if (Number(entry.totalGames) >= 30) longLoad += 1;
+    });
+
+    return {
+      daysRest: daysBetween(nowish, latestDate),
+      matches7: matches7,
+      longLoad: longLoad
+    };
+  }
+
+  function computeFatiguePenalty(profile, marketKey) {
+    if (!profile) return 0;
+    let penalty = 0;
+    const isSet1 = marketKey === "set1";
+
+    if (profile.daysRest !== null) {
+      if (profile.daysRest <= 1) penalty += isSet1 ? 0.18 : 0.55;
+      else if (profile.daysRest === 2) penalty += isSet1 ? 0.08 : 0.22;
+    }
+
+    if (profile.matches7 >= 3) penalty += isSet1 ? 0.10 : 0.28;
+    if (profile.longLoad >= 2) penalty += isSet1 ? 0.10 : 0.28;
+
+    return penalty;
+  }
+
+  function uniqueNotes(notes) {
+    return Array.from(new Set((notes || []).filter(Boolean)));
+  }
+
+  function buildDerivedMarketInputs(options) {
+    const ctx = options.ctx;
+    const marketKey = options.marketKey;
+    let avgA = mean(options.manualA);
+    let avgB = mean(options.manualB);
+    let stdA = stdDev(options.manualA);
+    let stdB = stdDev(options.manualB);
+    let h2h = (options.manualH2H || []).slice();
+    let projectionShift = 0;
+    const notes = [];
+
+    if (!ctx) {
+      return {
+        avgA: avgA,
+        avgB: avgB,
+        stdA: stdA,
+        stdB: stdB,
+        h2h: h2h,
+        projectionShift: projectionShift,
+        extraNotes: notes
+      };
+    }
+
+    const useSurfaceSeries = marketKey === "match"
+      ? (ctx.surfaceRecentMatchA.length >= 3 && ctx.surfaceRecentMatchB.length >= 3)
+      : (ctx.surfaceRecentSet1A.length >= 3 && ctx.surfaceRecentSet1B.length >= 3);
+
+    const seriesA = marketKey === "match"
+      ? (useSurfaceSeries ? ctx.surfaceRecentMatchA : ctx.recentMatchA)
+      : (useSurfaceSeries ? ctx.surfaceRecentSet1A : ctx.recentSet1A);
+
+    const seriesB = marketKey === "match"
+      ? (useSurfaceSeries ? ctx.surfaceRecentMatchB : ctx.recentMatchB)
+      : (useSurfaceSeries ? ctx.surfaceRecentSet1B : ctx.recentSet1B);
+
+    if (seriesA.length >= 3 && seriesB.length >= 3) {
+      avgA = weightedMean(seriesA);
+      avgB = weightedMean(seriesB);
+      stdA = stdDev(seriesA);
+      stdB = stdDev(seriesB);
+      notes.push("Recency weighted");
+      if (useSurfaceSeries && ctx.surface) notes.push("Same-surface form");
+    }
+
+    const preferredH2H = marketKey === "match" ? ctx.surfaceH2HMatch : ctx.surfaceH2HSet1;
+    const fallbackH2H = marketKey === "match" ? ctx.h2hMatch : ctx.h2hSet1;
+    if (preferredH2H.length >= 1) {
+      h2h = preferredH2H.slice(0, 5);
+      if (ctx.surface) notes.push("Surface H2H");
+    } else if (fallbackH2H.length >= 1) {
+      h2h = fallbackH2H.slice(0, 5);
+    }
+
+    if (marketKey === "match" && ctx.matchFormat === "BO5") {
+      projectionShift += 2.75;
+      notes.push("BO5 format");
+    }
+
+    const fatiguePenaltyA = computeFatiguePenalty(ctx.fatigueA, marketKey);
+    const fatiguePenaltyB = computeFatiguePenalty(ctx.fatigueB, marketKey);
+    if (fatiguePenaltyA > 0) {
+      avgA = Math.max(0, avgA - fatiguePenaltyA);
+      notes.push("Fatigue A");
+    }
+    if (fatiguePenaltyB > 0) {
+      avgB = Math.max(0, avgB - fatiguePenaltyB);
+      notes.push("Fatigue B");
+    }
+
+    if (Number.isFinite(ctx.rankA) && Number.isFinite(ctx.rankB)) {
+      const rankGap = Math.abs(ctx.rankA - ctx.rankB);
+      if (rankGap >= 20) {
+        if (ctx.rankA < ctx.rankB) avgB = Math.max(0, avgB - (marketKey === "match" ? 0.35 : 0.12));
+        else avgA = Math.max(0, avgA - (marketKey === "match" ? 0.35 : 0.12));
+        notes.push("Rank gap");
+      }
+    }
+
+    if (ctx.eventLevel) notes.push(ctx.eventLevel);
+    if (ctx.roundName) notes.push(ctx.roundName);
+    if (ctx.surface) notes.push(ctx.surface);
+
+    return {
+      avgA: avgA,
+      avgB: avgB,
+      stdA: stdA,
+      stdB: stdB,
+      h2h: h2h,
+      projectionShift: projectionShift,
+      extraNotes: uniqueNotes(notes)
     };
   }
 
@@ -2940,18 +3162,19 @@ body.dark-mode .tracker-analytics-section-head {
     const baseProjection = config.avgA + config.avgB;
     const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
     const h2hAvg = hasH2H ? mean(config.h2h) : null;
-    const projection = hasH2H ? ((baseProjection * 0.7) + (h2hAvg * 0.3)) : baseProjection;
+    const projectionCore = hasH2H ? ((baseProjection * 0.7) + (h2hAvg * 0.3)) : baseProjection;
+    const projection = projectionCore + (config.projectionShift || 0);
     const volatility = (config.stdA + config.stdB) / 2;
 
     const lineDecision = pickFromRange(projection, config.lineRange);
     let pick = lineDecision.pick;
     let edge = lineDecision.edge;
     let confidence = getRawConfidence(edge, volatility);
-    const notes = [];
+    const notes = [].concat(config.extraNotes || []);
     const filtersTriggered = [];
 
-    if (lineDecision.insideRange) {
-      notes.push("Projection inside market range");
+    if (lineDecision.atMid) {
+      notes.push("Projection exactly on midpoint");
       confidence = "PASS";
       pick = "PASS";
     }
@@ -3006,14 +3229,16 @@ body.dark-mode .tracker-analytics-section-head {
       }
     }
 
-    if (!lineDecision.insideRange && Math.abs(edge) < 1.0) {
-      notes.push("Edge below minimum threshold");
+    if (Math.abs(edge) < 1.0) {
+      notes.push("Midpoint edge below minimum threshold");
       confidence = "PASS";
       pick = "PASS";
     }
 
-    if (!notes.length) {
-      notes.push("Clean read");
+    const finalNotes = uniqueNotes(notes);
+
+    if (!finalNotes.length) {
+      finalNotes.push("Clean read");
     }
 
     return {
@@ -3032,7 +3257,7 @@ body.dark-mode .tracker-analytics-section-head {
       edge: edge,
       pick: pick,
       confidence: confidence,
-      notes: notes,
+      notes: finalNotes,
       filtersTriggered: filtersTriggered
     };
   }
@@ -3062,34 +3287,57 @@ body.dark-mode .tracker-analytics-section-head {
       ? parseNumericList(qs("a1HH2H").value, "Set 1 H2H totals", 0, 5, true)
       : [];
 
+    const ctx = getActiveFetchedContext(tour, playerAName, playerBName);
+
+    const matchDerived = buildDerivedMarketInputs({
+      marketKey: "match",
+      manualA: matchRecentA,
+      manualB: matchRecentB,
+      manualH2H: matchH2H,
+      ctx: ctx
+    });
+
+    const set1Derived = buildDerivedMarketInputs({
+      marketKey: "set1",
+      manualA: set1RecentA,
+      manualB: set1RecentB,
+      manualH2H: set1H2H,
+      ctx: ctx
+    });
+
     const matchResult = buildMarketResult({
       marketLabel: "Match Total Games",
       marketKey: "match",
       lineRange: matchLineRange,
-      avgA: mean(matchRecentA),
-      avgB: mean(matchRecentB),
-      stdA: stdDev(matchRecentA),
-      stdB: stdDev(matchRecentB),
-      h2h: matchH2H,
-      lowAvgThreshold: 9
+      avgA: matchDerived.avgA,
+      avgB: matchDerived.avgB,
+      stdA: matchDerived.stdA,
+      stdB: matchDerived.stdB,
+      h2h: matchDerived.h2h,
+      lowAvgThreshold: 9,
+      projectionShift: matchDerived.projectionShift,
+      extraNotes: matchDerived.extraNotes
     });
 
     const set1Result = buildMarketResult({
       marketLabel: "Set 1 Total Games",
       marketKey: "set1",
       lineRange: set1LineRange,
-      avgA: mean(set1RecentA),
-      avgB: mean(set1RecentB),
-      stdA: stdDev(set1RecentA),
-      stdB: stdDev(set1RecentB),
-      h2h: set1H2H,
-      lowAvgThreshold: 4.5
+      avgA: set1Derived.avgA,
+      avgB: set1Derived.avgB,
+      stdA: set1Derived.stdA,
+      stdB: set1Derived.stdB,
+      h2h: set1Derived.h2h,
+      lowAvgThreshold: 4.5,
+      projectionShift: set1Derived.projectionShift,
+      extraNotes: set1Derived.extraNotes
     });
 
     return {
       tour: tour,
       playerAName: playerAName,
       playerBName: playerBName,
+      context: ctx,
       matchResult: matchResult,
       set1Result: set1Result
     };
@@ -3179,7 +3427,7 @@ body.dark-mode .tracker-analytics-section-head {
     const lockIdx = selectLockIndex(results);
 
     const rows = results.map(function (result, idx) {
-      const shownLine = getShownLineForResult(result);
+      const shownMid = result && result.lineRange ? result.lineRange.mid : null;
       const shownProjection = fmt(result.projection);
       const shownEdge = result.pick === "PASS" ? "—" : ((result.edge > 0 ? "+" : "") + fmt(result.edge));
       const predictionText = getPredictionText(result);
@@ -3189,7 +3437,7 @@ body.dark-mode .tracker-analytics-section-head {
       return (
         '<tr>' +
           '<td class="result-market">' + htmlEscape(result.market) + '</td>' +
-          '<td>' + shownProjection + (shownLine !== null ? ' vs ' + fmt(shownLine) : '') + '</td>' +
+          '<td>' + shownProjection + (shownMid !== null ? ' vs ' + fmt(shownMid) : '') + '</td>' +
           '<td>' + shownEdge + '</td>' +
           '<td class="' + getConfidenceCellClass(result.confidence) + '">' + htmlEscape(gradeText) + '</td>' +
           '<td class="' + getPickCellClass(result.pick) + '">' +
@@ -3207,28 +3455,42 @@ body.dark-mode .tracker-analytics-section-head {
   function updateIntel(resultBundle) {
     const match = resultBundle.matchResult;
     const set1 = resultBundle.set1Result;
+    const ctx = resultBundle.context || null;
+
+    const leftMeta = [];
+    const rightMeta = [];
+
+    if (ctx && ctx.surface) leftMeta.push(ctx.surface);
+    if (ctx && ctx.eventLevel) leftMeta.push(ctx.eventLevel);
+    if (ctx && ctx.roundName) leftMeta.push(ctx.roundName);
+    if (ctx && ctx.matchFormat) leftMeta.push(ctx.matchFormat);
+
+    if (ctx && Number.isFinite(ctx.rankA)) rightMeta.push("A #" + ctx.rankA);
+    if (ctx && Number.isFinite(ctx.rankB)) rightMeta.push("B #" + ctx.rankB);
+    if (ctx && ctx.fatigueA && ctx.fatigueA.daysRest !== null) rightMeta.push("A rest " + ctx.fatigueA.daysRest + "d");
+    if (ctx && ctx.fatigueB && ctx.fatigueB.daysRest !== null) rightMeta.push("B rest " + ctx.fatigueB.daysRest + "d");
 
     qs("aFormIntel").value =
       'Games avg ' + fmt(match.avgA) +
       ' | Set1 avg ' + fmt(set1.avgA) +
-      ' | Vol ' + fmt(match.stdA) + '/' + fmt(set1.stdA);
+      (leftMeta.length ? ' | ' + leftMeta.join(' | ') : '');
 
     qs("bFormIntel").value =
       'Games avg ' + fmt(match.avgB) +
       ' | Set1 avg ' + fmt(set1.avgB) +
-      ' | Vol ' + fmt(match.stdB) + '/' + fmt(set1.stdB);
+      (rightMeta.length ? ' | ' + rightMeta.join(' | ') : '');
 
     qs("aSpreadIntel").value =
       'Proj ' + fmt(match.projection) +
       ' vs Range ' + match.lineDisplay +
       ' | Edge ' + (match.edge > 0 ? '+' : '') + fmt(match.edge) +
-      ' | ' + match.pick + ' ' + match.confidence;
+      ' | ' + getPredictionText(match);
 
     qs("bSpreadIntel").value =
       'Proj ' + fmt(set1.projection) +
       ' vs Range ' + set1.lineDisplay +
       ' | Edge ' + (set1.edge > 0 ? '+' : '') + fmt(set1.edge) +
-      ' | ' + set1.pick + ' ' + set1.confidence;
+      ' | ' + getPredictionText(set1);
 
     const allNotes = Array.from(new Set(match.notes.concat(set1.notes)));
     qs("aHitIntel").value = allNotes.join(" | ");
@@ -3290,6 +3552,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function clearFetchedAutofill() {
+    latestFetchedContext = null;
     ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTH2H", "a1HH2H", "surfaceDisplay"].forEach(function (id) {
       const el = qs(id);
       if (el) el.value = "";
@@ -3556,6 +3819,29 @@ body.dark-mode .tracker-analytics-section-head {
     const aSets = extractLinescores(a);
     const bSets = extractLinescores(b);
     const setCount = Math.min(aSets.length, bSets.length);
+    const tournamentName = String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim();
+    const eventLevel = classifyEventLevel(tournamentName);
+    const playerARank = toNumber(
+      (a && a.curatedRank && (a.curatedRank.current || a.curatedRank.value || a.curatedRank.rank)) ||
+      (a && a.athlete && a.athlete.rank) ||
+      (a && a.rank)
+    );
+    const playerBRank = toNumber(
+      (b && b.curatedRank && (b.curatedRank.current || b.curatedRank.value || b.curatedRank.rank)) ||
+      (b && b.athlete && b.athlete.rank) ||
+      (b && b.rank)
+    );
+    const playerARankMove = toNumber(
+      (a && a.curatedRank && (a.curatedRank.change || a.curatedRank.movement)) ||
+      (a && a.athlete && (a.athlete.rankChange || a.athlete.movement)) ||
+      (a && a.rankChange)
+    );
+    const playerBRankMove = toNumber(
+      (b && b.curatedRank && (b.curatedRank.change || b.curatedRank.movement)) ||
+      (b && b.athlete && (b.athlete.rankChange || b.athlete.movement)) ||
+      (b && b.rankChange)
+    );
+
     const playerAGames = setCount ? aSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0) : null;
     const playerBGames = setCount ? bSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0) : null;
     const totalGames = Number.isFinite(playerAGames) && Number.isFinite(playerBGames) ? playerAGames + playerBGames : null;
@@ -3566,7 +3852,8 @@ body.dark-mode .tracker-analytics-section-head {
     return {
       competitionId: String(comp.id || ""),
       eventId: String((parentEvent && parentEvent.id) || comp.id || ""),
-      tournamentName: String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim(),
+      tournamentName: tournamentName,
+      eventLevel: eventLevel,
       roundName: String(comp.round && comp.round.displayName || "").trim(),
       date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || "").trim(),
       status: status,
@@ -3575,6 +3862,10 @@ body.dark-mode .tracker-analytics-section-head {
       playerAName: aName,
       playerBId: bId,
       playerBName: bName,
+      playerARank: playerARank,
+      playerBRank: playerBRank,
+      playerARankMove: playerARankMove,
+      playerBRankMove: playerBRankMove,
       playerAGames: playerAGames,
       playerBGames: playerBGames,
       totalGames: totalGames,
@@ -3838,8 +4129,13 @@ body.dark-mode .tracker-analytics-section-head {
         opponentName: isA ? record.playerBName : record.playerAName,
         playerGames: isA ? record.playerAGames : record.playerBGames,
         playerSet1Games: isA ? record.playerASet1Games : record.playerBSet1Games,
+        totalGames: record.totalGames,
         tournamentName: record.tournamentName,
-        surface: record.surface
+        eventLevel: record.eventLevel,
+        roundName: record.roundName,
+        surface: record.surface,
+        playerRank: isA ? record.playerARank : record.playerBRank,
+        playerRankMove: isA ? record.playerARankMove : record.playerBRankMove
       };
     }).sort(function (a, b) {
       return new Date(b.date) - new Date(a.date);
@@ -3956,11 +4252,13 @@ body.dark-mode .tracker-analytics-section-head {
       ? latestDate.toLocaleDateString()
       : "unknown date";
     const surfaceText = latest.surface ? " • " + htmlEscape(latest.surface) : "";
+    const levelText = latest.eventLevel ? " • " + htmlEscape(latest.eventLevel) : "";
     return (
       htmlEscape(playerName) +
       ": " + recentSeries.length + " completed singles matches found.<br>" +
       "Latest match: " + latestText +
       (latest.tournamentName ? " • " + htmlEscape(latest.tournamentName) : "") +
+      levelText +
       surfaceText
     );
   }
@@ -4070,6 +4368,65 @@ body.dark-mode .tracker-analytics-section-head {
 
       qs("surfaceDisplay").value = surfaceValue || "";
 
+      const sameSurfaceKey = normalizeSurfaceLabel(surfaceValue);
+      const sameSurfaceRecentA = sameSurfaceKey
+        ? recentA.filter(function (m) { return normalizeSurfaceLabel(m.surface) === sameSurfaceKey; })
+        : [];
+      const sameSurfaceRecentB = sameSurfaceKey
+        ? recentB.filter(function (m) { return normalizeSurfaceLabel(m.surface) === sameSurfaceKey; })
+        : [];
+      const sameSurfaceH2H = sameSurfaceKey
+        ? h2h.filter(function (m) { return normalizeSurfaceLabel(m.surface) === sameSurfaceKey; })
+        : [];
+
+      const eventLevel =
+        (selectedFixtureRecord && selectedFixtureRecord.eventLevel) ||
+        (recentA[0] && recentA[0].eventLevel) ||
+        "";
+      const roundName =
+        (selectedFixtureRecord && selectedFixtureRecord.roundName) ||
+        "";
+      const matchFormat = inferMatchFormat(league, eventLevel);
+      const rankA =
+        (selectedFixtureRecord && Number.isFinite(selectedFixtureRecord.playerARank) ? selectedFixtureRecord.playerARank : null) ||
+        (recentA[0] && Number.isFinite(recentA[0].playerRank) ? recentA[0].playerRank : null);
+      const rankB =
+        (selectedFixtureRecord && Number.isFinite(selectedFixtureRecord.playerBRank) ? selectedFixtureRecord.playerBRank : null) ||
+        (recentB[0] && Number.isFinite(recentB[0].playerRank) ? recentB[0].playerRank : null);
+      const rankMoveA =
+        (selectedFixtureRecord && Number.isFinite(selectedFixtureRecord.playerARankMove) ? selectedFixtureRecord.playerARankMove : null) ||
+        (recentA[0] && Number.isFinite(recentA[0].playerRankMove) ? recentA[0].playerRankMove : null);
+      const rankMoveB =
+        (selectedFixtureRecord && Number.isFinite(selectedFixtureRecord.playerBRankMove) ? selectedFixtureRecord.playerBRankMove : null) ||
+        (recentB[0] && Number.isFinite(recentB[0].playerRankMove) ? recentB[0].playerRankMove : null);
+
+      latestFetchedContext = {
+        matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
+        tour: league,
+        surface: surfaceValue || "",
+        eventLevel: eventLevel || "",
+        roundName: roundName || "",
+        matchFormat: matchFormat,
+        rankA: rankA,
+        rankB: rankB,
+        rankMoveA: rankMoveA,
+        rankMoveB: rankMoveB,
+        fatigueA: computeFatigueProfile(recentA),
+        fatigueB: computeFatigueProfile(recentB),
+        recentMatchA: recentA.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite),
+        recentMatchB: recentB.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite),
+        recentSet1A: recentA.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite),
+        recentSet1B: recentB.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite),
+        surfaceRecentMatchA: sameSurfaceRecentA.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite),
+        surfaceRecentMatchB: sameSurfaceRecentB.slice(0, 10).map(function (m) { return m.playerGames; }).filter(Number.isFinite),
+        surfaceRecentSet1A: sameSurfaceRecentA.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite),
+        surfaceRecentSet1B: sameSurfaceRecentB.slice(0, 10).map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite),
+        h2hMatch: h2hMatchTotals,
+        h2hSet1: h2hSet1Totals,
+        surfaceH2HMatch: sameSurfaceH2H.slice(0, 5).map(function (m) { return m.totalGames; }).filter(Number.isFinite),
+        surfaceH2HSet1: sameSurfaceH2H.slice(0, 5).map(function (m) { return m.set1Total; }).filter(Number.isFinite)
+      };
+
       const h2hNote = h2hMatchTotals.length
         ? ("<br>H2H found: " + h2hMatchTotals.length + " meeting(s).")
         : "<br>H2H found: 0 meetings in fetched records.";
@@ -4090,14 +4447,18 @@ body.dark-mode .tracker-analytics-section-head {
         qs("teamBName").value + ": " + bGames.length + " player-only game rows",
         h2hStatus,
         h2hSet1Status,
-        "Surface: " + (surfaceValue || "not available")
+        "Surface: " + (surfaceValue || "not available"),
+        "Level: " + (eventLevel || "Tour"),
+        "Format: " + matchFormat
       ];
 
       setFetchStatus(statusParts.join(" • "), "ok");
       openSection("teamASection");
       openSection("teamBSection");
       openSection("h2hSection");
+      openSection("intelSection");
     } catch (err) {
+      latestFetchedContext = null;
       setFetchStatus(err.message || "Fetch failed.", "err");
     }
   }
