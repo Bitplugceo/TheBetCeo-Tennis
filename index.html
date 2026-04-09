@@ -4900,7 +4900,10 @@ body.dark-mode .tracker-analytics-section-head {
 
       const now = new Date();
       const records = extractCompetitionRecords(payload).filter(function (record) {
-        const state = record.status && record.status.state || "";
+        const statusObj = record.status || {};
+        const state = String(statusObj.state || "").toLowerCase();
+        const name = String(statusObj.name || "").toUpperCase();
+        const completed = !!statusObj.completed || state === "post" || name === "STATUS_FINAL";
         const aName = String(record.playerAName || "").trim();
         const bName = String(record.playerBName || "").trim();
         const aNorm = normalizeName(aName);
@@ -4917,8 +4920,16 @@ body.dark-mode .tracker-analytics-section-head {
             value === "loser";
         }
 
-        const isLive = state === "in";
-        const isPre = state === "pre" || (!record.status.completed && state !== "post");
+        const isLive =
+          state === "in" ||
+          name === "STATUS_IN_PROGRESS" ||
+          name === "STATUS_HALFTIME";
+
+        const isScheduled =
+          state === "pre" ||
+          name === "STATUS_SCHEDULED" ||
+          name === "STATUS_TIME_TBD";
+
         const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
         const notPlaceholderPair =
           !aNorm.includes(" tbd") &&
@@ -4932,18 +4943,22 @@ body.dark-mode .tracker-analytics-section-head {
           !aNorm.includes(" bye") &&
           !bNorm.includes(" bye");
 
-        const notPastForToday =
-          currentFixtureOffset !== 0 ||
-          isLive ||
-          (hasValidDate && scheduledAt.getTime() >= now.getTime() - (15 * 60 * 1000));
+        if (completed) return false;
+        if (!hasRealPlayers || !notPlaceholderPair) return false;
+        if (isLive) return true;
+        if (!isScheduled || !hasValidDate) return false;
 
-        return (isLive || isPre) && hasRealPlayers && notPlaceholderPair && notPastForToday;
+        if (offset === 0) {
+          return scheduledAt.getTime() >= now.getTime();
+        }
+
+        return true;
       }).sort(function (a, b) {
         return new Date(a.date) - new Date(b.date);
       });
 
       renderFixtureOptions(records);
-      setFetchStatus(records.length ? "Loaded " + records.length + " real upcoming singles matches." : "No real upcoming singles matches found for this day.", records.length ? "ok" : "");
+      setFetchStatus(records.length ? "Loaded " + records.length + " real future/live singles matches." : "No real future/live singles matches found for this day.", records.length ? "ok" : "");
     } catch (err) {
       if (token !== fixtureLoadToken) return;
       select.innerHTML = '<option value="">Unable to load matches</option>';
