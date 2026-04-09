@@ -2377,6 +2377,20 @@ body.dark-mode .tracker-analytics-section-head {
   .results-visible {
     display: table !important;
   }
+  .fetch-note-box {
+    background: var(--panel-soft);
+    border: 1px solid var(--panel-border);
+    padding: 6px;
+    margin-top: 6px;
+    font-size: 10px;
+    line-height: 1.6;
+    display: none;
+  }
+  .fetch-note-title {
+    color: var(--injury-title);
+    font-weight: 800;
+    margin-bottom: 3px;
+  }
   </style>
 </head>
 <body>
@@ -2411,7 +2425,7 @@ body.dark-mode .tracker-analytics-section-head {
   </div>
 
   <div class="section" id="espnSection">
-    <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#888;">(design shell only)</span></h3>
+    <h3>⚡ ESPN Auto-Fetch</h3>
 
     <div id="fixtureToolbar" class="fixture-toolbar">
       <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
@@ -2436,16 +2450,16 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
 
     <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
-    <div id="fetchStatus">Auto-fetch layout only. Wiring comes after calculations.</div>
+    <div id="fetchStatus">Select ATP or WTA, choose a match or type both player names, then fetch stats.</div>
 
-    <div class="injury-box" id="injuryBoxA">
-      <div class="inj-title">Player A Notes</div>
-      <div id="injuryContentA">No fetched notes yet.</div>
+    <div class="fetch-note-box" id="fetchNoteBoxA">
+      <div class="fetch-note-title">Player A Fetch Notes</div>
+      <div id="fetchNoteContentA">No fetch notes yet.</div>
     </div>
 
-    <div class="injury-box" id="injuryBoxB">
-      <div class="inj-title">Player B Notes</div>
-      <div id="injuryContentB">No fetched notes yet.</div>
+    <div class="fetch-note-box" id="fetchNoteBoxB">
+      <div class="fetch-note-title">Player B Fetch Notes</div>
+      <div id="fetchNoteContentB">No fetch notes yet.</div>
     </div>
   </div>
 
@@ -2493,7 +2507,7 @@ body.dark-mode .tracker-analytics-section-head {
     <input id="a1HH2H" placeholder="10,9,12" />
 
     <div class="section-note">
-      Use shared H2H totals only. These are single shared lists, not duplicate A/B totals.
+      Shared H2H totals only. The fetch layer converts ESPN set scorelines into total-games lists for both match and Set 1.
     </div>
   </div>
 
@@ -2501,7 +2515,7 @@ body.dark-mode .tracker-analytics-section-head {
     <h3>📈 Intelligence Pack <span class="autofill-indicator" id="intelAutoTag">✅ Auto-derived</span></h3>
 
     <div style="font-size:11px;color:#7b8088;margin:0 0 8px 0;font-weight:700;line-height:1.5;">
-      This shell now runs the core totals math: averages, H2H adjustment, volatility, edge, confidence, and filter notes.
+      This shell now runs the core totals math and can auto-fill recent totals + H2H from ESPN tennis scorelines.
     </div>
 
     <label>Player A Summary</label>
@@ -2593,6 +2607,11 @@ body.dark-mode .tracker-analytics-section-head {
 <script>
 (function () {
   const THEME_KEY = "tennis_engine_theme";
+  const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+  const selectedPlayerIds = { A: null, B: null };
+  let currentFixtureOffset = 0;
+  let fixtureLoadToken = 0;
+  let historyPoolCache = new Map();
 
   function qs(id) {
     return document.getElementById(id);
@@ -2674,6 +2693,15 @@ body.dark-mode .tracker-analytics-section-head {
   function activateEngineAlert(title) {
     document.body.classList.add("engine-alert");
     setHeaderError(true, title || "Input or calculation issue");
+  }
+
+  function htmlEscape(value) {
+    return String(value == null ? "" : value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
   }
 
   function parseNumber(value, name) {
@@ -2935,10 +2963,6 @@ body.dark-mode .tracker-analytics-section-head {
       tour: tour,
       playerAName: playerAName,
       playerBName: playerBName,
-      matchRecentA: matchRecentA,
-      matchRecentB: matchRecentB,
-      set1RecentA: set1RecentA,
-      set1RecentB: set1RecentB,
       matchResult: matchResult,
       set1Result: set1Result
     };
@@ -2957,6 +2981,20 @@ body.dark-mode .tracker-analytics-section-head {
     return "conf-none";
   }
 
+  function confidenceScore(confidence, edge) {
+    const map = { "A": 4, "B": 3, "C": 2, "PASS": 1 };
+    return (map[confidence] || 0) * 100 + Math.abs(edge);
+  }
+
+  function pickBestResult(match, set1) {
+    const ranked = [match, set1].slice().sort(function (a, b) {
+      const scoreA = confidenceScore(a.confidence, a.edge);
+      const scoreB = confidenceScore(b.confidence, b.edge);
+      return scoreB - scoreA;
+    });
+    return ranked[0];
+  }
+
   function renderResults(resultBundle) {
     const results = qs("results");
     const body = qs("resultsBody");
@@ -2966,13 +3004,13 @@ body.dark-mode .tracker-analytics-section-head {
       const noteText = result.notes.join(" | ");
       return (
         '<tr>' +
-          '<td class="result-market">' + result.market + '</td>' +
+          '<td class="result-market">' + htmlEscape(result.market) + '</td>' +
           '<td>' + fmt(result.projection) + '</td>' +
           '<td>' + fmt(result.line) + '</td>' +
           '<td>' + (result.edge > 0 ? '+' : '') + fmt(result.edge) + '</td>' +
-          '<td class="' + getPickCellClass(result.pick) + '">' + result.pick + '</td>' +
-          '<td class="' + getConfidenceCellClass(result.confidence) + '">' + result.confidence + '</td>' +
-          '<td>' + noteText + '</td>' +
+          '<td class="' + getPickCellClass(result.pick) + '">' + htmlEscape(result.pick) + '</td>' +
+          '<td class="' + getConfidenceCellClass(result.confidence) + '">' + htmlEscape(result.confidence) + '</td>' +
+          '<td>' + htmlEscape(noteText) + '</td>' +
         '</tr>'
       );
     }).join("");
@@ -3017,20 +3055,6 @@ body.dark-mode .tracker-analytics-section-head {
       ' | Edge ' + (preferred.edge > 0 ? '+' : '') + fmt(preferred.edge);
   }
 
-  function pickBestResult(match, set1) {
-    const ranked = [match, set1].slice().sort(function (a, b) {
-      const scoreA = confidenceScore(a.confidence, a.edge);
-      const scoreB = confidenceScore(b.confidence, b.edge);
-      return scoreB - scoreA;
-    });
-    return ranked[0];
-  }
-
-  function confidenceScore(confidence, edge) {
-    const map = { "A": 4, "B": 3, "C": 2, "PASS": 1 };
-    return (map[confidence] || 0) * 100 + Math.abs(edge);
-  }
-
   function clearReadOnlyFields() {
     ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel"].forEach(function (id) {
       const el = qs(id);
@@ -3047,7 +3071,36 @@ body.dark-mode .tracker-analytics-section-head {
     const body = qs("resultsBody");
     if (results && body) {
       results.classList.add("results-visible");
-      body.innerHTML = '<tr><td colspan="7" class="empty-cell">' + message + '</td></tr>';
+      body.innerHTML = '<tr><td colspan="7" class="empty-cell">' + htmlEscape(message) + '</td></tr>';
+    }
+  }
+
+  function clearAutoTags() {
+    ["aAutoTag", "bAutoTag", "h2hAutoTag"].forEach(function (id) {
+      const el = qs(id);
+      if (el) el.style.display = "none";
+    });
+  }
+
+  function hideFetchNoteBoxes() {
+    ["fetchNoteBoxA", "fetchNoteBoxB"].forEach(function (id) {
+      const box = qs(id);
+      if (box) box.style.display = "none";
+    });
+  }
+
+  function setFetchNotes(aText, bText) {
+    const boxA = qs("fetchNoteBoxA");
+    const boxB = qs("fetchNoteBoxB");
+    const contentA = qs("fetchNoteContentA");
+    const contentB = qs("fetchNoteContentB");
+    if (boxA && contentA) {
+      contentA.innerHTML = aText || "No fetch notes.";
+      boxA.style.display = aText ? "block" : "none";
+    }
+    if (boxB && contentB) {
+      contentB.innerHTML = bText || "No fetch notes.";
+      boxB.style.display = bText ? "block" : "none";
     }
   }
 
@@ -3056,15 +3109,24 @@ body.dark-mode .tracker-analytics-section-head {
       if (el.type === "checkbox") {
         el.checked = el.id === "useFTH2H" || el.id === "use1HH2H";
       } else if (el.tagName === "SELECT") {
-        el.selectedIndex = 0;
+        if (el.id === "fixtureSelect") {
+          el.innerHTML = '<option value="">- Select match -</option>';
+        } else {
+          el.selectedIndex = 0;
+        }
       } else if (!el.readOnly) {
         el.value = "";
       }
     });
 
+    selectedPlayerIds.A = null;
+    selectedPlayerIds.B = null;
+    historyPoolCache.clear();
+    clearAutoTags();
+    hideFetchNoteBoxes();
     clearReadOnlyFields();
     resetEngineAlert();
-    setFetchStatus("Auto-fetch layout only. Wiring comes after calculations.", "");
+    setFetchStatus("Select ATP or WTA, choose a match or type both player names, then fetch stats.", "");
     qs("resultsBody").innerHTML = '<tr><td colspan="7" class="empty-cell">Run the engine to populate results.</td></tr>';
     qs("results").classList.remove("results-visible");
   }
@@ -3100,6 +3162,564 @@ body.dark-mode .tracker-analytics-section-head {
     }
   }
 
+  function sleep(ms) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  function normalizeName(name) {
+    return String(name || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  function dateKeyLocal(offsetDays) {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return String(y) + m + day;
+  }
+
+  function dateKeyFromDate(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const d = String(dateObj.getDate()).padStart(2, "0");
+    return String(y) + m + d;
+  }
+
+  function addDays(dateObj, days) {
+    const d = new Date(dateObj.getTime());
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
+  function formatFixtureTime(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        hour: "numeric",
+        minute: "2-digit"
+      }).format(d);
+    } catch (e) {
+      return d.toLocaleTimeString();
+    }
+  }
+
+  function getTennisBaseCandidates(league) {
+    const slug = String(league || "").trim().toLowerCase();
+    return [
+      "https://site.web.api.espn.com/apis/site/v2/sports/tennis/" + slug,
+      "https://site.api.espn.com/apis/site/v2/sports/tennis/" + slug
+    ];
+  }
+
+  async function fetchJson(requestUrl, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(function () {
+      controller.abort();
+    }, timeoutMs);
+
+    try {
+      const res = await fetch(requestUrl, {
+        signal: controller.signal,
+        cache: "no-store"
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function proxyFetch(url, timeoutMs) {
+    const encoded = WORKER_URL.replace(/\/+$/, "") + "/?url=" + encodeURIComponent(url);
+    try {
+      return await fetchJson(encoded, timeoutMs);
+    } catch (workerErr) {
+      return await fetchJson(url, timeoutMs);
+    }
+  }
+
+  async function fetchTennisScoreboard(league, datesQuery) {
+    const urls = getTennisBaseCandidates(league).map(function (base) {
+      return base + "/scoreboard?region=us&lang=en&limit=1000&dates=" + encodeURIComponent(datesQuery);
+    });
+
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        const payload = await proxyFetch(url, 18000);
+        if (payload && Array.isArray(payload.events)) return payload;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw new Error("Unable to load ESPN tennis scoreboard data.");
+  }
+
+  function isSinglesLabel(text) {
+    const value = normalizeName(text);
+    if (!value) return false;
+    return value.includes("singles") && !value.includes("doubles") && !value.includes("mixed");
+  }
+
+  function toNumber(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  function extractLinescores(competitor) {
+    return (competitor && Array.isArray(competitor.linescores) ? competitor.linescores : [])
+      .map(function (item) {
+        return toNumber(item && item.value);
+      })
+      .filter(function (v) {
+        return Number.isFinite(v);
+      });
+  }
+
+  function getCompetitionStatus(comp) {
+    const type = comp && comp.status && comp.status.type ? comp.status.type : {};
+    const state = String(type.state || "").toLowerCase();
+    const name = String(type.name || "").toUpperCase();
+    return {
+      completed: !!type.completed || state === "post" || name === "STATUS_FINAL",
+      state: state,
+      name: name,
+      detail: String(type.shortDetail || type.detail || type.description || "").trim()
+    };
+  }
+
+  function orderCompetitors(competitors) {
+    return (Array.isArray(competitors) ? competitors.slice() : []).sort(function (a, b) {
+      return Number(a && a.order || 0) - Number(b && b.order || 0);
+    });
+  }
+
+  function buildCompetitionRecord(comp, parentEvent) {
+    if (!comp) return null;
+
+    const labelText =
+      (comp.type && (comp.type.text || comp.type.slug)) ||
+      (parentEvent && parentEvent.grouping && parentEvent.grouping.displayName) ||
+      "";
+
+    if (!isSinglesLabel(labelText)) return null;
+
+    const status = getCompetitionStatus(comp);
+    const competitors = orderCompetitors(comp.competitors || []);
+    if (competitors.length !== 2) return null;
+
+    const a = competitors[0];
+    const b = competitors[1];
+    const aId = String(a && a.id || "");
+    const bId = String(b && b.id || "");
+    const aName = String(a && a.athlete && (a.athlete.displayName || a.athlete.fullName || a.athlete.shortName) || "").trim();
+    const bName = String(b && b.athlete && (b.athlete.displayName || b.athlete.fullName || b.athlete.shortName) || "").trim();
+    if (!aId || !bId || !aName || !bName) return null;
+
+    const aSets = extractLinescores(a);
+    const bSets = extractLinescores(b);
+    const setCount = Math.min(aSets.length, bSets.length);
+    const hasScore = setCount > 0;
+    const totalGames = hasScore
+      ? aSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0) +
+        bSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0)
+      : null;
+    const set1Total = hasScore ? (aSets[0] || 0) + (bSets[0] || 0) : null;
+
+    return {
+      competitionId: String(comp.id || ""),
+      eventId: String((parentEvent && parentEvent.id) || comp.id || ""),
+      tournamentName: String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim(),
+      roundName: String(comp.round && comp.round.displayName || "").trim(),
+      date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || "").trim(),
+      status: status,
+      playerAId: aId,
+      playerAName: aName,
+      playerBId: bId,
+      playerBName: bName,
+      playerASets: aSets.slice(0, setCount),
+      playerBSets: bSets.slice(0, setCount),
+      totalGames: totalGames,
+      set1Total: set1Total,
+      raw: comp
+    };
+  }
+
+  function extractCompetitionRecords(payload) {
+    const events = Array.isArray(payload && payload.events) ? payload.events : [];
+    const records = [];
+
+    events.forEach(function (eventObj) {
+      if (Array.isArray(eventObj.competitions)) {
+        eventObj.competitions.forEach(function (comp) {
+          const record = buildCompetitionRecord(comp, eventObj);
+          if (record) records.push(record);
+        });
+      }
+
+      if (Array.isArray(eventObj.groupings)) {
+        eventObj.groupings.forEach(function (grouping) {
+          const competitions = Array.isArray(grouping && grouping.competitions) ? grouping.competitions : [];
+          competitions.forEach(function (comp) {
+            const record = buildCompetitionRecord(comp, {
+              id: eventObj.id,
+              date: eventObj.date,
+              shortName: eventObj.shortName,
+              name: eventObj.name,
+              grouping: grouping.grouping || null
+            });
+            if (record) records.push(record);
+          });
+        });
+      }
+    });
+
+    const seen = new Set();
+    return records.filter(function (record) {
+      const key = String(record.competitionId || "") || String(record.eventId || "") + "|" + String(record.date || "");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function renderFixtureOptions(records) {
+    const select = qs("fixtureSelect");
+    if (!select) return;
+    select.innerHTML = '<option value="">- Select match -</option>';
+
+    if (!records.length) {
+      select.innerHTML = '<option value="">No singles matches found</option>';
+      return;
+    }
+
+    records.forEach(function (record) {
+      const opt = document.createElement("option");
+      opt.value = record.competitionId || record.eventId || "";
+      opt.dataset.playerAId = record.playerAId;
+      opt.dataset.playerAName = record.playerAName;
+      opt.dataset.playerBId = record.playerBId;
+      opt.dataset.playerBName = record.playerBName;
+      opt.dataset.date = record.date || "";
+      opt.textContent =
+        formatFixtureTime(record.date) +
+        " — " +
+        record.playerAName +
+        " vs " +
+        record.playerBName +
+        (record.roundName ? " (" + record.roundName + ")" : "");
+      select.appendChild(opt);
+    });
+  }
+
+  async function loadFixtures(offset) {
+    const league = String(qs("leagueSelect").value || "").trim();
+    const select = qs("fixtureSelect");
+    if (!select) return;
+
+    clearAutoTags();
+    if (!league) {
+      select.innerHTML = '<option value="">- Select match -</option>';
+      setFetchStatus("Select ATP or WTA first.", "");
+      return;
+    }
+
+    const token = ++fixtureLoadToken;
+    const dateQuery = dateKeyLocal(offset);
+    setFetchStatus("Loading " + league + " fixtures from ESPN...", "loading");
+    select.innerHTML = '<option value="">Loading matches...</option>';
+
+    try {
+      const payload = await fetchTennisScoreboard(league, dateQuery);
+      if (token !== fixtureLoadToken) return;
+
+      const records = extractCompetitionRecords(payload).filter(function (record) {
+        const state = record.status && record.status.state || "";
+        return state === "pre" || state === "in" || !record.status.completed;
+      }).sort(function (a, b) {
+        return new Date(a.date) - new Date(b.date);
+      });
+
+      renderFixtureOptions(records);
+      setFetchStatus(records.length ? "Loaded " + records.length + " singles matches." : "No singles matches found for this day.", records.length ? "ok" : "");
+    } catch (err) {
+      if (token !== fixtureLoadToken) return;
+      select.innerHTML = '<option value="">Unable to load matches</option>';
+      setFetchStatus("Unable to load ESPN fixtures right now.", "err");
+    }
+  }
+
+  function onFixtureSelect() {
+    const select = qs("fixtureSelect");
+    if (!select) return;
+    const opt = select.options[select.selectedIndex];
+    if (!opt || !opt.value) return;
+
+    qs("teamAName").value = opt.dataset.playerAName || "";
+    qs("teamBName").value = opt.dataset.playerBName || "";
+    selectedPlayerIds.A = opt.dataset.playerAId || null;
+    selectedPlayerIds.B = opt.dataset.playerBId || null;
+    setFetchStatus("Match selected. Ready to fetch recent totals and H2H.", "");
+  }
+
+  function getRangeChunks(daysBack, chunkSize) {
+    const chunks = [];
+    const end = new Date();
+    for (let startOffset = 0; startOffset < daysBack; startOffset += chunkSize) {
+      const chunkEndOffset = startOffset;
+      const chunkStartOffset = Math.min(daysBack - 1, startOffset + chunkSize - 1);
+
+      const rangeEnd = addDays(end, -chunkEndOffset);
+      const rangeStart = addDays(end, -chunkStartOffset);
+
+      chunks.push(dateKeyFromDate(rangeStart) + "-" + dateKeyFromDate(rangeEnd));
+    }
+    return chunks;
+  }
+
+  async function fetchHistoryPool(league) {
+    const key = String(league || "").trim().toUpperCase();
+    if (historyPoolCache.has(key)) {
+      return historyPoolCache.get(key);
+    }
+
+    const promise = (async function () {
+      const chunks = getRangeChunks(480, 120);
+      const all = [];
+
+      for (const datesQuery of chunks) {
+        const payload = await fetchTennisScoreboard(key, datesQuery);
+        const records = extractCompetitionRecords(payload).filter(function (record) {
+          return record.status.completed && Number.isFinite(record.totalGames) && Number.isFinite(record.set1Total);
+        });
+        all.push.apply(all, records);
+        await sleep(60);
+      }
+
+      const seen = new Set();
+      return all.filter(function (record) {
+        const key = record.competitionId || (record.playerAId + "|" + record.playerBId + "|" + record.date);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).sort(function (a, b) {
+        return new Date(b.date) - new Date(a.date);
+      });
+    })();
+
+    historyPoolCache.set(key, promise);
+    return promise;
+  }
+
+  function findPlayerCandidatesByName(name, records) {
+    const target = normalizeName(name);
+    const map = new Map();
+
+    records.forEach(function (record) {
+      [
+        { id: record.playerAId, name: record.playerAName },
+        { id: record.playerBId, name: record.playerBName }
+      ].forEach(function (entry) {
+        const norm = normalizeName(entry.name);
+        if (!norm) return;
+        if (!map.has(entry.id)) {
+          map.set(entry.id, {
+            id: entry.id,
+            name: entry.name,
+            norm: norm
+          });
+        }
+      });
+    });
+
+    const all = Array.from(map.values());
+    const exact = all.filter(function (entry) {
+      return entry.norm === target;
+    });
+    if (exact.length === 1) return exact[0];
+
+    const includes = all.filter(function (entry) {
+      return entry.norm.includes(target) || target.includes(entry.norm);
+    });
+    if (includes.length === 1) return includes[0];
+
+    return null;
+  }
+
+  function buildRecentSeries(records, playerId) {
+    return records.filter(function (record) {
+      return record.playerAId === playerId || record.playerBId === playerId;
+    }).map(function (record) {
+      const isA = record.playerAId === playerId;
+      return {
+        competitionId: record.competitionId,
+        date: record.date,
+        opponentId: isA ? record.playerBId : record.playerAId,
+        opponentName: isA ? record.playerBName : record.playerAName,
+        totalGames: record.totalGames,
+        set1Total: record.set1Total,
+        roundName: record.roundName,
+        tournamentName: record.tournamentName
+      };
+    }).sort(function (a, b) {
+      return new Date(b.date) - new Date(a.date);
+    });
+  }
+
+  function buildH2HSeries(records, playerAId, playerBId) {
+    return records.filter(function (record) {
+      const hasA = record.playerAId === playerAId || record.playerBId === playerAId;
+      const hasB = record.playerAId === playerBId || record.playerBId === playerBId;
+      return hasA && hasB;
+    }).sort(function (a, b) {
+      return new Date(b.date) - new Date(a.date);
+    });
+  }
+
+  function setFieldValue(id, values) {
+    const el = qs(id);
+    if (!el) return;
+    el.value = values.join(",");
+  }
+
+  function applyAutofillData(bundle) {
+    setFieldValue("aFTScored", bundle.aMatchTotals);
+    setFieldValue("bFTScored", bundle.bMatchTotals);
+    setFieldValue("aFTAllowed", bundle.aSet1Totals);
+    setFieldValue("bFTAllowed", bundle.bSet1Totals);
+    setFieldValue("aFTH2H", bundle.h2hMatchTotals);
+    setFieldValue("a1HH2H", bundle.h2hSet1Totals);
+
+    qs("aAutoTag").style.display = bundle.aMatchTotals.length ? "inline" : "none";
+    qs("bAutoTag").style.display = bundle.bMatchTotals.length ? "inline" : "none";
+    qs("h2hAutoTag").style.display = (bundle.h2hMatchTotals.length || bundle.h2hSet1Totals.length) ? "inline" : "none";
+  }
+
+  function buildFetchNotes(playerName, recentSeries) {
+    if (!recentSeries.length) return "";
+    const first = recentSeries[0];
+    const latestDate = first.date ? new Date(first.date) : null;
+    const latestText = latestDate && !Number.isNaN(latestDate.getTime())
+      ? latestDate.toLocaleDateString()
+      : "unknown date";
+    return (
+      htmlEscape(playerName) +
+      ": " +
+      recentSeries.length +
+      " completed singles matches found.<br>" +
+      "Latest match: " +
+      latestText +
+      (first.tournamentName ? " • " + htmlEscape(first.tournamentName) : "")
+    );
+  }
+
+  async function fetchESPNTennis() {
+    const league = String(qs("leagueSelect").value || "").trim();
+    const playerAName = String(qs("teamAName").value || "").trim();
+    const playerBName = String(qs("teamBName").value || "").trim();
+
+    if (!league) {
+      setFetchStatus("Select ATP or WTA first.", "err");
+      return;
+    }
+
+    if (!playerAName || !playerBName) {
+      setFetchStatus("Enter both player names or pick a fixture first.", "err");
+      return;
+    }
+
+    resetEngineAlert();
+    setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
+
+    try {
+      const records = await fetchHistoryPool(league);
+      if (!records.length) {
+        throw new Error("No completed singles results were returned from ESPN.");
+      }
+
+      let playerAId = selectedPlayerIds.A;
+      let playerBId = selectedPlayerIds.B;
+
+      if (!playerAId) {
+        const candidateA = findPlayerCandidatesByName(playerAName, records);
+        if (!candidateA) throw new Error('Could not resolve Player A from ESPN history. Pick a fixture or use the exact ESPN player name.');
+        playerAId = candidateA.id;
+        qs("teamAName").value = candidateA.name;
+      }
+
+      if (!playerBId) {
+        const candidateB = findPlayerCandidatesByName(playerBName, records);
+        if (!candidateB) throw new Error('Could not resolve Player B from ESPN history. Pick a fixture or use the exact ESPN player name.');
+        playerBId = candidateB.id;
+        qs("teamBName").value = candidateB.name;
+      }
+
+      if (String(playerAId) === String(playerBId)) {
+        throw new Error("Player A and Player B cannot be the same player.");
+      }
+
+      selectedPlayerIds.A = playerAId;
+      selectedPlayerIds.B = playerBId;
+
+      const recentA = buildRecentSeries(records, playerAId);
+      const recentB = buildRecentSeries(records, playerBId);
+      const h2h = buildH2HSeries(records, playerAId, playerBId);
+
+      const aMatchTotals = recentA.slice(0, 10).map(function (m) { return m.totalGames; }).filter(Number.isFinite);
+      const bMatchTotals = recentB.slice(0, 10).map(function (m) { return m.totalGames; }).filter(Number.isFinite);
+      const aSet1Totals = recentA.slice(0, 10).map(function (m) { return m.set1Total; }).filter(Number.isFinite);
+      const bSet1Totals = recentB.slice(0, 10).map(function (m) { return m.set1Total; }).filter(Number.isFinite);
+      const h2hMatchTotals = h2h.slice(0, 5).map(function (m) { return m.totalGames; }).filter(Number.isFinite);
+      const h2hSet1Totals = h2h.slice(0, 5).map(function (m) { return m.set1Total; }).filter(Number.isFinite);
+
+      if (aMatchTotals.length < 5) {
+        throw new Error("Player A has fewer than 5 recent completed singles matches in the fetched ESPN sample.");
+      }
+      if (bMatchTotals.length < 5) {
+        throw new Error("Player B has fewer than 5 recent completed singles matches in the fetched ESPN sample.");
+      }
+      if (aSet1Totals.length < 5 || bSet1Totals.length < 5) {
+        throw new Error("Set 1 history is too short in the fetched ESPN sample.");
+      }
+
+      applyAutofillData({
+        aMatchTotals: aMatchTotals,
+        bMatchTotals: bMatchTotals,
+        aSet1Totals: aSet1Totals,
+        bSet1Totals: bSet1Totals,
+        h2hMatchTotals: h2hMatchTotals,
+        h2hSet1Totals: h2hSet1Totals
+      });
+
+      setFetchNotes(
+        buildFetchNotes(qs("teamAName").value, recentA),
+        buildFetchNotes(qs("teamBName").value, recentB)
+      );
+
+      const statusParts = [
+        qs("teamAName").value + ": " + aMatchTotals.length + " match totals",
+        qs("teamBName").value + ": " + bMatchTotals.length + " match totals",
+        "H2H: " + h2hMatchTotals.length + " match totals",
+        "Set1 H2H: " + h2hSet1Totals.length
+      ];
+
+      setFetchStatus(statusParts.join(" • "), "ok");
+    } catch (err) {
+      activateEngineAlert(err.message || "Fetch failed.");
+      setFetchStatus(err.message || "Fetch failed.", "err");
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     applySavedTheme();
 
@@ -3129,20 +3749,37 @@ body.dark-mode .tracker-analytics-section-head {
     const fixturesTomorrowBtn = qs("fixturesTomorrowBtn");
     if (fixturesTodayBtn && fixturesTomorrowBtn) {
       fixturesTodayBtn.addEventListener("click", function () {
+        currentFixtureOffset = 0;
         fixturesTodayBtn.classList.add("active");
         fixturesTomorrowBtn.classList.remove("active");
+        loadFixtures(currentFixtureOffset);
       });
       fixturesTomorrowBtn.addEventListener("click", function () {
+        currentFixtureOffset = 1;
         fixturesTomorrowBtn.classList.add("active");
         fixturesTodayBtn.classList.remove("active");
+        loadFixtures(currentFixtureOffset);
       });
+    }
+
+    const leagueSelect = qs("leagueSelect");
+    if (leagueSelect) {
+      leagueSelect.addEventListener("change", function () {
+        selectedPlayerIds.A = null;
+        selectedPlayerIds.B = null;
+        historyPoolCache.clear();
+        loadFixtures(currentFixtureOffset);
+      });
+    }
+
+    const fixtureSelect = qs("fixtureSelect");
+    if (fixtureSelect) {
+      fixtureSelect.addEventListener("change", onFixtureSelect);
     }
 
     const fetchBtn = qs("fetchBtn");
     if (fetchBtn) {
-      fetchBtn.addEventListener("click", function () {
-        setFetchStatus("Design shell only. Auto-fetch logic comes after calculations.", "loading");
-      });
+      fetchBtn.addEventListener("click", fetchESPNTennis);
     }
 
     const runBtn = qs("runBtn");
