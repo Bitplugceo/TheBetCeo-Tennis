@@ -2870,6 +2870,7 @@ body.dark-mode .tracker-analytics-section-head {
   };
   let g_trackerHydratePromise = null;
   let g_trackerSyncPromise = Promise.resolve();
+  let g_trackerRefreshPromise = null;
   let g_clearDebug = {
     lastAction: "idle",
     lastFlagWrite: "",
@@ -3026,11 +3027,15 @@ body.dark-mode .tracker-analytics-section-head {
 
     let diagnosis = g_trackerDebug.lastSaveDiagnosis || "No tracker save attempt yet.";
 
-    if (g_trackerDebug.lastSettlementSummary && g_trackerDebug.lastSettlementSummary.indexOf("probed") !== -1) {
+    if (g_trackerDebug.lastHydrateStatus === "running" || g_trackerDebug.lastSettlementSummary === "Running settlement...") {
+      diagnosis = "Tracker refresh is still running. Wait a moment and reopen the report. The engine is still hydrating and settling saved picks.";
+    } else if (g_trackerDebug.lastSettlementSummary && g_trackerDebug.lastSettlementSummary.indexOf("probed") !== -1) {
       diagnosis = "Settlement probe finished. Use the settlement rows below to see whether saved event summary worked, whether player-history fallback found the completed match, or whether ESPN still failed to expose the result.";
+    } else if (items.length > 0 && !g_trackerDebug.lastSettlementSummary) {
+      diagnosis = "Tracker has saved items, but settlement has not finished yet. Open the tracker again after refresh completes.";
     } else if (g_trackerDebug.lastEngineError) {
       diagnosis = "Engine error blocked saving: " + g_trackerDebug.lastEngineError;
-    } else if (g_trackerDebug.lastGeneratedEntries === 0) {
+    } else if (items.length === 0 && g_trackerDebug.lastGeneratedEntries === 0) {
       diagnosis = "No actionable picks were generated, so nothing was saved. This happens when rows end as PASS / NO PLAY, even if the raw projection leans one side.";
     } else if (g_trackerDebug.lastInsertedEntries === 0 && g_trackerDebug.lastDuplicateSkipped > 0) {
       diagnosis = "Save was skipped by duplicate protection. The same match, market, line and pick already exist for this day.";
@@ -5006,6 +5011,8 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   async function autoSettleTracker(isSilent) {
+    g_trackerDebug.lastSettlementSummary = "Running settlement...";
+    renderTrackerDebug();
     await hydrateTrackerState(false);
     const items = getTrackerItems();
     g_trackerDebug.lastSettlementDetails = [];
@@ -5215,6 +5222,14 @@ body.dark-mode .tracker-analytics-section-head {
             '<tr><td>Pushes</td><td>' + pushes + '</td><td>' + (settled.length ? Math.round((pushes / settled.length) * 100) + "%" : "—") + '</td></tr>' +
           '</tbody></table>' +
         '</div>' +
+        '<div class="tracker-analytics-section">' +
+          '<h4>Archived results</h4>' +
+          '<table class="tracker-analytics-table"><thead><tr><th>Match</th><th>Market</th><th>Status</th><th>Actual</th></tr></thead><tbody>' +
+            (archived.length ? archived.map(function (item) {
+              return '<tr><td>' + htmlEscape(item.match) + '</td><td>' + htmlEscape(item.market) + '</td><td>' + htmlEscape(item.status || "PENDING") + '</td><td>' + htmlEscape(item.actualTotal != null ? fmtCompact(item.actualTotal) : "—") + '</td></tr>';
+            }).join('') : '<tr><td colspan="4">No archived picks</td></tr>') +
+          '</tbody></table>' +
+        '</div>' +
       '</div>';
   }
 
@@ -5351,6 +5366,27 @@ body.dark-mode .tracker-analytics-section-head {
     return g_trackerDebug.lastInsertedEntries;
   }
 
+  async function refreshTrackerNow(isSilent) {
+    if (g_trackerRefreshPromise) return g_trackerRefreshPromise;
+
+    g_trackerDebug.lastSettlementSummary = "Running settlement...";
+    renderTrackerDebug();
+    updateTrackerUI();
+
+    g_trackerRefreshPromise = (async function () {
+      try {
+        await hydrateTrackerState(false);
+        await autoSettleTracker(!!isSilent);
+      } finally {
+        g_trackerRefreshPromise = null;
+        updateTrackerUI();
+        renderTrackerDebug();
+      }
+    })();
+
+    return g_trackerRefreshPromise;
+  }
+
   function setTrackerView(mode) {
     const trackerModal = qs("trackerModal");
     const panel = trackerModal ? trackerModal.querySelector(".tracker-panel") : null;
@@ -5378,17 +5414,15 @@ body.dark-mode .tracker-analytics-section-head {
     }
   }
 
-  function openTrackerModal() {
+  async function openTrackerModal() {
     const modal = qs("trackerModal");
     if (!modal) return;
     updateTrackerUI();
-    hydrateTrackerState(false).then(function () {
-      updateTrackerUI();
-      autoSettleTracker(true);
-    });
+    renderTrackerDebug();
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("tracker-open");
+    await refreshTrackerNow(true);
   }
 
   function closeTrackerModal() {
@@ -6539,12 +6573,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const trackerInsightsBtn = qs("trackerInsightsBtn");
     if (trackerInsightsBtn) {
-      trackerInsightsBtn.addEventListener("click", function () {
+      trackerInsightsBtn.addEventListener("click", async function () {
         const trackerModal = qs("trackerModal");
         if (!trackerModal) return;
         const panel = trackerModal.querySelector(".tracker-panel");
         const isReport = panel && panel.classList.contains("analytics-view");
-        openTrackerModal();
+        await openTrackerModal();
         setTrackerView(isReport ? "list" : "report");
         updateTrackerUI();
         renderTrackerDebug();
@@ -6553,13 +6587,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const trackerDebugBtn = qs("trackerDebugBtn");
     if (trackerDebugBtn) {
-      trackerDebugBtn.addEventListener("click", function () {
+      trackerDebugBtn.addEventListener("click", async function () {
         const trackerModal = qs("trackerModal");
         if (!trackerModal) return;
         const panel = trackerModal.querySelector(".tracker-panel");
         const isDebug = panel && panel.classList.contains("debug-view");
-        openTrackerModal();
+        await openTrackerModal();
         setTrackerView(isDebug ? "list" : "debug");
+        updateTrackerUI();
         renderTrackerDebug();
       });
     }
