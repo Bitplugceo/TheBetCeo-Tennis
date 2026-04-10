@@ -2864,7 +2864,9 @@ body.dark-mode .tracker-analytics-section-head {
     lastSyncStatus: "idle",
     lastSyncError: "",
     lastWorkerPostStatus: "",
-    lastSavedStateAt: null
+    lastSavedStateAt: null,
+    lastSettlementSummary: "",
+    lastSettlementDetails: []
   };
   let g_trackerHydratePromise = null;
   let g_trackerSyncPromise = Promise.resolve();
@@ -3069,18 +3071,38 @@ body.dark-mode .tracker-analytics-section-head {
       ["Last saved state updatedAt", g_trackerDebug.lastSavedStateAt || "—"]
     ];
 
+    const settlementRows = (g_trackerDebug.lastSettlementDetails || []).map(function (detail) {
+      const checks = (detail.checks || []).map(function (check) {
+        return [
+          check.label + ":" + check.query,
+          "records=" + check.records,
+          "exact=" + check.exact,
+          "fuzzy=" + check.fuzzy,
+          "relaxed=" + check.relaxed,
+          check.sample ? ("sample=" + check.sample) : ""
+        ].filter(Boolean).join(" • ");
+      }).join(" || ");
+
+      return '<tr><th style="width:34%;">' +
+        htmlEscape("Settlement probe: " + detail.match + " [" + detail.market + "]") +
+        '</th><td>' + htmlEscape((detail.reason || "—") + (checks ? " || " + checks : "")) + '</td></tr>';
+    }).join('');
+
+    rows.push(["Settlement summary", g_trackerDebug.lastSettlementSummary || "—"]);
+
     panel.innerHTML =
       '<div class="tracker-analytics-shell">' +
         '<div class="tracker-analytics-topbar">' +
           '<div class="tracker-analytics-kicker">TRACKER DEBUG</div>' +
-          '<h3 class="tracker-analytics-title">Save and sync diagnosis</h3>' +
-          '<p class="tracker-report-subtitle">This page tells you exactly why picks did or did not save: no actionable picks, duplicate block, local save failure, worker sync failure, or worker returned empty.</p>' +
+          '<h3 class="tracker-analytics-title">Save, sync and settlement diagnosis</h3>' +
+          '<p class="tracker-report-subtitle">This page now shows save issues and settlement search attempts, so we can see whether ESPN returned completed records, whether name matching worked, and why a pick stayed pending.</p>' +
         '</div>' +
         '<div class="tracker-report-table-wrap">' +
           '<table class="tracker-report-table"><tbody>' +
             rows.map(function (row) {
               return '<tr><th style="width:34%;">' + htmlEscape(row[0]) + '</th><td>' + htmlEscape(row[1]) + '</td></tr>';
             }).join('') +
+            settlementRows +
           '</tbody></table>' +
         '</div>' +
       '</div>';
@@ -4681,17 +4703,61 @@ body.dark-mode .tracker-analytics-section-head {
     return days;
   }
 
+  function buildSettlementRangeQueries(savedAtIso) {
+    const savedDate = savedAtIso ? new Date(savedAtIso) : new Date();
+    const today = new Date();
+    const start = addDays(new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate()), -3);
+    const end = addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), 2);
+    return [dateKeyFromDate(start) + "-" + dateKeyFromDate(end)];
+  }
+
+  function relaxedSameTrackerMatchRecord(record, playerAName, playerBName) {
+    const recAName = record && record.playerAName || "";
+    const recBName = record && record.playerBName || "";
+    const recSurnames = [getSurnameToken(recAName), getSurnameToken(recBName)].filter(Boolean).sort().join("|");
+    const targetSurnames = [getSurnameToken(playerAName), getSurnameToken(playerBName)].filter(Boolean).sort().join("|");
+    return !!recSurnames && recSurnames === targetSurnames;
+  }
+
+  function summarizeSettlementProbe(records, names) {
+    const sample = records.slice(0, 6).map(function (record) {
+      return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
+    });
+    return {
+      records: records.length,
+      exact: records.filter(function (record) {
+        return sameTrackerMatchRecord(record, names.playerAName, names.playerBName);
+      }).length,
+      fuzzy: records.filter(function (record) {
+        return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
+      }).length,
+      relaxed: records.filter(function (record) {
+        return relaxedSameTrackerMatchRecord(record, names.playerAName, names.playerBName);
+      }).length,
+      sample: sample.join(" | ")
+    };
+  }
+
   async function fetchSettlementRecordForItem(item) {
-    if (!item || !item.tour || !item.match) return null;
+    if (!item || !item.tour || !item.match) {
+      return { record: null, debug: { reason: "missing item fields", checks: [] } };
+    }
 
     const names = parseTrackerMatchNames(item.match);
-    if (!names.playerAName || !names.playerBName) return null;
+    if (!names.playerAName || !names.playerBName) {
+      return { record: null, debug: { reason: "unable to parse match names", checks: [] } };
+    }
 
-    const dateQueries = buildSettlementDateQueries(item.savedAt);
-    let bestRecord = null;
+    const dayQueries = buildSettlementDateQueries(item.savedAt);
+    const rangeQueries = buildSettlementRangeQueries(item.savedAt);
+    const seenQueries = new Set();
+    const checks = [];
 
-    for (let i = 0; i < dateQueries.length; i += 1) {
-      const payload = await fetchTennisScoreboard(item.tour, dateQueries[i]);
+    async function probeQuery(query, label) {
+      if (seenQueries.has(query)) return null;
+      seenQueries.add(query);
+
+      const payload = await fetchTennisScoreboard(item.tour, query);
       const records = extractCompetitionRecords(payload).filter(function (record) {
         return record.status &&
           record.status.completed &&
@@ -4699,30 +4765,62 @@ body.dark-mode .tracker-analytics-section-head {
           Number.isFinite(record.set1Total);
       });
 
+      const summary = summarizeSettlementProbe(records, names);
+      checks.push({
+        label: label,
+        query: query,
+        records: summary.records,
+        exact: summary.exact,
+        fuzzy: summary.fuzzy,
+        relaxed: summary.relaxed,
+        sample: summary.sample
+      });
+
       const exact = records.filter(function (record) {
         return sameTrackerMatchRecord(record, names.playerAName, names.playerBName);
       }).sort(function (a, b) {
         return new Date(a.date) - new Date(b.date);
       });
-
-      if (exact.length) {
-        bestRecord = exact[0];
-        break;
-      }
+      if (exact.length) return exact[0];
 
       const fuzzy = records.filter(function (record) {
         return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
       }).sort(function (a, b) {
         return new Date(a.date) - new Date(b.date);
       });
+      if (fuzzy.length) return fuzzy[0];
 
-      if (fuzzy.length) {
-        bestRecord = fuzzy[0];
-        break;
+      const relaxed = records.filter(function (record) {
+        return relaxedSameTrackerMatchRecord(record, names.playerAName, names.playerBName);
+      }).sort(function (a, b) {
+        return new Date(a.date) - new Date(b.date);
+      });
+      if (relaxed.length === 1) return relaxed[0];
+
+      return null;
+    }
+
+    for (let i = 0; i < dayQueries.length; i += 1) {
+      const found = await probeQuery(dayQueries[i], "day");
+      if (found) {
+        return { record: found, debug: { reason: "matched from day query", checks: checks } };
       }
     }
 
-    return bestRecord;
+    for (let i = 0; i < rangeQueries.length; i += 1) {
+      const found = await probeQuery(rangeQueries[i], "range");
+      if (found) {
+        return { record: found, debug: { reason: "matched from range query", checks: checks } };
+      }
+    }
+
+    return {
+      record: null,
+      debug: {
+        reason: "no completed ESPN record matched tracked players",
+        checks: checks
+      }
+    };
   }
 
   function settleTrackerItemFromRecord(item, record) {
@@ -4755,7 +4853,10 @@ body.dark-mode .tracker-analytics-section-head {
   async function autoSettleTracker(isSilent) {
     await hydrateTrackerState(false);
     const items = getTrackerItems();
+    g_trackerDebug.lastSettlementDetails = [];
     if (!items.length) {
+      g_trackerDebug.lastSettlementSummary = "No tracked picks yet.";
+      renderTrackerDebug();
       if (!isSilent) setRunStatus("No tracked picks yet.", "ok");
       return;
     }
@@ -4768,19 +4869,35 @@ body.dark-mode .tracker-analytics-section-head {
       if (item.status !== "PENDING") continue;
 
       const cacheKey = [item.tour, item.match, item.savedAt ? item.savedAt.slice(0, 10) : ""].join("|");
-      let record = recordCache.get(cacheKey);
+      let probe = recordCache.get(cacheKey);
 
-      if (record === undefined) {
+      if (probe === undefined) {
         try {
-          record = await fetchSettlementRecordForItem(item);
+          probe = await fetchSettlementRecordForItem(item);
         } catch (err) {
-          record = null;
+          probe = {
+            record: null,
+            debug: {
+              reason: err && err.message ? err.message : "settlement fetch failed",
+              checks: []
+            }
+          };
         }
-        recordCache.set(cacheKey, record);
+        recordCache.set(cacheKey, probe);
       }
 
-      if (record) {
-        const settledItem = settleTrackerItemFromRecord(item, record);
+      g_trackerDebug.lastSettlementDetails.push({
+        match: item.match,
+        market: item.market,
+        savedAt: item.savedAt || "",
+        archived: !!item.archived,
+        status: item.status,
+        reason: probe && probe.debug ? probe.debug.reason : "no debug",
+        checks: probe && probe.debug && Array.isArray(probe.debug.checks) ? probe.debug.checks : []
+      });
+
+      if (probe && probe.record) {
+        const settledItem = settleTrackerItemFromRecord(item, probe.record);
         if (settledItem.status !== item.status) settledCount += 1;
         items[i] = settledItem;
       }
@@ -4788,14 +4905,18 @@ body.dark-mode .tracker-analytics-section-head {
 
     const archiveResult = archiveOldTrackerItems(items);
     const finalItems = archiveResult.items;
+    const archivedPending = finalItems.filter(function (item) {
+      return !!item.archived && item.status === "PENDING";
+    }).length;
+    g_trackerDebug.lastSettlementSummary =
+      "Settled " + settledCount +
+      " • archived pending " + archivedPending +
+      " • probed " + g_trackerDebug.lastSettlementDetails.length + " pending item(s).";
     saveTrackerItems(finalItems);
     updateTrackerUI();
+    renderTrackerDebug();
 
     if (!isSilent) {
-      const archivedPending = finalItems.filter(function (item) {
-        return !!item.archived && item.status === "PENDING";
-      }).length;
-
       if (settledCount) {
         setRunStatus("Tracker updated automatically.", "ok");
       } else if (archiveResult.changed && archivedPending) {
