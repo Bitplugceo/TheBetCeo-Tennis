@@ -3949,20 +3949,33 @@ body.dark-mode .tracker-analytics-section-head {
     latestFetchedContext = null;
     fixtureLoadToken += 1;
 
-    document.querySelectorAll("input, select").forEach(function (el) {
-      if (el.type === "checkbox") {
-        el.checked = el.id === "useFTH2H" || el.id === "use1HH2H";
-      } else if (el.tagName === "SELECT") {
-        if (el.id === "fixtureSelect") {
-          el.innerHTML = '<option value="">- Select match -</option>';
-          el.value = "";
-        } else {
-          el.selectedIndex = 0;
-        }
-      } else if (!el.readOnly) {
-        el.value = "";
-      }
+    const clearIds = [
+      "teamAName", "teamBName",
+      "ftMarket", "h1Market",
+      "aFTScored", "aFTAllowed",
+      "bFTScored", "bFTAllowed",
+      "aFTH2H", "a1HH2H",
+      "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "roundDisplay"
+    ];
+
+    clearIds.forEach(function (id) {
+      const el = qs(id);
+      if (el) el.value = "";
     });
+
+    const leagueSelect = qs("leagueSelect");
+    if (leagueSelect) leagueSelect.selectedIndex = 0;
+
+    const fixtureSelect = qs("fixtureSelect");
+    if (fixtureSelect) {
+      fixtureSelect.innerHTML = '<option value="">- Select match -</option>';
+      fixtureSelect.value = "";
+    }
+
+    const useMatchH2H = qs("useFTH2H");
+    const useSet1H2H = qs("use1HH2H");
+    if (useMatchH2H) useMatchH2H.checked = true;
+    if (useSet1H2H) useSet1H2H.checked = true;
 
     selectedPlayerIds.A = null;
     selectedPlayerIds.B = null;
@@ -3976,14 +3989,24 @@ body.dark-mode .tracker-analytics-section-head {
     if (tomorrowBtn) tomorrowBtn.classList.remove("active");
 
     clearFetchedAutofill();
+    clearAutoTags();
+    hideFetchNoteBoxes();
+    clearReadOnlyFields();
     clearHeaderError();
     setFetchStatus("Select ATP or WTA, choose a match or type both player names, then fetch stats.", "");
     setFetchNotes("", "");
+    setRunStatus("", "");
     closeDrops();
+
+    const resultsBody = qs("resultsBody");
+    if (resultsBody) {
+      resultsBody.innerHTML = '<tr><td colspan="5" class="results-empty-cell">Run the engine to populate results.</td></tr>';
+    }
+
     collapseAll();
+    openSection("leagueSection");
+    openSection("espnSection");
     openSection("marketSection");
-    closeSection("leagueSection");
-    closeSection("espnSection");
     closeSection("teamASection");
     closeSection("teamBSection");
     closeSection("h2hSection");
