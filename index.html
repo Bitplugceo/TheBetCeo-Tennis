@@ -2626,8 +2626,7 @@ body.dark-mode .tracker-analytics-section-head {
     <div id="fixtureToolbar" class="fixture-toolbar">
       <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
       <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
-      <button type="button" class="fixture-day" id="fixturesDebugBtn">🐞 Debug</button>
-    </div>
+          </div>
 
     <label id="fixtureSelectLabel" style="font-size:12px;">Select Match</label>
     <select id="fixtureSelect" class="league-box">
@@ -2646,26 +2645,11 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="autocomplete-list" id="dropB"></div>
     </div>
 
-    <div id="surfaceWrap">
-      <div class="context-grid">
-        <div>
-          <label style="font-size:12px;">Tournament</label>
-          <input id="tournamentDisplay" placeholder="Fetched tournament" />
-        </div>
-        <div>
-          <label style="font-size:12px;">League / Level</label>
-          <input id="leagueLevelDisplay" placeholder="Fetched level" />
-        </div>
-        <div>
-          <label style="font-size:12px;">Format</label>
-          <input id="formatDisplay" placeholder="Fetched format" />
-        </div>
-        <div>
-          <label style="font-size:12px;">Round</label>
-          <input id="roundDisplay" placeholder="Fetched round" />
-        </div>
-      </div>
-      <div class="section-note">Only the context fields that fetch reliably are shown here.</div>
+    <div id="surfaceWrap" style="display:none;">
+      <input id="tournamentDisplay" type="hidden" />
+      <input id="leagueLevelDisplay" type="hidden" />
+      <input id="formatDisplay" type="hidden" />
+      <input id="roundDisplay" type="hidden" />
     </div>
 
     <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
@@ -2779,68 +2763,6 @@ body.dark-mode .tracker-analytics-section-head {
   </table>
 </div>
 
-<div id="fixtureDebugModal" class="tracker-modal fixture-debug-modal" aria-hidden="true">
-  <div class="fixture-debug-panel">
-    <div class="fixture-debug-head">
-      <span id="fixtureDebugHeadTitle">Fixture Debug</span>
-      <div class="tracker-head-actions">
-        <button type="button" id="fixtureDebugCloseBtn" class="tracker-close">✕</button>
-      </div>
-    </div>
-    <div class="fixture-debug-summary" id="fixtureDebugSummary">No fixture debug loaded yet.</div>
-    <div class="fixture-debug-body-scroll">
-      <div id="fixtureDebugMeta" class="fixture-debug-meta"></div>
-      <div class="table-wrap fixture-debug-table-wrap" style="display:block;">
-        <table id="fixtureDebugTable">
-          <thead>
-            <tr>
-              <th>Players</th>
-              <th>Raw Date</th>
-              <th>Parsed Local</th>
-              <th>Status</th>
-              <th>Future?</th>
-              <th>Included</th>
-              <th>Reason</th>
-            </tr>
-          </thead>
-          <tbody id="fixtureDebugBody">
-            <tr><td colspan="7" class="results-empty-cell">Load fixtures first.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<div id="trackerDebugModal" class="tracker-modal" aria-hidden="true">
-  <div class="fixture-debug-panel">
-    <div class="fixture-debug-head">
-      <span id="trackerDebugHeadTitle">Tracker Debug</span>
-      <div class="tracker-head-actions">
-        <button type="button" id="trackerDebugCloseBtn" class="tracker-close">✕</button>
-      </div>
-    </div>
-    <div class="fixture-debug-summary" id="trackerDebugSummary">No tracker debug yet.</div>
-    <div class="fixture-debug-body-scroll">
-      <div id="trackerDebugMeta" class="fixture-debug-meta"></div>
-      <div class="table-wrap fixture-debug-table-wrap" style="display:block;">
-        <table id="trackerDebugTable">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Value</th>
-            </tr>
-          </thead>
-          <tbody id="trackerDebugBody">
-            <tr><td colspan="2" class="results-empty-cell">No tracker debug yet.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div id="trackerModal" class="tracker-modal" aria-hidden="true">
   <div class="tracker-panel">
     <div class="tracker-head">
@@ -2915,8 +2837,6 @@ body.dark-mode .tracker-analytics-section-head {
   let historyPoolCache = new Map();
   let latestFetchedContext = null;
   let latestRunBundle = null;
-  let lastFixtureDebugRows = [];
-  let lastFixtureDebugMeta = null;
   let g_trackerState = { items: [], updatedAt: null };
   let g_trackerDebug = {
     key: TRACKER_STORAGE_KEY,
@@ -3049,76 +2969,6 @@ body.dark-mode .tracker-analytics-section-head {
     if (!el) return;
     el.className = state || "";
     el.textContent = text;
-  }
-
-  function fmtDebugDate(value) {
-    if (!value) return "-";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return String(value);
-    return d.toLocaleString();
-  }
-
-  function renderFixtureDebug() {
-    const summary = qs("fixtureDebugSummary");
-    const meta = qs("fixtureDebugMeta");
-    const body = qs("fixtureDebugBody");
-
-    if (summary) {
-      if (!lastFixtureDebugRows.length) summary.textContent = "No fixture debug loaded yet.";
-      else {
-        const included = lastFixtureDebugRows.filter(function (row) { return row.included; }).length;
-        summary.textContent = included + " included • " + lastFixtureDebugRows.length + " checked";
-      }
-    }
-
-    if (meta) {
-      if (!lastFixtureDebugMeta) meta.textContent = "";
-      else {
-        meta.textContent =
-          "Now: " + fmtDebugDate(lastFixtureDebugMeta.nowIso) +
-          " • Offset: " + lastFixtureDebugMeta.offset +
-          " • Date Query: " + lastFixtureDebugMeta.dateQuery +
-          " • Target Day: " + new Date(new Date(lastFixtureDebugMeta.nowIso).getFullYear(), new Date(lastFixtureDebugMeta.nowIso).getMonth(), new Date(lastFixtureDebugMeta.nowIso).getDate() + lastFixtureDebugMeta.offset).toLocaleDateString() +
-          " • Timezone: " + (Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown");
-      }
-    }
-
-    if (body) {
-      if (!lastFixtureDebugRows.length) {
-        body.innerHTML = '<tr><td colspan="7" class="results-empty-cell">Load fixtures first.</td></tr>';
-      } else {
-        body.innerHTML = lastFixtureDebugRows.map(function (row) {
-          return (
-            '<tr>' +
-              '<td>' + htmlEscape(row.players) + '</td>' +
-              '<td>' + htmlEscape(row.rawDate) + '</td>' +
-              '<td>' + htmlEscape(row.parsedLocal) + '</td>' +
-              '<td>' + htmlEscape(row.status) + '</td>' +
-              '<td>' + htmlEscape(row.futureText) + '</td>' +
-              '<td>' + htmlEscape(row.included ? "YES" : "NO") + '</td>' +
-              '<td>' + htmlEscape(row.reason) + '</td>' +
-            '</tr>'
-          );
-        }).join("");
-      }
-    }
-  }
-
-  function openFixtureDebugModal() {
-    renderFixtureDebug();
-    const modal = qs("fixtureDebugModal");
-    if (!modal) return;
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden", "false");
-    document.body.classList.add("tracker-open");
-  }
-
-  function closeFixtureDebugModal() {
-    const modal = qs("fixtureDebugModal");
-    if (!modal) return;
-    modal.classList.remove("open");
-    modal.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("tracker-open");
   }
 
   function renderTrackerDebug() {
@@ -5340,18 +5190,8 @@ body.dark-mode .tracker-analytics-section-head {
       if (token !== fixtureLoadToken) return;
 
       const now = new Date();
-      const targetDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
-      const targetDayStart = new Date(targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate());
-      const targetDayEnd = new Date(targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate() + 1);
-      const rawRecords = extractCompetitionRecords(payload);
-      lastFixtureDebugMeta = {
-        nowIso: now.toISOString(),
-        offset: offset,
-        dateQuery: dateQuery
-      };
-      lastFixtureDebugRows = [];
-
-      const records = rawRecords.filter(function (record) {
+      const targetDayKey = dateKeyLocal(offset);
+      const records = extractCompetitionRecords(payload).filter(function (record) {
         const statusObj = record.status || {};
         const state = String(statusObj.state || "").toLowerCase();
         const name = String(statusObj.name || "").toUpperCase();
@@ -5377,11 +5217,10 @@ body.dark-mode .tracker-analytics-section-head {
           name === "STATUS_IN_PROGRESS" ||
           name === "STATUS_HALFTIME";
 
-        const isUpcomingStatus =
+        const isScheduled =
           state === "pre" ||
           name === "STATUS_SCHEDULED" ||
-          name === "STATUS_TIME_TBD" ||
-          isLive;
+          name === "STATUS_TIME_TBD";
 
         const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
         const notPlaceholderPair =
@@ -5396,67 +5235,25 @@ body.dark-mode .tracker-analytics-section-head {
           !aNorm.includes(" bye") &&
           !bNorm.includes(" bye");
 
-        const isOnTargetLocalDay =
-          hasValidDate &&
-          scheduledAt.getTime() >= targetDayStart.getTime() &&
-          scheduledAt.getTime() < targetDayEnd.getTime();
+        if (completed) return false;
+        if (!hasRealPlayers || !notPlaceholderPair) return false;
+        if (!hasValidDate) return false;
+        if (dateKeyFromDate(scheduledAt) !== targetDayKey) return false;
 
-        let included = true;
-        let reason = "included";
-
-        if (completed) {
-          included = false;
-          reason = "completed/final";
-        } else if (!hasRealPlayers || !notPlaceholderPair) {
-          included = false;
-          reason = "placeholder players";
-        } else if (!isUpcomingStatus || !hasValidDate) {
-          included = false;
-          reason = !hasValidDate ? "invalid date" : "status not upcoming/live";
-        } else if (!isOnTargetLocalDay) {
-          included = false;
-          reason = "not on target local day";
-        } else if (offset === 0 && !isLive && !(scheduledAt.getTime() > now.getTime())) {
-          included = false;
-          reason = "scheduled time is not after now";
+        if (offset === 0) {
+          return isLive || (isScheduled && scheduledAt.getTime() > now.getTime());
         }
 
-        lastFixtureDebugRows.push({
-          players: aName + " vs " + bName,
-          rawDate: String(record.date || ""),
-          parsedLocal: hasValidDate ? scheduledAt.toLocaleString() : "Invalid date",
-          status: [state || "-", name || "-", completed ? "completed" : "open"].join(" | "),
-          futureText: hasValidDate ? ((scheduledAt.getTime() - now.getTime()) > 0 ? "YES" : "NO") : "INVALID",
-          included: included,
-          reason: reason
-        });
-
-        return included;
+        return isLive || isScheduled;
       }).sort(function (a, b) {
         return new Date(a.date) - new Date(b.date);
       });
 
-      renderFixtureDebug();
       renderFixtureOptions(records);
       setFetchStatus(records.length ? "Loaded " + records.length + " real future singles matches." : "No real future singles matches found for this day.", records.length ? "ok" : "");
     } catch (err) {
       if (token !== fixtureLoadToken) return;
       select.innerHTML = '<option value="">Unable to load matches</option>';
-      lastFixtureDebugMeta = {
-        nowIso: new Date().toISOString(),
-        offset: offset,
-        dateQuery: dateQuery
-      };
-      lastFixtureDebugRows = [{
-        players: "-",
-        rawDate: "-",
-        parsedLocal: "-",
-        status: "fetch error",
-        futureText: "-",
-        included: false,
-        reason: err && err.message ? err.message : "Unable to load fixtures"
-      }];
-      renderFixtureDebug();
       setFetchStatus("Unable to load ESPN fixtures right now.", "err");
     }
   }
@@ -5940,19 +5737,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (trackerModal) {
       trackerModal.addEventListener("click", function (e) {
         if (e.target === trackerModal) closeTrackerModal();
-      });
-    }
-
-    const fixtureDebugBtn = qs("fixturesDebugBtn");
-    if (fixtureDebugBtn) fixtureDebugBtn.addEventListener("click", openFixtureDebugModal);
-
-    const fixtureDebugCloseBtn = qs("fixtureDebugCloseBtn");
-    if (fixtureDebugCloseBtn) fixtureDebugCloseBtn.addEventListener("click", closeFixtureDebugModal);
-
-    const fixtureDebugModal = qs("fixtureDebugModal");
-    if (fixtureDebugModal) {
-      fixtureDebugModal.addEventListener("click", function (e) {
-        if (e.target === fixtureDebugModal) closeFixtureDebugModal();
       });
     }
 
