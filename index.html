@@ -2871,6 +2871,7 @@ body.dark-mode .tracker-analytics-section-head {
   let g_trackerHydratePromise = null;
   let g_trackerSyncPromise = Promise.resolve();
   let g_trackerRefreshPromise = null;
+  let g_trackerRefreshPromise = null;
   let g_clearDebug = {
     lastAction: "idle",
     lastFlagWrite: "",
@@ -3028,11 +3029,11 @@ body.dark-mode .tracker-analytics-section-head {
     let diagnosis = g_trackerDebug.lastSaveDiagnosis || "No tracker save attempt yet.";
 
     if (g_trackerDebug.lastHydrateStatus === "running" || g_trackerDebug.lastSettlementSummary === "Running settlement...") {
-      diagnosis = "Tracker refresh is still running. Wait a moment and reopen the report. The engine is still hydrating and settling saved picks.";
+      diagnosis = "Tracker refresh is still running. The page should still open immediately now, but the numbers update after settlement finishes.";
     } else if (g_trackerDebug.lastSettlementSummary && g_trackerDebug.lastSettlementSummary.indexOf("probed") !== -1) {
       diagnosis = "Settlement probe finished. Use the settlement rows below to see whether saved event summary worked, whether player-history fallback found the completed match, or whether ESPN still failed to expose the result.";
     } else if (items.length > 0 && !g_trackerDebug.lastSettlementSummary) {
-      diagnosis = "Tracker has saved items, but settlement has not finished yet. Open the tracker again after refresh completes.";
+      diagnosis = "Tracker has saved items, but settlement has not finished yet. The report/debug page opened before refresh completed.";
     } else if (g_trackerDebug.lastEngineError) {
       diagnosis = "Engine error blocked saving: " + g_trackerDebug.lastEngineError;
     } else if (items.length === 0 && g_trackerDebug.lastGeneratedEntries === 0) {
@@ -5193,6 +5194,9 @@ body.dark-mode .tracker-analytics-section-head {
           '<div class="tracker-analytics-kicker">Tracker Report</div>' +
           '<h3 class="tracker-analytics-title">Performance snapshot</h3>' +
           '<p class="tracker-analytics-subtitle">Win rates are based on settled WIN/LOSS results. PUSH is shown as settled but excluded from win-rate decisions.</p>' +
+          ((g_trackerDebug.lastSettlementSummary === "Running settlement..." || g_trackerDebug.lastHydrateStatus === "running")
+            ? '<p class="tracker-analytics-subtitle" style="margin-top:6px;color:#c97a00;font-weight:700;">Refreshing tracker and checking finished matches...</p>'
+            : '') +
         '</div>' +
         '<div class="tracker-summary-strip">' +
           '<div class="tracker-summary-cell"><span class="tracker-summary-label">Saved</span><span class="tracker-summary-value">' + items.length + '</span></div>' +
@@ -5366,6 +5370,11 @@ body.dark-mode .tracker-analytics-section-head {
     return g_trackerDebug.lastInsertedEntries;
   }
 
+  function isTrackerModalOpen() {
+    const modal = qs("trackerModal");
+    return !!(modal && modal.classList.contains("open"));
+  }
+
   async function refreshTrackerNow(isSilent) {
     if (g_trackerRefreshPromise) return g_trackerRefreshPromise;
 
@@ -5414,15 +5423,15 @@ body.dark-mode .tracker-analytics-section-head {
     }
   }
 
-  async function openTrackerModal() {
+  function openTrackerModal() {
     const modal = qs("trackerModal");
-    if (!modal) return;
+    if (!modal) return Promise.resolve();
     updateTrackerUI();
     renderTrackerDebug();
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("tracker-open");
-    await refreshTrackerNow(true);
+    return refreshTrackerNow(true);
   }
 
   function closeTrackerModal() {
@@ -6573,12 +6582,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const trackerInsightsBtn = qs("trackerInsightsBtn");
     if (trackerInsightsBtn) {
-      trackerInsightsBtn.addEventListener("click", async function () {
+      trackerInsightsBtn.addEventListener("click", function () {
         const trackerModal = qs("trackerModal");
         if (!trackerModal) return;
         const panel = trackerModal.querySelector(".tracker-panel");
         const isReport = panel && panel.classList.contains("analytics-view");
-        await openTrackerModal();
+
+        if (!isTrackerModalOpen()) {
+          openTrackerModal();
+        }
+
         setTrackerView(isReport ? "list" : "report");
         updateTrackerUI();
         renderTrackerDebug();
@@ -6587,12 +6600,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const trackerDebugBtn = qs("trackerDebugBtn");
     if (trackerDebugBtn) {
-      trackerDebugBtn.addEventListener("click", async function () {
+      trackerDebugBtn.addEventListener("click", function () {
         const trackerModal = qs("trackerModal");
         if (!trackerModal) return;
         const panel = trackerModal.querySelector(".tracker-panel");
         const isDebug = panel && panel.classList.contains("debug-view");
-        await openTrackerModal();
+
+        if (!isTrackerModalOpen()) {
+          openTrackerModal();
+        }
+
         setTrackerView(isDebug ? "list" : "debug");
         updateTrackerUI();
         renderTrackerDebug();
