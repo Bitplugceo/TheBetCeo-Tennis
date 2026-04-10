@@ -2741,10 +2741,8 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
   <button id="clearBtn" type="button">Clear</button>
-  <button id="clearDebugBtn" type="button">🐞 Clear Debug</button>
-  <div id="runStatus"></div>
+    <div id="runStatus"></div>
 </div>
-<div id="clearDebugPanel" class="tracker-empty" style="display:none; margin-top:8px;"></div>
 
 <div class="table-wrap">
   <table id="results" class="results-hidden">
@@ -4627,24 +4625,60 @@ body.dark-mode .tracker-analytics-section-head {
     return (recA === targetA && recB === targetB) || (recA === targetB && recB === targetA);
   }
 
+  function getNameTokens(name) {
+    return normalizeName(name).split(" ").filter(Boolean);
+  }
+
+  function getSurnameToken(name) {
+    const tokens = getNameTokens(name).filter(function (token) {
+      return !["de", "da", "del", "di", "van", "von", "la", "le"].includes(token);
+    });
+    return tokens.length ? tokens[tokens.length - 1] : "";
+  }
+
+  function getGivenToken(name) {
+    const tokens = getNameTokens(name).filter(function (token) {
+      return !["de", "da", "del", "di", "van", "von", "la", "le"].includes(token);
+    });
+    return tokens.length ? tokens[0] : "";
+  }
+
+  function fuzzySameTrackerMatchRecord(record, playerAName, playerBName) {
+    const recAName = record && record.playerAName || "";
+    const recBName = record && record.playerBName || "";
+
+    const recPairs = [
+      { s: getSurnameToken(recAName), g: getGivenToken(recAName) },
+      { s: getSurnameToken(recBName), g: getGivenToken(recBName) }
+    ];
+    const targetPairs = [
+      { s: getSurnameToken(playerAName), g: getGivenToken(playerAName) },
+      { s: getSurnameToken(playerBName), g: getGivenToken(playerBName) }
+    ];
+
+    function pairMatch(a, b) {
+      return !!a.s && !!b.s && a.s === b.s && (!!a.g && !!b.g ? a.g === b.g : true);
+    }
+
+    return (
+      (pairMatch(recPairs[0], targetPairs[0]) && pairMatch(recPairs[1], targetPairs[1])) ||
+      (pairMatch(recPairs[0], targetPairs[1]) && pairMatch(recPairs[1], targetPairs[0]))
+    );
+  }
+
   function buildSettlementDateQueries(savedAtIso) {
     const savedDate = savedAtIso ? new Date(savedAtIso) : new Date();
     const today = new Date();
     const start = addDays(new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate()), -1);
     const end = addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), 1);
 
-    const ranges = [];
+    const days = [];
     let cursor = new Date(start.getTime());
     while (cursor <= end) {
-      const rangeStart = new Date(cursor.getTime());
-      const rangeEnd = addDays(rangeStart, 6);
-      if (rangeEnd > end) {
-        rangeEnd.setTime(end.getTime());
-      }
-      ranges.push(dateKeyFromDate(rangeStart) + "-" + dateKeyFromDate(rangeEnd));
-      cursor = addDays(rangeEnd, 1);
+      days.push(dateKeyFromDate(cursor));
+      cursor = addDays(cursor, 1);
     }
-    return ranges;
+    return days;
   }
 
   async function fetchSettlementRecordForItem(item) {
@@ -4673,6 +4707,17 @@ body.dark-mode .tracker-analytics-section-head {
 
       if (exact.length) {
         bestRecord = exact[0];
+        break;
+      }
+
+      const fuzzy = records.filter(function (record) {
+        return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
+      }).sort(function (a, b) {
+        return new Date(a.date) - new Date(b.date);
+      });
+
+      if (fuzzy.length) {
+        bestRecord = fuzzy[0];
         break;
       }
     }
@@ -4747,10 +4792,16 @@ body.dark-mode .tracker-analytics-section-head {
     updateTrackerUI();
 
     if (!isSilent) {
+      const archivedPending = finalItems.filter(function (item) {
+        return !!item.archived && item.status === "PENDING";
+      }).length;
+
       if (settledCount) {
         setRunStatus("Tracker updated automatically.", "ok");
+      } else if (archiveResult.changed && archivedPending) {
+        setRunStatus("Older picks moved off the live tracker. " + archivedPending + " archived pick(s) still have no fetched final result yet.", "ok");
       } else if (archiveResult.changed) {
-        setRunStatus("Older picks moved to archive.", "ok");
+        setRunStatus("Older picks moved off the live tracker.", "ok");
       } else {
         setRunStatus("No new completed results found yet.", "ok");
       }
@@ -4806,6 +4857,8 @@ body.dark-mode .tracker-analytics-section-head {
     if (!panel) return;
 
     const settled = items.filter(function (item) { return item.status !== "PENDING"; });
+    const archived = items.filter(function (item) { return !!item.archived; });
+    const archivedPending = archived.filter(function (item) { return item.status === "PENDING"; });
     const wins = settled.filter(function (item) { return item.status === "WIN"; }).length;
     const losses = settled.filter(function (item) { return item.status === "LOSS"; }).length;
     const pushes = settled.filter(function (item) { return item.status === "PUSH"; }).length;
@@ -4855,6 +4908,8 @@ body.dark-mode .tracker-analytics-section-head {
           '<div class="tracker-summary-cell"><span class="tracker-summary-label">Settled</span><span class="tracker-summary-value">' + settled.length + '</span></div>' +
           '<div class="tracker-summary-cell"><span class="tracker-summary-label">Wins</span><span class="tracker-summary-value">' + wins + '</span></div>' +
           '<div class="tracker-summary-cell"><span class="tracker-summary-label">Win Rate</span><span class="tracker-summary-value">' + formatTrackerWinRate(settled) + '</span></div>' +
+          '<div class="tracker-summary-cell"><span class="tracker-summary-label">Archived</span><span class="tracker-summary-value">' + archived.length + '</span></div>' +
+          '<div class="tracker-summary-cell"><span class="tracker-summary-label">Archived Pending</span><span class="tracker-summary-value">' + archivedPending.length + '</span></div>' +
         '</div>' +
         '<div class="tracker-analytics-section">' +
           '<h4>By market</h4>' +
@@ -4899,22 +4954,29 @@ body.dark-mode .tracker-analytics-section-head {
     }, {});
 
     if (summary) {
-      const pending = items.filter(function (item) { return item.status === "PENDING"; }).length;
+      const activePending = activeItems.filter(function (item) { return item.status === "PENDING"; }).length;
       const losses = items.filter(function (item) { return item.status === "LOSS"; }).length;
       const pushes = items.filter(function (item) { return item.status === "PUSH"; }).length;
-      summary.textContent = activeItems.length + " live/recent • " + pending + " pending • " + wins + " wins • " + losses + " losses • " + pushes + " pushes";
+      summary.textContent = activeItems.length + " live/recent • " + activePending + " pending • " + wins + " wins • " + losses + " losses • " + pushes + " pushes";
     }
 
     if (marketSummary) {
+      const archivedPending = archivedItems.filter(function (item) { return item.status === "PENDING"; }).length;
       const parts = Object.keys(byMarket).sort().map(function (key) {
         return key + " " + byMarket[key];
       });
+      if (archivedItems.length) {
+        parts.push("Archived " + archivedItems.length);
+      }
+      if (archivedPending) {
+        parts.push("Archived pending " + archivedPending);
+      }
       marketSummary.textContent = parts.join("   ");
     }
 
     if (empty) empty.style.display = items.length ? "none" : "block";
     if (tableWrap) tableWrap.style.display = activeItems.length ? "block" : "none";
-    if (archiveWrap) archiveWrap.style.display = archivedItems.length ? "block" : "none";
+    if (archiveWrap) archiveWrap.style.display = "none";
 
     function statusBadge(item) {
       const cls = "tracker-status-badge status-" + String(item.status || "pending").toLowerCase();
@@ -6088,9 +6150,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const clearBtn = qs("clearBtn");
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
-
-    const clearDebugBtn = qs("clearDebugBtn");
-    if (clearDebugBtn) clearDebugBtn.addEventListener("click", toggleClearDebug);
 
     window.addEventListener("pageshow", function (event) {
       g_clearDebug.lastPageshowPersisted = String(!!(event && event.persisted));
