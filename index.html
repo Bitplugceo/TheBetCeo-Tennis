@@ -4030,6 +4030,15 @@ body.dark-mode .tracker-analytics-section-head {
     renderClearDebug();
   }
 
+  function closeDrops() {
+    ["dropA", "dropB"].forEach(function (id) {
+      const el = qs(id);
+      if (!el) return;
+      el.innerHTML = "";
+      el.style.display = "none";
+    });
+  }
+
   function clearFetchedAutofill() {
     latestFetchedContext = null;
     ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTH2H", "a1HH2H", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "roundDisplay"].forEach(function (id) {
