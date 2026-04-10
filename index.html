@@ -2830,6 +2830,7 @@ body.dark-mode .tracker-analytics-section-head {
   const TRACKER_API_URL = String(WORKER_URL || "").replace(/\/+$/, "") + "/tracker-state";
   const TRACKER_CACHE_KEY = "bb_engine_tracker_state_" + TRACKER_STORAGE_KEY;
   const TRACKER_NETWORK_TIMEOUT_MS = 12000;
+  const HARD_RESET_FLAG_KEY = "tennis_engine_hard_reset_flag_v1";
   const selectedPlayerIds = { A: null, B: null };
   const fixtureRecordMap = new Map();
   let currentFixtureOffset = 0;
@@ -3944,7 +3945,7 @@ body.dark-mode .tracker-analytics-section-head {
     }
   }
 
-  function clearAll() {
+  function applyHardResetState() {
     latestRunBundle = null;
     latestFetchedContext = null;
     fixtureLoadToken += 1;
@@ -3960,7 +3961,10 @@ body.dark-mode .tracker-analytics-section-head {
 
     clearIds.forEach(function (id) {
       const el = qs(id);
-      if (el) el.value = "";
+      if (el) {
+        el.value = "";
+        el.setAttribute("value", "");
+      }
     });
 
     const leagueSelect = qs("leagueSelect");
@@ -4014,10 +4018,18 @@ body.dark-mode .tracker-analytics-section-head {
     hideResults();
 
     try {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err) {
       window.scrollTo(0, 0);
+    } catch (err) {
     }
+  }
+
+  function clearAll() {
+    try {
+      sessionStorage.setItem(HARD_RESET_FLAG_KEY, "1");
+    } catch (err) {
+    }
+    applyHardResetState();
+    window.location.reload();
   }
 
 
@@ -5912,6 +5924,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const clearBtn = qs("clearBtn");
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
+
+    try {
+      if (sessionStorage.getItem(HARD_RESET_FLAG_KEY) === "1") {
+        sessionStorage.removeItem(HARD_RESET_FLAG_KEY);
+        applyHardResetState();
+      }
+    } catch (err) {
+    }
 
     updateTrackerUI();
     renderTrackerDebug();
