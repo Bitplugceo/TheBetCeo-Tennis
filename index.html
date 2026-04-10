@@ -3027,7 +3027,7 @@ body.dark-mode .tracker-analytics-section-head {
     let diagnosis = g_trackerDebug.lastSaveDiagnosis || "No tracker save attempt yet.";
 
     if (g_trackerDebug.lastSettlementSummary && g_trackerDebug.lastSettlementSummary.indexOf("probed") !== -1) {
-      diagnosis = "Settlement probe finished. Use the settlement rows below to see whether scoreboard search failed or history-pool fallback found the completed match.";
+      diagnosis = "Settlement probe finished. Use the settlement rows below to see whether saved event summary worked, whether player-history fallback found the completed match, or whether ESPN still failed to expose the result.";
     } else if (g_trackerDebug.lastEngineError) {
       diagnosis = "Engine error blocked saving: " + g_trackerDebug.lastEngineError;
     } else if (g_trackerDebug.lastGeneratedEntries === 0) {
@@ -3774,6 +3774,9 @@ body.dark-mode .tracker-analytics-section-head {
       playerBName: playerBName,
       playerAId: selectedPlayerIds.A || "",
       playerBId: selectedPlayerIds.B || "",
+      competitionId: ctx && ctx.competitionId ? ctx.competitionId : "",
+      eventId: ctx && ctx.eventId ? ctx.eventId : "",
+      fixtureDate: ctx && ctx.fixtureDate ? ctx.fixtureDate : "",
       context: ctx,
       matchResult: matchResult,
       set1Result: set1Result
@@ -4249,6 +4252,9 @@ body.dark-mode .tracker-analytics-section-head {
       archivedAt: null,
       playerAId: "",
       playerBId: "",
+      competitionId: "",
+      eventId: "",
+      fixtureDate: "",
       tournamentName: "",
       eventLevel: "",
       roundName: ""
@@ -4763,24 +4769,122 @@ body.dark-mode .tracker-analytics-section-head {
       })[0].record;
   }
 
-  async function fetchSettlementRecordFromHistoryPool(item, names) {
+  async function resolveSettlementPlayerIds(item, names) {
+    let playerAId = item.playerAId || "";
+    let playerBId = item.playerBId || "";
+
+    if (playerAId && playerBId) {
+      return { playerAId: playerAId, playerBId: playerBId, source: "saved ids" };
+    }
+
     const records = await fetchHistoryPool(item.tour);
+    if (!playerAId) {
+      const candidateA = findPlayerCandidatesByName(item.playerAName || names.playerAName, records);
+      if (candidateA && candidateA.id) playerAId = candidateA.id;
+    }
+    if (!playerBId) {
+      const candidateB = findPlayerCandidatesByName(item.playerBName || names.playerBName, records);
+      if (candidateB && candidateB.id) playerBId = candidateB.id;
+    }
+
+    return {
+      playerAId: playerAId || "",
+      playerBId: playerBId || "",
+      source: "resolved from history pool"
+    };
+  }
+
+  async function fetchSettlementRecordFromEventSummary(item, names) {
+    const eventId = item.eventId || item.competitionId || "";
+    if (!eventId) {
+      return {
+        record: null,
+        debug: {
+          reason: "no saved event id on tracker item",
+          checks: []
+        }
+      };
+    }
+
+    const payload = await fetchTennisSummaryByEvent(item.tour, eventId);
+    const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
+      return record.status &&
+        record.status.completed &&
+        Number.isFinite(record.totalGames) &&
+        Number.isFinite(record.set1Total);
+    });
+
+    const summary = summarizeSettlementProbe(records, names);
+    const exact = records.filter(function (record) {
+      return sameTrackerMatchRecord(record, names.playerAName, names.playerBName);
+    });
+    const fuzzy = records.filter(function (record) {
+      return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
+    });
+    const picked = exact[0] || fuzzy[0] || null;
+
+    return {
+      record: picked,
+      debug: {
+        reason: picked ? "matched from saved event summary" : "saved event summary returned no completed matching record",
+        checks: [{
+          label: "event-summary",
+          query: "event=" + eventId,
+          records: summary.records,
+          exact: summary.exact,
+          fuzzy: summary.fuzzy,
+          relaxed: summary.relaxed,
+          sample: summary.sample
+        }]
+      }
+    };
+  }
+
+  async function fetchSettlementRecordFromPlayerHistory(item, names) {
+    const resolved = await resolveSettlementPlayerIds(item, names);
+    const checks = [{
+      label: "resolve-ids",
+      query: resolved.source,
+      records: 0,
+      exact: resolved.playerAId ? 1 : 0,
+      fuzzy: resolved.playerBId ? 1 : 0,
+      relaxed: 0,
+      sample: "A=" + (resolved.playerAId || "missing") + " B=" + (resolved.playerBId || "missing")
+    }];
+
+    if (!resolved.playerAId || !resolved.playerBId) {
+      return {
+        record: null,
+        debug: {
+          reason: "player-history fallback could not resolve both player ids",
+          checks: checks
+        }
+      };
+    }
+
+    const histA = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerAId, item.fixtureDate || item.savedAt);
+    const histB = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerBId, item.fixtureDate || item.savedAt);
+
+    const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
     const h2h = buildH2HSeries(
-      records,
-      item.playerAId || null,
-      item.playerBId || null,
+      allRecords,
+      resolved.playerAId,
+      resolved.playerBId,
       item.playerAName || names.playerAName,
       item.playerBName || names.playerBName
     );
 
-    const targetTs = item.savedAt ? Date.parse(item.savedAt) : NaN;
+    const targetTs = item.fixtureDate
+      ? Date.parse(item.fixtureDate)
+      : (item.savedAt ? Date.parse(item.savedAt) : NaN);
+
     const nearby = h2h.filter(function (record) {
       const ts = Date.parse(record.date || "");
       if (!Number.isFinite(ts) || !Number.isFinite(targetTs)) return true;
       return Math.abs(ts - targetTs) <= (14 * 86400000);
     });
 
-    const chosen = chooseBestHistorySettlementCandidate(nearby.length ? nearby : h2h, item.savedAt);
+    const chosen = chooseBestHistorySettlementCandidate(nearby.length ? nearby : h2h, item.fixtureDate || item.savedAt);
     const sample = (nearby.length ? nearby : h2h).slice(0, 5).map(function (record) {
       return (record.playerAName || "?") + " vs " + (record.playerBName || "?") +
         " @ " + (record.date || "?") +
@@ -4791,16 +4895,16 @@ body.dark-mode .tracker-analytics-section-head {
     return {
       record: chosen || null,
       debug: {
-        reason: chosen ? "matched from history pool fallback" : "history pool fallback found no H2H candidate",
-        checks: [{
-          label: "history",
-          query: "historyPool",
-          records: records.length,
+        reason: chosen ? "matched from player-history fallback" : "player-history fallback found no H2H candidate",
+        checks: checks.concat(histA.checks || [], histB.checks || [], [{
+          label: "player-history-h2h",
+          query: "merged-athlete-history",
+          records: allRecords.length,
           exact: h2h.length,
           fuzzy: nearby.length,
           relaxed: chosen ? 1 : 0,
           sample: sample
-        }]
+        }])
       }
     };
   }
@@ -4815,79 +4919,41 @@ body.dark-mode .tracker-analytics-section-head {
       return { record: null, debug: { reason: "unable to parse match names", checks: [] } };
     }
 
-    const dayQueries = buildSettlementDateQueries(item.savedAt);
-    const rangeQueries = buildSettlementRangeQueries(item.savedAt);
-    const seenQueries = new Set();
     const checks = [];
 
-    async function probeQuery(query, label) {
-      if (seenQueries.has(query)) return null;
-      seenQueries.add(query);
-
-      const payload = await fetchTennisScoreboard(item.tour, query);
-      const records = extractCompetitionRecords(payload).filter(function (record) {
-        return record.status &&
-          record.status.completed &&
-          Number.isFinite(record.totalGames) &&
-          Number.isFinite(record.set1Total);
-      });
-
-      const summary = summarizeSettlementProbe(records, names);
+    try {
+      const summaryProbe = await fetchSettlementRecordFromEventSummary(item, names);
+      if (summaryProbe && summaryProbe.debug && summaryProbe.debug.checks) {
+        checks.push.apply(checks, summaryProbe.debug.checks);
+      }
+      if (summaryProbe && summaryProbe.record) {
+        return {
+          record: summaryProbe.record,
+          debug: {
+            reason: summaryProbe.debug && summaryProbe.debug.reason ? summaryProbe.debug.reason : "matched from saved event summary",
+            checks: checks
+          }
+        };
+      }
+    } catch (summaryErr) {
       checks.push({
-        label: label,
-        query: query,
-        records: summary.records,
-        exact: summary.exact,
-        fuzzy: summary.fuzzy,
-        relaxed: summary.relaxed,
-        sample: summary.sample
+        label: "event-summary",
+        query: "event=" + (item.eventId || item.competitionId || "missing"),
+        records: 0,
+        exact: 0,
+        fuzzy: 0,
+        relaxed: 0,
+        sample: "summary error: " + (summaryErr && summaryErr.message ? summaryErr.message : String(summaryErr))
       });
-
-      const exact = records.filter(function (record) {
-        return sameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-      }).sort(function (a, b) {
-        return new Date(a.date) - new Date(b.date);
-      });
-      if (exact.length) return exact[0];
-
-      const fuzzy = records.filter(function (record) {
-        return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-      }).sort(function (a, b) {
-        return new Date(a.date) - new Date(b.date);
-      });
-      if (fuzzy.length) return fuzzy[0];
-
-      const relaxed = records.filter(function (record) {
-        return relaxedSameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-      }).sort(function (a, b) {
-        return new Date(a.date) - new Date(b.date);
-      });
-      if (relaxed.length === 1) return relaxed[0];
-
-      return null;
-    }
-
-    for (let i = 0; i < dayQueries.length; i += 1) {
-      const found = await probeQuery(dayQueries[i], "day");
-      if (found) {
-        return { record: found, debug: { reason: "matched from day query", checks: checks } };
-      }
-    }
-
-    for (let i = 0; i < rangeQueries.length; i += 1) {
-      const found = await probeQuery(rangeQueries[i], "range");
-      if (found) {
-        return { record: found, debug: { reason: "matched from range query", checks: checks } };
-      }
     }
 
     try {
-      const historyProbe = await fetchSettlementRecordFromHistoryPool(item, names);
+      const historyProbe = await fetchSettlementRecordFromPlayerHistory(item, names);
       if (historyProbe && historyProbe.record) {
         return {
           record: historyProbe.record,
           debug: {
-            reason: historyProbe.debug && historyProbe.debug.reason ? historyProbe.debug.reason : "matched from history pool fallback",
+            reason: historyProbe.debug && historyProbe.debug.reason ? historyProbe.debug.reason : "matched from player-history fallback",
             checks: checks.concat(historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
           }
         };
@@ -4897,7 +4963,7 @@ body.dark-mode .tracker-analytics-section-head {
         debug: {
           reason: historyProbe && historyProbe.debug && historyProbe.debug.reason
             ? historyProbe.debug.reason
-            : "no completed ESPN record matched tracked players",
+            : "no completed player-history record matched tracked players",
           checks: checks.concat(historyProbe && historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
         }
       };
@@ -4905,7 +4971,7 @@ body.dark-mode .tracker-analytics-section-head {
       return {
         record: null,
         debug: {
-          reason: "no completed ESPN record matched tracked players; history fallback failed: " + (historyErr && historyErr.message ? historyErr.message : String(historyErr)),
+          reason: "player-history settlement failed: " + (historyErr && historyErr.message ? historyErr.message : String(historyErr)),
           checks: checks
         }
       };
@@ -5040,6 +5106,9 @@ body.dark-mode .tracker-analytics-section-head {
           playerBName: bundle.playerBName,
           playerAId: bundle.playerAId || "",
           playerBId: bundle.playerBId || "",
+          competitionId: bundle.competitionId || "",
+          eventId: bundle.eventId || "",
+          fixtureDate: bundle.fixtureDate || "",
           tournamentName: bundle.context && bundle.context.tournamentName || "",
           eventLevel: bundle.context && bundle.context.eventLevel || "",
           roundName: bundle.context && bundle.context.roundName || "",
@@ -5463,6 +5532,218 @@ body.dark-mode .tracker-analytics-section-head {
       }
     }
     throw lastErr || new Error("Unable to load ESPN tennis scoreboard data.");
+  }
+
+  async function fetchTennisSummaryByEvent(league, eventId) {
+    if (!eventId) throw new Error("Missing event id");
+    const urls = getTennisBaseCandidates(league).map(function (base) {
+      return base + "/summary?region=us&lang=en&contentorigin=espn&event=" + encodeURIComponent(eventId);
+    });
+
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        const payload = await proxyFetch(url, 18000);
+        if (payload) return payload;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error("Unable to load ESPN tennis summary data.");
+  }
+
+  function extractCompetitionRecordsDeep(payload) {
+    const records = [];
+    const seenNodes = new Set();
+
+    function wrapEvent(node, fallbackParent) {
+      return {
+        id: String((node && node.id) || (fallbackParent && fallbackParent.id) || ""),
+        date: String((node && (node.date || node.startDate)) || (fallbackParent && fallbackParent.date) || "").trim(),
+        shortName: String((node && (node.shortName || node.name)) || (fallbackParent && (fallbackParent.shortName || fallbackParent.name)) || "").trim(),
+        name: String((node && (node.name || node.shortName)) || (fallbackParent && (fallbackParent.name || fallbackParent.shortName)) || "").trim(),
+        grouping: (node && node.grouping) || (fallbackParent && fallbackParent.grouping) || null,
+        surface: (node && node.surface) || (fallbackParent && fallbackParent.surface) || null,
+        venue: (node && node.venue) || (fallbackParent && fallbackParent.venue) || null
+      };
+    }
+
+    function walk(node, parentEvent) {
+      if (!node || typeof node !== "object") return;
+      if (seenNodes.has(node)) return;
+      seenNodes.add(node);
+
+      if (Array.isArray(node.events)) {
+        node.events.forEach(function (eventObj) {
+          walk(eventObj, wrapEvent(eventObj, parentEvent));
+        });
+      }
+
+      if (Array.isArray(node.competitions)) {
+        const ev = wrapEvent(node, parentEvent);
+        node.competitions.forEach(function (comp) {
+          const record = buildCompetitionRecord(comp, ev);
+          if (record) records.push(record);
+          walk(comp, ev);
+        });
+      }
+
+      if (Array.isArray(node.items)) {
+        node.items.forEach(function (item) {
+          walk(item, parentEvent);
+        });
+      }
+
+      Object.keys(node).forEach(function (key) {
+        const value = node[key];
+        if (Array.isArray(value)) {
+          value.forEach(function (entry) {
+            walk(entry, parentEvent);
+          });
+        } else if (value && typeof value === "object" && key !== "events" && key !== "competitions" && key !== "items") {
+          walk(value, parentEvent);
+        }
+      });
+    }
+
+    walk(payload, null);
+    return dedupeRecords(records);
+  }
+
+  function getSeasonYearsForSettlement(savedAtIso) {
+    const nowYear = new Date().getFullYear();
+    const savedYear = savedAtIso ? new Date(savedAtIso).getFullYear() : nowYear;
+    return Array.from(new Set([savedYear, nowYear, nowYear - 1, savedYear - 1].filter(function (year) {
+      return Number.isFinite(year) && year >= 2018;
+    })));
+  }
+
+  async function fetchAthleteHistoryPayload(url) {
+    const payload = await proxyFetch(url, 18000);
+    const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
+      return record.status &&
+        record.status.completed &&
+        Number.isFinite(record.totalGames) &&
+        Number.isFinite(record.set1Total);
+    });
+    return { payload: payload, records: records };
+  }
+
+  async function resolveAthletePageCompetitionRecords(league, athleteId, year) {
+    const slug = String(league || "").trim().toLowerCase();
+    const athleteUrls = [
+      "https://sports.core.api.espn.com/v2/sports/tennis/leagues/all/seasons/" + year + "/athletes/" + athleteId,
+      "https://sports.core.api.espn.com/v2/sports/tennis/leagues/" + slug + "/seasons/" + year + "/athletes/" + athleteId
+    ];
+
+    const refKeys = ["competitions", "events", "results", "gamelog", "eventLog", "statisticslog"];
+    let lastErr = null;
+
+    for (let i = 0; i < athleteUrls.length; i += 1) {
+      try {
+        const athletePayload = await proxyFetch(athleteUrls[i], 18000);
+        const urls = [];
+        refKeys.forEach(function (key) {
+          const value = athletePayload && athletePayload[key];
+          if (!value) return;
+          if (typeof value === "string" && /^https?:/i.test(value)) urls.push(value);
+          if (value && typeof value === "object" && typeof value.$ref === "string") urls.push(value.$ref);
+        });
+
+        for (let j = 0; j < urls.length; j += 1) {
+          try {
+            const collectionPayload = await proxyFetch(urls[j], 18000);
+            const directRecords = extractCompetitionRecordsDeep(collectionPayload).filter(function (record) {
+              return record.status &&
+                record.status.completed &&
+                Number.isFinite(record.totalGames) &&
+                Number.isFinite(record.set1Total);
+            });
+            if (directRecords.length) {
+              return {
+                records: directRecords,
+                source: "athlete-core-ref",
+                query: urls[j]
+              };
+            }
+          } catch (innerErr) {
+            lastErr = innerErr;
+          }
+        }
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+
+    if (lastErr) throw lastErr;
+    return { records: [], source: "athlete-core-ref", query: "" };
+  }
+
+  async function fetchPlayerHistorySettlementRecords(league, athleteId, savedAtIso) {
+    const slug = String(league || "").trim().toLowerCase();
+    const years = getSeasonYearsForSettlement(savedAtIso);
+    const checks = [];
+    const all = [];
+
+    for (let i = 0; i < years.length; i += 1) {
+      const year = years[i];
+      const urls = [
+        "https://site.web.api.espn.com/apis/common/v3/sports/tennis/" + slug + "/athletes/" + athleteId + "/results?year=" + year,
+        "https://site.api.espn.com/apis/common/v3/sports/tennis/" + slug + "/athletes/" + athleteId + "/results?year=" + year,
+        "https://site.web.api.espn.com/apis/common/v3/sports/tennis/" + slug + "/athletes/" + athleteId + "/gamelog?year=" + year,
+        "https://site.api.espn.com/apis/common/v3/sports/tennis/" + slug + "/athletes/" + athleteId + "/gamelog?year=" + year
+      ];
+
+      let gotThisYear = false;
+      for (let j = 0; j < urls.length; j += 1) {
+        try {
+          const parsed = await fetchAthleteHistoryPayload(urls[j]);
+          checks.push({
+            label: "athlete-history",
+            query: "athlete=" + athleteId + " year=" + year + " " + urls[j],
+            records: parsed.records.length,
+            exact: 0,
+            fuzzy: 0,
+            relaxed: 0,
+            sample: parsed.records.slice(0, 5).map(function (record) {
+              return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
+            }).join(" | ")
+          });
+          if (parsed.records.length) {
+            all.push.apply(all, parsed.records);
+            gotThisYear = true;
+            break;
+          }
+        } catch (err) {
+        }
+      }
+
+      if (!gotThisYear) {
+        try {
+          const coreParsed = await resolveAthletePageCompetitionRecords(league, athleteId, year);
+          checks.push({
+            label: "athlete-core-ref",
+            query: "athlete=" + athleteId + " year=" + year + " " + (coreParsed.query || "core-ref"),
+            records: coreParsed.records.length,
+            exact: 0,
+            fuzzy: 0,
+            relaxed: 0,
+            sample: coreParsed.records.slice(0, 5).map(function (record) {
+              return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
+            }).join(" | ")
+          });
+          if (coreParsed.records.length) {
+            all.push.apply(all, coreParsed.records);
+          }
+        } catch (err) {
+        }
+      }
+    }
+
+    return {
+      records: dedupeRecords(all),
+      checks: checks
+    };
   }
 
   function isSinglesLabel(text) {
@@ -6165,6 +6446,9 @@ body.dark-mode .tracker-analytics-section-head {
       latestFetchedContext = {
         matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
         tour: league,
+        competitionId: selectedFixtureRecord && selectedFixtureRecord.competitionId ? selectedFixtureRecord.competitionId : "",
+        eventId: selectedFixtureRecord && selectedFixtureRecord.eventId ? selectedFixtureRecord.eventId : "",
+        fixtureDate: selectedFixtureRecord && selectedFixtureRecord.date ? selectedFixtureRecord.date : "",
         tournamentName: tournamentName || "",
         eventLevel: eventLevel || "",
         roundName: roundName || "",
