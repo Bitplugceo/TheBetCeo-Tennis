@@ -2964,6 +2964,19 @@ body.dark-mode .tracker-analytics-section-head {
     });
   }
 
+  function forceStartupCollapsedLayout() {
+    const openIds = new Set(["marketSection"]);
+    document.querySelectorAll(".section").forEach(function (section) {
+      if (!section || !section.id) return;
+      if (openIds.has(section.id)) {
+        section.classList.remove("collapsed");
+      } else {
+        section.classList.add("collapsed");
+      }
+      syncSectionBodyDisplay(section);
+    });
+  }
+
   function accordionToggle(id) {
     const target = qs(id);
     if (!target || target.classList.contains("locked")) return;
@@ -4123,13 +4136,7 @@ body.dark-mode .tracker-analytics-section-head {
 
     collapseAll();
     updateSectionLocks();
-    openSection("marketSection");
-    closeSection("leagueSection");
-    closeSection("espnSection");
-    closeSection("teamASection");
-    closeSection("teamBSection");
-    closeSection("h2hSection");
-    closeSection("intelSection");
+    forceStartupCollapsedLayout();
     document.querySelectorAll(".section").forEach(syncSectionBodyDisplay);
     hideResults();
 
@@ -4151,29 +4158,34 @@ body.dark-mode .tracker-analytics-section-head {
   function clearAll() {
     g_clearDebug.lastAction = "clearAll";
     g_clearDebug.lastError = "";
-    try {
-      sessionStorage.setItem(HARD_RESET_FLAG_KEY, "1");
-      g_clearDebug.lastFlagWrite = new Date().toISOString();
-    } catch (err) {
-      g_clearDebug.lastError = "sessionStorage flag failed: " + (err && err.message ? err.message : String(err));
-    }
+    g_clearDebug.lastFlagWrite = new Date().toISOString();
 
     applyHardResetState();
 
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set("_clearReset", String(Date.now()));
-      window.location.replace(url.toString());
-      return;
-    } catch (err) {
-      g_clearDebug.lastError = "location.replace failed: " + (err && err.message ? err.message : String(err));
+    function finalizeClear(passLabel) {
+      forceStartupCollapsedLayout();
+      const snap = getClearDebugSnapshot();
+      g_clearDebug.lastAction = "clearAll:" + passLabel;
+      g_clearDebug.lastApplyAt = new Date().toISOString();
+      g_clearDebug.lastNonEmptyFields = snap.nonEmpty;
+      g_clearDebug.lastCollapsedMap = snap.collapsedMap;
+      renderClearDebug();
     }
 
     try {
-      window.location.reload();
+      requestAnimationFrame(function () {
+        finalizeClear("raf");
+        setTimeout(function () {
+          finalizeClear("t60");
+          try {
+            window.scrollTo(0, 0);
+          } catch (err) {
+          }
+        }, 60);
+      });
     } catch (err) {
-      g_clearDebug.lastError = "reload failed: " + (err && err.message ? err.message : String(err));
-      renderClearDebug();
+      g_clearDebug.lastError = "finalize clear failed: " + (err && err.message ? err.message : String(err));
+      finalizeClear("fallback");
     }
   }
 
@@ -5925,13 +5937,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     collapseAll();
     updateSectionLocks();
-    openSection("marketSection");
-    closeSection("leagueSection");
-    closeSection("espnSection");
-    closeSection("teamASection");
-    closeSection("teamBSection");
-    closeSection("h2hSection");
-    closeSection("intelSection");
+    forceStartupCollapsedLayout();
     document.querySelectorAll(".section").forEach(syncSectionBodyDisplay);
 
     hideResults();
@@ -6083,6 +6089,12 @@ document.addEventListener("DOMContentLoaded", function () {
         if (sessionStorage.getItem(HARD_RESET_FLAG_KEY) === "1") {
           sessionStorage.removeItem(HARD_RESET_FLAG_KEY);
           applyHardResetState();
+          forceStartupCollapsedLayout();
+          const snap = getClearDebugSnapshot();
+          g_clearDebug.lastAction = "pageshow-reset";
+          g_clearDebug.lastApplyAt = new Date().toISOString();
+          g_clearDebug.lastNonEmptyFields = snap.nonEmpty;
+          g_clearDebug.lastCollapsedMap = snap.collapsedMap;
         }
       } catch (err) {
         g_clearDebug.lastError = "pageshow reset failed: " + (err && err.message ? err.message : String(err));
@@ -6094,6 +6106,12 @@ document.addEventListener("DOMContentLoaded", function () {
       if (sessionStorage.getItem(HARD_RESET_FLAG_KEY) === "1") {
         sessionStorage.removeItem(HARD_RESET_FLAG_KEY);
         applyHardResetState();
+        forceStartupCollapsedLayout();
+        const snap = getClearDebugSnapshot();
+        g_clearDebug.lastAction = "init-reset";
+        g_clearDebug.lastApplyAt = new Date().toISOString();
+        g_clearDebug.lastNonEmptyFields = snap.nonEmpty;
+        g_clearDebug.lastCollapsedMap = snap.collapsedMap;
       }
     } catch (err) {
       g_clearDebug.lastError = "init reset failed: " + (err && err.message ? err.message : String(err));
