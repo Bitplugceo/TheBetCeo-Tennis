@@ -3794,7 +3794,8 @@ body.dark-mode .tracker-analytics-section-head {
       const shownMid = result && result.lineRange ? result.lineRange.mid : null;
       const shownProjection = fmt(result.projection);
       const isNoPlay = result.pick === "PASS" || result.confidence === "PASS";
-      const shownEdge = isNoPlay ? "—" : ((result.edge > 0 ? "+" : "") + fmt(result.edge));
+      const hasNumericEdge = Number.isFinite(result.edge);
+      const shownEdge = hasNumericEdge ? ((result.edge > 0 ? "+" : "") + fmt(result.edge)) : "—";
       const predictionText = getPredictionText(result);
       const isLock = idx === lockIdx && !isNoPlay;
       const gradeText = isNoPlay ? "—" : result.confidence;
@@ -3945,12 +3946,16 @@ body.dark-mode .tracker-analytics-section-head {
 
   function clearAll() {
     latestRunBundle = null;
+    latestFetchedContext = null;
+    fixtureLoadToken += 1;
+
     document.querySelectorAll("input, select").forEach(function (el) {
       if (el.type === "checkbox") {
         el.checked = el.id === "useFTH2H" || el.id === "use1HH2H";
       } else if (el.tagName === "SELECT") {
         if (el.id === "fixtureSelect") {
           el.innerHTML = '<option value="">- Select match -</option>';
+          el.value = "";
         } else {
           el.selectedIndex = 0;
         }
@@ -3963,9 +3968,33 @@ body.dark-mode .tracker-analytics-section-head {
     selectedPlayerIds.B = null;
     fixtureRecordMap.clear();
     historyPoolCache.clear();
+    currentFixtureOffset = 0;
+
+    const todayBtn = qs("fixturesTodayBtn");
+    const tomorrowBtn = qs("fixturesTomorrowBtn");
+    if (todayBtn) todayBtn.classList.add("active");
+    if (tomorrowBtn) tomorrowBtn.classList.remove("active");
+
     clearFetchedAutofill();
     clearHeaderError();
     setFetchStatus("Select ATP or WTA, choose a match or type both player names, then fetch stats.", "");
+    setFetchNotes("", "");
+    closeDrops();
+    collapseAll();
+    openSection("marketSection");
+    closeSection("leagueSection");
+    closeSection("espnSection");
+    closeSection("teamASection");
+    closeSection("teamBSection");
+    closeSection("h2hSection");
+    closeSection("intelSection");
+    hideResults();
+
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      window.scrollTo(0, 0);
+    }
   }
 
 
