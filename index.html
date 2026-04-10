@@ -3026,7 +3026,9 @@ body.dark-mode .tracker-analytics-section-head {
 
     let diagnosis = g_trackerDebug.lastSaveDiagnosis || "No tracker save attempt yet.";
 
-    if (g_trackerDebug.lastEngineError) {
+    if (g_trackerDebug.lastSettlementSummary && g_trackerDebug.lastSettlementSummary.indexOf("probed") !== -1) {
+      diagnosis = "Settlement probe finished. Use the settlement rows below to see whether scoreboard search failed or history-pool fallback found the completed match.";
+    } else if (g_trackerDebug.lastEngineError) {
       diagnosis = "Engine error blocked saving: " + g_trackerDebug.lastEngineError;
     } else if (g_trackerDebug.lastGeneratedEntries === 0) {
       diagnosis = "No actionable picks were generated, so nothing was saved. This happens when rows end as PASS / NO PLAY, even if the raw projection leans one side.";
@@ -3770,6 +3772,8 @@ body.dark-mode .tracker-analytics-section-head {
       tour: tour,
       playerAName: playerAName,
       playerBName: playerBName,
+      playerAId: selectedPlayerIds.A || "",
+      playerBId: selectedPlayerIds.B || "",
       context: ctx,
       matchResult: matchResult,
       set1Result: set1Result
@@ -4242,7 +4246,12 @@ body.dark-mode .tracker-analytics-section-head {
       actualTotal: null,
       settledAt: null,
       archived: false,
-      archivedAt: null
+      archivedAt: null,
+      playerAId: "",
+      playerBId: "",
+      tournamentName: "",
+      eventLevel: "",
+      roundName: ""
     }, base);
   }
 
@@ -4738,6 +4747,64 @@ body.dark-mode .tracker-analytics-section-head {
     };
   }
 
+  function chooseBestHistorySettlementCandidate(candidates, savedAtIso) {
+    if (!Array.isArray(candidates) || !candidates.length) return null;
+    const savedTs = savedAtIso ? Date.parse(savedAtIso) : NaN;
+
+    return candidates
+      .map(function (record) {
+        const ts = Date.parse(record.date || "");
+        const diff = Number.isFinite(savedTs) && Number.isFinite(ts) ? Math.abs(ts - savedTs) : Number.MAX_SAFE_INTEGER;
+        return { record: record, diff: diff, ts: ts };
+      })
+      .sort(function (a, b) {
+        if (a.diff !== b.diff) return a.diff - b.diff;
+        return (b.ts || 0) - (a.ts || 0);
+      })[0].record;
+  }
+
+  async function fetchSettlementRecordFromHistoryPool(item, names) {
+    const records = await fetchHistoryPool(item.tour);
+    const h2h = buildH2HSeries(
+      records,
+      item.playerAId || null,
+      item.playerBId || null,
+      item.playerAName || names.playerAName,
+      item.playerBName || names.playerBName
+    );
+
+    const targetTs = item.savedAt ? Date.parse(item.savedAt) : NaN;
+    const nearby = h2h.filter(function (record) {
+      const ts = Date.parse(record.date || "");
+      if (!Number.isFinite(ts) || !Number.isFinite(targetTs)) return true;
+      return Math.abs(ts - targetTs) <= (14 * 86400000);
+    });
+
+    const chosen = chooseBestHistorySettlementCandidate(nearby.length ? nearby : h2h, item.savedAt);
+    const sample = (nearby.length ? nearby : h2h).slice(0, 5).map(function (record) {
+      return (record.playerAName || "?") + " vs " + (record.playerBName || "?") +
+        " @ " + (record.date || "?") +
+        " total=" + (Number.isFinite(record.totalGames) ? record.totalGames : "?") +
+        " set1=" + (Number.isFinite(record.set1Total) ? record.set1Total : "?");
+    }).join(" | ");
+
+    return {
+      record: chosen || null,
+      debug: {
+        reason: chosen ? "matched from history pool fallback" : "history pool fallback found no H2H candidate",
+        checks: [{
+          label: "history",
+          query: "historyPool",
+          records: records.length,
+          exact: h2h.length,
+          fuzzy: nearby.length,
+          relaxed: chosen ? 1 : 0,
+          sample: sample
+        }]
+      }
+    };
+  }
+
   async function fetchSettlementRecordForItem(item) {
     if (!item || !item.tour || !item.match) {
       return { record: null, debug: { reason: "missing item fields", checks: [] } };
@@ -4814,13 +4881,35 @@ body.dark-mode .tracker-analytics-section-head {
       }
     }
 
-    return {
-      record: null,
-      debug: {
-        reason: "no completed ESPN record matched tracked players",
-        checks: checks
+    try {
+      const historyProbe = await fetchSettlementRecordFromHistoryPool(item, names);
+      if (historyProbe && historyProbe.record) {
+        return {
+          record: historyProbe.record,
+          debug: {
+            reason: historyProbe.debug && historyProbe.debug.reason ? historyProbe.debug.reason : "matched from history pool fallback",
+            checks: checks.concat(historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
+          }
+        };
       }
-    };
+      return {
+        record: null,
+        debug: {
+          reason: historyProbe && historyProbe.debug && historyProbe.debug.reason
+            ? historyProbe.debug.reason
+            : "no completed ESPN record matched tracked players",
+          checks: checks.concat(historyProbe && historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
+        }
+      };
+    } catch (historyErr) {
+      return {
+        record: null,
+        debug: {
+          reason: "no completed ESPN record matched tracked players; history fallback failed: " + (historyErr && historyErr.message ? historyErr.message : String(historyErr)),
+          checks: checks
+        }
+      };
+    }
   }
 
   function settleTrackerItemFromRecord(item, record) {
@@ -4949,6 +5038,11 @@ body.dark-mode .tracker-analytics-section-head {
           match: bundle.playerAName + " vs " + bundle.playerBName,
           playerAName: bundle.playerAName,
           playerBName: bundle.playerBName,
+          playerAId: bundle.playerAId || "",
+          playerBId: bundle.playerBId || "",
+          tournamentName: bundle.context && bundle.context.tournamentName || "",
+          eventLevel: bundle.context && bundle.context.eventLevel || "",
+          roundName: bundle.context && bundle.context.roundName || "",
           tour: bundle.tour,
           market: result.market,
           line: fmtCompact(getShownLineForResult(result)),
