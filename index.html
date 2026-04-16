@@ -5102,7 +5102,6 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
     }, 30000);
 
     try {
-      await hydrateTrackerState(false);
       const items = getTrackerItems();
       g_trackerDebug.lastSettlementDetails = [];
       
