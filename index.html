@@ -5433,17 +5433,17 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
       return 0;
     }
 
-    const items = getTrackerItems();
+    // 🔥 DIRECT LOCAL STORAGE SAVE – NO CLOUD INTERFERENCE
+    const currentState = loadTrackerStateFromLocal();
+    const items = currentState.items.slice();
 
     entries.reverse().forEach(function (entry) {
       const duplicate = items.some(i =>
         i.match === entry.match &&
         i.market === entry.market &&
         i.line === entry.line &&
-        i.pick === entry.pick &&
-        i.eventId === entry.eventId
+        i.pick === entry.pick
       );
-
       if (!duplicate) {
         items.unshift(entry);
         g_trackerDebug.lastInsertedEntries += 1;
@@ -5462,21 +5462,25 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
       return 0;
     }
 
-    // ✅ Save to local storage FIRST, before any cloud sync
-    const updatedState = { items: items, updatedAt: new Date().toISOString() };
-    g_trackerState = updatedState;
-    localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(updatedState));
-    localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(updatedState)));
+    // Build new state
+    const newState = {
+      items: items,
+      updatedAt: new Date().toISOString()
+    };
 
-    // Update UI immediately
+    // Save directly to localStorage – no cloud sync at all
+    localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(newState));
+    localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(newState)));
+
+    // Update global state and UI
+    g_trackerState = newState;
     updateTrackerUI();
     renderTrackerDebug();
 
-    // Then queue the cloud sync in the background (won't overwrite local)
-    queueTrackerSync(updatedState);
-
     latestRunBundle._trackerSaved = true;
     g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
+
+    // Run settlement (still needs cloud for actual results, but save is already done)
     autoSettleTracker(true);
 
     return g_trackerDebug.lastInsertedEntries;
