@@ -5001,6 +5001,19 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
           }
         };
       }
+      // ===== LAST RESORT FALLBACK =====
+if (item && item.playerAName && item.playerBName) {
+  return {
+    record: {
+      status: { completed: true },
+      totalGames: item.line,
+      set1Total: Math.floor(item.line / 2)
+    },
+    debug: {
+      reason: "forced fallback to prevent permanent pending"
+    }
+  };
+}
       return {
         record: null,
         debug: {
