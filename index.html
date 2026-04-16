@@ -4813,6 +4813,7 @@ body.dark-mode .tracker-analytics-section-head {
 
 const leagueSlug = String(item.tour || "").toLowerCase();
 const payload = await fetchTennisSummaryByEvent(leagueSlug, eventId);
+console.log(`[Settlement] Event summary for ${eventId}:`, payload);
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
   record.status.completed &&
@@ -5040,15 +5041,6 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
         debug: {
           reason: "no completed match record found in ESPN",
           checks: checks
-        }
-      };
-      return {
-        record: null,
-        debug: {
-          reason: historyProbe && historyProbe.debug && historyProbe.debug.reason
-            ? historyProbe.debug.reason
-            : "no completed player-history record matched tracked players",
-          checks: checks.concat(historyProbe && historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
         }
       };
     } catch (historyErr) {
@@ -5772,13 +5764,10 @@ return base + "/events/" + encodeURIComponent(eventId) + "/summary";
 
   async function fetchAthleteHistoryPayload(url) {
     const payload = await proxyFetch(url, 18000);
-console.log(`[Settlement] Event summary for ${eventId}:`, payload);
-console.log(`[Settlement] Event summary for ${eventId}:`, payload);
-const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
+    const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
-        Number.isFinite(record.totalGames) ||
-Number.isFinite(record.set1Total)
+        (Number.isFinite(record.totalGames) || Number.isFinite(record.set1Total));
     });
     return { payload: payload, records: records };
   }
