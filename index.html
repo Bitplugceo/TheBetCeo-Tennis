@@ -4506,9 +4506,27 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function queueTrackerSync(stateSnapshot) {
-  // Cloud sync temporarily disabled to prevent new picks from being overwritten.
-  // The worker is still available, but we no longer push local changes automatically.
-  return Promise.resolve(stateSnapshot);
+  const snapshot = normalizeTrackerState(stateSnapshot);
+  g_trackerSyncPromise = g_trackerSyncPromise.then(async function () {
+    g_trackerDebug.lastSyncStartAt = new Date().toISOString();
+    g_trackerDebug.lastSyncStatus = "running";
+    g_trackerDebug.lastSyncError = "";
+    try {
+      const merged = await pushTrackerStateToServer(snapshot);
+      saveTrackerStateToLocal(merged);
+      g_trackerDebug.lastSyncEndAt = new Date().toISOString();
+      g_trackerDebug.lastSyncStatus = "ok";
+      renderTrackerDebug();
+      return merged;
+    } catch (err) {
+      g_trackerDebug.lastSyncEndAt = new Date().toISOString();
+      g_trackerDebug.lastSyncStatus = "error";
+      g_trackerDebug.lastSyncError = err && err.message ? err.message : String(err);
+      renderTrackerDebug();
+      return snapshot;
+    }
+  });
+  return g_trackerSyncPromise;
 }
 
   async function hydrateTrackerState(force) {
@@ -5463,7 +5481,13 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
       updatedAt: new Date().toISOString()
     };
 
-    // Save directly to localStorage – no cloud sync at all
+   // Build new state
+    const newState = {
+      items: items,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Save directly to localStorage FIRST
     localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(newState));
     localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(newState)));
 
@@ -5472,39 +5496,16 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
     updateTrackerUI();
     renderTrackerDebug();
 
-    latestRunBundle._trackerSaved = true;
-    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
+    // NOW sync to cloud in the background (improved merge logic prevents overwrites)
+    queueTrackerSync(newState);
 
-    // Run settlement (still needs cloud for actual results, but save is already done)
+    latestRunBundle._trackerSaved = true;
+    g_trackerDebug.lastSaveDiagnosis = "Saved and synced " + g_trackerDebug.lastInsertedEntries + " pick(s).";
+
+    // Run settlement
     autoSettleTracker(true);
 
     return g_trackerDebug.lastInsertedEntries;
-  }
-
-  function isTrackerModalOpen() {
-    const modal = qs("trackerModal");
-    return !!(modal && modal.classList.contains("open"));
-  }
-
-  async function refreshTrackerNow(isSilent) {
-    if (g_trackerRefreshPromise) return g_trackerRefreshPromise;
-
-    g_trackerDebug.lastSettlementSummary = "Running settlement...";
-    renderTrackerDebug();
-    updateTrackerUI();
-
-    g_trackerRefreshPromise = (async function () {
-      try {
-        await autoSettleTracker(!!isSilent);
-      } finally {
-        g_trackerRefreshPromise = null;
-        updateTrackerUI();
-        renderTrackerDebug();
-      }
-    })();
-
-    return g_trackerRefreshPromise;
-  }
 
   function setTrackerView(mode) {
     const trackerModal = qs("trackerModal");
@@ -6845,11 +6846,11 @@ document.addEventListener("DOMContentLoaded", function () {
       g_clearDebug.lastError = "init reset failed: " + (err && err.message ? err.message : String(err));
     }
 
-    updateTrackerUI();
-    renderTrackerDebug();
-    updateTrackerUI();
-    renderTrackerDebug();
-    autoSettleTracker(true);
+hydrateTrackerState(true).then(function () {
+      updateTrackerUI();
+      renderTrackerDebug();
+      autoSettleTracker(true);
+    });
     setTrackerView("list");
   });
 })();
