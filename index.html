@@ -5515,8 +5515,26 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
         renderTrackerDebug();
       }
     })();
+   return g_trackerDebug.lastInsertedEntries;
+  }
+async function refreshTrackerNow(isSilent) {
+    if (g_trackerRefreshPromise) return g_trackerRefreshPromise;
+    g_trackerDebug.lastSettlementSummary = "Running settlement...";
+    renderTrackerDebug();
+    updateTrackerUI();
+    g_trackerRefreshPromise = (async function () {
+      try {
+        await autoSettleTracker(!!isSilent);
+      } finally {
+        g_trackerRefreshPromise = null;
+        updateTrackerUI();
+        renderTrackerDebug();
+      }
+    })();
     return g_trackerRefreshPromise;
   }
+
+  function setTrackerView(mode) {
   function setTrackerView(mode) {
     const trackerModal = qs("trackerModal");
     const panel = trackerModal ? trackerModal.querySelector(".tracker-panel") : null;
