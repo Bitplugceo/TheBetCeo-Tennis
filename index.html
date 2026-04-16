@@ -5463,7 +5463,10 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
     }
 
     g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
-    saveTrackerItems(items);
+// Save locally first, then sync in background without waiting
+saveTrackerStateToLocal({ items, updatedAt: new Date().toISOString() });
+updateTrackerUI();
+queueTrackerSync(g_trackerState);
     latestRunBundle._trackerSaved = true;
     updateTrackerUI();
     renderTrackerDebug();
