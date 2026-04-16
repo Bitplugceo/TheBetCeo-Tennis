@@ -4811,7 +4811,9 @@ body.dark-mode .tracker-analytics-section-head {
       };
     }
 
-    const payload = await fetchTennisSummaryByEvent(item.tour, eventId);
+const leagueSlug = String(item.tour || "").toLowerCase();
+const payload = await fetchTennisSummaryByEvent(leagueSlug, eventId);
+console.log(`[Settlement] Event summary for ${eventId}:`, payload);
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
   record.status.completed &&
@@ -4889,6 +4891,7 @@ if (!combinedRecords.length) {
     }
   };
 }
+    console.log(`[Settlement] Player history records: A=${histA.records?.length || 0}, B=${histB.records?.length || 0}`);
     const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
     const h2h = buildH2HSeries(
       allRecords,
@@ -5032,26 +5035,12 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
           }
         };
       }
-      // ===== LAST RESORT FALLBACK =====
-if (item && item.playerAName && item.playerBName) {
-  return {
-    record: {
-      status: { completed: true },
-      totalGames: item.line,
-      set1Total: Math.floor(item.line / 2)
-    },
-    debug: {
-      reason: "forced fallback to prevent permanent pending"
-    }
-  };
-}
+     // No real record found – keep as PENDING
       return {
         record: null,
         debug: {
-          reason: historyProbe && historyProbe.debug && historyProbe.debug.reason
-            ? historyProbe.debug.reason
-            : "no completed player-history record matched tracked players",
-          checks: checks.concat(historyProbe && historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
+          reason: "no completed match record found in ESPN",
+          checks: checks
         }
       };
     } catch (historyErr) {
@@ -5069,122 +5058,139 @@ if (item && item.playerAName && item.playerBName) {
     if (!item || !record) return item;
 
     const actualRaw = item.market === "Set 1 Total Games"
-  ? record.set1Total
-  : record.totalGames;
+      ? record.set1Total
+      : record.totalGames;
 
-const actual = Number(actualRaw);
+    const actual = Number(actualRaw);
 
-if (!Number.isFinite(actualValue)) {
-  item.debugFail = "No usable score";
-  return item;
-}
+    if (!Number.isFinite(actual)) {
+      console.warn('[Tracker] settlement failed: invalid actual', actualRaw);
+      item.debugFail = "No usable score";
+      return item;
+    }
 
     const line = Number(item.line);
     let status = "PENDING";
 
-    if (actualValue > line) {
+    if (actual > line) {
       status = item.rawPick === "OVER" ? "WIN" : "LOSS";
-    } else if (actualValue < line) {
+    } else if (actual < line) {
       status = item.rawPick === "UNDER" ? "WIN" : "LOSS";
     } else {
       status = "PUSH";
     }
 
+    console.log(`[Tracker] settled ${item.match} ${item.market} actual=${actual} line=${line} -> ${status}`);
+
     return Object.assign({}, item, {
       status: status,
       settledAt: new Date().toISOString(),
-      actualTotal: round2(actualValue)
+      actualTotal: round2(actual)
     });
   }
 
   async function autoSettleTracker(isSilent) {
     g_trackerDebug.lastSettlementSummary = "Running settlement...";
     renderTrackerDebug();
-    await hydrateTrackerState(false);
-    const items = getTrackerItems();
-    g_trackerDebug.lastSettlementDetails = [];
-    if (!items.length) {
-      g_trackerDebug.lastSettlementSummary = "No tracked picks yet.";
-      renderTrackerDebug();
-      if (!isSilent) setRunStatus("No tracked picks yet.", "ok");
-      return;
-    }
 
-    const recordCache = new Map();
-    let settledCount = 0;
+    // Safety timer: if settlement takes longer than 30 seconds, mark as timed out
+    const timeoutId = setTimeout(() => {
+      if (g_trackerDebug.lastSettlementSummary === "Running settlement...") {
+        g_trackerDebug.lastSettlementSummary = "Settlement timed out (stuck)";
+        renderTrackerDebug();
+      }
+    }, 30000);
 
-    for (let i = 0; i < items.length; i += 1) {
-      const item = items[i];
-      if (item.status !== "PENDING") continue;
+    try {
+      await hydrateTrackerState(false);
+      const items = getTrackerItems();
+      g_trackerDebug.lastSettlementDetails = [];
+      
+      if (!items.length) {
+        g_trackerDebug.lastSettlementSummary = "No tracked picks yet.";
+        renderTrackerDebug();
+        if (!isSilent) setRunStatus("No tracked picks yet.", "ok");
+        return;
+      }
 
-const cacheKey = [
-  item.tour,
-  item.match,
-  item.market,
-  item.line,
-  item.eventId
-].join("|");
-      let probe = recordCache.get(cacheKey);
+      const recordCache = new Map();
+      let settledCount = 0;
 
-      if (probe === undefined) {
-        try {
-          
-        probe = await fetchSettlementRecordForItem(item);
-        if (!probe || !probe.record) {
-  console.log("settlement miss:", item.match, item.eventId, probe);
-}
-        } catch (err) {
-          probe = {
-            record: null,
-            debug: {
-              reason: err && err.message ? err.message : "settlement fetch failed",
-              checks: []
+      for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
+        if (item.status !== "PENDING") continue;
+
+        const cacheKey = [
+          item.tour,
+          item.match,
+          item.market,
+          item.line,
+          item.eventId
+        ].join("|");
+        
+        let probe = recordCache.get(cacheKey);
+        if (probe === undefined) {
+          try {
+            probe = await fetchSettlementRecordForItem(item);
+            if (!probe || !probe.record) {
+              console.log("[Tracker] settlement miss:", item.match, item.eventId, probe);
             }
-          };
+          } catch (err) {
+            console.error("[Tracker] fetchSettlementRecordForItem error:", err);
+            probe = {
+              record: null,
+              debug: { reason: err?.message || "settlement fetch failed", checks: [] }
+            };
+          }
+          recordCache.set(cacheKey, probe);
         }
-        recordCache.set(cacheKey, probe);
+
+        g_trackerDebug.lastSettlementDetails.push({
+          match: item.match,
+          market: item.market,
+          savedAt: item.savedAt || "",
+          archived: !!item.archived,
+          status: item.status,
+          reason: probe?.debug?.reason || "no debug",
+          checks: probe?.debug?.checks || []
+        });
+
+        if (probe && probe.record) {
+          const settledItem = settleTrackerItemFromRecord(item, probe.record);
+          if (settledItem.status !== item.status) settledCount += 1;
+          items[i] = settledItem;
+        }
       }
 
-      g_trackerDebug.lastSettlementDetails.push({
-        match: item.match,
-        market: item.market,
-        savedAt: item.savedAt || "",
-        archived: !!item.archived,
-        status: item.status,
-        reason: probe && probe.debug ? probe.debug.reason : "no debug",
-        checks: probe && probe.debug && Array.isArray(probe.debug.checks) ? probe.debug.checks : []
-      });
+      const archiveResult = archiveOldTrackerItems(items);
+      const finalItems = archiveResult.items;
+      const archivedPending = finalItems.filter(item => item.archived && item.status === "PENDING").length;
+      
+      g_trackerDebug.lastSettlementSummary =
+        `Settled ${settledCount} • archived pending ${archivedPending} • probed ${g_trackerDebug.lastSettlementDetails.length} pending item(s).`;
+      
+      saveTrackerItems(finalItems);
+      updateTrackerUI();
+      renderTrackerDebug();
 
-      if (probe && probe.record) {
-        const settledItem = settleTrackerItemFromRecord(item, probe.record);
-        if (settledItem.status !== item.status) settledCount += 1;
-        items[i] = settledItem;
+      if (!isSilent) {
+        if (settledCount) {
+          setRunStatus("Tracker updated automatically.", "ok");
+        } else if (archiveResult.changed && archivedPending) {
+          setRunStatus(`Older picks moved off the live tracker. ${archivedPending} archived pick(s) still have no fetched final result yet.`, "ok");
+        } else if (archiveResult.changed) {
+          setRunStatus("Older picks moved off the live tracker.", "ok");
+        } else {
+          setRunStatus("No new completed results found yet.", "ok");
+        }
       }
-    }
-
-    const archiveResult = archiveOldTrackerItems(items);
-    const finalItems = archiveResult.items;
-    const archivedPending = finalItems.filter(function (item) {
-      return !!item.archived && item.status === "PENDING";
-    }).length;
-    g_trackerDebug.lastSettlementSummary =
-      "Settled " + settledCount +
-      " • archived pending " + archivedPending +
-      " • probed " + g_trackerDebug.lastSettlementDetails.length + " pending item(s).";
-    saveTrackerItems(finalItems);
-    updateTrackerUI();
-    renderTrackerDebug();
-
-    if (!isSilent) {
-      if (settledCount) {
-        setRunStatus("Tracker updated automatically.", "ok");
-      } else if (archiveResult.changed && archivedPending) {
-        setRunStatus("Older picks moved off the live tracker. " + archivedPending + " archived pick(s) still have no fetched final result yet.", "ok");
-      } else if (archiveResult.changed) {
-        setRunStatus("Older picks moved off the live tracker.", "ok");
-      } else {
-        setRunStatus("No new completed results found yet.", "ok");
-      }
+    } catch (err) {
+      console.error("[Tracker] autoSettleTracker crashed:", err);
+      g_trackerDebug.lastSettlementSummary = "Settlement error: " + (err.message || String(err));
+      renderTrackerDebug();
+      if (!isSilent) setRunStatus("Tracker settlement failed.", "err");
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -5211,7 +5217,7 @@ const cacheKey = [
           playerAId: bundle.playerAId || "",
           playerBId: bundle.playerBId || "",
           competitionId: bundle.competitionId || "",
-eventId: bundle.eventId || bundle.matchResult?.eventId || bundle.set1Result?.eventId || null,
+eventId: bundle.eventId || bundle.context?.eventId || null,
           fixtureDate: bundle.fixtureDate || "",
           tournamentName: bundle.context && bundle.context.tournamentName || "",
           eventLevel: bundle.context && bundle.context.eventLevel || "",
@@ -5427,17 +5433,17 @@ eventId: bundle.eventId || bundle.matchResult?.eventId || bundle.set1Result?.eve
       return 0;
     }
 
-    const items = getTrackerItems();
+    // 🔥 DIRECT LOCAL STORAGE SAVE – NO CLOUD INTERFERENCE
+    const currentState = loadTrackerStateFromLocal();
+    const items = currentState.items.slice();
 
     entries.reverse().forEach(function (entry) {
       const duplicate = items.some(i =>
-  i.match === entry.match &&
-  i.market === entry.market &&
-  i.line === entry.line &&
-  i.pick === entry.pick &&
-  i.eventId === entry.eventId
-);
-
+        i.match === entry.match &&
+        i.market === entry.market &&
+        i.line === entry.line &&
+        i.pick === entry.pick
+      );
       if (!duplicate) {
         items.unshift(entry);
         g_trackerDebug.lastInsertedEntries += 1;
@@ -5456,12 +5462,27 @@ eventId: bundle.eventId || bundle.matchResult?.eventId || bundle.set1Result?.eve
       return 0;
     }
 
-    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
-    saveTrackerItems(items);
-    latestRunBundle._trackerSaved = true;
+    // Build new state
+    const newState = {
+      items: items,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Save directly to localStorage – no cloud sync at all
+    localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(newState));
+    localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(newState)));
+
+    // Update global state and UI
+    g_trackerState = newState;
     updateTrackerUI();
     renderTrackerDebug();
+
+    latestRunBundle._trackerSaved = true;
+    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
+
+    // Run settlement (still needs cloud for actual results, but save is already done)
     autoSettleTracker(true);
+
     return g_trackerDebug.lastInsertedEntries;
   }
 
@@ -5761,8 +5782,7 @@ return base + "/events/" + encodeURIComponent(eventId) + "/summary";
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
-        Number.isFinite(record.totalGames) ||
-Number.isFinite(record.set1Total)
+        (Number.isFinite(record.totalGames) || Number.isFinite(record.set1Total));
     });
     return { payload: payload, records: records };
   }
