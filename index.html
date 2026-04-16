@@ -4367,7 +4367,7 @@ body.dark-mode .tracker-analytics-section-head {
 
   function trackerItemScore(item) {
     const status = String(item && item.status || "PENDING").toUpperCase();
-    const settledScore = status === "PENDING" ? 0 : 50;
+const settledScore = status === "PENDING" ? 10 : 50;
     const archivedScore = item && item.archived ? 20 : 0;
     const actualScore = item && item.actualTotal != null ? 10 : 0;
     const lockScore = item && item.isLock ? 1 : 0;
@@ -4379,41 +4379,26 @@ body.dark-mode .tracker-analytics-section-head {
     const local = normalizeTrackerState(localState);
     const server = normalizeTrackerState(serverState);
     const map = new Map();
-    const now = Date.now();
 
-    // Helper: true if item is less than 10 hours old
-    function isFresh(item) {
-      const saved = Date.parse(item.savedAt || '');
-      return !isNaN(saved) && (now - saved) < 10 * 60 * 60 * 1000;
-    }
-
-    // First, add all server items to the map
-    server.items.forEach(function (item) {
+    local.items.forEach(function (item) {
       map.set(trackerItemMergeKey(item), normalizeTrackerItem(item));
     });
 
-    // Then overlay local items, with fresh-active protection
-    local.items.forEach(function (item) {
+    server.items.forEach(function (item) {
       const key = trackerItemMergeKey(item);
       const existing = map.get(key);
-      const localItem = normalizeTrackerItem(item);
-
+      const candidate = normalizeTrackerItem(item);
       if (!existing) {
-        map.set(key, localItem);
-        return;
-      }
+  map.set(key, candidate);
+} else {
+  const existingTime = Date.parse(existing.savedAt || 0);
+  const candidateTime = Date.parse(candidate.savedAt || 0);
 
-      // If local item is fresh (≤10h) and active, it MUST override any archived server version
-      if (!localItem.archived && isFresh(localItem)) {
-        localItem.archived = false; // force active
-        map.set(key, localItem);
-        return;
-      }
-
-      // Otherwise, keep the one with higher score
-      if (trackerItemScore(localItem) >= trackerItemScore(existing)) {
-        map.set(key, localItem);
-      }
+  // Always prefer newer entries
+  if (candidateTime >= existingTime) {
+    map.set(key, candidate);
+  }
+}
     });
 
     return normalizeTrackerState({
@@ -4421,10 +4406,11 @@ body.dark-mode .tracker-analytics-section-head {
       updatedAt: new Date(Math.max(
         Date.parse(local.updatedAt || "") || 0,
         Date.parse(server.updatedAt || "") || 0,
-        now
+        Date.now()
       )).toISOString()
     });
   }
+
   function withTrackerCacheBust(url) {
     try {
       const u = new URL(url, window.location.href);
@@ -4537,7 +4523,7 @@ body.dark-mode .tracker-analytics-section-head {
     return g_trackerSyncPromise;
   }
 
-async function hydrateTrackerState(force) {
+  async function hydrateTrackerState(force) {
     if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
 
     g_trackerHydratePromise = (async function () {
@@ -4569,28 +4555,25 @@ async function hydrateTrackerState(force) {
         }
 
         const serverState = normalizeTrackerState(pulled.data.state);
-
-        // 🔒 MERGE, NEVER REPLACE – local items always win if they're newer or extra
         const merged = mergeTrackerStates(localState, serverState);
-        const finalState = merged.items.length >= localState.items.length ? merged : localState;
+        const localHasItems = localState.items.length > 0;
+        const serverHasItems = serverState.items.length > 0;
+        const chosenState = (!serverHasItems && localHasItems) ? localState : merged;
 
-        saveTrackerStateToLocal(finalState);
-        g_trackerState = finalState;
+        saveTrackerStateToLocal(chosenState);
 
-        // If local had more items, push merged state to server to sync
-        if (localState.items.length > serverState.items.length) {
-          pushTrackerStateToServer(finalState).catch(err => {
-            console.warn("[Tracker] Push after hydrate merge failed:", err);
-          });
+        if (localHasItems && (!serverHasItems || chosenState.items.length >= serverState.items.length)) {
+          try {
+            const pushed = await pushTrackerStateToServer(chosenState);
+            saveTrackerStateToLocal(pushed);
+          } catch (err) {
+          }
         }
 
         g_trackerDebug.lastHydrateStatus = "ok";
       } catch (err) {
         g_trackerDebug.lastHydrateStatus = "error";
         g_trackerDebug.lastHydrateError = err && err.message ? err.message : String(err);
-        // On error, keep local state
-        saveTrackerStateToLocal(localState);
-        g_trackerState = localState;
       }
 
       g_trackerDebug.lastHydrateEndAt = new Date().toISOString();
@@ -5406,9 +5389,7 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
 
     if (empty) empty.style.display = items.length ? "none" : "block";
     if (tableWrap) tableWrap.style.display = activeItems.length ? "block" : "none";
-if (archiveWrap) {
-  archiveWrap.style.display = archivedItems.length ? "block" : "none";
-}
+    if (archiveWrap) archiveWrap.style.display = "none";
 
     function statusBadge(item) {
       const cls = "tracker-status-badge status-" + String(item.status || "pending").toLowerCase();
@@ -5460,11 +5441,10 @@ if (archiveWrap) {
       return 0;
     }
 
-    // Load current local state
+    // 🔥 DIRECT LOCAL STORAGE SAVE – NO CLOUD INTERFERENCE
     const currentState = loadTrackerStateFromLocal();
     const items = currentState.items.slice();
 
-    // Add new entries, avoiding duplicates
     entries.reverse().forEach(function (entry) {
       const duplicate = items.some(i =>
         i.match === entry.match &&
@@ -5473,7 +5453,6 @@ if (archiveWrap) {
         i.pick === entry.pick
       );
       if (!duplicate) {
-        entry.archived = false;   // Ensure active
         items.unshift(entry);
         g_trackerDebug.lastInsertedEntries += 1;
       } else {
@@ -5484,35 +5463,32 @@ if (archiveWrap) {
     if (g_trackerDebug.lastInsertedEntries === 0) {
       latestRunBundle._trackerSaved = true;
       g_trackerDebug.lastSaveDiagnosis = g_trackerDebug.lastDuplicateSkipped
-        ? "All generated picks matched existing same-day tracker entries."
+        ? "All generated picks matched existing same-day tracker entries, so nothing new was added."
         : "No new tracker entries were inserted.";
       updateTrackerUI();
       renderTrackerDebug();
       return 0;
     }
 
-    // Build new local state
+    // Build new state
     const newState = {
       items: items,
       updatedAt: new Date().toISOString()
     };
 
-    // Save locally
+    // Save directly to localStorage – no cloud sync at all
     localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(newState));
     localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(newState)));
+
+    // Update global state and UI
     g_trackerState = newState;
     updateTrackerUI();
-
-    // ✅ IMMEDIATELY PUSH TO SERVER (fire-and-forget, don't wait)
-    pushTrackerStateToServer(newState).catch(err => {
-      console.warn("[Tracker] Immediate push after save failed:", err);
-    });
-
-    latestRunBundle._trackerSaved = true;
-    g_trackerDebug.lastSaveDiagnosis = "Saved " + g_trackerDebug.lastInsertedEntries + " pick(s) and pushed to server.";
     renderTrackerDebug();
 
-    // Run settlement in background
+    latestRunBundle._trackerSaved = true;
+    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
+
+    // Run settlement (still needs cloud for actual results, but save is already done)
     autoSettleTracker(true);
 
     return g_trackerDebug.lastInsertedEntries;
