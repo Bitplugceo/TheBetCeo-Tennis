@@ -5437,12 +5437,12 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
 
     entries.reverse().forEach(function (entry) {
       const duplicate = items.some(i =>
-  i.match === entry.match &&
-  i.market === entry.market &&
-  i.line === entry.line &&
-  i.pick === entry.pick &&
-  i.eventId === entry.eventId
-);
+        i.match === entry.match &&
+        i.market === entry.market &&
+        i.line === entry.line &&
+        i.pick === entry.pick &&
+        i.eventId === entry.eventId
+      );
 
       if (!duplicate) {
         items.unshift(entry);
@@ -5462,15 +5462,23 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
       return 0;
     }
 
-    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
-// Save locally first, then sync in background without waiting
-saveTrackerStateToLocal({ items, updatedAt: new Date().toISOString() });
-updateTrackerUI();
-queueTrackerSync(g_trackerState);
-    latestRunBundle._trackerSaved = true;
+    // ✅ Save to local storage FIRST, before any cloud sync
+    const updatedState = { items: items, updatedAt: new Date().toISOString() };
+    g_trackerState = updatedState;
+    localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(updatedState));
+    localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(updatedState)));
+
+    // Update UI immediately
     updateTrackerUI();
     renderTrackerDebug();
+
+    // Then queue the cloud sync in the background (won't overwrite local)
+    queueTrackerSync(updatedState);
+
+    latestRunBundle._trackerSaved = true;
+    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
     autoSettleTracker(true);
+
     return g_trackerDebug.lastInsertedEntries;
   }
 
