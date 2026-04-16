@@ -4947,6 +4947,37 @@ if (!combinedRecords.length) {
 
     try {
       const summaryProbe = await fetchSettlementRecordFromEventSummary(item, names);
+      if (summaryProbe && summaryProbe.record) {
+  return {
+    record: summaryProbe.record,
+    debug: {
+      reason: summaryProbe.debug?.reason || "matched from event summary",
+      checks
+    }
+  };
+}
+
+// 🚨 ADD THIS DIRECTLY AFTER:
+if (!summaryProbe || !summaryProbe.record) {
+  const fallbackEvent = await fetchTennisSummaryByEvent(item.tour, item.eventId || item.competitionId);
+
+  const records = extractCompetitionRecordsDeep(fallbackEvent);
+
+  const completed = records.find(r =>
+    r.status?.completed &&
+    (Number.isFinite(r.totalGames) || Number.isFinite(r.set1Total))
+  );
+
+  if (completed) {
+    return {
+      record: completed,
+      debug: {
+        reason: "forced fallback from event summary",
+        checks
+      }
+    };
+  }
+}
       if (summaryProbe && summaryProbe.debug && summaryProbe.debug.checks) {
         checks.push.apply(checks, summaryProbe.debug.checks);
       }
@@ -5633,7 +5664,7 @@ if (!Number.isFinite(actualValue)) {
   async function fetchTennisSummaryByEvent(league, eventId) {
     if (!eventId) throw new Error("Missing event id");
     const urls = getTennisBaseCandidates(league).map(function (base) {
-      return base + "/summary?region=us&lang=en&contentorigin=espn&event=" + encodeURIComponent(eventId);
+return base + "/events/" + encodeURIComponent(eventId) + "/summary";
     });
 
     let lastErr = null;
