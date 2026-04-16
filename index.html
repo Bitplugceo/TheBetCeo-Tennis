@@ -4490,30 +4490,10 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function queueTrackerSync(stateSnapshot) {
-    const snapshot = normalizeTrackerState(stateSnapshot);
-
-    g_trackerSyncPromise = g_trackerSyncPromise.then(async function () {
-      g_trackerDebug.lastSyncStartAt = new Date().toISOString();
-      g_trackerDebug.lastSyncStatus = "running";
-      g_trackerDebug.lastSyncError = "";
-      try {
-        const merged = await pushTrackerStateToServer(snapshot);
-        saveTrackerStateToLocal(merged);
-        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
-        g_trackerDebug.lastSyncStatus = "ok";
-        renderTrackerDebug();
-        return merged;
-      } catch (err) {
-        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
-        g_trackerDebug.lastSyncStatus = "error";
-        g_trackerDebug.lastSyncError = err && err.message ? err.message : String(err);
-        renderTrackerDebug();
-        return snapshot;
-      }
-    });
-
-    return g_trackerSyncPromise;
-  }
+  // Cloud sync temporarily disabled to prevent new picks from being overwritten.
+  // The worker is still available, but we no longer push local changes automatically.
+  return Promise.resolve(stateSnapshot);
+}
 
   async function hydrateTrackerState(force) {
     if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
