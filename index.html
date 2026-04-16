@@ -4272,22 +4272,16 @@ body.dark-mode .tracker-analytics-section-head {
 
     if (Array.isArray(source.items)) {
 items = source.items.map(function (item) {
-  const normalized = normalizeTrackerItem(item);
-  normalized.archived = false;
-  return normalized;
+  return normalizeTrackerItem(item);
 });
     } else {
       const activePicks = Array.isArray(source.activePicks) ? source.activePicks : [];
       const archivedPicks = Array.isArray(source.archivedPicks) ? source.archivedPicks : [];
 items = activePicks.map(function (item) {
-  const normalized = normalizeTrackerItem(item);
-  normalized.archived = false;
-  return normalized;
+  return normalizeTrackerItem(item);
 });
 items = archivedPicks.map(function (item) {
-  const normalized = normalizeTrackerItem(item);
-  normalized.archived = true;
-  return normalized;
+  return normalizeTrackerItem(item);
 });
       );
     }
