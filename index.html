@@ -4537,7 +4537,7 @@ body.dark-mode .tracker-analytics-section-head {
     return g_trackerSyncPromise;
   }
 
-  async function hydrateTrackerState(force) {
+async function hydrateTrackerState(force) {
     if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
 
     g_trackerHydratePromise = (async function () {
@@ -4546,7 +4546,7 @@ body.dark-mode .tracker-analytics-section-head {
       g_trackerDebug.lastHydrateError = "";
 
       const localState = loadTrackerStateFromLocal();
-      saveTrackerStateToLocal(localState);
+      saveTrackerStateToLocal(localState); // ensure cache is written
 
       try {
         const pulled = await fetchTrackerJson(TRACKER_API_URL, {
@@ -4569,32 +4569,58 @@ body.dark-mode .tracker-analytics-section-head {
         }
 
         const serverState = normalizeTrackerState(pulled.data.state);
-        const merged = mergeTrackerStates(localState, serverState);
-        const localHasItems = localState.items.length > 0;
-        const serverHasItems = serverState.items.length > 0;
-        const chosenState = (!serverHasItems && localHasItems) ? localState : merged;
-
-        saveTrackerStateToLocal(chosenState);
-
-        if (localHasItems && (!serverHasItems || chosenState.items.length >= serverState.items.length)) {
+        
+        // 🔒 PROTECT LOCAL PICKS: Never lose items that exist locally but not on server
+        // Compare counts and timestamps
+        const localHasMoreItems = localState.items.length > serverState.items.length;
+        const localIsNewer = !serverState.updatedAt || 
+          (localState.updatedAt && new Date(localState.updatedAt) > new Date(serverState.updatedAt));
+        
+        let chosenState;
+        
+        if (localHasMoreItems || localIsNewer) {
+          // Local has data the server lacks OR is more recent – keep local and push it up
+          chosenState = localState;
+          g_trackerDebug.lastHydrateStatus = "using local (more items or newer)";
+          
+          // Immediately push local state to server to sync it
           try {
             const pushed = await pushTrackerStateToServer(chosenState);
             saveTrackerStateToLocal(pushed);
-          } catch (err) {
+            g_trackerState = pushed;
+          } catch (pushErr) {
+            console.warn("[Tracker] Push after local protect failed:", pushErr);
+            saveTrackerStateToLocal(chosenState);
+            g_trackerState = chosenState;
           }
+        } else {
+          // Server has equal or more items and is newer – merge
+          const merged = mergeTrackerStates(localState, serverState);
+          chosenState = merged;
+          saveTrackerStateToLocal(chosenState);
+          g_trackerState = chosenState;
+          g_trackerDebug.lastHydrateStatus = "merged with server";
         }
 
-        g_trackerDebug.lastHydrateStatus = "ok";
+        g_trackerDebug.lastHydrateEndAt = new Date().toISOString();
+        updateTrackerUI();
+        renderTrackerDebug();
+        g_trackerHydratePromise = null;
+        return g_trackerState;
+        
       } catch (err) {
         g_trackerDebug.lastHydrateStatus = "error";
         g_trackerDebug.lastHydrateError = err && err.message ? err.message : String(err);
+        g_trackerDebug.lastHydrateEndAt = new Date().toISOString();
+        
+        // On error, keep local state
+        saveTrackerStateToLocal(localState);
+        g_trackerState = localState;
+        updateTrackerUI();
+        renderTrackerDebug();
+        g_trackerHydratePromise = null;
+        return localState;
       }
-
-      g_trackerDebug.lastHydrateEndAt = new Date().toISOString();
-      updateTrackerUI();
-      renderTrackerDebug();
-      g_trackerHydratePromise = null;
-      return g_trackerState;
     })();
 
     return g_trackerHydratePromise;
