@@ -4546,7 +4546,7 @@ async function hydrateTrackerState(force) {
       g_trackerDebug.lastHydrateError = "";
 
       const localState = loadTrackerStateFromLocal();
-      saveTrackerStateToLocal(localState); // ensure cache is written
+      saveTrackerStateToLocal(localState);
 
       try {
         const pulled = await fetchTrackerJson(TRACKER_API_URL, {
@@ -4569,58 +4569,35 @@ async function hydrateTrackerState(force) {
         }
 
         const serverState = normalizeTrackerState(pulled.data.state);
-        
-        // 🔒 PROTECT LOCAL PICKS: Never lose items that exist locally but not on server
-        // Compare counts and timestamps
-        const localHasMoreItems = localState.items.length > serverState.items.length;
-        const localIsNewer = !serverState.updatedAt || 
-          (localState.updatedAt && new Date(localState.updatedAt) > new Date(serverState.updatedAt));
-        
-        let chosenState;
-        
-        if (localHasMoreItems || localIsNewer) {
-          // Local has data the server lacks OR is more recent – keep local and push it up
-          chosenState = localState;
-          g_trackerDebug.lastHydrateStatus = "using local (more items or newer)";
-          
-          // Immediately push local state to server to sync it
-          try {
-            const pushed = await pushTrackerStateToServer(chosenState);
-            saveTrackerStateToLocal(pushed);
-            g_trackerState = pushed;
-          } catch (pushErr) {
-            console.warn("[Tracker] Push after local protect failed:", pushErr);
-            saveTrackerStateToLocal(chosenState);
-            g_trackerState = chosenState;
-          }
-        } else {
-          // Server has equal or more items and is newer – merge
-          const merged = mergeTrackerStates(localState, serverState);
-          chosenState = merged;
-          saveTrackerStateToLocal(chosenState);
-          g_trackerState = chosenState;
-          g_trackerDebug.lastHydrateStatus = "merged with server";
+
+        // 🔒 MERGE, NEVER REPLACE – local items always win if they're newer or extra
+        const merged = mergeTrackerStates(localState, serverState);
+        const finalState = merged.items.length >= localState.items.length ? merged : localState;
+
+        saveTrackerStateToLocal(finalState);
+        g_trackerState = finalState;
+
+        // If local had more items, push merged state to server to sync
+        if (localState.items.length > serverState.items.length) {
+          pushTrackerStateToServer(finalState).catch(err => {
+            console.warn("[Tracker] Push after hydrate merge failed:", err);
+          });
         }
 
-        g_trackerDebug.lastHydrateEndAt = new Date().toISOString();
-        updateTrackerUI();
-        renderTrackerDebug();
-        g_trackerHydratePromise = null;
-        return g_trackerState;
-        
+        g_trackerDebug.lastHydrateStatus = "ok";
       } catch (err) {
         g_trackerDebug.lastHydrateStatus = "error";
         g_trackerDebug.lastHydrateError = err && err.message ? err.message : String(err);
-        g_trackerDebug.lastHydrateEndAt = new Date().toISOString();
-        
         // On error, keep local state
         saveTrackerStateToLocal(localState);
         g_trackerState = localState;
-        updateTrackerUI();
-        renderTrackerDebug();
-        g_trackerHydratePromise = null;
-        return localState;
       }
+
+      g_trackerDebug.lastHydrateEndAt = new Date().toISOString();
+      updateTrackerUI();
+      renderTrackerDebug();
+      g_trackerHydratePromise = null;
+      return g_trackerState;
     })();
 
     return g_trackerHydratePromise;
@@ -5483,56 +5460,59 @@ if (archiveWrap) {
       return 0;
     }
 
-    // 🔥 DIRECT LOCAL STORAGE SAVE – NO CLOUD INTERFERENCE
+    // Load current local state
     const currentState = loadTrackerStateFromLocal();
     const items = currentState.items.slice();
 
+    // Add new entries, avoiding duplicates
     entries.reverse().forEach(function (entry) {
-  const duplicate = items.some(i =>
-    i.match === entry.match &&
-    i.market === entry.market &&
-    i.line === entry.line &&
-    i.pick === entry.pick
-  );
-  if (!duplicate) {
-    // 🔒 Force active state for new picks
-    entry.archived = false;
-    items.unshift(entry);
-    g_trackerDebug.lastInsertedEntries += 1;
-  } else {
-    g_trackerDebug.lastDuplicateSkipped += 1;
-  }
-});
+      const duplicate = items.some(i =>
+        i.match === entry.match &&
+        i.market === entry.market &&
+        i.line === entry.line &&
+        i.pick === entry.pick
+      );
+      if (!duplicate) {
+        entry.archived = false;   // Ensure active
+        items.unshift(entry);
+        g_trackerDebug.lastInsertedEntries += 1;
+      } else {
+        g_trackerDebug.lastDuplicateSkipped += 1;
+      }
+    });
 
     if (g_trackerDebug.lastInsertedEntries === 0) {
       latestRunBundle._trackerSaved = true;
       g_trackerDebug.lastSaveDiagnosis = g_trackerDebug.lastDuplicateSkipped
-        ? "All generated picks matched existing same-day tracker entries, so nothing new was added."
+        ? "All generated picks matched existing same-day tracker entries."
         : "No new tracker entries were inserted.";
       updateTrackerUI();
       renderTrackerDebug();
       return 0;
     }
 
-    // Build new state
+    // Build new local state
     const newState = {
       items: items,
       updatedAt: new Date().toISOString()
     };
 
-    // Save directly to localStorage – no cloud sync at all
+    // Save locally
     localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(newState));
     localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(newState)));
-
-    // Update global state and UI
     g_trackerState = newState;
     updateTrackerUI();
-    renderTrackerDebug();
+
+    // ✅ IMMEDIATELY PUSH TO SERVER (fire-and-forget, don't wait)
+    pushTrackerStateToServer(newState).catch(err => {
+      console.warn("[Tracker] Immediate push after save failed:", err);
+    });
 
     latestRunBundle._trackerSaved = true;
-    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
+    g_trackerDebug.lastSaveDiagnosis = "Saved " + g_trackerDebug.lastInsertedEntries + " pick(s) and pushed to server.";
+    renderTrackerDebug();
 
-    // Run settlement (still needs cloud for actual results, but save is already done)
+    // Run settlement in background
     autoSettleTracker(true);
 
     return g_trackerDebug.lastInsertedEntries;
