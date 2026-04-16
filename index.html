@@ -4814,9 +4814,11 @@ body.dark-mode .tracker-analytics-section-head {
     const payload = await fetchTennisSummaryByEvent(item.tour, eventId);
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
-        record.status.completed &&
-        Number.isFinite(record.totalGames) &&
-        Number.isFinite(record.set1Total);
+  record.status.completed &&
+  (
+    Number.isFinite(record.totalGames) ||
+    Number.isFinite(record.set1Total)
+  );
     });
 
     const summary = summarizeSettlementProbe(records, names);
@@ -5665,8 +5667,8 @@ body.dark-mode .tracker-analytics-section-head {
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
-        Number.isFinite(record.totalGames) &&
-        Number.isFinite(record.set1Total);
+        Number.isFinite(record.totalGames) ||
+Number.isFinite(record.set1Total)
     });
     return { payload: payload, records: records };
   }
@@ -5698,8 +5700,8 @@ body.dark-mode .tracker-analytics-section-head {
             const directRecords = extractCompetitionRecordsDeep(collectionPayload).filter(function (record) {
               return record.status &&
                 record.status.completed &&
-                Number.isFinite(record.totalGames) &&
-                Number.isFinite(record.set1Total);
+                Number.isFinite(record.totalGames) ||
+Number.isFinite(record.set1Total)
             });
             if (directRecords.length) {
               return {
@@ -6158,8 +6160,8 @@ body.dark-mode .tracker-analytics-section-head {
         const payload = await fetchTennisScoreboard(key, datesQuery);
         const records = extractCompetitionRecords(payload).filter(function (record) {
           return record.status.completed &&
-            Number.isFinite(record.totalGames) &&
-            Number.isFinite(record.set1Total) &&
+            Number.isFinite(record.totalGames) ||
+Number.isFinite(record.set1Total)
             Number.isFinite(record.playerAGames) &&
             Number.isFinite(record.playerBGames) &&
             Number.isFinite(record.playerASet1Games) &&
@@ -6266,8 +6268,8 @@ body.dark-mode .tracker-analytics-section-head {
       const payload = await fetchTennisScoreboard(league, datesQuery);
       const records = extractCompetitionRecords(payload).filter(function (record) {
         return record.status.completed &&
-          Number.isFinite(record.totalGames) &&
-          Number.isFinite(record.set1Total) &&
+          Number.isFinite(record.totalGames) ||
+Number.isFinite(record.set1Total)
           Number.isFinite(record.playerAGames) &&
           Number.isFinite(record.playerBGames) &&
           Number.isFinite(record.playerASet1Games) &&
