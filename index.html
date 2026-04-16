@@ -5069,22 +5069,22 @@ if (item && item.playerAName && item.playerBName) {
     if (!item || !record) return item;
 
     const actualRaw = item.market === "Set 1 Total Games"
-  ? record.set1Total
-  : record.totalGames;
+      ? record.set1Total
+      : record.totalGames;
 
-const actual = Number(actualRaw);
+    const actual = Number(actualRaw);
 
-if (!Number.isFinite(actualValue)) {
-  item.debugFail = "No usable score";
-  return item;
-}
+    if (!Number.isFinite(actual)) {
+      item.debugFail = "No usable score";
+      return item;
+    }
 
     const line = Number(item.line);
     let status = "PENDING";
 
-    if (actualValue > line) {
+    if (actual > line) {
       status = item.rawPick === "OVER" ? "WIN" : "LOSS";
-    } else if (actualValue < line) {
+    } else if (actual < line) {
       status = item.rawPick === "UNDER" ? "WIN" : "LOSS";
     } else {
       status = "PUSH";
@@ -5093,7 +5093,7 @@ if (!Number.isFinite(actualValue)) {
     return Object.assign({}, item, {
       status: status,
       settledAt: new Date().toISOString(),
-      actualTotal: round2(actualValue)
+      actualTotal: round2(actual)
     });
   }
 
