@@ -5068,9 +5068,11 @@ if (item && item.playerAName && item.playerBName) {
   function settleTrackerItemFromRecord(item, record) {
     if (!item || !record) return item;
 
-    const actualValue = item.market === "Set 1 Total Games"
-      ? record.set1Total
-      : record.totalGames;
+    const actualRaw = item.market === "Set 1 Total Games"
+  ? record.set1Total
+  : record.totalGames;
+
+const actual = Number(actualRaw);
 
 if (!Number.isFinite(actualValue)) {
   item.debugFail = "No usable score";
@@ -5115,12 +5117,22 @@ if (!Number.isFinite(actualValue)) {
       const item = items[i];
       if (item.status !== "PENDING") continue;
 
-      const cacheKey = [item.tour, item.match, item.savedAt ? item.savedAt.slice(0, 10) : ""].join("|");
+const cacheKey = [
+  item.tour,
+  item.match,
+  item.market,
+  item.line,
+  item.eventId
+].join("|");
       let probe = recordCache.get(cacheKey);
 
       if (probe === undefined) {
         try {
-          probe = await fetchSettlementRecordForItem(item);
+          
+        probe = await fetchSettlementRecordForItem(item);
+        if (!probe || !probe.record) {
+  console.log("settlement miss:", item.match, item.eventId, probe);
+}
         } catch (err) {
           probe = {
             record: null,
@@ -5199,7 +5211,7 @@ if (!Number.isFinite(actualValue)) {
           playerAId: bundle.playerAId || "",
           playerBId: bundle.playerBId || "",
           competitionId: bundle.competitionId || "",
-          eventId: bundle.eventId || "",
+eventId: bundle.eventId || bundle.matchResult?.eventId || bundle.set1Result?.eventId || null,
           fixtureDate: bundle.fixtureDate || "",
           tournamentName: bundle.context && bundle.context.tournamentName || "",
           eventLevel: bundle.context && bundle.context.eventLevel || "",
@@ -5418,14 +5430,13 @@ if (!Number.isFinite(actualValue)) {
     const items = getTrackerItems();
 
     entries.reverse().forEach(function (entry) {
-      const duplicate = items.some(function (item) {
-        return item.match === entry.match &&
-          item.market === entry.market &&
-          item.line === entry.line &&
-          item.pick === entry.pick &&
-          item.savedAt && entry.savedAt &&
-          item.savedAt.slice(0, 10) === entry.savedAt.slice(0, 10);
-      });
+      const duplicate = items.some(i =>
+  i.match === entry.match &&
+  i.market === entry.market &&
+  i.line === entry.line &&
+  i.pick === entry.pick &&
+  i.eventId === entry.eventId
+);
 
       if (!duplicate) {
         items.unshift(entry);
