@@ -4811,7 +4811,8 @@ body.dark-mode .tracker-analytics-section-head {
       };
     }
 
-    const payload = await fetchTennisSummaryByEvent(item.tour, eventId);
+const leagueSlug = String(item.tour || "").toLowerCase();
+const payload = await fetchTennisSummaryByEvent(leagueSlug, eventId);
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
   record.status.completed &&
@@ -4889,6 +4890,7 @@ if (!combinedRecords.length) {
     }
   };
 }
+    console.log(`[Settlement] Player history records: A=${histA.records?.length || 0}, B=${histB.records?.length || 0}`);
     const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
     const h2h = buildH2HSeries(
       allRecords,
@@ -5032,19 +5034,14 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
           }
         };
       }
-      // ===== LAST RESORT FALLBACK =====
-if (item && item.playerAName && item.playerBName) {
-  return {
-    record: {
-      status: { completed: true },
-      totalGames: item.line,
-      set1Total: Math.floor(item.line / 2)
-    },
-    debug: {
-      reason: "forced fallback to prevent permanent pending"
-    }
-  };
-}
+     // No real record found – keep as PENDING
+      return {
+        record: null,
+        debug: {
+          reason: "no completed match record found in ESPN",
+          checks: checks
+        }
+      };
       return {
         record: null,
         debug: {
@@ -5228,7 +5225,7 @@ if (item && item.playerAName && item.playerBName) {
           playerAId: bundle.playerAId || "",
           playerBId: bundle.playerBId || "",
           competitionId: bundle.competitionId || "",
-eventId: bundle.eventId || bundle.matchResult?.eventId || bundle.set1Result?.eventId || null,
+eventId: bundle.eventId || bundle.context?.eventId || null,
           fixtureDate: bundle.fixtureDate || "",
           tournamentName: bundle.context && bundle.context.tournamentName || "",
           eventLevel: bundle.context && bundle.context.eventLevel || "",
@@ -5775,7 +5772,9 @@ return base + "/events/" + encodeURIComponent(eventId) + "/summary";
 
   async function fetchAthleteHistoryPayload(url) {
     const payload = await proxyFetch(url, 18000);
-    const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
+console.log(`[Settlement] Event summary for ${eventId}:`, payload);
+console.log(`[Settlement] Event summary for ${eventId}:`, payload);
+const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
         Number.isFinite(record.totalGames) ||
