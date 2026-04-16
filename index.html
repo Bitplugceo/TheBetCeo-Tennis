@@ -4379,17 +4379,40 @@ body.dark-mode .tracker-analytics-section-head {
     const local = normalizeTrackerState(localState);
     const server = normalizeTrackerState(serverState);
     const map = new Map();
+    const now = Date.now();
 
-    local.items.forEach(function (item) {
+    // Helper: true if item is less than 10 hours old
+    function isFresh(item) {
+      const saved = Date.parse(item.savedAt || '');
+      return !isNaN(saved) && (now - saved) < 10 * 60 * 60 * 1000;
+    }
+
+    // First, add all server items to the map
+    server.items.forEach(function (item) {
       map.set(trackerItemMergeKey(item), normalizeTrackerItem(item));
     });
 
-    server.items.forEach(function (item) {
+    // Then overlay local items, with fresh-active protection
+    local.items.forEach(function (item) {
       const key = trackerItemMergeKey(item);
       const existing = map.get(key);
-      const candidate = normalizeTrackerItem(item);
-      if (!existing || trackerItemScore(candidate) >= trackerItemScore(existing)) {
-        map.set(key, candidate);
+      const localItem = normalizeTrackerItem(item);
+
+      if (!existing) {
+        map.set(key, localItem);
+        return;
+      }
+
+      // If local item is fresh (≤10h) and active, it MUST override any archived server version
+      if (!localItem.archived && isFresh(localItem)) {
+        localItem.archived = false; // force active
+        map.set(key, localItem);
+        return;
+      }
+
+      // Otherwise, keep the one with higher score
+      if (trackerItemScore(localItem) >= trackerItemScore(existing)) {
+        map.set(key, localItem);
       }
     });
 
@@ -4398,11 +4421,10 @@ body.dark-mode .tracker-analytics-section-head {
       updatedAt: new Date(Math.max(
         Date.parse(local.updatedAt || "") || 0,
         Date.parse(server.updatedAt || "") || 0,
-        Date.now()
+        now
       )).toISOString()
     });
   }
-
   function withTrackerCacheBust(url) {
     try {
       const u = new URL(url, window.location.href);
@@ -5381,7 +5403,9 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
 
     if (empty) empty.style.display = items.length ? "none" : "block";
     if (tableWrap) tableWrap.style.display = activeItems.length ? "block" : "none";
-    if (archiveWrap) archiveWrap.style.display = "none";
+if (archiveWrap) {
+  archiveWrap.style.display = archivedItems.length ? "block" : "none";
+}
 
     function statusBadge(item) {
       const cls = "tracker-status-badge status-" + String(item.status || "pending").toLowerCase();
@@ -5438,19 +5462,21 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
     const items = currentState.items.slice();
 
     entries.reverse().forEach(function (entry) {
-      const duplicate = items.some(i =>
-        i.match === entry.match &&
-        i.market === entry.market &&
-        i.line === entry.line &&
-        i.pick === entry.pick
-      );
-      if (!duplicate) {
-        items.unshift(entry);
-        g_trackerDebug.lastInsertedEntries += 1;
-      } else {
-        g_trackerDebug.lastDuplicateSkipped += 1;
-      }
-    });
+  const duplicate = items.some(i =>
+    i.match === entry.match &&
+    i.market === entry.market &&
+    i.line === entry.line &&
+    i.pick === entry.pick
+  );
+  if (!duplicate) {
+    // 🔒 Force active state for new picks
+    entry.archived = false;
+    items.unshift(entry);
+    g_trackerDebug.lastInsertedEntries += 1;
+  } else {
+    g_trackerDebug.lastDuplicateSkipped += 1;
+  }
+});
 
     if (g_trackerDebug.lastInsertedEntries === 0) {
       latestRunBundle._trackerSaved = true;
