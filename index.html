@@ -4828,7 +4828,11 @@ body.dark-mode .tracker-analytics-section-head {
     const fuzzy = records.filter(function (record) {
       return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
     });
-    const picked = exact[0] || fuzzy[0] || null;
+const relaxed = records.filter(function (record) {
+  return relaxedSameTrackerMatchRecord(record, names.playerAName, names.playerBName);
+});
+
+const picked = exact[0] || fuzzy[0] || relaxed[0] || null;
 
     return {
       record: picked,
@@ -4871,7 +4875,20 @@ body.dark-mode .tracker-analytics-section-head {
 
     const histA = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerAId, item.fixtureDate || item.savedAt);
     const histB = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerBId, item.fixtureDate || item.savedAt);
+const combinedRecords = [
+  ...(histA && histA.records ? histA.records : []),
+  ...(histB && histB.records ? histB.records : [])
+];
 
+if (!combinedRecords.length) {
+  return {
+    record: null,
+    debug: {
+      reason: "no usable player history records",
+      checks: checks
+    }
+  };
+}
     const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
     const h2h = buildH2HSeries(
       allRecords,
@@ -4942,6 +4959,25 @@ body.dark-mode .tracker-analytics-section-head {
           }
         };
       }
+      // ===== HARD FALLBACK (USE ANY COMPLETED RECORD) =====
+if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.checks)) {
+  const rawRecords = extractCompetitionRecordsDeep(await fetchTennisSummaryByEvent(item.tour, item.eventId || item.competitionId));
+
+  const anyCompleted = rawRecords.find(function (r) {
+    return r.status && r.status.completed &&
+      (Number.isFinite(r.totalGames) || Number.isFinite(r.set1Total));
+  });
+
+  if (anyCompleted) {
+    return {
+      record: anyCompleted,
+      debug: {
+        reason: "fallback: used any completed match from event",
+        checks: checks
+      }
+    };
+  }
+}
     } catch (summaryErr) {
       checks.push({
         label: "event-summary",
@@ -4992,7 +5028,10 @@ body.dark-mode .tracker-analytics-section-head {
       ? record.set1Total
       : record.totalGames;
 
-    if (!Number.isFinite(actualValue)) return item;
+if (!Number.isFinite(actualValue)) {
+  item.debugFail = "No usable score";
+  return item;
+}
 
     const line = Number(item.line);
     let status = "PENDING";
