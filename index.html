@@ -4271,18 +4271,16 @@ body.dark-mode .tracker-analytics-section-head {
     let items = [];
 
     if (Array.isArray(source.items)) {
-items = source.items.map(function (item) {
-  return normalizeTrackerItem(item);
-});
+      items = source.items.map(normalizeTrackerItem);
     } else {
       const activePicks = Array.isArray(source.activePicks) ? source.activePicks : [];
       const archivedPicks = Array.isArray(source.archivedPicks) ? source.archivedPicks : [];
-items = activePicks.map(function (item) {
-  return normalizeTrackerItem(item);
-});
-items = archivedPicks.map(function (item) {
-  return normalizeTrackerItem(item);
-});
+      items = activePicks.map(function (item) {
+        return normalizeTrackerItem(Object.assign({}, item, { archived: false }));
+      }).concat(
+        archivedPicks.map(function (item) {
+          return normalizeTrackerItem(Object.assign({}, item, { archived: true }));
+        })
       );
     }
 
@@ -4357,24 +4355,19 @@ items = archivedPicks.map(function (item) {
   }
 
   function trackerItemMergeKey(item) {
-  const match = String(item && item.match || "").trim();
-  const market = String(item && item.market || "").trim();
-  const line = String(item && item.line || "").trim();
-  const pick = String(item && item.pick || "").trim();
-  const savedAt = String(item && item.savedAt || "").trim();
-
-  return [
-    match,
-    market,
-    line,
-    pick,
-    savedAt
-  ].join("|");
-}
+    const savedDay = item && item.savedAt ? String(item.savedAt).slice(0, 10) : "";
+    return [
+      String(item && item.match || "").trim(),
+      String(item && item.market || "").trim(),
+      String(item && item.line || "").trim(),
+      String(item && item.pick || "").trim(),
+      savedDay
+    ].join("|");
+  }
 
   function trackerItemScore(item) {
     const status = String(item && item.status || "PENDING").toUpperCase();
-const settledScore = status === "PENDING" ? 10 : 50;
+    const settledScore = status === "PENDING" ? 0 : 50;
     const archivedScore = item && item.archived ? 20 : 0;
     const actualScore = item && item.actualTotal != null ? 10 : 0;
     const lockScore = item && item.isLock ? 1 : 0;
@@ -4395,17 +4388,9 @@ const settledScore = status === "PENDING" ? 10 : 50;
       const key = trackerItemMergeKey(item);
       const existing = map.get(key);
       const candidate = normalizeTrackerItem(item);
-      if (!existing) {
-  map.set(key, candidate);
-} else {
-  const existingTime = Date.parse(existing.savedAt || "") || 0;
-const candidateTime = Date.parse(candidate.savedAt || "") || 0;
-
-  // Always prefer newer entries
-  if (candidateTime >= existingTime) {
-    map.set(key, candidate);
-  }
-}
+      if (!existing || trackerItemScore(candidate) >= trackerItemScore(existing)) {
+        map.set(key, candidate);
+      }
     });
 
     return normalizeTrackerState({
@@ -4826,16 +4811,12 @@ const candidateTime = Date.parse(candidate.savedAt || "") || 0;
       };
     }
 
-const leagueSlug = String(item.tour || "").toLowerCase();
-const payload = await fetchTennisSummaryByEvent(leagueSlug, eventId);
-console.log(`[Settlement] Event summary for ${eventId}:`, payload);
+    const payload = await fetchTennisSummaryByEvent(item.tour, eventId);
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
-  record.status.completed &&
-  (
-    Number.isFinite(record.totalGames) ||
-    Number.isFinite(record.set1Total)
-  );
+        record.status.completed &&
+        Number.isFinite(record.totalGames) &&
+        Number.isFinite(record.set1Total);
     });
 
     const summary = summarizeSettlementProbe(records, names);
@@ -4845,11 +4826,7 @@ console.log(`[Settlement] Event summary for ${eventId}:`, payload);
     const fuzzy = records.filter(function (record) {
       return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
     });
-const relaxed = records.filter(function (record) {
-  return relaxedSameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-});
-
-const picked = exact[0] || fuzzy[0] || relaxed[0] || null;
+    const picked = exact[0] || fuzzy[0] || null;
 
     return {
       record: picked,
@@ -4892,21 +4869,7 @@ const picked = exact[0] || fuzzy[0] || relaxed[0] || null;
 
     const histA = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerAId, item.fixtureDate || item.savedAt);
     const histB = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerBId, item.fixtureDate || item.savedAt);
-const combinedRecords = [
-  ...(histA && histA.records ? histA.records : []),
-  ...(histB && histB.records ? histB.records : [])
-];
 
-if (!combinedRecords.length) {
-  return {
-    record: null,
-    debug: {
-      reason: "no usable player history records",
-      checks: checks
-    }
-  };
-}
-    console.log(`[Settlement] Player history records: A=${histA.records?.length || 0}, B=${histB.records?.length || 0}`);
     const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
     const h2h = buildH2HSeries(
       allRecords,
@@ -4965,37 +4928,6 @@ if (!combinedRecords.length) {
 
     try {
       const summaryProbe = await fetchSettlementRecordFromEventSummary(item, names);
-      if (summaryProbe && summaryProbe.record) {
-  return {
-    record: summaryProbe.record,
-    debug: {
-      reason: summaryProbe.debug?.reason || "matched from event summary",
-      checks
-    }
-  };
-}
-
-// 🚨 ADD THIS DIRECTLY AFTER:
-if (!summaryProbe || !summaryProbe.record) {
-  const fallbackEvent = await fetchTennisSummaryByEvent(item.tour, item.eventId || item.competitionId);
-
-  const records = extractCompetitionRecordsDeep(fallbackEvent);
-
-  const completed = records.find(r =>
-    r.status?.completed &&
-    (Number.isFinite(r.totalGames) || Number.isFinite(r.set1Total))
-  );
-
-  if (completed) {
-    return {
-      record: completed,
-      debug: {
-        reason: "forced fallback from event summary",
-        checks
-      }
-    };
-  }
-}
       if (summaryProbe && summaryProbe.debug && summaryProbe.debug.checks) {
         checks.push.apply(checks, summaryProbe.debug.checks);
       }
@@ -5008,25 +4940,6 @@ if (!summaryProbe || !summaryProbe.record) {
           }
         };
       }
-      // ===== HARD FALLBACK (USE ANY COMPLETED RECORD) =====
-if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.checks)) {
-  const rawRecords = extractCompetitionRecordsDeep(await fetchTennisSummaryByEvent(item.tour, item.eventId || item.competitionId));
-
-  const anyCompleted = rawRecords.find(function (r) {
-    return r.status && r.status.completed &&
-      (Number.isFinite(r.totalGames) || Number.isFinite(r.set1Total));
-  });
-
-  if (anyCompleted) {
-    return {
-      record: anyCompleted,
-      debug: {
-        reason: "fallback: used any completed match from event",
-        checks: checks
-      }
-    };
-  }
-}
     } catch (summaryErr) {
       checks.push({
         label: "event-summary",
@@ -5050,12 +4963,13 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
           }
         };
       }
-     // No real record found – keep as PENDING
       return {
         record: null,
         debug: {
-          reason: "no completed match record found in ESPN",
-          checks: checks
+          reason: historyProbe && historyProbe.debug && historyProbe.debug.reason
+            ? historyProbe.debug.reason
+            : "no completed player-history record matched tracked players",
+          checks: checks.concat(historyProbe && historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
         }
       };
     } catch (historyErr) {
@@ -5072,140 +4986,108 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
   function settleTrackerItemFromRecord(item, record) {
     if (!item || !record) return item;
 
-    const actualRaw = item.market === "Set 1 Total Games"
+    const actualValue = item.market === "Set 1 Total Games"
       ? record.set1Total
       : record.totalGames;
 
-    const actual = Number(actualRaw);
-
-    if (!Number.isFinite(actual)) {
-      console.warn('[Tracker] settlement failed: invalid actual', actualRaw);
-      item.debugFail = "No usable score";
-      return item;
-    }
+    if (!Number.isFinite(actualValue)) return item;
 
     const line = Number(item.line);
     let status = "PENDING";
 
-    if (actual > line) {
+    if (actualValue > line) {
       status = item.rawPick === "OVER" ? "WIN" : "LOSS";
-    } else if (actual < line) {
+    } else if (actualValue < line) {
       status = item.rawPick === "UNDER" ? "WIN" : "LOSS";
     } else {
       status = "PUSH";
     }
 
-    console.log(`[Tracker] settled ${item.match} ${item.market} actual=${actual} line=${line} -> ${status}`);
-
     return Object.assign({}, item, {
       status: status,
       settledAt: new Date().toISOString(),
-      actualTotal: round2(actual)
+      actualTotal: round2(actualValue)
     });
   }
 
   async function autoSettleTracker(isSilent) {
     g_trackerDebug.lastSettlementSummary = "Running settlement...";
     renderTrackerDebug();
+    await hydrateTrackerState(false);
+    const items = getTrackerItems();
+    g_trackerDebug.lastSettlementDetails = [];
+    if (!items.length) {
+      g_trackerDebug.lastSettlementSummary = "No tracked picks yet.";
+      renderTrackerDebug();
+      if (!isSilent) setRunStatus("No tracked picks yet.", "ok");
+      return;
+    }
 
-    // Safety timer: if settlement takes longer than 30 seconds, mark as timed out
-    const timeoutId = setTimeout(() => {
-      if (g_trackerDebug.lastSettlementSummary === "Running settlement...") {
-        g_trackerDebug.lastSettlementSummary = "Settlement timed out (stuck)";
-        renderTrackerDebug();
-      }
-    }, 30000);
+    const recordCache = new Map();
+    let settledCount = 0;
 
-    try {
-      await hydrateTrackerState(false);
-      const items = getTrackerItems();
-      g_trackerDebug.lastSettlementDetails = [];
-      
-      if (!items.length) {
-        g_trackerDebug.lastSettlementSummary = "No tracked picks yet.";
-        renderTrackerDebug();
-        if (!isSilent) setRunStatus("No tracked picks yet.", "ok");
-        return;
-      }
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      if (item.status !== "PENDING") continue;
 
-      const recordCache = new Map();
-      let settledCount = 0;
+      const cacheKey = [item.tour, item.match, item.savedAt ? item.savedAt.slice(0, 10) : ""].join("|");
+      let probe = recordCache.get(cacheKey);
 
-      for (let i = 0; i < items.length; i += 1) {
-        const item = items[i];
-        if (item.status !== "PENDING") continue;
-
-        const cacheKey = [
-          item.tour,
-          item.match,
-          item.market,
-          item.line,
-          item.eventId
-        ].join("|");
-        
-        let probe = recordCache.get(cacheKey);
-        if (probe === undefined) {
-          try {
-            probe = await fetchSettlementRecordForItem(item);
-            if (!probe || !probe.record) {
-              console.log("[Tracker] settlement miss:", item.match, item.eventId, probe);
+      if (probe === undefined) {
+        try {
+          probe = await fetchSettlementRecordForItem(item);
+        } catch (err) {
+          probe = {
+            record: null,
+            debug: {
+              reason: err && err.message ? err.message : "settlement fetch failed",
+              checks: []
             }
-          } catch (err) {
-            console.error("[Tracker] fetchSettlementRecordForItem error:", err);
-            probe = {
-              record: null,
-              debug: { reason: err?.message || "settlement fetch failed", checks: [] }
-            };
-          }
-          recordCache.set(cacheKey, probe);
+          };
         }
-
-        g_trackerDebug.lastSettlementDetails.push({
-          match: item.match,
-          market: item.market,
-          savedAt: item.savedAt || "",
-          archived: !!item.archived,
-          status: item.status,
-          reason: probe?.debug?.reason || "no debug",
-          checks: probe?.debug?.checks || []
-        });
-
-        if (probe && probe.record) {
-          const settledItem = settleTrackerItemFromRecord(item, probe.record);
-          if (settledItem.status !== item.status) settledCount += 1;
-          items[i] = settledItem;
-        }
+        recordCache.set(cacheKey, probe);
       }
 
-      const archiveResult = archiveOldTrackerItems(items);
-      const finalItems = archiveResult.items;
-      const archivedPending = finalItems.filter(item => item.archived && item.status === "PENDING").length;
-      
-      g_trackerDebug.lastSettlementSummary =
-        `Settled ${settledCount} • archived pending ${archivedPending} • probed ${g_trackerDebug.lastSettlementDetails.length} pending item(s).`;
-      
-      saveTrackerItems(finalItems);
-      updateTrackerUI();
-      renderTrackerDebug();
+      g_trackerDebug.lastSettlementDetails.push({
+        match: item.match,
+        market: item.market,
+        savedAt: item.savedAt || "",
+        archived: !!item.archived,
+        status: item.status,
+        reason: probe && probe.debug ? probe.debug.reason : "no debug",
+        checks: probe && probe.debug && Array.isArray(probe.debug.checks) ? probe.debug.checks : []
+      });
 
-      if (!isSilent) {
-        if (settledCount) {
-          setRunStatus("Tracker updated automatically.", "ok");
-        } else if (archiveResult.changed && archivedPending) {
-          setRunStatus(`Older picks moved off the live tracker. ${archivedPending} archived pick(s) still have no fetched final result yet.`, "ok");
-        } else if (archiveResult.changed) {
-          setRunStatus("Older picks moved off the live tracker.", "ok");
-        } else {
-          setRunStatus("No new completed results found yet.", "ok");
-        }
+      if (probe && probe.record) {
+        const settledItem = settleTrackerItemFromRecord(item, probe.record);
+        if (settledItem.status !== item.status) settledCount += 1;
+        items[i] = settledItem;
       }
-    } catch (err) {
-      console.error("[Tracker] autoSettleTracker crashed:", err);
-      g_trackerDebug.lastSettlementSummary = "Settlement error: " + (err.message || String(err));
-      renderTrackerDebug();
-      if (!isSilent) setRunStatus("Tracker settlement failed.", "err");
-    } finally {
-      clearTimeout(timeoutId);
+    }
+
+    const archiveResult = archiveOldTrackerItems(items);
+    const finalItems = archiveResult.items;
+    const archivedPending = finalItems.filter(function (item) {
+      return !!item.archived && item.status === "PENDING";
+    }).length;
+    g_trackerDebug.lastSettlementSummary =
+      "Settled " + settledCount +
+      " • archived pending " + archivedPending +
+      " • probed " + g_trackerDebug.lastSettlementDetails.length + " pending item(s).";
+    saveTrackerItems(finalItems);
+    updateTrackerUI();
+    renderTrackerDebug();
+
+    if (!isSilent) {
+      if (settledCount) {
+        setRunStatus("Tracker updated automatically.", "ok");
+      } else if (archiveResult.changed && archivedPending) {
+        setRunStatus("Older picks moved off the live tracker. " + archivedPending + " archived pick(s) still have no fetched final result yet.", "ok");
+      } else if (archiveResult.changed) {
+        setRunStatus("Older picks moved off the live tracker.", "ok");
+      } else {
+        setRunStatus("No new completed results found yet.", "ok");
+      }
     }
   }
 
@@ -5217,7 +5099,7 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
     }
     const results = [bundle.matchResult, bundle.set1Result];
     const lockIdx = selectLockIndex(results);
-const createdAt = new Date(Date.now() + Math.random()).toISOString();
+    const createdAt = new Date().toISOString();
 
     const built = results
       .map(function (result, idx) {
@@ -5232,7 +5114,7 @@ const createdAt = new Date(Date.now() + Math.random()).toISOString();
           playerAId: bundle.playerAId || "",
           playerBId: bundle.playerBId || "",
           competitionId: bundle.competitionId || "",
-eventId: bundle.eventId || bundle.context?.eventId || null,
+          eventId: bundle.eventId || "",
           fixtureDate: bundle.fixtureDate || "",
           tournamentName: bundle.context && bundle.context.tournamentName || "",
           eventLevel: bundle.context && bundle.context.eventLevel || "",
@@ -5448,17 +5330,18 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
       return 0;
     }
 
-    // 🔥 DIRECT LOCAL STORAGE SAVE – NO CLOUD INTERFERENCE
-    const currentState = loadTrackerStateFromLocal();
-    const items = currentState.items.slice();
+    const items = getTrackerItems();
 
     entries.reverse().forEach(function (entry) {
-      const duplicate = items.some(i =>
-        i.match === entry.match &&
-        i.market === entry.market &&
-        i.line === entry.line &&
-        i.pick === entry.pick
-      );
+      const duplicate = items.some(function (item) {
+        return item.match === entry.match &&
+          item.market === entry.market &&
+          item.line === entry.line &&
+          item.pick === entry.pick &&
+          item.savedAt && entry.savedAt &&
+          item.savedAt.slice(0, 10) === entry.savedAt.slice(0, 10);
+      });
+
       if (!duplicate) {
         items.unshift(entry);
         g_trackerDebug.lastInsertedEntries += 1;
@@ -5477,27 +5360,12 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
       return 0;
     }
 
-    // Build new state
-    const newState = {
-      items: items,
-      updatedAt: new Date().toISOString()
-    };
-
-    // Save directly to localStorage – no cloud sync at all
-    localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(newState));
-    localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(newState)));
-
-    // Update global state and UI
-    g_trackerState = newState;
+    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
+    saveTrackerItems(items);
+    latestRunBundle._trackerSaved = true;
     updateTrackerUI();
     renderTrackerDebug();
-
-    latestRunBundle._trackerSaved = true;
-    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
-
-    // Run settlement (still needs cloud for actual results, but save is already done)
     autoSettleTracker(true);
-
     return g_trackerDebug.lastInsertedEntries;
   }
 
@@ -5711,7 +5579,7 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
   async function fetchTennisSummaryByEvent(league, eventId) {
     if (!eventId) throw new Error("Missing event id");
     const urls = getTennisBaseCandidates(league).map(function (base) {
-return base + "/events/" + encodeURIComponent(eventId) + "/summary";
+      return base + "/summary?region=us&lang=en&contentorigin=espn&event=" + encodeURIComponent(eventId);
     });
 
     let lastErr = null;
@@ -5797,7 +5665,8 @@ return base + "/events/" + encodeURIComponent(eventId) + "/summary";
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
-        (Number.isFinite(record.totalGames) || Number.isFinite(record.set1Total));
+        Number.isFinite(record.totalGames) &&
+        Number.isFinite(record.set1Total);
     });
     return { payload: payload, records: records };
   }
@@ -5829,8 +5698,8 @@ return base + "/events/" + encodeURIComponent(eventId) + "/summary";
             const directRecords = extractCompetitionRecordsDeep(collectionPayload).filter(function (record) {
               return record.status &&
                 record.status.completed &&
-                Number.isFinite(record.totalGames) ||
-Number.isFinite(record.set1Total)
+                Number.isFinite(record.totalGames) &&
+                Number.isFinite(record.set1Total);
             });
             if (directRecords.length) {
               return {
@@ -6289,8 +6158,8 @@ Number.isFinite(record.set1Total)
         const payload = await fetchTennisScoreboard(key, datesQuery);
         const records = extractCompetitionRecords(payload).filter(function (record) {
           return record.status.completed &&
-            Number.isFinite(record.totalGames) ||
-Number.isFinite(record.set1Total)
+            Number.isFinite(record.totalGames) &&
+            Number.isFinite(record.set1Total) &&
             Number.isFinite(record.playerAGames) &&
             Number.isFinite(record.playerBGames) &&
             Number.isFinite(record.playerASet1Games) &&
@@ -6397,8 +6266,8 @@ Number.isFinite(record.set1Total)
       const payload = await fetchTennisScoreboard(league, datesQuery);
       const records = extractCompetitionRecords(payload).filter(function (record) {
         return record.status.completed &&
-          Number.isFinite(record.totalGames) ||
-Number.isFinite(record.set1Total)
+          Number.isFinite(record.totalGames) &&
+          Number.isFinite(record.set1Total) &&
           Number.isFinite(record.playerAGames) &&
           Number.isFinite(record.playerBGames) &&
           Number.isFinite(record.playerASet1Games) &&
