@@ -4355,15 +4355,20 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function trackerItemMergeKey(item) {
-    const savedDay = item && item.savedAt ? String(item.savedAt).slice(0, 10) : "";
-    return [
-      String(item && item.match || "").trim(),
-      String(item && item.market || "").trim(),
-      String(item && item.line || "").trim(),
-      String(item && item.pick || "").trim(),
-      savedDay
-    ].join("|");
-  }
+  const match = String(item && item.match || "").trim();
+  const market = String(item && item.market || "").trim();
+  const line = String(item && item.line || "").trim();
+  const pick = String(item && item.pick || "").trim();
+  const savedAt = String(item && item.savedAt || "").trim();
+
+  return [
+    match,
+    market,
+    line,
+    pick,
+    savedAt
+  ].join("|");
+}
 
   function trackerItemScore(item) {
     const status = String(item && item.status || "PENDING").toUpperCase();
@@ -4391,8 +4396,8 @@ const settledScore = status === "PENDING" ? 10 : 50;
       if (!existing) {
   map.set(key, candidate);
 } else {
-  const existingTime = Date.parse(existing.savedAt || 0);
-  const candidateTime = Date.parse(candidate.savedAt || 0);
+  const existingTime = Date.parse(existing.savedAt || "") || 0;
+const candidateTime = Date.parse(candidate.savedAt || "") || 0;
 
   // Always prefer newer entries
   if (candidateTime >= existingTime) {
@@ -5210,7 +5215,7 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
     }
     const results = [bundle.matchResult, bundle.set1Result];
     const lockIdx = selectLockIndex(results);
-    const createdAt = new Date().toISOString();
+const createdAt = new Date(Date.now() + Math.random()).toISOString();
 
     const built = results
       .map(function (result, idx) {
