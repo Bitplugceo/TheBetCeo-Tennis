@@ -4366,13 +4366,29 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function trackerItemScore(item) {
+    // NEW LOGIC: Pending beats Archived. Newer beats older.
     const status = String(item && item.status || "PENDING").toUpperCase();
-    const settledScore = status === "PENDING" ? 0 : 50;
-    const archivedScore = item && item.archived ? 20 : 0;
-    const actualScore = item && item.actualTotal != null ? 10 : 0;
-    const lockScore = item && item.isLock ? 1 : 0;
-    const timeScore = Date.parse(item && (item.archivedAt || item.settledAt || item.savedAt) || "") || 0;
-    return settledScore + archivedScore + actualScore + lockScore + (timeScore / 1000000000000000);
+
+    // Base score from status
+    let statusScore = 0;
+    if (status === "WIN") statusScore = 100;
+    else if (status === "LOSS") statusScore = 90;
+    else if (status === "PUSH") statusScore = 80;
+    else if (status === "PENDING") statusScore = 70;   // Higher than ARCHIVED
+    else statusScore = 0;
+
+    // Archived items get a lower base, so fresh pending always wins
+    if (item && item.archived) statusScore = 50;
+
+    // Time score: newer saved items get higher score
+    const timeValue = Date.parse(item && item.savedAt || "") || 0;
+    const timeScore = timeValue / 1000; // seconds since epoch (bigger = newer)
+
+    // Small bonuses
+    const actualBonus = (item && item.actualTotal != null) ? 5 : 0;
+    const lockBonus = (item && item.isLock) ? 2 : 0;
+
+    return statusScore + actualBonus + lockBonus + timeScore;
   }
 
   function mergeTrackerStates(localState, serverState) {
@@ -4490,30 +4506,10 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function queueTrackerSync(stateSnapshot) {
-    const snapshot = normalizeTrackerState(stateSnapshot);
-
-    g_trackerSyncPromise = g_trackerSyncPromise.then(async function () {
-      g_trackerDebug.lastSyncStartAt = new Date().toISOString();
-      g_trackerDebug.lastSyncStatus = "running";
-      g_trackerDebug.lastSyncError = "";
-      try {
-        const merged = await pushTrackerStateToServer(snapshot);
-        saveTrackerStateToLocal(merged);
-        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
-        g_trackerDebug.lastSyncStatus = "ok";
-        renderTrackerDebug();
-        return merged;
-      } catch (err) {
-        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
-        g_trackerDebug.lastSyncStatus = "error";
-        g_trackerDebug.lastSyncError = err && err.message ? err.message : String(err);
-        renderTrackerDebug();
-        return snapshot;
-      }
-    });
-
-    return g_trackerSyncPromise;
-  }
+  // Cloud sync temporarily disabled to prevent new picks from being overwritten.
+  // The worker is still available, but we no longer push local changes automatically.
+  return Promise.resolve(stateSnapshot);
+}
 
   async function hydrateTrackerState(force) {
     if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
@@ -5102,7 +5098,6 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
     }, 30000);
 
     try {
-      await hydrateTrackerState(false);
       const items = getTrackerItems();
       g_trackerDebug.lastSettlementDetails = [];
       
@@ -5500,7 +5495,6 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
 
     g_trackerRefreshPromise = (async function () {
       try {
-        await hydrateTrackerState(false);
         await autoSettleTracker(!!isSilent);
       } finally {
         g_trackerRefreshPromise = null;
@@ -6853,17 +6847,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateTrackerUI();
     renderTrackerDebug();
-    hydrateTrackerState(true).then(function () {
-      updateTrackerUI();
-      renderTrackerDebug();
-      autoSettleTracker(true);
-    });
-    setInterval(function () {
-      hydrateTrackerState(true).then(function () {
-        updateTrackerUI();
-        autoSettleTracker(true);
-      });
-    }, 300000);
+    updateTrackerUI();
+    renderTrackerDebug();
+    autoSettleTracker(true);
     setTrackerView("list");
   });
 })();
