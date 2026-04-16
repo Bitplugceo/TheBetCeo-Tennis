@@ -5481,6 +5481,12 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
       updatedAt: new Date().toISOString()
     };
 
+   // Build new state
+    const newState = {
+      items: items,
+      updatedAt: new Date().toISOString()
+    };
+
     // Save directly to localStorage FIRST
     localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(newState));
     localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(newState)));
@@ -5500,41 +5506,7 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
     autoSettleTracker(true);
 
     return g_trackerDebug.lastInsertedEntries;
-}
-  async function refreshTrackerNow(isSilent) {
-    if (g_trackerRefreshPromise) return g_trackerRefreshPromise;
-    g_trackerDebug.lastSettlementSummary = "Running settlement...";
-    renderTrackerDebug();
-    updateTrackerUI();
-    g_trackerRefreshPromise = (async function () {
-      try {
-        await autoSettleTracker(!!isSilent);
-      } finally {
-        g_trackerRefreshPromise = null;
-        updateTrackerUI();
-        renderTrackerDebug();
-      }
-    })();
-   return g_trackerDebug.lastInsertedEntries;
-  }
-async function refreshTrackerNow(isSilent) {
-    if (g_trackerRefreshPromise) return g_trackerRefreshPromise;
-    g_trackerDebug.lastSettlementSummary = "Running settlement...";
-    renderTrackerDebug();
-    updateTrackerUI();
-    g_trackerRefreshPromise = (async function () {
-      try {
-        await autoSettleTracker(!!isSilent);
-      } finally {
-        g_trackerRefreshPromise = null;
-        updateTrackerUI();
-        renderTrackerDebug();
-      }
-    })();
-    return g_trackerRefreshPromise;
-  }
 
-  function setTrackerView(mode) {
   function setTrackerView(mode) {
     const trackerModal = qs("trackerModal");
     const panel = trackerModal ? trackerModal.querySelector(".tracker-panel") : null;
