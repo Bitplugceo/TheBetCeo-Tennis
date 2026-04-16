@@ -6832,17 +6832,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateTrackerUI();
     renderTrackerDebug();
-    hydrateTrackerState(true).then(function () {
-      updateTrackerUI();
-      renderTrackerDebug();
-      autoSettleTracker(true);
-    });
-    setInterval(function () {
-      hydrateTrackerState(true).then(function () {
-        updateTrackerUI();
-        autoSettleTracker(true);
-      });
-    }, 300000);
+    updateTrackerUI();
+    renderTrackerDebug();
+    autoSettleTracker(true);
     setTrackerView("list");
   });
 })();
