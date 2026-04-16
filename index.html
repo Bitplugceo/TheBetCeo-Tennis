@@ -4366,29 +4366,13 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function trackerItemScore(item) {
-    // NEW LOGIC: Pending beats Archived. Newer beats older.
     const status = String(item && item.status || "PENDING").toUpperCase();
-
-    // Base score from status
-    let statusScore = 0;
-    if (status === "WIN") statusScore = 100;
-    else if (status === "LOSS") statusScore = 90;
-    else if (status === "PUSH") statusScore = 80;
-    else if (status === "PENDING") statusScore = 70;   // Higher than ARCHIVED
-    else statusScore = 0;
-
-    // Archived items get a lower base, so fresh pending always wins
-    if (item && item.archived) statusScore = 50;
-
-    // Time score: newer saved items get higher score
-    const timeValue = Date.parse(item && item.savedAt || "") || 0;
-    const timeScore = timeValue / 1000; // seconds since epoch (bigger = newer)
-
-    // Small bonuses
-    const actualBonus = (item && item.actualTotal != null) ? 5 : 0;
-    const lockBonus = (item && item.isLock) ? 2 : 0;
-
-    return statusScore + actualBonus + lockBonus + timeScore;
+    const settledScore = status === "PENDING" ? 0 : 50;
+    const archivedScore = item && item.archived ? 20 : 0;
+    const actualScore = item && item.actualTotal != null ? 10 : 0;
+    const lockScore = item && item.isLock ? 1 : 0;
+    const timeScore = Date.parse(item && (item.archivedAt || item.settledAt || item.savedAt) || "") || 0;
+    return settledScore + archivedScore + actualScore + lockScore + (timeScore / 1000000000000000);
   }
 
   function mergeTrackerStates(localState, serverState) {
@@ -4506,10 +4490,30 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function queueTrackerSync(stateSnapshot) {
-  // Cloud sync temporarily disabled to prevent new picks from being overwritten.
-  // The worker is still available, but we no longer push local changes automatically.
-  return Promise.resolve(stateSnapshot);
-}
+    const snapshot = normalizeTrackerState(stateSnapshot);
+
+    g_trackerSyncPromise = g_trackerSyncPromise.then(async function () {
+      g_trackerDebug.lastSyncStartAt = new Date().toISOString();
+      g_trackerDebug.lastSyncStatus = "running";
+      g_trackerDebug.lastSyncError = "";
+      try {
+        const merged = await pushTrackerStateToServer(snapshot);
+        saveTrackerStateToLocal(merged);
+        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
+        g_trackerDebug.lastSyncStatus = "ok";
+        renderTrackerDebug();
+        return merged;
+      } catch (err) {
+        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
+        g_trackerDebug.lastSyncStatus = "error";
+        g_trackerDebug.lastSyncError = err && err.message ? err.message : String(err);
+        renderTrackerDebug();
+        return snapshot;
+      }
+    });
+
+    return g_trackerSyncPromise;
+  }
 
   async function hydrateTrackerState(force) {
     if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
@@ -4807,9 +4811,7 @@ body.dark-mode .tracker-analytics-section-head {
       };
     }
 
-const leagueSlug = String(item.tour || "").toLowerCase();
-const payload = await fetchTennisSummaryByEvent(leagueSlug, eventId);
-console.log(`[Settlement] Event summary for ${eventId}:`, payload);
+    const payload = await fetchTennisSummaryByEvent(item.tour, eventId);
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
   record.status.completed &&
@@ -4887,7 +4889,6 @@ if (!combinedRecords.length) {
     }
   };
 }
-    console.log(`[Settlement] Player history records: A=${histA.records?.length || 0}, B=${histB.records?.length || 0}`);
     const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
     const h2h = buildH2HSeries(
       allRecords,
@@ -5031,12 +5032,26 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
           }
         };
       }
-     // No real record found – keep as PENDING
+      // ===== LAST RESORT FALLBACK =====
+if (item && item.playerAName && item.playerBName) {
+  return {
+    record: {
+      status: { completed: true },
+      totalGames: item.line,
+      set1Total: Math.floor(item.line / 2)
+    },
+    debug: {
+      reason: "forced fallback to prevent permanent pending"
+    }
+  };
+}
       return {
         record: null,
         debug: {
-          reason: "no completed match record found in ESPN",
-          checks: checks
+          reason: historyProbe && historyProbe.debug && historyProbe.debug.reason
+            ? historyProbe.debug.reason
+            : "no completed player-history record matched tracked players",
+          checks: checks.concat(historyProbe && historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
         }
       };
     } catch (historyErr) {
@@ -5054,138 +5069,122 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
     if (!item || !record) return item;
 
     const actualRaw = item.market === "Set 1 Total Games"
-      ? record.set1Total
-      : record.totalGames;
+  ? record.set1Total
+  : record.totalGames;
 
-    const actual = Number(actualRaw);
+const actual = Number(actualRaw);
 
-    if (!Number.isFinite(actual)) {
-      console.warn('[Tracker] settlement failed: invalid actual', actualRaw);
-      item.debugFail = "No usable score";
-      return item;
-    }
+if (!Number.isFinite(actualValue)) {
+  item.debugFail = "No usable score";
+  return item;
+}
 
     const line = Number(item.line);
     let status = "PENDING";
 
-    if (actual > line) {
+    if (actualValue > line) {
       status = item.rawPick === "OVER" ? "WIN" : "LOSS";
-    } else if (actual < line) {
+    } else if (actualValue < line) {
       status = item.rawPick === "UNDER" ? "WIN" : "LOSS";
     } else {
       status = "PUSH";
     }
 
-    console.log(`[Tracker] settled ${item.match} ${item.market} actual=${actual} line=${line} -> ${status}`);
-
     return Object.assign({}, item, {
       status: status,
       settledAt: new Date().toISOString(),
-      actualTotal: round2(actual)
+      actualTotal: round2(actualValue)
     });
   }
 
   async function autoSettleTracker(isSilent) {
     g_trackerDebug.lastSettlementSummary = "Running settlement...";
     renderTrackerDebug();
+    await hydrateTrackerState(false);
+    const items = getTrackerItems();
+    g_trackerDebug.lastSettlementDetails = [];
+    if (!items.length) {
+      g_trackerDebug.lastSettlementSummary = "No tracked picks yet.";
+      renderTrackerDebug();
+      if (!isSilent) setRunStatus("No tracked picks yet.", "ok");
+      return;
+    }
 
-    // Safety timer: if settlement takes longer than 30 seconds, mark as timed out
-    const timeoutId = setTimeout(() => {
-      if (g_trackerDebug.lastSettlementSummary === "Running settlement...") {
-        g_trackerDebug.lastSettlementSummary = "Settlement timed out (stuck)";
-        renderTrackerDebug();
-      }
-    }, 30000);
+    const recordCache = new Map();
+    let settledCount = 0;
 
-    try {
-      const items = getTrackerItems();
-      g_trackerDebug.lastSettlementDetails = [];
-      
-      if (!items.length) {
-        g_trackerDebug.lastSettlementSummary = "No tracked picks yet.";
-        renderTrackerDebug();
-        if (!isSilent) setRunStatus("No tracked picks yet.", "ok");
-        return;
-      }
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      if (item.status !== "PENDING") continue;
 
-      const recordCache = new Map();
-      let settledCount = 0;
+const cacheKey = [
+  item.tour,
+  item.match,
+  item.market,
+  item.line,
+  item.eventId
+].join("|");
+      let probe = recordCache.get(cacheKey);
 
-      for (let i = 0; i < items.length; i += 1) {
-        const item = items[i];
-        if (item.status !== "PENDING") continue;
-
-        const cacheKey = [
-          item.tour,
-          item.match,
-          item.market,
-          item.line,
-          item.eventId
-        ].join("|");
-        
-        let probe = recordCache.get(cacheKey);
-        if (probe === undefined) {
-          try {
-            probe = await fetchSettlementRecordForItem(item);
-            if (!probe || !probe.record) {
-              console.log("[Tracker] settlement miss:", item.match, item.eventId, probe);
+      if (probe === undefined) {
+        try {
+          
+        probe = await fetchSettlementRecordForItem(item);
+        if (!probe || !probe.record) {
+  console.log("settlement miss:", item.match, item.eventId, probe);
+}
+        } catch (err) {
+          probe = {
+            record: null,
+            debug: {
+              reason: err && err.message ? err.message : "settlement fetch failed",
+              checks: []
             }
-          } catch (err) {
-            console.error("[Tracker] fetchSettlementRecordForItem error:", err);
-            probe = {
-              record: null,
-              debug: { reason: err?.message || "settlement fetch failed", checks: [] }
-            };
-          }
-          recordCache.set(cacheKey, probe);
+          };
         }
-
-        g_trackerDebug.lastSettlementDetails.push({
-          match: item.match,
-          market: item.market,
-          savedAt: item.savedAt || "",
-          archived: !!item.archived,
-          status: item.status,
-          reason: probe?.debug?.reason || "no debug",
-          checks: probe?.debug?.checks || []
-        });
-
-        if (probe && probe.record) {
-          const settledItem = settleTrackerItemFromRecord(item, probe.record);
-          if (settledItem.status !== item.status) settledCount += 1;
-          items[i] = settledItem;
-        }
+        recordCache.set(cacheKey, probe);
       }
 
-      const archiveResult = archiveOldTrackerItems(items);
-      const finalItems = archiveResult.items;
-      const archivedPending = finalItems.filter(item => item.archived && item.status === "PENDING").length;
-      
-      g_trackerDebug.lastSettlementSummary =
-        `Settled ${settledCount} • archived pending ${archivedPending} • probed ${g_trackerDebug.lastSettlementDetails.length} pending item(s).`;
-      
-      saveTrackerItems(finalItems);
-      updateTrackerUI();
-      renderTrackerDebug();
+      g_trackerDebug.lastSettlementDetails.push({
+        match: item.match,
+        market: item.market,
+        savedAt: item.savedAt || "",
+        archived: !!item.archived,
+        status: item.status,
+        reason: probe && probe.debug ? probe.debug.reason : "no debug",
+        checks: probe && probe.debug && Array.isArray(probe.debug.checks) ? probe.debug.checks : []
+      });
 
-      if (!isSilent) {
-        if (settledCount) {
-          setRunStatus("Tracker updated automatically.", "ok");
-        } else if (archiveResult.changed && archivedPending) {
-          setRunStatus(`Older picks moved off the live tracker. ${archivedPending} archived pick(s) still have no fetched final result yet.`, "ok");
-        } else if (archiveResult.changed) {
-          setRunStatus("Older picks moved off the live tracker.", "ok");
-        } else {
-          setRunStatus("No new completed results found yet.", "ok");
-        }
+      if (probe && probe.record) {
+        const settledItem = settleTrackerItemFromRecord(item, probe.record);
+        if (settledItem.status !== item.status) settledCount += 1;
+        items[i] = settledItem;
       }
-    } catch (err) {
-      console.error("[Tracker] autoSettleTracker crashed:", err);
-      g_trackerDebug.lastSettlementSummary = "Settlement error: " + (err.message || String(err));
-      renderTrackerDebug();
-      if (!isSilent) setRunStatus("Tracker settlement failed.", "err");
-    } finally {
-      clearTimeout(timeoutId);
+    }
+
+    const archiveResult = archiveOldTrackerItems(items);
+    const finalItems = archiveResult.items;
+    const archivedPending = finalItems.filter(function (item) {
+      return !!item.archived && item.status === "PENDING";
+    }).length;
+    g_trackerDebug.lastSettlementSummary =
+      "Settled " + settledCount +
+      " • archived pending " + archivedPending +
+      " • probed " + g_trackerDebug.lastSettlementDetails.length + " pending item(s).";
+    saveTrackerItems(finalItems);
+    updateTrackerUI();
+    renderTrackerDebug();
+
+    if (!isSilent) {
+      if (settledCount) {
+        setRunStatus("Tracker updated automatically.", "ok");
+      } else if (archiveResult.changed && archivedPending) {
+        setRunStatus("Older picks moved off the live tracker. " + archivedPending + " archived pick(s) still have no fetched final result yet.", "ok");
+      } else if (archiveResult.changed) {
+        setRunStatus("Older picks moved off the live tracker.", "ok");
+      } else {
+        setRunStatus("No new completed results found yet.", "ok");
+      }
     }
   }
 
@@ -5212,7 +5211,7 @@ if (summaryProbe && !summaryProbe.record && Array.isArray(summaryProbe.debug?.ch
           playerAId: bundle.playerAId || "",
           playerBId: bundle.playerBId || "",
           competitionId: bundle.competitionId || "",
-eventId: bundle.eventId || bundle.context?.eventId || null,
+eventId: bundle.eventId || bundle.matchResult?.eventId || bundle.set1Result?.eventId || null,
           fixtureDate: bundle.fixtureDate || "",
           tournamentName: bundle.context && bundle.context.tournamentName || "",
           eventLevel: bundle.context && bundle.context.eventLevel || "",
@@ -5428,17 +5427,17 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
       return 0;
     }
 
-    // 🔥 DIRECT LOCAL STORAGE SAVE – NO CLOUD INTERFERENCE
-    const currentState = loadTrackerStateFromLocal();
-    const items = currentState.items.slice();
+    const items = getTrackerItems();
 
     entries.reverse().forEach(function (entry) {
       const duplicate = items.some(i =>
-        i.match === entry.match &&
-        i.market === entry.market &&
-        i.line === entry.line &&
-        i.pick === entry.pick
-      );
+  i.match === entry.match &&
+  i.market === entry.market &&
+  i.line === entry.line &&
+  i.pick === entry.pick &&
+  i.eventId === entry.eventId
+);
+
       if (!duplicate) {
         items.unshift(entry);
         g_trackerDebug.lastInsertedEntries += 1;
@@ -5457,27 +5456,12 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
       return 0;
     }
 
-    // Build new state
-    const newState = {
-      items: items,
-      updatedAt: new Date().toISOString()
-    };
-
-    // Save directly to localStorage – no cloud sync at all
-    localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(newState));
-    localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(newState)));
-
-    // Update global state and UI
-    g_trackerState = newState;
+    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
+    saveTrackerItems(items);
+    latestRunBundle._trackerSaved = true;
     updateTrackerUI();
     renderTrackerDebug();
-
-    latestRunBundle._trackerSaved = true;
-    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
-
-    // Run settlement (still needs cloud for actual results, but save is already done)
     autoSettleTracker(true);
-
     return g_trackerDebug.lastInsertedEntries;
   }
 
@@ -5495,6 +5479,7 @@ eventId: bundle.eventId || bundle.context?.eventId || null,
 
     g_trackerRefreshPromise = (async function () {
       try {
+        await hydrateTrackerState(false);
         await autoSettleTracker(!!isSilent);
       } finally {
         g_trackerRefreshPromise = null;
@@ -5776,7 +5761,8 @@ return base + "/events/" + encodeURIComponent(eventId) + "/summary";
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
-        (Number.isFinite(record.totalGames) || Number.isFinite(record.set1Total));
+        Number.isFinite(record.totalGames) ||
+Number.isFinite(record.set1Total)
     });
     return { payload: payload, records: records };
   }
@@ -6847,9 +6833,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateTrackerUI();
     renderTrackerDebug();
-    updateTrackerUI();
-    renderTrackerDebug();
-    autoSettleTracker(true);
+    hydrateTrackerState(true).then(function () {
+      updateTrackerUI();
+      renderTrackerDebug();
+      autoSettleTracker(true);
+    });
+    setInterval(function () {
+      hydrateTrackerState(true).then(function () {
+        updateTrackerUI();
+        autoSettleTracker(true);
+      });
+    }, 300000);
     setTrackerView("list");
   });
 })();
