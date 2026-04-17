@@ -4915,77 +4915,91 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   async function fetchSettlementRecordForItem(item) {
-    if (!item || !item.tour || !item.match) {
-      return { record: null, debug: { reason: "missing item fields", checks: [] } };
-    }
-
-    const names = parseTrackerMatchNames(item.match);
-    const surface = item.surface || resolveSurface(item.match);
-    if (!names.playerAName || !names.playerBName) {
-      return { record: null, debug: { reason: "unable to parse match names", checks: [] } };
-    }
-
-    const checks = [];
-
-    try {
-      const summaryProbe = await fetchSettlementRecordFromEventSummary(item, names);
-      if (summaryProbe && summaryProbe.debug && summaryProbe.debug.checks) {
-        checks.push.apply(checks, summaryProbe.debug.checks);
+  if (!item || !item.tour || !item.match) {
+    return {
+      record: null,
+      debug: {
+        reason: "missing item / tour / match",
+        checks: [],
+        manualSurface: item?.manualSurface || "unknown"
       }
-      if (summaryProbe && summaryProbe.record) {
-        return {
-          record: summaryProbe.record,
-          debug: {
-            reason: summaryProbe.debug && summaryProbe.debug.reason ? summaryProbe.debug.reason : "matched from saved event summary",
-            checks: checks
-          }
-        };
-      }
-    } catch (summaryErr) {
-      checks.push({
-        label: "event-summary",
-        query: "event=" + (item.eventId || item.competitionId || "missing"),
-        records: 0,
-        exact: 0,
-        fuzzy: 0,
-        relaxed: 0,
-        sample: "summary error: " + (summaryErr && summaryErr.message ? summaryErr.message : String(summaryErr))
-      });
-    }
-
-    try {
-      const historyProbe = await fetchSettlementRecordFromPlayerHistory(item, names);
-      if (historyProbe && historyProbe.record) {
-        return {
-          record: historyProbe.record,
-          debug: {
-            reason: historyProbe.debug && historyProbe.debug.reason ? historyProbe.debug.reason : "matched from player-history fallback",
-            checks: checks.concat(historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
-          }
-        };
-      }
-      return {
-  record: null,
-  debug: {
-    reason: historyProbe && historyProbe.debug
-      ? historyProbe.debug.reason
-      : "no completed player-history record ...",
-
-    checks: checks.concat(historyProbe && historyProbe.debug ? historyProbe.debug.checks : []),
-
-    surface: item.surface || null
+    };
   }
-};
-    } catch (historyErr) {
+
+  const names = parseTrackerMatchNames(item.match);
+  const manualSurface = item.manualSurface || "unknown";
+
+  if (!names.playerAName || !names.playerBName) {
+    return {
+      record: null,
+      debug: {
+        reason: "unable to parse players from match",
+        checks: [],
+        manualSurface
+      }
+    };
+  }
+
+  const checks = [];
+
+  try {
+    // =========================
+    // PLAYER HISTORY PROBE
+    // =========================
+    const historyProbe = await fetchPlayerHistorySettlementRecords(
+      names.playerAName,
+      names.playerBName,
+      item.tour,
+      item.match
+    );
+
+    checks.push({
+      label: "player-history-h2h",
+      query: "merged-athlete-history",
+      records: historyProbe?.records?.length || 0,
+      exact: historyProbe?.h2h?.length || 0,
+      fuzzy: historyProbe?.nearby?.length || 0,
+      relaxed: historyProbe ? 1 : 0,
+      sample: historyProbe?.sample || []
+    });
+
+    if (historyProbe?.record) {
       return {
-        record: null,
+        record: historyProbe.record,
         debug: {
-          reason: "player-history settlement failed: " + (historyErr && historyErr.message ? historyErr.message : String(historyErr)),
-          checks: checks
+          reason: historyProbe.debug?.reason || "player-history success",
+          checks: checks.concat(historyProbe.debug?.checks || []),
+          manualSurface
         }
       };
     }
+
+    // =========================
+    // NO HISTORY MATCH
+    // =========================
+    return {
+      record: null,
+      debug: {
+        reason: historyProbe?.debug?.reason
+          ? historyProbe.debug.reason
+          : "no completed player-history record match",
+
+        checks: checks.concat(historyProbe?.debug?.checks || []),
+        manualSurface
+      }
+    };
+
+  } catch (historyErr) {
+    return {
+      record: null,
+      debug: {
+        reason: "player-history settlement failed",
+        checks,
+        manualSurface
+      }
+    };
   }
+}
 
   function settleTrackerItemFromRecord(item, record) {
     if (!item || !record) return item;
@@ -5838,28 +5852,7 @@ body.dark-mode .tracker-analytics-section-head {
     return "";
   }
 
-function extractSurfaceText(comp, parentEvent) {
-  const name =
-    (comp?.tournament?.name ||
-     comp?.competition?.name ||
-     parentEvent?.name ||
-     "").toLowerCase();
-
-  if (name.includes("wimbledon")) return "grass";
-  if (name.includes("roland garros") || name.includes("french open")) return "clay";
-  if (name.includes("us open")) return "hard";
-  if (name.includes("australian open")) return "hard";
-
-  if (name.includes("monte carlo")) return "clay";
-  if (name.includes("madrid")) return "clay";
-  if (name.includes("rome")) return "clay";
-  if (name.includes("barcelona")) return "clay";
-
-  if (name.includes("halle")) return "grass";
-  if (name.includes("queens")) return "grass";
-
-  return "hard";
-}
+  function extractSurfaceText(comp, parentEvent) {
     return pickFirstTruthy([
       comp && comp.surface && comp.surface.name,
       comp && comp.surface && comp.surface.displayName,
@@ -5973,7 +5966,7 @@ function extractSurfaceText(comp, parentEvent) {
               shortName: eventObj.shortName,
               name: eventObj.name,
               grouping: grouping.grouping || null,
-surface: extractSurfaceText(comp, eventObj),
+              surface: eventObj.surface || null,
               venue: eventObj.venue || null
             });
             if (record) records.push(record);
