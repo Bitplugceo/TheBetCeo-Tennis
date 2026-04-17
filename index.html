@@ -4920,6 +4920,7 @@ body.dark-mode .tracker-analytics-section-head {
     }
 
     const names = parseTrackerMatchNames(item.match);
+    const surface = item.surface || resolveSurface(item.match);
     if (!names.playerAName || !names.playerBName) {
       return { record: null, debug: { reason: "unable to parse match names", checks: [] } };
     }
@@ -5834,7 +5835,28 @@ body.dark-mode .tracker-analytics-section-head {
     return "";
   }
 
-  function extractSurfaceText(comp, parentEvent) {
+function extractSurfaceText(comp, parentEvent) {
+  const name =
+    (comp?.tournament?.name ||
+     comp?.competition?.name ||
+     parentEvent?.name ||
+     "").toLowerCase();
+
+  if (name.includes("wimbledon")) return "grass";
+  if (name.includes("roland garros") || name.includes("french open")) return "clay";
+  if (name.includes("us open")) return "hard";
+  if (name.includes("australian open")) return "hard";
+
+  if (name.includes("monte carlo")) return "clay";
+  if (name.includes("madrid")) return "clay";
+  if (name.includes("rome")) return "clay";
+  if (name.includes("barcelona")) return "clay";
+
+  if (name.includes("halle")) return "grass";
+  if (name.includes("queens")) return "grass";
+
+  return "hard";
+}
     return pickFirstTruthy([
       comp && comp.surface && comp.surface.name,
       comp && comp.surface && comp.surface.displayName,
@@ -5948,7 +5970,7 @@ body.dark-mode .tracker-analytics-section-head {
               shortName: eventObj.shortName,
               name: eventObj.name,
               grouping: grouping.grouping || null,
-              surface: eventObj.surface || null,
+surface: extractSurfaceText(comp, eventObj),
               venue: eventObj.venue || null
             });
             if (record) records.push(record);
