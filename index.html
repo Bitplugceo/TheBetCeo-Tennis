@@ -4965,14 +4965,17 @@ body.dark-mode .tracker-analytics-section-head {
         };
       }
       return {
-        record: null,
-        debug: {
-          reason: historyProbe && historyProbe.debug && historyProbe.debug.reason
-            ? historyProbe.debug.reason
-            : "no completed player-history record matched tracked players",
-          checks: checks.concat(historyProbe && historyProbe.debug && historyProbe.debug.checks ? historyProbe.debug.checks : [])
-        }
-      };
+  record: null,
+  debug: {
+    reason: historyProbe && historyProbe.debug
+      ? historyProbe.debug.reason
+      : "no completed player-history record ...",
+
+    checks: checks.concat(historyProbe && historyProbe.debug ? historyProbe.debug.checks : []),
+
+    surface: item.surface || null
+  }
+};
     } catch (historyErr) {
       return {
         record: null,
