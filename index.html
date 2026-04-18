@@ -3154,13 +3154,17 @@ body.dark-mode .tracker-analytics-section-head {
     };
   }
 
-  function getManualContextOverride(tour, playerAName, playerBName) {
+    function getManualContextOverride(tour, playerAName, playerBName) {
     const ctx = buildDefaultContext(tour, playerAName, playerBName);
 
     ctx.tournamentName = String(qs("tournamentDisplay") && qs("tournamentDisplay").value || "").trim();
     ctx.eventLevel = String(qs("leagueLevelDisplay") && qs("leagueLevelDisplay").value || "").trim();
     ctx.matchFormat = String(qs("formatDisplay") && qs("formatDisplay").value || "").trim();
     ctx.roundName = String(qs("roundDisplay") && qs("roundDisplay").value || "").trim();
+    
+    // Read the surface from the dropdown
+    const surfaceEl = qs("surfaceSelect");
+    if (surfaceEl) ctx.surface = surfaceEl.value;
 
     if (!ctx.eventLevel && ctx.tournamentName) {
       ctx.eventLevel = classifyEventLevel(ctx.tournamentName);
@@ -3183,9 +3187,11 @@ body.dark-mode .tracker-analytics-section-head {
     if (manual.eventLevel) base.eventLevel = manual.eventLevel;
     if (manual.matchFormat) base.matchFormat = manual.matchFormat;
     if (manual.roundName) base.roundName = manual.roundName;
+    if (manual.surface) base.surface = manual.surface; // Force surface into active memory
 
     return base;
   }
+
 
   function htmlEscape(value) {
     return String(value == null ? "" : value)
