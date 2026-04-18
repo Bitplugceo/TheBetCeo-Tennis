@@ -2628,12 +2628,21 @@ body.dark-mode .tracker-analytics-section-head {
       <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
           </div>
 
-    <label id="fixtureSelectLabel" style="font-size:12px;">Select Match</label>
+       <label id="fixtureSelectLabel" style="font-size:12px;">Select Match</label>
     <select id="fixtureSelect" class="league-box">
       <option value="">- Select match -</option>
     </select>
 
-    <label id="teamALabel" style="font-size:12px;">Player A Name</label>
+    <label id="surfaceLabel" style="font-size:12px;margin-top:6px;">Court Surface</label>
+    <select id="surfaceSelect" class="league-box">
+      <option value="">- Auto / Unknown -</option>
+      <option value="Hard">Hard Court</option>
+      <option value="Clay">Clay Court</option>
+      <option value="Grass">Grass Court</option>
+    </select>
+
+    <label id="teamALabel" style="font-size:12px;margin-top:6px;">Player A Name</label>
+
     <div class="autocomplete-wrap">
       <input id="teamAName" placeholder="e.g. Novak Djokovic" autocomplete="off" />
       <div class="autocomplete-list" id="dropA"></div>
@@ -3533,12 +3542,22 @@ body.dark-mode .tracker-analytics-section-head {
       h2h = fetchedH2H.slice(0, 5);
     }
 
-    if (marketKey === "match" && ctx.matchFormat === "BO5") {
+        if (marketKey === "match" && ctx.matchFormat === "BO5") {
       projectionShift += 2.75;
       notes.push("BO5 format");
     }
 
+    // --- SURFACE MATH ---
+    if (ctx.surface === "Grass") {
+      projectionShift += (marketKey === "match" ? 0.6 : 0.25);
+      notes.push("Grass Court (Fast/+Totals)");
+    } else if (ctx.surface === "Clay") {
+      projectionShift -= (marketKey === "match" ? 0.6 : 0.25);
+      notes.push("Clay Court (Slow/-Totals)");
+    }
+
     const fatiguePenaltyA = computeFatiguePenalty(ctx.fatigueA, marketKey);
+
     const fatiguePenaltyB = computeFatiguePenalty(ctx.fatigueB, marketKey);
     if (fatiguePenaltyA > 0) {
       avgA = Math.max(0, avgA - fatiguePenaltyA);
@@ -6173,7 +6192,7 @@ body.dark-mode .tracker-analytics-section-head {
     selectedPlayerIds.A = opt.dataset.playerAId || null;
     selectedPlayerIds.B = opt.dataset.playerBId || null;
 
-    const record = fixtureRecordMap.get(opt.value);
+        const record = fixtureRecordMap.get(opt.value);
     populateFetchedContext({
       tournamentName: record && record.tournamentName ? record.tournamentName : "",
       eventLevel: record && record.eventLevel ? record.eventLevel : "",
@@ -6181,7 +6200,17 @@ body.dark-mode .tracker-analytics-section-head {
       roundName: record && record.roundName ? record.roundName : ""
     });
 
+    // Auto-detect surface from ESPN strings
+    const surfaceSelect = qs("surfaceSelect");
+    if (surfaceSelect && record && record.surface) {
+      const surfTxt = String(record.surface).toLowerCase();
+      if (surfTxt.includes("clay") || surfTxt.includes("red")) surfaceSelect.value = "Clay";
+      else if (surfTxt.includes("grass") || surfTxt.includes("lawn")) surfaceSelect.value = "Grass";
+      else if (surfTxt.includes("hard") || surfTxt.includes("carpet") || surfTxt.includes("indoor")) surfaceSelect.value = "Hard";
+    }
+
     setFetchStatus("Match selected. Ready to fetch recent games and full H2H.", "");
+
     accordionToggle("marketSection");
   }
 
