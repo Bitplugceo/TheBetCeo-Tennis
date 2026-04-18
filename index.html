@@ -4599,10 +4599,12 @@ body.dark-mode .tracker-analytics-section-head {
 
   function getTrackerEdgeBucket(edge) {
     const absEdge = Math.abs(Number(edge) || 0);
+    if (absEdge < 1.0) return "0.0 - 0.99"; 
     if (absEdge < 1.5) return "1.0 - 1.49";
     if (absEdge < 2.5) return "1.5 - 2.49";
     return "2.5+";
   }
+
 
   function formatTrackerDate(iso) {
     if (!iso) return "-";
@@ -5394,15 +5396,18 @@ body.dark-mode .tracker-analytics-section-head {
 
     entries.reverse().forEach(function (entry) {
       const duplicate = items.some(function (item) {
-        return item.match === entry.match &&
+        // Anchor to the actual event ID or fixture date, NOT the moment you hit "Run"
+        const sameEvent = (item.eventId && entry.eventId && item.eventId === entry.eventId) || 
+                          (item.match === entry.match && item.fixtureDate === entry.fixtureDate);
+        
+        return sameEvent &&
           item.market === entry.market &&
           item.line === entry.line &&
-          item.pick === entry.pick &&
-          item.savedAt && entry.savedAt &&
-          item.savedAt.slice(0, 10) === entry.savedAt.slice(0, 10);
+          item.pick === entry.pick;
       });
 
       if (!duplicate) {
+
         items.unshift(entry);
         g_trackerDebug.lastInsertedEntries += 1;
       } else {
