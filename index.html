@@ -3334,11 +3334,13 @@ body.dark-mode .tracker-analytics-section-head {
     return "PASS";
   }
 
-  function parseLineRange(raw, name) {
+  function parseLineRange(raw, name, allowEmpty = false) {
     const cleaned = String(raw || "").trim().replace(/[–—]/g, "-");
     if (!cleaned) {
+      if (allowEmpty) return null;
       throw new Error(name + " is required.");
     }
+
 
     const parts = cleaned.split("-").map(function (v) {
       return v.trim();
@@ -3711,10 +3713,11 @@ body.dark-mode .tracker-analytics-section-head {
     if (!playerAName) throw new Error("Player A name is required.");
     if (!playerBName) throw new Error("Player B name is required.");
 
-    const matchLineRange = parseLineRange(qs("ftMarket").value, "Match total range");
-    const set1LineRange = parseLineRange(qs("h1Market").value, "Set 1 total range");
+        const matchLineRange = parseLineRange(qs("ftMarket").value, "Match total range", false);
+    const set1LineRange = parseLineRange(qs("h1Market").value, "Set 1 total range", true);
 
     const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent games won", 5, 10, false);
+
     const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent games won", 5, 10, false);
     const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 games won", 5, 10, false);
     const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 games won", 5, 10, false);
@@ -3759,7 +3762,7 @@ body.dark-mode .tracker-analytics-section-head {
       extraNotes: matchDerived.extraNotes
     });
 
-    const set1Result = buildMarketResult({
+    const set1Result = set1LineRange ? buildMarketResult({
       marketLabel: "Set 1 Total Games",
       marketKey: "set1",
       lineRange: set1LineRange,
@@ -3771,10 +3774,11 @@ body.dark-mode .tracker-analytics-section-head {
       lowAvgThreshold: 4.5,
       projectionShift: set1Derived.projectionShift,
       extraNotes: set1Derived.extraNotes
-    });
+    }) : null;
 
     return {
       tour: tour,
+
       playerAName: playerAName,
       playerBName: playerBName,
       playerAId: selectedPlayerIds.A || "",
@@ -4614,13 +4618,41 @@ body.dark-mode .tracker-analytics-section-head {
     return (Date.now() - d.getTime()) / 3600000;
   }
 
+  function getTrackerItemTimeMs(item) {
+    if (!item) return 0;
+    const candidates = [item.fixtureDate, item.savedAt, item.settledAt];
+    for (let i = 0; i < candidates.length; i++) {
+      if (candidates[i]) {
+        const ms = Date.parse(candidates[i]);
+        if (Number.isFinite(ms) && ms > 0) return ms;
+      }
+    }
+    return 0;
+  }
+
+  function isTrackerItemVisibleOnPage(item) {
+    if (!item) return false;
+    const ts = getTrackerItemTimeMs(item);
+    if (!ts) return false;
+
+    const hoursOld = (Date.now() - ts) / (1000 * 60 * 60);
+    const status = String(item.status || "PENDING").toLowerCase();
+
+    // Give pending matches 24 hours (for rain delays/overnight saves)
+    if (status === "pending") return hoursOld < 24;
+    // Hide settled matches after 10 hours
+    return hoursOld < 10;
+  }
+
   function shouldArchiveTrackerItem(item) {
     if (!item || item.archived) return false;
-    const ageHours = ageHoursSince(item.savedAt);
-    return ageHours !== null && ageHours >= 10;
+    const ts = getTrackerItemTimeMs(item);
+    if (!ts) return false;
+    return ((Date.now() - ts) / (1000 * 60 * 60)) >= 10;
   }
 
   function archiveOldTrackerItems(items) {
+
     let changed = false;
     const updated = (items || []).map(function (item) {
       if (shouldArchiveTrackerItem(item)) {
@@ -5260,73 +5292,83 @@ body.dark-mode .tracker-analytics-section-head {
     const marketSummary = qs("trackerMarketSummary");
     const empty = qs("trackerEmpty");
     const body = qs("trackedPicksBody");
-    const archiveBody = qs("trackerArchiveBody");
     const tableWrap = document.querySelector(".tracker-table-wrap");
     const archiveWrap = qs("trackerArchiveWrap");
 
-    const activeItems = items.filter(function (item) { return !item.archived; });
-    const archivedItems = items.filter(function (item) { return !!item.archived; });
+    // Filter to visible items exactly like the BB Tracker
+    const activeItems = items.filter(isTrackerItemVisibleOnPage);
+    
+    // Sort newest first
+    const displayPicks = activeItems.slice().sort(function(a, b) {
+      return getTrackerItemTimeMs(b) - getTrackerItemTimeMs(a);
+    });
+
+    renderTrackerAnalytics(items);
+
     const settled = items.filter(function (item) { return item.status !== "PENDING"; });
-    const wins = items.filter(function (item) { return item.status === "WIN"; }).length;
-    const byMarket = items.reduce(function (acc, item) {
-      acc[item.market] = (acc[item.market] || 0) + 1;
-      return acc;
-    }, {});
+    const wins = settled.filter(function (item) { return item.status === "WIN"; }).length;
+    const losses = settled.filter(function (item) { return item.status === "LOSS"; }).length;
+    const pushes = settled.filter(function (item) { return item.status === "PUSH"; }).length;
+    const pendingCount = activeItems.filter(function (item) { return item.status === "PENDING"; }).length;
 
     if (summary) {
-      const activePending = activeItems.filter(function (item) { return item.status === "PENDING"; }).length;
-      const losses = items.filter(function (item) { return item.status === "LOSS"; }).length;
-      const pushes = items.filter(function (item) { return item.status === "PUSH"; }).length;
-      summary.textContent = activeItems.length + " live/recent • " + activePending + " pending • " + wins + " wins • " + losses + " losses • " + pushes + " pushes";
+      summary.textContent = displayPicks.length + " live/recent • " + pendingCount + " pending • " + wins + " wins • " + losses + " losses";
     }
 
     if (marketSummary) {
-      const archivedPending = archivedItems.filter(function (item) { return item.status === "PENDING"; }).length;
-      const parts = Object.keys(byMarket).sort().map(function (key) {
-        return key + " " + byMarket[key];
+      const byMarket = activeItems.reduce(function (acc, item) {
+        if (item.status === "PENDING") acc[item.market] = (acc[item.market] || 0) + 1;
+        return acc;
+      }, {});
+      const chips = Object.keys(byMarket).sort().map(function (key) {
+        return '<div class="tracker-market-chip">' + htmlEscape(key) + ' ' + byMarket[key] + '</div>';
       });
-      if (archivedItems.length) {
-        parts.push("Archived " + archivedItems.length);
-      }
-      if (archivedPending) {
-        parts.push("Archived pending " + archivedPending);
-      }
-      marketSummary.textContent = parts.join("   ");
+      marketSummary.innerHTML = chips.join("");
+      marketSummary.style.display = chips.length ? "flex" : "none";
     }
 
-    if (empty) empty.style.display = items.length ? "none" : "block";
-    if (tableWrap) tableWrap.style.display = activeItems.length ? "block" : "none";
-    if (archiveWrap) archiveWrap.style.display = "none";
+    if (!displayPicks.length) {
+      if (empty) {
+        empty.style.display = "block";
+        empty.textContent = "No live/recent picks. Older picks moved to record.";
+      }
+      if (tableWrap) tableWrap.style.display = "none";
+      if (archiveWrap) archiveWrap.style.display = "none"; // Hide archive table permanently
+      if (body) body.innerHTML = "";
+      return;
+    }
+
+    if (empty) empty.style.display = "none";
+    if (tableWrap) tableWrap.style.display = "block";
+    if (archiveWrap) archiveWrap.style.display = "none"; // Hide archive table permanently
 
     function statusBadge(item) {
-      const cls = "tracker-status-badge status-" + String(item.status || "pending").toLowerCase();
-      return '<span class="' + cls + '">' + htmlEscape(item.status || "PENDING") + '</span>';
+      const status = String(item.status || "PENDING").toUpperCase();
+      return '<div class="tracker-status-stack"><div>' + htmlEscape(status) + '</div></div>';
     }
 
     function rowHtml(item) {
       const edgeText = (Number(item.edge) > 0 ? "+" : "") + fmt(item.edge);
+      const statusClass = "track-" + String(item.status || "PENDING").toLowerCase();
+
       return (
         '<tr data-id="' + htmlEscape(item.id) + '">' +
-          '<td>' + htmlEscape(formatTrackerDate(item.savedAt)) + '</td>' +
-          '<td>' + htmlEscape(item.match) + '<span class="tracker-subline">' + htmlEscape(item.tour || "") + (item.archivedAt ? " • Archived " + htmlEscape(formatTrackerDate(item.archivedAt)) : "") + '</span></td>' +
-          '<td>' + htmlEscape(item.market) + '<span class="tracker-subline">' + htmlEscape(item.confidence || "—") + '</span></td>' +
-          '<td>' + htmlEscape(item.line || "—") + '<span class="tracker-subline">' + htmlEscape(item.actualTotal != null ? ("Actual " + fmtCompact(item.actualTotal)) : "Actual —") + '</span></td>' +
-          '<td class="' + getPickCellClass(item.rawPick) + '">' + htmlEscape(item.pick) + (item.isLock ? ' <span class="lock">🔒</span>' : '') + '</td>' +
+          '<td>' + htmlEscape(formatTrackerDate(item.fixtureDate || item.savedAt)) + '</td>' +
+          '<td>' + htmlEscape(item.match) + '</td>' +
+          '<td>' + htmlEscape(item.market) + '</td>' +
+          '<td>' + htmlEscape(item.line || "—") + '</td>' +
+          '<td class="' + getPickCellClass(item.rawPick, item.confidence) + '">' + htmlEscape(item.pick) + (item.isLock ? ' <span class="lock">🔒</span>' : '') + '</td>' +
           '<td>' + htmlEscape(edgeText) + '</td>' +
-          '<td>' + statusBadge(item) + '</td>' +
+          '<td class="' + statusClass + '">' + statusBadge(item) + '</td>' +
         '</tr>'
       );
     }
 
     if (body) {
-      body.innerHTML = activeItems.map(rowHtml).join("");
+      body.innerHTML = displayPicks.map(rowHtml).join("");
     }
-    if (archiveBody) {
-      archiveBody.innerHTML = archivedItems.map(rowHtml).join("");
-    }
-
-    renderTrackerAnalytics(items);
   }
+
 
   function autoSaveCurrentRunToTracker() {
     g_trackerDebug.lastSaveAttemptAt = new Date().toISOString();
