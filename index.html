@@ -3716,11 +3716,11 @@ body.dark-mode .tracker-analytics-section-head {
         const matchLineRange = parseLineRange(qs("ftMarket").value, "Match total range", false);
     const set1LineRange = parseLineRange(qs("h1Market").value, "Set 1 total range", true);
 
-    const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent games won", 5, 10, false);
-
-    const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent games won", 5, 10, false);
-    const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 games won", 5, 10, false);
-    const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 games won", 5, 10, false);
+        // Changed the minimum length parameter from 5 to 3
+    const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent games won", 3, 10, false);
+    const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent games won", 3, 10, false);
+    const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 games won", 3, 10, false);
+    const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 games won", 3, 10, false);
 
     const matchH2H = qs("useFTH2H").checked
       ? parseNumericList(qs("aFTH2H").value, "Match H2H totals", 0, 5, true)
@@ -6509,15 +6509,17 @@ body.dark-mode .tracker-analytics-section-head {
       const h2hMatchTotals = h2h.slice(0, 5).map(function (m) { return m.totalGames; }).filter(Number.isFinite);
       const h2hSet1Totals = h2h.slice(0, 5).map(function (m) { return m.set1Total; }).filter(Number.isFinite);
 
-      if (aGames.length < 5) {
-        throw new Error("Player A has fewer than 5 recent completed singles matches in the fetched ESPN sample.");
+      // Lowered the hard floor from 5 to 3 to allow thin-sample predictions
+      if (aGames.length < 3) {
+        throw new Error("Player A has fewer than 3 recent completed matches in the fetched ESPN sample. Sample too small to run.");
       }
-      if (bGames.length < 5) {
-        throw new Error("Player B has fewer than 5 recent completed singles matches in the fetched ESPN sample.");
+      if (bGames.length < 3) {
+        throw new Error("Player B has fewer than 3 recent completed matches in the fetched ESPN sample. Sample too small to run.");
       }
-      if (aSet1Games.length < 5 || bSet1Games.length < 5) {
-        throw new Error("Set 1 history is too short in the fetched ESPN sample.");
+      if (aSet1Games.length < 3 || bSet1Games.length < 3) {
+        throw new Error("Set 1 history is too short (needs at least 3) in the fetched ESPN sample.");
       }
+
 
       applyAutofillData({
         aGames: aGames,
