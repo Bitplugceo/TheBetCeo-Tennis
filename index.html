@@ -3843,13 +3843,16 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function pickBestResult(match, set1) {
-    const ranked = [match, set1].slice().sort(function (a, b) {
+    // Filter out nulls if Set 1 was left blank
+    const valid = [match, set1].filter(Boolean); 
+    const ranked = valid.sort(function (a, b) {
       const scoreA = confidenceScore(a.confidence, a.edge);
       const scoreB = confidenceScore(b.confidence, b.edge);
       return scoreB - scoreA;
     });
     return ranked[0];
   }
+
 
   function showResults() {
     const results = qs("results");
@@ -3871,11 +3874,13 @@ body.dark-mode .tracker-analytics-section-head {
     const body = qs("resultsBody");
     if (!body) return;
 
-    const results = [resultBundle.matchResult, resultBundle.set1Result];
+    // Filter out nulls so we only draw rows for markets that were actually calculated
+    const results = [resultBundle.matchResult, resultBundle.set1Result].filter(Boolean);
     const lockIdx = selectLockIndex(results);
 
     const rows = results.map(function (result, idx) {
       const shownMid = result && result.lineRange ? result.lineRange.mid : null;
+
       const shownProjection = fmt(result.projection);
       const isNoPlay = result.pick === "PASS" || result.confidence === "PASS";
       const hasNumericEdge = Number.isFinite(result.edge);
@@ -3923,12 +3928,12 @@ body.dark-mode .tracker-analytics-section-head {
 
     qs("aFormIntel").value =
       'Games avg ' + fmt(match.avgA) +
-      ' | Set1 avg ' + fmt(set1.avgA) +
+      ' | Set1 avg ' + (set1 ? fmt(set1.avgA) : "—") +
       (leftMeta.length ? ' | ' + leftMeta.join(' | ') : '');
 
     qs("bFormIntel").value =
       'Games avg ' + fmt(match.avgB) +
-      ' | Set1 avg ' + fmt(set1.avgB) +
+      ' | Set1 avg ' + (set1 ? fmt(set1.avgB) : "—") +
       (rightMeta.length ? ' | ' + rightMeta.join(' | ') : '');
 
     qs("aSpreadIntel").value =
@@ -3937,21 +3942,24 @@ body.dark-mode .tracker-analytics-section-head {
       ' | Edge ' + (match.edge > 0 ? '+' : '') + fmt(match.edge) +
       ' | ' + getPredictionText(match);
 
-    qs("bSpreadIntel").value =
+    qs("bSpreadIntel").value = set1 ? (
       'Proj ' + fmt(set1.projection) +
       ' vs Range ' + set1.lineDisplay +
       ' | Edge ' + (set1.edge > 0 ? '+' : '') + fmt(set1.edge) +
-      ' | ' + getPredictionText(set1);
+      ' | ' + getPredictionText(set1)
+    ) : "Set 1 skipped";
 
-    const allNotes = Array.from(new Set(match.notes.concat(set1.notes)));
+    const allNotes = Array.from(new Set(match.notes.concat(set1 ? set1.notes : [])));
     qs("aHitIntel").value = allNotes.join(" | ");
 
     const preferred = pickBestResult(match, set1);
-    qs("bHitIntel").value =
+    qs("bHitIntel").value = preferred ? (
       preferred.market + ' -> ' +
       getPredictionText(preferred) + ' ' + preferred.confidence +
-      ' | Edge ' + (preferred.edge > 0 ? '+' : '') + fmt(preferred.edge);
+      ' | Edge ' + (preferred.edge > 0 ? '+' : '') + fmt(preferred.edge)
+    ) : "—";
   }
+
 
   function clearReadOnlyFields() {
     ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel"].forEach(function (id) {
