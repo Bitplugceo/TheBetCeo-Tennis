@@ -3680,8 +3680,9 @@ async function buildMarketResult(config) {
       ' | ' + getPredictionText(set1)
     ) : "Set 1 skipped";
 
-    const allNotes = Array.from(new Set(match.notes.concat(set1 ? set1.notes : [])));
+        const allNotes = Array.from(new Set(match.notes.concat(set1 ? set1.notes : [])));
     qs("aHitIntel").value = allNotes.join(" | ");
+
 
     const preferred = pickBestResult(match, set1);
     qs("bHitIntel").value = preferred ? (
@@ -5729,53 +5730,30 @@ async function buildMarketResult(config) {
     ]);
   }
 
-  function buildCompetitionRecord(comp, parentEvent) {
+    function buildCompetitionRecord(comp, parentEvent) {
     if (!comp) return null;
-
-    const labelText =
-      (comp.type && (comp.type.text || comp.type.slug)) ||
-      (parentEvent && parentEvent.grouping && parentEvent.grouping.displayName) ||
-      "";
-
+    const labelText = (comp.type && (comp.type.text || comp.type.slug)) || (parentEvent && parentEvent.grouping && parentEvent.grouping.displayName) || "";
     if (!isSinglesLabel(labelText)) return null;
 
     const status = getCompetitionStatus(comp);
     const competitors = orderCompetitors(comp.competitors || []);
     if (competitors.length !== 2) return null;
 
-    const a = competitors[0];
-    const b = competitors[1];
-    const aId = String(a && a.id || "");
-    const bId = String(b && b.id || "");
+    const a = competitors[0], b = competitors[1];
+    const aId = String(a && a.id || ""), bId = String(b && b.id || "");
     const aName = String(a && a.athlete && (a.athlete.displayName || a.athlete.fullName || a.athlete.shortName) || "").trim();
     const bName = String(b && b.athlete && (b.athlete.displayName || b.athlete.fullName || b.athlete.shortName) || "").trim();
     if (!aId || !bId || !aName || !bName) return null;
 
-    const aSets = extractLinescores(a);
-    const bSets = extractLinescores(b);
+    const aSets = extractLinescores(a), bSets = extractLinescores(b);
     const setCount = Math.min(aSets.length, bSets.length);
     const tournamentName = String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim();
     const eventLevel = classifyEventLevel(tournamentName);
-    const playerARank = toNumber(
-      (a && a.curatedRank && (a.curatedRank.current || a.curatedRank.value || a.curatedRank.rank)) ||
-      (a && a.athlete && a.athlete.rank) ||
-      (a && a.rank)
-    );
-    const playerBRank = toNumber(
-      (b && b.curatedRank && (b.curatedRank.current || b.curatedRank.value || b.curatedRank.rank)) ||
-      (b && b.athlete && b.athlete.rank) ||
-      (b && b.rank)
-    );
-    const playerARankMove = toNumber(
-      (a && a.curatedRank && (a.curatedRank.change || a.curatedRank.movement)) ||
-      (a && a.athlete && (a.athlete.rankChange || a.athlete.movement)) ||
-      (a && a.rankChange)
-    );
-    const playerBRankMove = toNumber(
-      (b && b.curatedRank && (b.curatedRank.change || b.curatedRank.movement)) ||
-      (b && b.athlete && (b.athlete.rankChange || b.athlete.movement)) ||
-      (b && b.rankChange)
-    );
+
+    const playerARank = toNumber((a && a.curatedRank && (a.curatedRank.current || a.curatedRank.value || a.curatedRank.rank)) || (a && a.athlete && a.athlete.rank) || (a && a.rank));
+    const playerBRank = toNumber((b && b.curatedRank && (b.curatedRank.current || b.curatedRank.value || b.curatedRank.rank)) || (b && b.athlete && b.athlete.rank) || (b && b.rank));
+    const playerARankMove = toNumber((a && a.curatedRank && (a.curatedRank.change || a.curatedRank.movement)) || (a && a.athlete && (a.athlete.rankChange || a.athlete.movement)) || (a && a.rankChange));
+    const playerBRankMove = toNumber((b && b.curatedRank && (b.curatedRank.change || b.curatedRank.movement)) || (b && b.athlete && (b.athlete.rankChange || b.athlete.movement)) || (b && b.rankChange));
 
     const playerAGames = setCount ? aSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0) : null;
     const playerBGames = setCount ? bSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0) : null;
@@ -5793,22 +5771,16 @@ async function buildMarketResult(config) {
       date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || "").trim(),
       status: status,
       surface: extractSurfaceText(comp, parentEvent),
-      playerAId: aId,
-      playerAName: aName,
-      playerBId: bId,
-      playerBName: bName,
-      playerARank: playerARank,
-      playerBRank: playerBRank,
-      playerARankMove: playerARankMove,
-      playerBRankMove: playerBRankMove,
-      playerAGames: playerAGames,
-      playerBGames: playerBGames,
-      totalGames: totalGames,
-      playerASet1Games: playerASet1Games,
-      playerBSet1Games: playerBSet1Games,
-      set1Total: set1Total
+      playerAId: aId, playerAName: aName, playerBId: bId, playerBName: bName,
+      playerARank: playerARank, playerBRank: playerBRank,
+      playerARankMove: playerARankMove, playerBRankMove: playerBRankMove,
+      playerAGames: playerAGames, playerBGames: playerBGames,
+      totalGames: totalGames, playerASet1Games: playerASet1Games, playerBSet1Games: playerBSet1Games,
+      set1Total: set1Total,
+      aSets: aSets, bSets: bSets, setCount: setCount // BRUTAL DATA EXTRACTED
     };
   }
+
 
   function extractCompetitionRecords(payload) {
     const events = Array.isArray(payload && payload.events) ? payload.events : [];
@@ -6106,7 +6078,7 @@ async function buildMarketResult(config) {
     return null;
   }
 
-  function buildRecentSeries(records, playerId) {
+    function buildRecentSeries(records, playerId) {
     return records.filter(function (record) {
       return record.playerAId === playerId || record.playerBId === playerId;
     }).map(function (record) {
@@ -6124,12 +6096,60 @@ async function buildMarketResult(config) {
         roundName: record.roundName,
         surface: record.surface,
         playerRank: isA ? record.playerARank : record.playerBRank,
-        playerRankMove: isA ? record.playerARankMove : record.playerBRankMove
+        playerRankMove: isA ? record.playerARankMove : record.playerBRankMove,
+        aSets: isA ? record.aSets : record.bSets,
+        bSets: isA ? record.bSets : record.aSets,
+        setCount: record.setCount
       };
     }).sort(function (a, b) {
       return new Date(b.date) - new Date(a.date);
     });
   }
+
+  // --- SYNDICATE LEVEL: BRUTAL METRICS CALCULATOR ---
+  function computeBrutalMetrics(series, currentSurface) {
+    const recent = Array.isArray(series) ? series.slice(0, 10) : [];
+    if (!recent.length) return { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
+
+    let totalSets = 0, tbSets = 0, set1Kills = 0, grindMatches = 0;
+    let surfaceGames = [], overallGames = [];
+
+    recent.forEach(function (match) {
+      const aSets = match.aSets || [];
+      const bSets = match.bSets || [];
+      const setsPlayed = match.setCount || 0;
+      
+      if (setsPlayed >= 3) grindMatches++;
+      
+      if (aSets.length > 0 && bSets.length > 0) {
+        if ((aSets[0] + bSets[0]) <= 8) set1Kills++; // 6-1 or 6-2 blowouts
+      }
+
+      for (let i = 0; i < setsPlayed; i++) {
+        totalSets++;
+        if ((aSets[i] + bSets[i]) >= 12) tbSets++; // 7-5 or 7-6 tiebreaks
+      }
+
+      const games = match.playerGames;
+      if (Number.isFinite(games)) {
+        overallGames.push(games);
+        if (currentSurface && match.surface && String(match.surface).toLowerCase().includes(String(currentSurface).toLowerCase())) {
+          surfaceGames.push(games);
+        }
+      }
+    });
+
+    const avgOverall = mean(overallGames) || 0;
+    const avgSurface = surfaceGames.length ? mean(surfaceGames) : avgOverall;
+
+    return {
+      tiebreakIdx: totalSets > 0 ? (tbSets / totalSets) : 0,
+      set1Kill: recent.length > 0 ? (set1Kills / recent.length) : 0,
+      grindRate: recent.length > 0 ? (grindMatches / recent.length) : 0,
+      surfaceDelta: avgSurface - avgOverall
+    };
+  }
+
 
   function buildH2HSeries(records, playerAId, playerBId, playerAName, playerBName) {
     const normA = normalizeName(playerAName);
@@ -6377,9 +6397,15 @@ async function buildMarketResult(config) {
         (selectedFixtureRecord && selectedFixtureRecord.roundName) ||
         "";
 
-      const matchFormat = inferMatchFormat(league, eventLevel);
+            const matchFormat = inferMatchFormat(league, eventLevel);
       const fatigueA = computeFatigueProfile(recentA10);
       const fatigueB = computeFatigueProfile(recentB10);
+
+      // EXTRACT BRUTAL METRICS
+      const surfaceSelect = qs("surfaceSelect");
+      const currentSurface = surfaceSelect && surfaceSelect.value ? surfaceSelect.value : (selectedFixtureRecord ? selectedFixtureRecord.surface : "");
+      const brutalA = computeBrutalMetrics(recentA10, currentSurface);
+      const brutalB = computeBrutalMetrics(recentB10, currentSurface);
 
       latestFetchedContext = {
         matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
@@ -6393,6 +6419,8 @@ async function buildMarketResult(config) {
         matchFormat: matchFormat || "",
         fatigueA: fatigueA,
         fatigueB: fatigueB,
+        brutalA: brutalA,
+        brutalB: brutalB,
         recentMatchA: aGames,
         recentMatchB: bGames,
         recentSet1A: aSet1Games,
@@ -6402,6 +6430,7 @@ async function buildMarketResult(config) {
       };
 
       populateFetchedContext({
+
         tournamentName: tournamentName || "",
         eventLevel: eventLevel || "",
         matchFormat: matchFormat || "",
