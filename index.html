@@ -3588,201 +3588,228 @@ body.dark-mode .tracker-analytics-section-head {
     };
   }
 
-  function buildMarketResult(config) {
-    const baseProjection = config.avgA + config.avgB;
-    const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
-    const h2hAvg = hasH2H ? mean(config.h2h) : null;
-    const projectionCore = hasH2H ? ((baseProjection * 0.7) + (h2hAvg * 0.3)) : baseProjection;
-    const projection = projectionCore + (config.projectionShift || 0);
-    const volatility = (config.stdA + config.stdB) / 2;
-
-    const lineDecision = pickFromRange(projection, config.lineRange);
-    let pick = lineDecision.pick;
-    let edge = lineDecision.edge;
-    let confidence = getRawConfidence(edge, volatility);
-    const notes = [].concat(config.extraNotes || []);
-    const filtersTriggered = [];
-
-    if (lineDecision.atMid) {
-      notes.push("Projection exactly on midpoint");
-      confidence = "PASS";
-      pick = "PASS";
-    }
-
-    if (!hasH2H) {
-      filtersTriggered.push("missingH2H");
-      notes.push("No H2H support");
-      if (confidence !== "PASS") {
-        confidence = downgradeConfidence(confidence);
-        if (confidence === "PASS") {
-          pick = "PASS";
-        }
+  // --- LEVEL 2: POISSON MONTE CARLO SIMULATOR ---
+async function runTennisMonteCarlo(mean, stdDev, line, runs = 8000) {
+  if (!Number.isFinite(mean) || !Number.isFinite(stdDev) || !Number.isFinite(line) || stdDev <= 0) {
+    return { overPct: 50, underPct: 50 };
+  }
+  const workerCode = `
+    function getPoisson(lambda) {
+      if (lambda < 30) {
+        const L = Math.exp(-lambda);
+        let k = 0, p = 1;
+        do { k++; p *= Math.random(); } while (p > L);
+        return k - 1;
+      } else {
+        let u1 = Math.random(), u2 = Math.random();
+        let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return Math.max(0, Math.floor(lambda + Math.sqrt(lambda) * z0 + 0.5));
       }
     }
-
-    if (config.lowAvgThreshold != null && config.avgA < config.lowAvgThreshold && config.avgB < config.lowAvgThreshold) {
-      filtersTriggered.push("blowout");
-      notes.push("Blowout risk / short-match profile");
-      if (pick === "OVER") {
-        confidence = downgradeConfidence(confidence);
-        if (confidence === "PASS") {
-          pick = "PASS";
-        }
+    onmessage = function(e) {
+      const { mean, line, runs } = e.data;
+      let overHits = 0;
+      for (let i = 0; i < runs; i++) {
+        if (getPoisson(mean) > line) overHits++;
       }
-    }
+      const overPct = (overHits / runs) * 100;
+      postMessage({ overPct, underPct: 100 - overPct });
+    };
+  `;
+  const blob = new Blob([workerCode], { type: "application/javascript" });
+  const worker = new Worker(URL.createObjectURL(blob));
+  return new Promise(resolve => {
+    worker.onmessage = e => { worker.terminate(); resolve(e.data); };
+    worker.postMessage({ mean, line, runs });
+  });
+}
 
-    if (volatility > 4) {
-      filtersTriggered.push("chaos");
-      notes.push("High volatility");
+// --- LEVEL 2: UPGRADED MARKET BUILDER ---
+async function buildMarketResult(config) {
+  const baseProjection = config.avgA + config.avgB;
+  const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
+  const h2hAvg = hasH2H ? mean(config.h2h) : null;
+
+  // Level 2: Surface-Dependent H2H Weighting
+  let h2hWeight = 0.3;
+  if (config.ctx && config.ctx.surface === "Grass") h2hWeight = 0.2; // Grass = serve botting, current form matters more
+  else if (config.ctx && config.ctx.surface === "Clay") h2hWeight = 0.4; // Clay = tactical, H2H matchup matters heavily
+
+  const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
+  const projection = projectionCore + (config.projectionShift || 0);
+  
+  let volatility = (config.stdA + config.stdB) / 2;
+  if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15; // Grass tiebreaks spike volatility
+
+  const lineDecision = pickFromRange(projection, config.lineRange);
+  let pick = lineDecision.pick;
+  let edge = lineDecision.edge;
+  let confidence = getRawConfidence(edge, volatility);
+  const notes = [].concat(config.extraNotes || []);
+  const filtersTriggered = [];
+
+  // RUN THE MONTE CARLO
+  const sim = await runTennisMonteCarlo(projection, Math.max(1.5, volatility), config.lineRange.mid, 8000);
+  const simPct = pick === "OVER" ? sim.overPct : sim.underPct;
+
+  if (lineDecision.atMid) {
+    notes.push("Projection exactly on midpoint");
+    confidence = "PASS";
+    pick = "PASS";
+  }
+
+  if (!hasH2H) {
+    filtersTriggered.push("missingH2H");
+    notes.push("No H2H support");
+    if (confidence !== "PASS") {
       confidence = downgradeConfidence(confidence);
-      if (confidence === "PASS") {
-        pick = "PASS";
-      }
+      if (confidence === "PASS") pick = "PASS";
     }
-
-    if (volatility > 5) {
-      if (!filtersTriggered.includes("chaos")) filtersTriggered.push("chaos");
-      notes.push("Extreme volatility / skip zone");
-      confidence = "PASS";
-      pick = "PASS";
-    }
-
-    if (hasH2H) {
-      const recentDirection = directionFromRange(baseProjection, config.lineRange);
-      const h2hDirection = directionFromRange(h2hAvg, config.lineRange);
-
-      if (recentDirection !== 0 && h2hDirection !== 0 && recentDirection !== h2hDirection) {
-        filtersTriggered.push("fakeEdge");
-        notes.push("Recent and H2H conflict");
-        confidence = "PASS";
-        pick = "PASS";
-      }
-    }
-
-    const edgeFloor = config.marketKey === "set1"
-      ? Math.max(0.75, config.lineRange.mid * 0.08)
-      : Math.max(1.0, config.lineRange.mid * 0.05);
-
-    if (Math.abs(edge) < edgeFloor) {
-      notes.push("Midpoint edge below minimum threshold");
-      confidence = "PASS";
-      pick = "PASS";
-    }
-
-    const finalNotes = uniqueNotes(notes);
-
-    if (!finalNotes.length) {
-      finalNotes.push("Clean read");
-    }
-
-    return {
-      market: config.marketLabel,
-      marketKey: config.marketKey,
-      lineDisplay: config.lineRange.label,
-      lineRange: config.lineRange,
-      avgA: config.avgA,
-      avgB: config.avgB,
-      baseProjection: baseProjection,
-      h2hAvg: h2hAvg,
-      projection: projection,
-      stdA: config.stdA,
-      stdB: config.stdB,
-      volatility: volatility,
-      edge: edge,
-      pick: pick,
-      confidence: confidence,
-      notes: finalNotes,
-      filtersTriggered: filtersTriggered
-    };
   }
 
-  function buildEngineResults() {
-    const tour = String(qs("leagueSelect").value || "").trim();
-    const playerAName = String(qs("teamAName").value || "").trim();
-    const playerBName = String(qs("teamBName").value || "").trim();
-
-    if (!tour) throw new Error("Tour is required.");
-    if (!playerAName) throw new Error("Player A name is required.");
-    if (!playerBName) throw new Error("Player B name is required.");
-
-        const matchLineRange = parseLineRange(qs("ftMarket").value, "Match total range", false);
-    const set1LineRange = parseLineRange(qs("h1Market").value, "Set 1 total range", true);
-
-        // Changed the minimum length parameter from 5 to 3
-    const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent games won", 3, 10, false);
-    const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent games won", 3, 10, false);
-    const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 games won", 3, 10, false);
-    const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 games won", 3, 10, false);
-
-    const matchH2H = qs("useFTH2H").checked
-      ? parseNumericList(qs("aFTH2H").value, "Match H2H totals", 0, 5, true)
-      : [];
-
-    const set1H2H = qs("use1HH2H").checked
-      ? parseNumericList(qs("a1HH2H").value, "Set 1 H2H totals", 0, 5, true)
-      : [];
-
-    const ctx = getEffectiveContext(tour, playerAName, playerBName);
-
-    const matchDerived = buildDerivedMarketInputs({
-      marketKey: "match",
-      manualA: matchRecentA,
-      manualB: matchRecentB,
-      manualH2H: matchH2H,
-      ctx: ctx
-    });
-
-    const set1Derived = buildDerivedMarketInputs({
-      marketKey: "set1",
-      manualA: set1RecentA,
-      manualB: set1RecentB,
-      manualH2H: set1H2H,
-      ctx: ctx
-    });
-
-    const matchResult = buildMarketResult({
-      marketLabel: "Match Total Games",
-      marketKey: "match",
-      lineRange: matchLineRange,
-      avgA: matchDerived.avgA,
-      avgB: matchDerived.avgB,
-      stdA: matchDerived.stdA,
-      stdB: matchDerived.stdB,
-      h2h: matchDerived.h2h,
-      lowAvgThreshold: 9,
-      projectionShift: matchDerived.projectionShift,
-      extraNotes: matchDerived.extraNotes
-    });
-
-    const set1Result = set1LineRange ? buildMarketResult({
-      marketLabel: "Set 1 Total Games",
-      marketKey: "set1",
-      lineRange: set1LineRange,
-      avgA: set1Derived.avgA,
-      avgB: set1Derived.avgB,
-      stdA: set1Derived.stdA,
-      stdB: set1Derived.stdB,
-      h2h: set1Derived.h2h,
-      lowAvgThreshold: 4.5,
-      projectionShift: set1Derived.projectionShift,
-      extraNotes: set1Derived.extraNotes
-    }) : null;
-
-    return {
-      tour: tour,
-
-      playerAName: playerAName,
-      playerBName: playerBName,
-      playerAId: selectedPlayerIds.A || "",
-      playerBId: selectedPlayerIds.B || "",
-      competitionId: ctx && ctx.competitionId ? ctx.competitionId : "",
-      eventId: ctx && ctx.eventId ? ctx.eventId : "",
-      fixtureDate: ctx && ctx.fixtureDate ? ctx.fixtureDate : "",
-      context: ctx,
-      matchResult: matchResult,
-      set1Result: set1Result
-    };
+  if (config.lowAvgThreshold != null && config.avgA < config.lowAvgThreshold && config.avgB < config.lowAvgThreshold) {
+    filtersTriggered.push("blowout");
+    notes.push("Blowout risk");
+    if (pick === "OVER") {
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") pick = "PASS";
+    }
   }
+
+  if (volatility > 4) {
+    filtersTriggered.push("chaos");
+    notes.push("High volatility");
+    confidence = downgradeConfidence(confidence);
+    if (confidence === "PASS") pick = "PASS";
+  }
+
+  if (volatility > 5) {
+    if (!filtersTriggered.includes("chaos")) filtersTriggered.push("chaos");
+    notes.push("Extreme volatility / skip zone");
+    confidence = "PASS"; pick = "PASS";
+  }
+
+  if (hasH2H) {
+    const recentDirection = directionFromRange(baseProjection, config.lineRange);
+    const h2hDirection = directionFromRange(h2hAvg, config.lineRange);
+    if (recentDirection !== 0 && h2hDirection !== 0 && recentDirection !== h2hDirection) {
+      filtersTriggered.push("fakeEdge");
+      notes.push("Recent and H2H conflict");
+      confidence = "PASS"; pick = "PASS";
+    }
+  }
+
+  const edgeFloor = config.marketKey === "set1" ? Math.max(0.75, config.lineRange.mid * 0.08) : Math.max(1.0, config.lineRange.mid * 0.05);
+  if (Math.abs(edge) < edgeFloor) {
+    notes.push("Midpoint edge below minimum threshold");
+    confidence = "PASS"; pick = "PASS";
+  }
+
+  // Inject Simulation Feedback
+  if (simPct < 53 && pick !== "PASS") {
+    notes.push(`Sim Warning: Only ${simPct.toFixed(1)}% hit rate`);
+    confidence = downgradeConfidence(confidence);
+  } else if (simPct >= 60 && pick !== "PASS") {
+    notes.push(`Sim Strong: ${simPct.toFixed(1)}% hit rate`);
+    if (confidence === "C") confidence = "B"; // Bump up for strong math
+  }
+
+  const finalNotes = uniqueNotes(notes);
+  if (!finalNotes.length) finalNotes.push("Clean read");
+
+  return {
+    market: config.marketLabel,
+    marketKey: config.marketKey,
+    lineDisplay: config.lineRange.label,
+    lineRange: config.lineRange,
+    avgA: config.avgA,
+    avgB: config.avgB,
+    baseProjection: baseProjection,
+    h2hAvg: h2hAvg,
+    projection: projection,
+    stdA: config.stdA,
+    stdB: config.stdB,
+    volatility: volatility,
+    edge: edge,
+    pick: pick,
+    confidence: confidence,
+    notes: finalNotes,
+    filtersTriggered: filtersTriggered,
+    simPct: simPct // Saved for God's Eye
+  };
+}
+
+
+  async function buildEngineResults() {
+  const tour = String(qs("leagueSelect").value || "").trim();
+  const playerAName = String(qs("teamAName").value || "").trim();
+  const playerBName = String(qs("teamBName").value || "").trim();
+
+  if (!tour) throw new Error("Tour is required.");
+  if (!playerAName) throw new Error("Player A name is required.");
+  if (!playerBName) throw new Error("Player B name is required.");
+
+  const matchLineRange = parseLineRange(qs("ftMarket").value, "Match total range", false);
+  const set1LineRange = parseLineRange(qs("h1Market").value, "Set 1 total range", true);
+
+  const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent games won", 3, 10, false);
+  const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent games won", 3, 10, false);
+  const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 games won", 3, 10, false);
+  const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 games won", 3, 10, false);
+
+  const matchH2H = qs("useFTH2H").checked ? parseNumericList(qs("aFTH2H").value, "Match H2H totals", 0, 5, true) : [];
+  const set1H2H = qs("use1HH2H").checked ? parseNumericList(qs("a1HH2H").value, "Set 1 H2H totals", 0, 5, true) : [];
+
+  const ctx = getEffectiveContext(tour, playerAName, playerBName);
+
+  const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: matchRecentA, manualB: matchRecentB, manualH2H: matchH2H, ctx: ctx });
+  const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: set1RecentA, manualB: set1RecentB, manualH2H: set1H2H, ctx: ctx });
+
+  const matchResult = await buildMarketResult({
+    marketLabel: "Match Total Games",
+    marketKey: "match",
+    lineRange: matchLineRange,
+    avgA: matchDerived.avgA,
+    avgB: matchDerived.avgB,
+    stdA: matchDerived.stdA,
+    stdB: matchDerived.stdB,
+    h2h: matchDerived.h2h,
+    lowAvgThreshold: 9,
+    projectionShift: matchDerived.projectionShift,
+    extraNotes: matchDerived.extraNotes,
+    ctx: ctx
+  });
+
+  const set1Result = set1LineRange ? await buildMarketResult({
+    marketLabel: "Set 1 Total Games",
+    marketKey: "set1",
+    lineRange: set1LineRange,
+    avgA: set1Derived.avgA,
+    avgB: set1Derived.avgB,
+    stdA: set1Derived.stdA,
+    stdB: set1Derived.stdB,
+    h2h: set1Derived.h2h,
+    lowAvgThreshold: 4.5,
+    projectionShift: set1Derived.projectionShift,
+    extraNotes: set1Derived.extraNotes,
+    ctx: ctx
+  }) : null;
+
+  return {
+    tour: tour,
+    playerAName: playerAName,
+    playerBName: playerBName,
+    playerAId: selectedPlayerIds.A || "",
+    playerBId: selectedPlayerIds.B || "",
+    competitionId: ctx && ctx.competitionId ? ctx.competitionId : "",
+    eventId: ctx && ctx.eventId ? ctx.eventId : "",
+    fixtureDate: ctx && ctx.fixtureDate ? ctx.fixtureDate : "",
+    context: ctx,
+    matchResult: matchResult,
+    set1Result: set1Result
+  };
+}
+
 
   function getPickCellClass(pick, confidence) {
     if (confidence === "PASS" || pick === "PASS") return "pred-noplay";
@@ -5316,6 +5343,53 @@ body.dark-mode .tracker-analytics-section-head {
           </div>
         </div>
       </div>
+            <div class="tracker-analytics-card" style="margin-top: 10px; border-color: #d4af37;">
+          <div class="tracker-analytics-card-head" style="background: linear-gradient(90deg, #333 0%, #111 100%);">
+            <div class="tracker-analytics-card-title" style="color: #ffd700;">👁️ GOD'S EYE: POST-MORTEM LOG</div>
+            <div class="tracker-analytics-card-meta">Game-by-game diagnostic archive</div>
+          </div>
+          <div class="tracker-analytics-card-body">
+            <div class="tracker-report-subtitle">Review the exact conditions the engine saw when it locked the pick.</div>
+            <div class="table-wrap tracker-report-table-wrap">
+              <table class="tracker-analytics-table">
+                <thead>
+                  <tr>
+                    <th>Matchup & Market</th>
+                    <th>Pick</th>
+                    <th>Result</th>
+                    <th>Engine Context at Lock</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${settled.length ? settled.sort((a,b) => getTrackerItemTimeMs(b) - getTrackerItemTimeMs(a)).slice(0, 40).map(p => {
+                    const statusClass = p.status === 'WIN' ? 'color: #3a9c35;' : p.status === 'LOSS' ? 'color: #c91920;' : 'color: #888;';
+                    const edge = p.edge ? (p.edge > 0 ? '+' : '') + p.edge.toFixed(2) : '—';
+                    const simNote = p.notes.includes("Sim ") ? p.notes.split("|").find(n => n.includes("Sim ")) : "Sim: N/A";
+                    
+                    return `
+                      <tr>
+                        <td>
+                          <strong>${htmlEscape(p.match)}</strong><br>
+                          <span style="color: var(--muted); font-size: 9px;">${htmlEscape(p.market)} (Line: ${p.line})</span>
+                        </td>
+                        <td style="font-weight:bold; white-space: nowrap;">${htmlEscape(p.pick)}</td>
+                        <td style="font-weight:900; text-transform:uppercase; ${statusClass}">${htmlEscape(p.status)}</td>
+                        <td style="font-size: 9px; color: var(--muted); line-height: 1.4;">
+                          <strong>Edge:</strong> <span style="color:var(--text)">${edge}</span> | <strong>Grade:</strong> <span style="color:var(--text)">${p.confidence}</span><br>
+                          <strong>Sim Hit Rate:</strong> <span style="color:var(--text)">${htmlEscape(simNote)}</span><br>
+                          <strong>Data:</strong> ${p.tour.toUpperCase()} | <strong>Vol:</strong> ${htmlEscape(p.notes.includes("volatility") ? "High" : "Stable")}
+                        </td>
+                      </tr>
+                    `;
+                  }).join("") : `
+                    <tr><td colspan="4" class="note">No settled picks yet. The Eye is waiting.</td></tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
     `;
   }
 
@@ -5539,36 +5613,37 @@ body.dark-mode .tracker-analytics-section-head {
     document.body.classList.remove("tracker-open");
   }
 
-  function runEngine() {
-    latestRunBundle = null;
-    g_trackerDebug.lastEngineError = "";
-    g_trackerDebug.lastSaveDiagnosis = "Run started.";
-    showResults();
-    setRunStatus("Running engine...", "loading");
-    const body = qs("resultsBody");
-    if (body) {
-      body.innerHTML = '<tr><td colspan="5" class="results-empty-cell">Calculating...</td></tr>';
-    }
-
-    try {
-      const bundle = buildEngineResults();
-      bundle._trackerSaved = false;
-      latestRunBundle = bundle;
-      renderResults(bundle);
-      updateIntel(bundle);
-      clearHeaderError();
-
-      const savedCount = autoSaveCurrentRunToTracker();
-      if (savedCount > 0) {
-        setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated and auto-saved.", "ok");
-      } else {
-        setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.", "ok");
-      }
-      renderTrackerDebug();
-    } catch (err) {
-      showRunError(err.message || "Engine run failed.");
-    }
+  async function runEngine() {
+  latestRunBundle = null;
+  g_trackerDebug.lastEngineError = "";
+  g_trackerDebug.lastSaveDiagnosis = "Run started.";
+  showResults();
+  setRunStatus("Running engine...", "loading");
+  const body = qs("resultsBody");
+  if (body) {
+    body.innerHTML = '<tr><td colspan="5" class="results-empty-cell">Calculating...</td></tr>';
   }
+
+  try {
+    const bundle = await buildEngineResults();
+    bundle._trackerSaved = false;
+    latestRunBundle = bundle;
+    renderResults(bundle);
+    updateIntel(bundle);
+    clearHeaderError();
+
+    const savedCount = autoSaveCurrentRunToTracker();
+    if (savedCount > 0) {
+      setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated and auto-saved.", "ok");
+    } else {
+      setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.", "ok");
+    }
+    renderTrackerDebug();
+  } catch (err) {
+    showRunError(err.message || "Engine run failed.");
+  }
+}
+
 
   function sleep(ms) {
     return new Promise(function (resolve) {
