@@ -3307,339 +3307,32 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function getRawConfidence(edge, volatility) {
-    const absEdge = Math.abs(edge);
-
-    if (volatility > 5) return "PASS";
-    if (absEdge >= 2.5 && volatility <= 4.0) return "A";
-    if (absEdge >= 1.5 && volatility <= 4.5) return "B";
-    if (absEdge >= 1.0 && volatility <= 5.0) return "C";
-    return "PASS";
-  }
-
-  function parseLineRange(raw, name, allowEmpty = false) {
-    const cleaned = String(raw || "").trim().replace(/[–—]/g, "-");
-    if (!cleaned) {
-      if (allowEmpty) return null;
-      throw new Error(name + " is required.");
-    }
-
-
-    const parts = cleaned.split("-").map(function (v) {
-      return v.trim();
-    }).filter(Boolean);
-
-    if (parts.length === 1) {
-      const single = Number(parts[0]);
-      if (!Number.isFinite(single)) {
-        throw new Error(name + " must be a valid number or range.");
-      }
-      return {
-        min: single,
-        max: single,
-        mid: single,
-        label: fmt(single)
-      };
-    }
-
-    if (parts.length !== 2) {
-      throw new Error(name + " must look like 18.5 - 22.5.");
-    }
-
-    const low = Number(parts[0]);
-    const high = Number(parts[1]);
-
-    if (!Number.isFinite(low) || !Number.isFinite(high)) {
-      throw new Error(name + " must contain valid numbers.");
-    }
-
-    if (low > high) {
-      throw new Error(name + " lower bound cannot be greater than upper bound.");
-    }
-
-    return {
-      min: low,
-      max: high,
-      mid: (low + high) / 2,
-      label: fmt(low) + " - " + fmt(high)
-    };
-  }
-
-  function directionFromRange(value, lineRange) {
-    if (value > lineRange.mid) return 1;
-    if (value < lineRange.mid) return -1;
-    return 0;
-  }
-
-  function pickFromRange(projection, lineRange) {
-    if (projection > lineRange.mid) {
-      return {
-        pick: "OVER",
-        edge: projection - lineRange.mid,
-        atMid: false
-      };
-    }
-
-    if (projection < lineRange.mid) {
-      return {
-        pick: "UNDER",
-        edge: projection - lineRange.mid,
-        atMid: false
-      };
-    }
-
-    return {
-      pick: "PASS",
-      edge: 0,
-      atMid: true
-    };
-  }
-
-
-  function weightedMean(values) {
-    if (!Array.isArray(values) || !values.length) return null;
-    let weightedTotal = 0;
-    let weightSum = 0;
-    const n = values.length;
-    for (let i = 0; i < n; i += 1) {
-      const weight = n - i;
-      weightedTotal += values[i] * weight;
-      weightSum += weight;
-    }
-    return weightSum ? (weightedTotal / weightSum) : null;
-  }
-
-
-  function matchupKey(tour, playerAName, playerBName) {
-    return [
-      String(tour || "").trim().toUpperCase(),
-      normalizeName(playerAName),
-      normalizeName(playerBName)
-    ].join("|");
-  }
-
-  function getActiveFetchedContext(tour, playerAName, playerBName) {
-    if (!latestFetchedContext) return null;
-    return latestFetchedContext.matchupKey === matchupKey(tour, playerAName, playerBName)
-      ? latestFetchedContext
-      : null;
-  }
-
-  function classifyEventLevel(tournamentName) {
-    const value = normalizeName(tournamentName || "");
-    if (!value) return "";
-
-    if (
-      value.includes("australian open") ||
-      value.includes("french open") ||
-      value.includes("roland garros") ||
-      value.includes("wimbledon") ||
-      value.includes("us open")
-    ) return "Grand Slam";
-
-    if (value.includes("atp finals") || value.includes("wta finals")) return "Finals";
-    if (value.includes("masters") || value.includes("1000")) return "Masters / 1000";
-    if (value.includes("500")) return "500";
-    if (value.includes("250")) return "250";
-    if (value.includes("challenger")) return "Challenger";
-    if (value.includes("olympic")) return "Olympics";
-    return "Tour";
-  }
-
-  function inferMatchFormat(tour, eventLevel) {
-    const tourKey = String(tour || "").trim().toUpperCase();
-    const level = String(eventLevel || "");
-    if (tourKey === "ATP" && level === "Grand Slam") return "BO5";
-    return "BO3";
-  }
-
-
-  function daysBetween(nowDate, earlierDate) {
-    if (!nowDate || !earlierDate) return null;
-    const a = new Date(nowDate);
-    const b = new Date(earlierDate);
-    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
-    return Math.max(0, Math.round((a.getTime() - b.getTime()) / 86400000));
-  }
-
-  function computeFatigueProfile(series) {
-    const recent = Array.isArray(series) ? series.slice(0, 10) : [];
-    if (!recent.length) {
-      return {
-        daysRest: null,
-        matches7: 0,
-        longLoad: 0
-      };
-    }
-
-    const nowish = new Date();
-    const latestDate = recent[0].date || null;
-    let matches7 = 0;
-    let longLoad = 0;
-
-    recent.forEach(function (entry) {
-      const diff = daysBetween(nowish, entry.date);
-      if (diff !== null && diff <= 7) matches7 += 1;
-      if (Number(entry.totalGames) >= 30) longLoad += 1;
-    });
-
-    return {
-      daysRest: daysBetween(nowish, latestDate),
-      matches7: matches7,
-      longLoad: longLoad
-    };
-  }
-
-  function computeFatiguePenalty(profile, marketKey) {
-    if (!profile) return 0;
-    let penalty = 0;
-    const isSet1 = marketKey === "set1";
-
-    if (profile.daysRest !== null) {
-      if (profile.daysRest <= 1) penalty += isSet1 ? 0.18 : 0.55;
-      else if (profile.daysRest === 2) penalty += isSet1 ? 0.08 : 0.22;
-    }
-
-    if (profile.matches7 >= 3) penalty += isSet1 ? 0.10 : 0.28;
-    if (profile.longLoad >= 2) penalty += isSet1 ? 0.10 : 0.28;
-
-    return penalty;
-  }
-
-  function uniqueNotes(notes) {
-    return Array.from(new Set((notes || []).filter(Boolean)));
-  }
-
-  function buildDerivedMarketInputs(options) {
-    const ctx = options.ctx;
-    const marketKey = options.marketKey;
-    let avgA = mean(options.manualA);
-    let avgB = mean(options.manualB);
-    let stdA = stdDev(options.manualA);
-    let stdB = stdDev(options.manualB);
-    let h2h = (options.manualH2H || []).slice();
-    let projectionShift = 0;
-    const notes = [];
-
-    if (!ctx) {
-      return {
-        avgA: avgA,
-        avgB: avgB,
-        stdA: stdA,
-        stdB: stdB,
-        h2h: h2h,
-        projectionShift: projectionShift,
-        extraNotes: notes
-      };
-    }
-
-    const seriesA = marketKey === "match" ? ctx.recentMatchA : ctx.recentSet1A;
-    const seriesB = marketKey === "match" ? ctx.recentMatchB : ctx.recentSet1B;
-
-    if (seriesA.length >= 3 && seriesB.length >= 3) {
-      avgA = weightedMean(seriesA);
-      avgB = weightedMean(seriesB);
-      stdA = stdDev(seriesA);
-      stdB = stdDev(seriesB);
-      notes.push("Recency weighted");
-    }
-
-    const fetchedH2H = marketKey === "match" ? ctx.h2hMatch : ctx.h2hSet1;
-    if (fetchedH2H.length >= 1) {
-      h2h = fetchedH2H.slice(0, 5);
-    }
-
-            if (marketKey === "match" && ctx.matchFormat === "BO5") {
-      projectionShift += 2.75;
-      notes.push("BO5 format");
-    }
-
-    // --- SURFACE MATH ---
-    if (ctx && ctx.surface === "Grass") {
-      projectionShift += (marketKey === "match" ? 0.60 : 0.25);
-      notes.push("Grass Court (Fast/+Totals)");
-    } else if (ctx && ctx.surface === "Clay") {
-      projectionShift -= (marketKey === "match" ? 0.60 : 0.25);
-      notes.push("Clay Court (Slow/-Totals)");
-    }
-
-    const fatiguePenaltyA = computeFatiguePenalty(ctx.fatigueA, marketKey);
-    const fatiguePenaltyB = computeFatiguePenalty(ctx.fatigueB, marketKey);
-
-    if (fatiguePenaltyA > 0) {
-      avgA = Math.max(0, avgA - fatiguePenaltyA);
-      notes.push("Fatigue A");
-    }
-    if (fatiguePenaltyB > 0) {
-      avgB = Math.max(0, avgB - fatiguePenaltyB);
-      notes.push("Fatigue B");
-    }
-
-    if (ctx.eventLevel) notes.push(ctx.eventLevel);
-    if (ctx.roundName) notes.push(ctx.roundName);
-
-    return {
-      avgA: avgA,
-      avgB: avgB,
-      stdA: stdA,
-      stdB: stdB,
-      h2h: h2h,
-      projectionShift: projectionShift,
-      extraNotes: uniqueNotes(notes)
-    };
-  }
-
-  // --- LEVEL 2: POISSON MONTE CARLO SIMULATOR ---
-async function runTennisMonteCarlo(mean, stdDev, line, runs = 8000) {
-  if (!Number.isFinite(mean) || !Number.isFinite(stdDev) || !Number.isFinite(line) || stdDev <= 0) {
-    return { overPct: 50, underPct: 50 };
-  }
-  const workerCode = `
-    function getPoisson(lambda) {
-      if (lambda < 30) {
-        const L = Math.exp(-lambda);
-        let k = 0, p = 1;
-        do { k++; p *= Math.random(); } while (p > L);
-        return k - 1;
-      } else {
-        let u1 = Math.random(), u2 = Math.random();
-        let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-        return Math.max(0, Math.floor(lambda + Math.sqrt(lambda) * z0 + 0.5));
-      }
-    }
-    onmessage = function(e) {
-      const { mean, line, runs } = e.data;
-      let overHits = 0;
-      for (let i = 0; i < runs; i++) {
-        if (getPoisson(mean) > line) overHits++;
-      }
-      const overPct = (overHits / runs) * 100;
-      postMessage({ overPct, underPct: 100 - overPct });
-    };
-  `;
-  const blob = new Blob([workerCode], { type: "application/javascript" });
-  const worker = new Worker(URL.createObjectURL(blob));
-  return new Promise(resolve => {
-    worker.onmessage = e => { worker.terminate(); resolve(e.data); };
-    worker.postMessage({ mean, line, runs });
-  });
+  const absEdge = Math.abs(edge);
+  
+  // Level 2: Softened Volatility Limits for Tennis
+  if (volatility > 7.0) return "PASS"; // Raised from 5.0. Allows for normal 3-set variance
+  if (absEdge >= 3.0 && volatility <= 4.5) return "A";
+  if (absEdge >= 2.0 && volatility <= 5.5) return "B";
+  if (absEdge >= 1.0 && volatility <= 6.5) return "C";
+  return "PASS";
 }
 
-// --- LEVEL 2: UPGRADED MARKET BUILDER ---
+// --- LEVEL 2: UPGRADED MARKET BUILDER WITH RESCUE LOGIC ---
 async function buildMarketResult(config) {
   const baseProjection = config.avgA + config.avgB;
   const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
   const h2hAvg = hasH2H ? mean(config.h2h) : null;
 
-  // Level 2: Surface-Dependent H2H Weighting
+  // Surface-Dependent H2H Weighting
   let h2hWeight = 0.3;
-  if (config.ctx && config.ctx.surface === "Grass") h2hWeight = 0.2; // Grass = serve botting, current form matters more
-  else if (config.ctx && config.ctx.surface === "Clay") h2hWeight = 0.4; // Clay = tactical, H2H matchup matters heavily
+  if (config.ctx && config.ctx.surface === "Grass") h2hWeight = 0.2; 
+  else if (config.ctx && config.ctx.surface === "Clay") h2hWeight = 0.4; 
 
   const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
   const projection = projectionCore + (config.projectionShift || 0);
   
   let volatility = (config.stdA + config.stdB) / 2;
-  if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15; // Grass tiebreaks spike volatility
+  if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15; 
 
   const lineDecision = pickFromRange(projection, config.lineRange);
   let pick = lineDecision.pick;
@@ -3648,43 +3341,53 @@ async function buildMarketResult(config) {
   const notes = [].concat(config.extraNotes || []);
   const filtersTriggered = [];
 
-  // RUN THE MONTE CARLO
+  // RUN THE MONTE CARLO SIMULATOR
   const sim = await runTennisMonteCarlo(projection, Math.max(1.5, volatility), config.lineRange.mid, 8000);
   const simPct = pick === "OVER" ? sim.overPct : sim.underPct;
 
   if (lineDecision.atMid) {
     notes.push("Projection exactly on midpoint");
-    confidence = "PASS";
-    pick = "PASS";
+    confidence = "PASS"; pick = "PASS";
   }
 
+  // --- THE SYNDICATE RESCUE LOGIC ---
+  const isRescueEligible = simPct >= 62 || Math.abs(edge) >= 4.0;
+
   if (!hasH2H) {
-    filtersTriggered.push("missingH2H");
-    notes.push("No H2H support");
-    if (confidence !== "PASS") {
-      confidence = downgradeConfidence(confidence);
-      if (confidence === "PASS") pick = "PASS";
+    if (isRescueEligible) {
+      notes.push("No H2H, but rescued by extreme edge/sim");
+    } else {
+      filtersTriggered.push("missingH2H");
+      notes.push("No H2H support");
+      if (confidence !== "PASS") {
+        confidence = downgradeConfidence(confidence);
+        if (confidence === "PASS") pick = "PASS";
+      }
     }
   }
 
   if (config.lowAvgThreshold != null && config.avgA < config.lowAvgThreshold && config.avgB < config.lowAvgThreshold) {
     filtersTriggered.push("blowout");
     notes.push("Blowout risk");
-    if (pick === "OVER") {
+    if (pick === "OVER" && !isRescueEligible) {
       confidence = downgradeConfidence(confidence);
       if (confidence === "PASS") pick = "PASS";
     }
   }
 
-  if (volatility > 4) {
+  if (volatility > 5.0 && volatility <= 7.0) {
     filtersTriggered.push("chaos");
-    notes.push("High volatility");
-    confidence = downgradeConfidence(confidence);
-    if (confidence === "PASS") pick = "PASS";
+    notes.push("High volatility watch");
+    if (!isRescueEligible) {
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") pick = "PASS";
+    } else {
+      notes.push("Volatility rescued by math strength");
+    }
   }
 
-  if (volatility > 5) {
-    if (!filtersTriggered.includes("chaos")) filtersTriggered.push("chaos");
+  if (volatility > 7.0) {
+    filtersTriggered.push("chaos");
     notes.push("Extreme volatility / skip zone");
     confidence = "PASS"; pick = "PASS";
   }
@@ -3693,9 +3396,13 @@ async function buildMarketResult(config) {
     const recentDirection = directionFromRange(baseProjection, config.lineRange);
     const h2hDirection = directionFromRange(h2hAvg, config.lineRange);
     if (recentDirection !== 0 && h2hDirection !== 0 && recentDirection !== h2hDirection) {
-      filtersTriggered.push("fakeEdge");
-      notes.push("Recent and H2H conflict");
-      confidence = "PASS"; pick = "PASS";
+      if (!isRescueEligible) {
+        filtersTriggered.push("fakeEdge");
+        notes.push("Recent and H2H conflict");
+        confidence = "PASS"; pick = "PASS";
+      } else {
+        notes.push("H2H conflict overruled by current form edge");
+      }
     }
   }
 
@@ -3709,9 +3416,13 @@ async function buildMarketResult(config) {
   if (simPct < 53 && pick !== "PASS") {
     notes.push(`Sim Warning: Only ${simPct.toFixed(1)}% hit rate`);
     confidence = downgradeConfidence(confidence);
-  } else if (simPct >= 60 && pick !== "PASS") {
+  } else if (simPct >= 62 && pick !== "PASS") {
     notes.push(`Sim Strong: ${simPct.toFixed(1)}% hit rate`);
     if (confidence === "C") confidence = "B"; // Bump up for strong math
+    else if (confidence === "PASS") {
+      confidence = "C"; // Final rescue net
+      pick = lineDecision.pick;
+    }
   }
 
   const finalNotes = uniqueNotes(notes);
@@ -3735,9 +3446,10 @@ async function buildMarketResult(config) {
     confidence: confidence,
     notes: finalNotes,
     filtersTriggered: filtersTriggered,
-    simPct: simPct // Saved for God's Eye
+    simPct: simPct 
   };
 }
+
 
 
   async function buildEngineResults() {
