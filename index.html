@@ -4920,7 +4920,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
 }
 
-  function settleTrackerItemFromRecord(item, record) {
+    function settleTrackerItemFromRecord(item, record) {
     if (!item || !record) return item;
 
     const actualValue = item.market === "Set 1 Total Games"
@@ -4929,15 +4929,28 @@ body.dark-mode .tracker-analytics-section-head {
 
     if (!Number.isFinite(actualValue)) return item;
 
-    const line = Number(item.line);
+    // SYNDICATE FIX: Strip invisible characters from line to prevent fake PUSHes
+    const cleanLineStr = String(item.line || "").replace(/[^0-9.]/g, "");
+    const line = Number(cleanLineStr);
     let status = "PENDING";
 
+    if (Number.isNaN(line) || cleanLineStr === "") {
+      return item; // Keep pending if line is utterly corrupted
+    }
+
+    // Safety fallback for pick direction
+    let pickDir = String(item.rawPick || "").toUpperCase();
+    if (!pickDir) {
+      if (String(item.pick).toUpperCase().includes("OVER")) pickDir = "OVER";
+      else if (String(item.pick).toUpperCase().includes("UNDER")) pickDir = "UNDER";
+    }
+
     if (actualValue > line) {
-      status = item.rawPick === "OVER" ? "WIN" : "LOSS";
+      status = pickDir === "OVER" ? "WIN" : "LOSS";
     } else if (actualValue < line) {
-      status = item.rawPick === "UNDER" ? "WIN" : "LOSS";
+      status = pickDir === "UNDER" ? "WIN" : "LOSS";
     } else {
-      status = "PUSH";
+      status = "PUSH"; // Only hits if actualValue is EXACTLY equal to line
     }
 
     return Object.assign({}, item, {
@@ -4946,6 +4959,7 @@ body.dark-mode .tracker-analytics-section-head {
       actualTotal: round2(actualValue)
     });
   }
+
 
   async function autoSettleTracker(isSilent) {
     g_trackerDebug.lastSettlementSummary = "Running settlement...";
@@ -5065,11 +5079,13 @@ body.dark-mode .tracker-analytics-section-head {
           pick: getPredictionText(result),
           rawPick: result.pick,
           confidence: result.confidence,
-          status: "PENDING",
+                    status: "PENDING",
           isLock: idx === lockIdx,
-          notes: Array.isArray(result.notes) ? result.notes.join(" | ") : ""
+          notes: Array.isArray(result.notes) ? result.notes.join(" | ") : "",
+          simPct: result.simPct
         };
       })
+
       .filter(Boolean);
 
     g_trackerDebug.lastGeneratedEntries = built.length;
@@ -5233,9 +5249,9 @@ body.dark-mode .tracker-analytics-section-head {
                         <td style="font-weight:bold; white-space: nowrap;">${htmlEscape(p.pick)}</td>
                         <td style="font-weight:900; text-transform:uppercase; ${statusClass}">${htmlEscape(p.status)}</td>
                         <td style="font-size: 9px; color: var(--muted); line-height: 1.4;">
-                          <strong>Edge:</strong> <span style="color:var(--text)">${edge}</span> | <strong>Grade:</strong> <span style="color:var(--text)">${p.confidence}</span><br>
-                          <strong>Sim Hit Rate:</strong> <span style="color:var(--text)">${htmlEscape(simNote)}</span><br>
-                          <strong>Data:</strong> ${p.tour.toUpperCase()} | <strong>Vol:</strong> ${htmlEscape(p.notes.includes("volatility") ? "High" : "Stable")}
+                                                   <strong>Edge:</strong> <span style="color:var(--text)">${edge}</span> | <strong>Grade:</strong> <span style="color:var(--text)">${p.confidence}</span><br>
+                          <strong>Sim Hit Rate:</strong> <span style="color:var(--text)">${p.simPct ? p.simPct.toFixed(1) + '%' : htmlEscape(simNote)}</span><br>
+                          <strong>Data:</strong> ${p.tour ? p.tour.toUpperCase() : 'ATP'} | <strong>Vol:</strong> ${htmlEscape(p.notes.includes("volatility") ? "High" : "Stable")}
                         </td>
                       </tr>
                     `;
