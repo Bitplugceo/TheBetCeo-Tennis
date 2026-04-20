@@ -3422,14 +3422,17 @@ body.dark-mode .tracker-analytics-section-head {
     return Array.from(new Set((notes || []).filter(Boolean)));
   }
 
-  function buildDerivedMarketInputs(options) {
+    function buildDerivedMarketInputs(options) {
     const ctx = options.ctx;
     const marketKey = options.marketKey;
     let avgA = mean(options.manualA);
     let avgB = mean(options.manualB);
     let stdA = stdDev(options.manualA);
     let stdB = stdDev(options.manualB);
+    
+    // FIX: Strictly obey the UI input for H2H. Do not secretly override it with context data.
     let h2h = (options.manualH2H || []).slice();
+    
     let projectionShift = 0;
     const notes = [];
 
@@ -3452,9 +3455,6 @@ body.dark-mode .tracker-analytics-section-head {
       stdB = stdDev(seriesB);
       notes.push("Recency weighted");
     }
-
-    const fetchedH2H = marketKey === "match" ? ctx.h2hMatch : ctx.h2hSet1;
-    if (fetchedH2H.length >= 1) h2h = fetchedH2H.slice(0, 5);
 
     if (marketKey === "match" && ctx.matchFormat === "BO5") {
       projectionShift += 2.75;
@@ -3487,41 +3487,6 @@ body.dark-mode .tracker-analytics-section-head {
     if (ctx.eventLevel) notes.push(ctx.eventLevel);
 
     return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: uniqueNotes(notes), avgGrind, avgTb, avgS1Kill };
-  }
-
-  async function runTennisMonteCarlo(mean, stdDev, line, runs = 8000) {
-    if (!Number.isFinite(mean) || !Number.isFinite(stdDev) || !Number.isFinite(line) || stdDev <= 0) {
-      return { overPct: 50, underPct: 50 };
-    }
-    const workerCode = `
-      function getPoisson(lambda) {
-        if (lambda < 30) {
-          const L = Math.exp(-lambda);
-          let k = 0, p = 1;
-          do { k++; p *= Math.random(); } while (p > L);
-          return k - 1;
-        } else {
-          let u1 = Math.random(), u2 = Math.random();
-          let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-          return Math.max(0, Math.floor(lambda + Math.sqrt(lambda) * z0 + 0.5));
-        }
-      }
-      onmessage = function(e) {
-        const { mean, line, runs } = e.data;
-        let overHits = 0;
-        for (let i = 0; i < runs; i++) {
-          if (getPoisson(mean) > line) overHits++;
-        }
-        const overPct = (overHits / runs) * 100;
-        postMessage({ overPct, underPct: 100 - overPct });
-      };
-    `;
-    const blob = new Blob([workerCode], { type: "application/javascript" });
-    const worker = new Worker(URL.createObjectURL(blob));
-    return new Promise(resolve => {
-      worker.onmessage = e => { worker.terminate(); resolve(e.data); };
-      worker.postMessage({ mean, line, runs });
-    });
   }
 
   async function buildMarketResult(config) {
@@ -3571,6 +3536,9 @@ body.dark-mode .tracker-analytics-section-head {
     if (!hasH2H) {
       if (isRescueEligible) notes.push("No H2H, but rescued by extreme edge/sim");
       else { filtersTriggered.push("missingH2H"); notes.push("No H2H support"); if (confidence !== "PASS") { confidence = downgradeConfidence(confidence); if (confidence === "PASS") pick = "PASS"; } }
+    } else {
+      // FIX: Tell the user exactly how much H2H was blended in so you know it worked.
+      notes.push(`H2H Blended (${Math.round(h2hWeight * 100)}% weight)`);
     }
 
     if (volatility > 5.0 && volatility <= 7.0) {
@@ -3593,6 +3561,7 @@ body.dark-mode .tracker-analytics-section-head {
       notes: finalNotes, filtersTriggered: filtersTriggered, simPct: simPct 
     };
   }
+
 
 
 
@@ -5891,7 +5860,7 @@ body.dark-mode .tracker-analytics-section-head {
     ]);
   }
 
-    function buildCompetitionRecord(comp, parentEvent) {
+      function buildCompetitionRecord(comp, parentEvent) {
     if (!comp) return null;
     const labelText = (comp.type && (comp.type.text || comp.type.slug)) || (parentEvent && parentEvent.grouping && parentEvent.grouping.displayName) || "";
     if (!isSinglesLabel(labelText)) return null;
@@ -5910,6 +5879,12 @@ body.dark-mode .tracker-analytics-section-head {
     const setCount = Math.min(aSets.length, bSets.length);
     const tournamentName = String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim();
     const eventLevel = classifyEventLevel(tournamentName);
+    
+    // --- SYNDICATE FIX: DETECT GENDER TO PREVENT MIXING ---
+    let gender = "UNKNOWN";
+    const combinedSearch = (labelText + " " + tournamentName).toLowerCase();
+    if (combinedSearch.includes("women") || combinedSearch.includes("wta")) gender = "WTA";
+    else if (combinedSearch.includes("men") || combinedSearch.includes("atp")) gender = "ATP";
 
     const playerARank = toNumber((a && a.curatedRank && (a.curatedRank.current || a.curatedRank.value || a.curatedRank.rank)) || (a && a.athlete && a.athlete.rank) || (a && a.rank));
     const playerBRank = toNumber((b && b.curatedRank && (b.curatedRank.current || b.curatedRank.value || b.curatedRank.rank)) || (b && b.athlete && b.athlete.rank) || (b && b.rank));
@@ -5938,9 +5913,11 @@ body.dark-mode .tracker-analytics-section-head {
       playerAGames: playerAGames, playerBGames: playerBGames,
       totalGames: totalGames, playerASet1Games: playerASet1Games, playerBSet1Games: playerBSet1Games,
       set1Total: set1Total,
-      aSets: aSets, bSets: bSets, setCount: setCount // BRUTAL DATA EXTRACTED
+      aSets: aSets, bSets: bSets, setCount: setCount,
+      gender: gender // Added to stop ATP/WTA mixups
     };
   }
+
 
 
   function extractCompetitionRecords(payload) {
@@ -6015,7 +5992,7 @@ body.dark-mode .tracker-analytics-section-head {
     });
   }
 
-  async function loadFixtures(offset) {
+    async function loadFixtures(offset) {
     const league = String(qs("leagueSelect").value || "").trim();
     const select = qs("fixtureSelect");
     if (!select) return;
@@ -6050,37 +6027,19 @@ body.dark-mode .tracker-analytics-section-head {
         const scheduledAt = new Date(record.date);
         const hasValidDate = !Number.isNaN(scheduledAt.getTime());
 
+        // --- SYNDICATE FIX: STRICT LEAGUE FILTERING ---
+        if (league === "ATP" && record.gender === "WTA") return false;
+        if (league === "WTA" && record.gender === "ATP") return false;
+
         function invalidName(value) {
-          return !value ||
-            value === "tbd" ||
-            value === "bye" ||
-            value === "qualifier" ||
-            value === "winner" ||
-            value === "loser";
+          return !value || value === "tbd" || value === "bye" || value === "qualifier" || value === "winner" || value === "loser";
         }
 
-        const isLive =
-          state === "in" ||
-          name === "STATUS_IN_PROGRESS" ||
-          name === "STATUS_HALFTIME";
-
-        const isScheduled =
-          state === "pre" ||
-          name === "STATUS_SCHEDULED" ||
-          name === "STATUS_TIME_TBD";
+        const isLive = state === "in" || name === "STATUS_IN_PROGRESS" || name === "STATUS_HALFTIME";
+        const isScheduled = state === "pre" || name === "STATUS_SCHEDULED" || name === "STATUS_TIME_TBD";
 
         const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
-        const notPlaceholderPair =
-          !aNorm.includes(" tbd") &&
-          !bNorm.includes(" tbd") &&
-          !aNorm.startsWith("tbd ") &&
-          !bNorm.startsWith("tbd ") &&
-          !aNorm.includes(" winner") &&
-          !bNorm.includes(" winner") &&
-          !aNorm.includes(" qualifier") &&
-          !bNorm.includes(" qualifier") &&
-          !aNorm.includes(" bye") &&
-          !bNorm.includes(" bye");
+        const notPlaceholderPair = !aNorm.includes(" tbd") && !bNorm.includes(" tbd") && !aNorm.startsWith("tbd ") && !bNorm.startsWith("tbd ") && !aNorm.includes(" winner") && !bNorm.includes(" winner") && !aNorm.includes(" qualifier") && !bNorm.includes(" qualifier") && !aNorm.includes(" bye") && !bNorm.includes(" bye");
 
         if (completed) return false;
         if (!hasRealPlayers || !notPlaceholderPair) return false;
@@ -6093,7 +6052,11 @@ body.dark-mode .tracker-analytics-section-head {
 
         return isLive || isScheduled;
       }).sort(function (a, b) {
-        return new Date(a.date) - new Date(b.date);
+        // --- SYNDICATE FIX: BULLETPROOF TIME SORTING ---
+        const tA = new Date(a.date).getTime();
+        const tB = new Date(b.date).getTime();
+        if (tA === tB) return a.playerAName.localeCompare(b.playerAName); // Fallback to alphabet if same time
+        return tA - tB;
       });
 
       renderFixtureOptions(records);
@@ -6104,6 +6067,7 @@ body.dark-mode .tracker-analytics-section-head {
       setFetchStatus("Unable to load ESPN fixtures right now.", "err");
     }
   }
+
 
   function onFixtureSelect() {
     const select = qs("fixtureSelect");
