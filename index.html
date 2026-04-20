@@ -3489,6 +3489,41 @@ body.dark-mode .tracker-analytics-section-head {
     return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: uniqueNotes(notes), avgGrind, avgTb, avgS1Kill };
   }
 
+  async function runTennisMonteCarlo(mean, stdDev, line, runs = 8000) {
+    if (!Number.isFinite(mean) || !Number.isFinite(stdDev) || !Number.isFinite(line) || stdDev <= 0) {
+      return { overPct: 50, underPct: 50 };
+    }
+    const workerCode = `
+      function getPoisson(lambda) {
+        if (lambda < 30) {
+          const L = Math.exp(-lambda);
+          let k = 0, p = 1;
+          do { k++; p *= Math.random(); } while (p > L);
+          return k - 1;
+        } else {
+          let u1 = Math.random(), u2 = Math.random();
+          let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+          return Math.max(0, Math.floor(lambda + Math.sqrt(lambda) * z0 + 0.5));
+        }
+      }
+      onmessage = function(e) {
+        const { mean, line, runs } = e.data;
+        let overHits = 0;
+        for (let i = 0; i < runs; i++) {
+          if (getPoisson(mean) > line) overHits++;
+        }
+        const overPct = (overHits / runs) * 100;
+        postMessage({ overPct, underPct: 100 - overPct });
+      };
+    `;
+    const blob = new Blob([workerCode], { type: "application/javascript" });
+    const worker = new Worker(URL.createObjectURL(blob));
+    return new Promise(resolve => {
+      worker.onmessage = e => { worker.terminate(); resolve(e.data); };
+      worker.postMessage({ mean, line, runs });
+    });
+  }
+
   async function buildMarketResult(config) {
     const baseProjection = config.avgA + config.avgB;
     const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
