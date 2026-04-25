@@ -2755,15 +2755,16 @@ body.dark-mode .tracker-analytics-section-head {
 
 <div class="table-wrap">
   <table id="results" class="results-hidden">
-    <thead>
+       <thead>
       <tr>
-        <th>Pick</th>
-        <th>Projection</th>
-        <th>Edge</th>
-        <th>Model Grade</th>
-        <th>Prediction</th>
+        <th>Market</th>
+        <th>Fair Line</th>
+        <th>Edge %</th>
+        <th>Win Prob</th>
+        <th>Fair Odds / Pick</th>
       </tr>
     </thead>
+
     <tbody id="resultsBody">
       <tr>
         <td colspan="5" class="results-empty-cell">Run the engine to populate results.</td>
@@ -3213,22 +3214,31 @@ body.dark-mode .tracker-analytics-section-head {
     setHeaderError(false, "Show issues");
   }
 
-  function parseNumber(value, name) {
-    const cleaned = String(value || "").trim();
+    function parseNumber(value, name) {
+    // WEAPONIZED SANITIZATION: Strips non-breaking spaces and hidden HTML noise
+    const cleaned = String(value || "").replace(/[\u00A0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/g, " ").trim();
     if (!cleaned) {
       throw new Error(name + " is required.");
     }
-    const num = Number(cleaned);
+    // Remove everything except numbers, dots, and minus signs
+    const hardCleaned = cleaned.replace(/[^0-9.-]/g, "");
+    const num = Number(hardCleaned);
+
     if (!Number.isFinite(num)) {
       throw new Error(name + " must be a valid number.");
     }
     return num;
   }
 
-  function parseNumericList(raw, name, minLen, maxLen, allowEmpty) {
-    const text = String(raw || "").trim();
+    function parseNumericList(raw, name, minLen, maxLen, allowEmpty) {
+    // WEAPONIZED SANITIZATION: Force-cleans hidden chars from the entire string
+    const text = String(raw || "")
+      .replace(/[\u00A0\ufeff]/g, " ") 
+      .replace(/[^\x00-\x7F]/g, "") 
+      .trim();
 
     if (!text) {
+
       if (allowEmpty) return [];
       throw new Error(name + " is required.");
     }
@@ -3268,15 +3278,20 @@ body.dark-mode .tracker-analytics-section-head {
     return values.reduce(function (sum, val) { return sum + val; }, 0) / values.length;
   }
 
-  function stdDev(values) {
+    function stdDev(values) {
     if (!Array.isArray(values) || values.length < 2) return 0;
     const avg = mean(values);
+    
+    // WEAPONIZED MATH: Applying Bessel's Correction (n-1) 
+    // This provides an unbiased estimate of variance for small samples (3-10 games).
     const variance = values.reduce(function (sum, val) {
       const diff = val - avg;
       return sum + (diff * diff);
-    }, 0) / values.length;
+    }, 0) / (values.length - 1);
+
     return Math.sqrt(variance);
   }
+
 
   function sign(value) {
     if (value > 0) return 1;
@@ -3306,17 +3321,32 @@ body.dark-mode .tracker-analytics-section-head {
     return "PASS";
   }
 
-    function getRawConfidence(edge, volatility) {
+      function getRawConfidence(edge, volatility, lineMid) {
     const absEdge = Math.abs(edge);
+    
+    // WEAPONIZED NORMALIZATION: Comparing raw games across different markets is a flaw.
+    // We convert the edge to a percentage relative to the line midpoint.
+    const edgePct = (absEdge / (lineMid || 22.0)) * 100;
+
     if (volatility > 7.0) return "PASS"; 
-    if (absEdge >= 3.0 && volatility <= 4.5) return "A";
-    if (absEdge >= 2.0 && volatility <= 5.5) return "B";
-    if (absEdge >= 1.0 && volatility <= 6.5) return "C";
+    
+    // Percent-based thresholds provide fair grading for both Set 1 and Match totals.
+    // A: >14.0% | B: >9.0% | C: >4.5%
+    if (edgePct >= 14.0 && volatility <= 4.5) return "A";
+    if (edgePct >= 9.0 && volatility <= 5.5) return "B";
+    if (edgePct >= 4.5 && volatility <= 6.5) return "C";
     return "PASS";
+
   }
 
-  function parseLineRange(raw, name, allowEmpty = false) {
-    const cleaned = String(raw || "").trim().replace(/[–—]/g, "-");
+    function parseLineRange(raw, name, allowEmpty = false) {
+    // Strip hidden characters and convert all dash types to a standard minus
+    const cleaned = String(raw || "")
+      .replace(/[\u00A0\ufeff]/g, " ")
+      .replace(/[–—]/g, "-")
+      .replace(/[^0-9.\-]/g, "") 
+      .trim();
+
     if (!cleaned) { if (allowEmpty) return null; throw new Error(name + " is required."); }
     const parts = cleaned.split("-").map(function (v) { return v.trim(); }).filter(Boolean);
     if (parts.length === 1) {
@@ -3343,17 +3373,26 @@ body.dark-mode .tracker-analytics-section-head {
     return { pick: "PASS", edge: 0, atMid: true };
   }
 
-  function weightedMean(values) {
+    function weightedMean(values) {
     if (!Array.isArray(values) || !values.length) return null;
-    let weightedTotal = 0, weightSum = 0;
-    const n = values.length;
-    for (let i = 0; i < n; i += 1) {
-      const weight = n - i;
+    
+    // WEAPONIZED DECAY: Exponential weighting constant.
+    // A factor of 0.75 means the most recent match is ~4x more influential 
+    // than a match played 5 games ago. Linear weighting is for amateurs.
+    const DECAY_FACTOR = 0.75; 
+    let weightedTotal = 0;
+    let weightSum = 0;
+
+    for (let i = 0; i < values.length; i++) {
+      // i=0 is the most recent (weight = 1). As i increases, weight drops exponentially.
+      const weight = Math.pow(DECAY_FACTOR, i);
       weightedTotal += values[i] * weight;
       weightSum += weight;
     }
+
     return weightSum ? (weightedTotal / weightSum) : null;
   }
+
 
   function matchupKey(tour, playerAName, playerBName) {
     return [String(tour || "").trim().toUpperCase(), normalizeName(playerAName), normalizeName(playerBName)].join("|");
@@ -3436,14 +3475,29 @@ body.dark-mode .tracker-analytics-section-head {
     let projectionShift = 0;
     const notes = [];
 
-    const brutalA = ctx && ctx.brutalA ? ctx.brutalA : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
+        const brutalA = ctx && ctx.brutalA ? ctx.brutalA : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
     const brutalB = ctx && ctx.brutalB ? ctx.brutalB : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
+
+    // WEAPONIZED DOMINANCE: Calculating the P-Dom (Point Dominance) Adjustment
+    // We compare games won vs. expected points to find "Efficiency Alpha."
+    const eloA = ctx?.eloA || 1500;
+    const eloB = ctx?.eloB || 1500;
+    
+    // Dominance Ratio calculation: Points won on return / Points lost on serve
+    // Since pure point data is variable, we derive a proxy from Elo and Game Spread.
+    const dominanceA = (eloA / eloB) * (avgA / (avgA + avgB || 1));
+    const dominanceB = (eloB / eloA) * (avgB / (avgA + avgB || 1));
+    
+    // Convert Dominance to Point-Level Serve Probability for Fix #10
+    const pA_serve = 0.64 + (dominanceA - dominanceB) * 0.15;
+    const pB_serve = 0.64 + (dominanceB - dominanceA) * 0.15;
 
     const avgGrind = (brutalA.grindRate + brutalB.grindRate) / 2;
     const avgTb = (brutalA.tiebreakIdx + brutalB.tiebreakIdx) / 2;
     const avgS1Kill = (brutalA.set1Kill + brutalB.set1Kill) / 2;
 
-    if (!ctx) return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: notes, avgGrind, avgTb, avgS1Kill };
+    if (!ctx) return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: notes, avgGrind, avgTb, avgS1Kill, pA_serve, pB_serve };
+
 
     const seriesA = marketKey === "match" ? ctx.recentMatchA : ctx.recentSet1A;
     const seriesB = marketKey === "match" ? ctx.recentMatchB : ctx.recentSet1B;
@@ -3456,25 +3510,42 @@ body.dark-mode .tracker-analytics-section-head {
       notes.push("Recency weighted");
     }
 
+        // WEAPONIZED DYNAMIC SHIFTS: Replacing "Magic Numbers" with Statistical Scaling
+    // BO5 (Grand Slams) are not just +2.75 games; they are historically ~1.45x the length of a BO3 match.
     if (marketKey === "match" && ctx.matchFormat === "BO5") {
-      projectionShift += 2.75;
-      notes.push("BO5 format");
+      const bo5Multiplier = 1.42; 
+      avgA *= bo5Multiplier;
+      avgB *= bo5Multiplier;
+      notes.push("BO5 Scale Applied (1.42x)");
     }
 
-    // --- APPLY BRUTAL SHIFTS ---
     if (marketKey === "match") {
-      if (avgGrind >= 0.40) { projectionShift += 1.5; notes.push(`Grind Factor (${Math.round(avgGrind*100)}% 3-Set)`); }
-      if (avgTb >= 0.25) { projectionShift += 1.0; notes.push(`Serve-Bot Alert (${Math.round(avgTb*100)}% TBs)`); }
+      // Grind factor and Tiebreak index now scale based on the baseline projection rather than flat addition.
+      const baseline = avgA + avgB;
+      if (avgGrind >= 0.40) { 
+        const grindAdjustment = baseline * 0.065; // Dynamic 6.5% increase for high-grind matchups
+        projectionShift += grindAdjustment; 
+        notes.push(`Dynamic Grind Adj: +${grindAdjustment.toFixed(1)}`);
+      }
+      if (avgTb >= 0.25) { 
+        const tbAdjustment = baseline * 0.045; // Dynamic 4.5% increase for serve-heavy matchups
+        projectionShift += tbAdjustment; 
+        notes.push(`Dynamic TB Adj: +${tbAdjustment.toFixed(1)}`);
+      }
       
       const surfDelta = (brutalA.surfaceDelta + brutalB.surfaceDelta) / 2;
       if (Math.abs(surfDelta) >= 0.8) {
         projectionShift += surfDelta;
-        notes.push(`Surface Form Delta (${surfDelta > 0 ? '+' : ''}${surfDelta.toFixed(1)})`);
+        notes.push(`Surface Delta: ${surfDelta > 0 ? '+' : ''}${surfDelta.toFixed(1)}`);
       }
     } else if (marketKey === "set1") {
-      if (avgS1Kill >= 0.35) { projectionShift -= 0.8; notes.push(`Set 1 Kill Rate (${Math.round(avgS1Kill*100)}% blowouts)`); }
-      if (avgTb >= 0.25) { projectionShift += 0.6; }
+      if (avgS1Kill >= 0.35) { 
+        const s1Adjustment = (avgA + avgB) * 0.08; // Dynamic 8% reduction for blowout potential
+        projectionShift -= s1Adjustment; 
+        notes.push("Set 1 Kill Scaling"); 
+      }
     }
+
 
     if (ctx && ctx.surface === "Grass") { projectionShift += (marketKey === "match" ? 0.60 : 0.25); notes.push("Grass Court"); } 
     else if (ctx && ctx.surface === "Clay") { projectionShift -= (marketKey === "match" ? 0.60 : 0.25); notes.push("Clay Court"); }
@@ -3489,40 +3560,85 @@ body.dark-mode .tracker-analytics-section-head {
     return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: uniqueNotes(notes), avgGrind, avgTb, avgS1Kill };
   }
 
-  async function runTennisMonteCarlo(mean, stdDev, line, runs = 8000) {
-    if (!Number.isFinite(mean) || !Number.isFinite(stdDev) || !Number.isFinite(line) || stdDev <= 0) {
-      return { overPct: 50, underPct: 50 };
-    }
-    const workerCode = `
-      function getPoisson(lambda) {
-        if (lambda < 30) {
-          const L = Math.exp(-lambda);
-          let k = 0, p = 1;
-          do { k++; p *= Math.random(); } while (p > L);
-          return k - 1;
-        } else {
-          let u1 = Math.random(), u2 = Math.random();
-          let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-          return Math.max(0, Math.floor(lambda + Math.sqrt(lambda) * z0 + 0.5));
+      // PERSISTENT WORKER ASSETS (Located outside the function to maintain state)
+  let g_persistentSimWorker = null;
+  let g_currentSimResolver = null;
+
+  async function runTennisPointSimulation(pA_raw, pB_raw, line, isBO5 = false, runs = 10000) {
+    if (!g_persistentSimWorker) {
+      const workerBlobCode = `
+        function simGame(p_server) {
+          let ptsA = 0, ptsB = 0;
+          while (true) {
+            if (Math.random() < p_server) ptsA++; else ptsB++;
+            if (ptsA >= 4 && ptsA - ptsB >= 2) return "A";
+            if (ptsB >= 4 && ptsB - ptsA >= 2) return "B";
+          }
         }
-      }
-      onmessage = function(e) {
-        const { mean, line, runs } = e.data;
-        let overHits = 0;
-        for (let i = 0; i < runs; i++) {
-          if (getPoisson(mean) > line) overHits++;
+        function simTiebreak(pA, pB, serverStart) {
+          let ptsA = 0, ptsB = 0, currentServer = serverStart;
+          while (true) {
+            let p = (currentServer === "A") ? pA : (1 - pB);
+            if (Math.random() < p) ptsA++; else ptsB++;
+            if ((ptsA + ptsB) % 2 !== 0) currentServer = (currentServer === "A") ? "B" : "A";
+            if (ptsA >= 7 && ptsA - ptsB >= 2) return "A";
+            if (ptsB >= 7 && ptsB - ptsA >= 2) return "B";
+          }
         }
-        const overPct = (overHits / runs) * 100;
-        postMessage({ overPct, underPct: 100 - overPct });
+        function simSet(pA, pB) {
+          let gamesA = 0, gamesB = 0, server = "A";
+          while (true) {
+            let winner = simGame(server === "A" ? pA : (1 - pB));
+            if (winner === "A") gamesA++; else gamesB++;
+            server = (server === "A") ? "B" : "A";
+            if (gamesA === 6 && gamesB <= 4) return { gA: gamesA, gB: gamesB };
+            if (gamesB === 6 && gamesA <= 4) return { gA: gamesA, gB: gamesB };
+            if (gamesA === 7 && gamesB === 5) return { gA: 7, gB: 5 };
+            if (gamesB === 7 && gamesA === 5) return { gA: 5, gB: 7 };
+            if (gamesA === 6 && gamesB === 6) {
+              let tbWinner = simTiebreak(pA, pB, server);
+              return (tbWinner === "A") ? { gA: 7, gB: 6 } : { gA: 6, gB: 7 };
+            }
+          }
+        }
+        onmessage = function(e) {
+          const { pA, pB, line, isBO5, runs } = e.data;
+          let overHits = 0;
+          for (let i = 0; i < runs; i++) {
+            let totalMatchGames = 0, setsA = 0, setsB = 0;
+            let targetSets = isBO5 ? 3 : 2;
+            while (setsA < targetSets && setsB < targetSets) {
+              let res = simSet(pA, pB);
+              totalMatchGames += (res.gA + res.gB);
+              if (res.gA > res.gB) setsA++; else setsB++;
+            }
+            if (totalMatchGames > line) overHits++;
+          }
+          postMessage({ overPct: (overHits/runs)*100, underPct: 100 - (overHits/runs)*100 });
+        };
+      `;
+      const blob = new Blob([workerBlobCode], { type: "application/javascript" });
+      g_persistentSimWorker = new Worker(URL.createObjectURL(blob));
+      g_persistentSimWorker.onmessage = (e) => {
+        if (g_currentSimResolver) g_currentSimResolver(e.data);
       };
-    `;
-    const blob = new Blob([workerCode], { type: "application/javascript" });
-    const worker = new Worker(URL.createObjectURL(blob));
+    }
+
+    // WEAPONIZED INPUT: Using actual Dominance-Adjusted probabilities from Fix #13
+    // Note: pA_raw/pB_raw are the probabilities passed from buildDerivedMarketInputs
     return new Promise(resolve => {
-      worker.onmessage = e => { worker.terminate(); resolve(e.data); };
-      worker.postMessage({ mean, line, runs });
+      g_currentSimResolver = resolve;
+      g_persistentSimWorker.postMessage({ 
+        pA: pA_raw, 
+        pB: pB_raw, 
+        line: line, 
+        isBO5: isBO5, 
+        runs: runs 
+      });
     });
-  }
+  } // END OF PERSISTENT MARKOV SIMULATOR
+
+
 
   async function buildMarketResult(config) {
     const baseProjection = config.avgA + config.avgB;
@@ -3533,35 +3649,52 @@ body.dark-mode .tracker-analytics-section-head {
     if (config.ctx && config.ctx.surface === "Grass") h2hWeight = 0.2; 
     else if (config.ctx && config.ctx.surface === "Clay") h2hWeight = 0.4; 
 
-    const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
+        const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
     const projection = projectionCore + (config.projectionShift || 0);
     
-    let volatility = (config.stdA + config.stdB) / 2;
+    // WEAPONIZED MATH: Variance Summation Rule
+    // Standard deviations do not add linearly. We must sum the variances and take the square root.
+    // Correct Formula: σ_total = sqrt(σA² + σB²)
+    let volatility = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2));
+    
     if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15; 
 
     const lineDecision = pickFromRange(projection, config.lineRange);
-    let pick = lineDecision.pick;
+
+            let pick = lineDecision.pick;
     let edge = lineDecision.edge;
-    let confidence = getRawConfidence(edge, volatility);
+    // Updated call to include the line midpoint for normalized grading
+    let confidence = getRawConfidence(edge, volatility, config.lineRange.mid);
+
     const notes = [].concat(config.extraNotes || []);
     const filtersTriggered = [];
+    let terminalVeto = false;
+
 
     const sim = await runTennisMonteCarlo(projection, Math.max(1.5, volatility), config.lineRange.mid, 8000);
     const simPct = pick === "OVER" ? sim.overPct : sim.underPct;
 
     if (lineDecision.atMid) { notes.push("Projection exactly on midpoint"); confidence = "PASS"; pick = "PASS"; }
 
-    // --- BRUTAL VETOES ---
+        // --- BRUTAL VETOES ---
     if (config.avgGrind >= 0.40 && pick === "UNDER") {
       filtersTriggered.push("grind_veto");
       notes.push("VETO UNDER: Grind Factor");
       confidence = "PASS"; pick = "PASS";
+      terminalVeto = true;
     }
     if (config.avgTb >= 0.25 && pick === "UNDER") {
       filtersTriggered.push("tb_veto");
       notes.push("VETO UNDER: Serve-Bot Alert");
       confidence = "PASS"; pick = "PASS";
+      terminalVeto = true;
     }
+    if (config.avgS1Kill >= 0.35 && pick === "OVER" && config.marketKey === "set1") {
+       notes.push("VETO OVER: Set 1 Kill Rate");
+       confidence = "PASS"; pick = "PASS";
+       terminalVeto = true;
+    }
+
     if (config.avgS1Kill >= 0.35 && pick === "OVER" && config.marketKey === "set1") {
        notes.push("VETO OVER: Set 1 Kill Rate");
        confidence = "PASS"; pick = "PASS";
@@ -3584,7 +3717,16 @@ body.dark-mode .tracker-analytics-section-head {
     if (volatility > 7.0) { filtersTriggered.push("chaos"); notes.push("Extreme volatility / skip zone"); confidence = "PASS"; pick = "PASS"; }
 
     if (simPct < 53 && pick !== "PASS") { notes.push(`Sim Warning: ${simPct.toFixed(1)}%`); confidence = downgradeConfidence(confidence); } 
-    else if (simPct >= 62 && pick !== "PASS") { notes.push(`Sim Strong: ${simPct.toFixed(1)}%`); if (confidence === "C") confidence = "B"; else if (confidence === "PASS") { confidence = "C"; pick = lineDecision.pick; } }
+    else if (simPct >= 62 && pick !== "PASS" && !terminalVeto) { 
+      notes.push(`Sim Strong: ${simPct.toFixed(1)}%`); 
+      if (confidence === "C") {
+        confidence = "B";
+      } else if (confidence === "PASS") { 
+        confidence = "C"; 
+        pick = lineDecision.pick; 
+      } 
+    }
+
 
     const finalNotes = uniqueNotes(notes);
     if (!finalNotes.length) finalNotes.push("Clean read");
@@ -3758,30 +3900,39 @@ body.dark-mode .tracker-analytics-section-head {
     const results = [resultBundle.matchResult, resultBundle.set1Result].filter(Boolean);
     const lockIdx = selectLockIndex(results);
 
-    const rows = results.map(function (result, idx) {
-      const shownMid = result && result.lineRange ? result.lineRange.mid : null;
-
-      const shownProjection = fmt(result.projection);
+        const rows = results.map(function (result, idx) {
       const isNoPlay = result.pick === "PASS" || result.confidence === "PASS";
-      const hasNumericEdge = Number.isFinite(result.edge);
-      const shownEdge = hasNumericEdge ? ((result.edge > 0 ? "+" : "") + fmt(result.edge)) : "—";
+      const winProb = isNoPlay ? 0 : result.simPct;
+      
+      // WEAPONIZED CALCULATION: Probability to American Odds Conversion
+      const getFairOdds = (p) => {
+        if (!p || p <= 0 || p >= 100) return "—";
+        const dec = p / 100;
+        return dec > 0.5 ? "-" + Math.round((dec / (1 - dec)) * 100) : "+" + Math.round(((1 - dec) / dec) * 100);
+      };
+
+      const fairLine = fmt(result.projection);
+      const edgePct = isNoPlay ? "—" : fmt((Math.abs(result.edge) / result.lineRange.mid) * 100) + "%";
+      const probText = isNoPlay ? "—" : fmt(winProb) + "%";
+      const fairOdds = isNoPlay ? "—" : getFairOdds(winProb);
       const predictionText = getPredictionText(result);
       const isLock = idx === lockIdx && !isNoPlay;
-      const gradeText = isNoPlay ? "—" : result.confidence;
 
       return (
         '<tr>' +
-          '<td class="result-market">' + htmlEscape(result.market) + '</td>' +
-          '<td>' + shownProjection + (shownMid !== null ? ' vs ' + fmt(shownMid) : '') + '</td>' +
-          '<td>' + shownEdge + '</td>' +
-          '<td class="' + getConfidenceCellClass(result.confidence) + '">' + htmlEscape(gradeText) + '</td>' +
+          '<td class="result-market" style="font-weight:800;">' + htmlEscape(result.market) + '</td>' +
+          '<td style="font-family:monospace;">' + fairLine + '</td>' +
+          '<td style="color:#2f8f4a;">' + edgePct + '</td>' +
+          '<td style="font-weight:bold;">' + probText + '</td>' +
           '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
-            htmlEscape(predictionText) +
+            '<div style="font-size:14px;letter-spacing:1px;">' + fairOdds + '</div>' +
+            '<div style="font-size:10px;opacity:0.9;">' + htmlEscape(predictionText) + '</div>' +
             (isLock ? ' <span class="lock">🔒</span>' : '') +
           '</td>' +
         '</tr>'
       );
     }).join("");
+
 
     body.innerHTML = rows;
     showResults();
@@ -4535,12 +4686,23 @@ body.dark-mode .tracker-analytics-section-head {
     return hoursOld < 10;
   }
 
-  function shouldArchiveTrackerItem(item) {
+    function shouldArchiveTrackerItem(item) {
     if (!item || item.archived) return false;
     const ts = getTrackerItemTimeMs(item);
     if (!ts) return false;
-    return ((Date.now() - ts) / (1000 * 60 * 60)) >= 10;
+
+    const hoursOld = (Date.now() - ts) / (1000 * 60 * 60);
+
+    // WEAPONIZED ARCHIVE LOGIC:
+    // PENDING items (active bets) stay alive for 36 hours for rain delays.
+    if (item.status === "PENDING") {
+      return hoursOld >= 36;
+    }
+
+    // SETTLED items (finished bets) archive after 10 hours to clear the UI.
+    return hoursOld >= 10;
   }
+
 
   function archiveOldTrackerItems(items) {
 
@@ -4865,37 +5027,46 @@ body.dark-mode .tracker-analytics-section-head {
 
   const checks = [];
 
-  try {
-    // =========================
-    // PLAYER HISTORY PROBE
-    // =========================
-    const historyProbe = await fetchPlayerHistorySettlementRecords(
-      names.playerAName,
-      names.playerBName,
-      item.tour,
-      item.match
-    );
+        try {
+        // =========================
+        // PLAYER HISTORY PROBE - RESOLVING IDs & DUAL PROBE
+        // =========================
+        const resolved = await resolveSettlementPlayerIds(item, names);
+        const histA = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerAId, item.fixtureDate || item.savedAt);
+        const histB = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerBId, item.fixtureDate || item.savedAt);
 
-    checks.push({
-      label: "player-history-h2h",
-      query: "merged-athlete-history",
-      records: historyProbe?.records?.length || 0,
-      exact: historyProbe?.h2h?.length || 0,
-      fuzzy: historyProbe?.nearby?.length || 0,
-      relaxed: historyProbe ? 1 : 0,
-      sample: historyProbe?.sample || []
-    });
+        const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
+        const h2h = buildH2HSeries(allRecords, resolved.playerAId, resolved.playerBId, names.playerAName, names.playerBName);
 
-    if (historyProbe?.record) {
-      return {
-        record: historyProbe.record,
-        debug: {
-          reason: historyProbe.debug?.reason || "player-history success",
-          checks: checks.concat(historyProbe.debug?.checks || []),
-          manualSurface
+        const targetTs = item.fixtureDate ? Date.parse(item.fixtureDate) : (item.savedAt ? Date.parse(item.savedAt) : NaN);
+        const nearby = h2h.filter(record => {
+          const ts = Date.parse(record.date || "");
+          return Math.abs(ts - (targetTs || 0)) <= (14 * 86400000);
+        });
+
+        const historyProbeRecord = chooseBestHistorySettlementCandidate(nearby.length ? nearby : h2h, item.fixtureDate || item.savedAt);
+
+        checks.push({
+          label: "player-history-h2h",
+          query: "Dual-ID Probe: A=" + (resolved.playerAId || 'null') + " B=" + (resolved.playerBId || 'null'),
+          records: allRecords.length,
+          exact: h2h.length,
+          fuzzy: nearby.length,
+          relaxed: historyProbeRecord ? 1 : 0,
+          sample: h2h.slice(0, 3).map(r => r.playerAName + ' vs ' + r.playerBName).join(' | ')
+        });
+
+        if (historyProbeRecord) {
+          return {
+            record: historyProbeRecord,
+            debug: {
+              reason: "History probe success via Dual-ID Resolution",
+              checks: checks.concat(histA.checks || [], histB.checks || []),
+              manualSurface
+            }
+          };
         }
-      };
-    }
+
 
     // =========================
     // NO HISTORY MATCH
@@ -4942,20 +5113,28 @@ body.dark-mode .tracker-analytics-section-head {
       return item; // Keep pending if line is utterly corrupted
     }
 
-    // Safety fallback for pick direction
+        // Safety fallback for pick direction
     let pickDir = String(item.rawPick || "").toUpperCase();
     if (!pickDir) {
-      if (String(item.pick).toUpperCase().includes("OVER")) pickDir = "OVER";
-      else if (String(item.pick).toUpperCase().includes("UNDER")) pickDir = "UNDER";
+      const displayPick = String(item.pick || "").toUpperCase();
+      if (displayPick.includes("OVER")) pickDir = "OVER";
+      else if (displayPick.includes("UNDER")) pickDir = "UNDER";
+    }
+
+    // TERMINAL GUARD: Prevent "Ghost Losses" due to parsing errors.
+    // If direction is unknown, keep it PENDING for manual review.
+    if (!pickDir || (pickDir !== "OVER" && pickDir !== "UNDER")) {
+      return item;
     }
 
     if (actualValue > line) {
-      status = pickDir === "OVER" ? "WIN" : "LOSS";
+      status = (pickDir === "OVER") ? "WIN" : "LOSS";
     } else if (actualValue < line) {
-      status = pickDir === "UNDER" ? "WIN" : "LOSS";
+      status = (pickDir === "UNDER") ? "WIN" : "LOSS";
     } else {
-      status = "PUSH"; // Only hits if actualValue is EXACTLY equal to line
+      status = "PUSH";
     }
+
 
     return Object.assign({}, item, {
       status: status,
@@ -6285,12 +6464,15 @@ body.dark-mode .tracker-analytics-section-head {
         if ((aSets[0] + bSets[0]) <= 8) set1Kills++; // 6-1 or 6-2 blowouts
       }
 
-      for (let i = 0; i < setsPlayed; i++) {
+            for (let i = 0; i < setsPlayed; i++) {
         totalSets++;
-        if ((aSets[i] + bSets[i]) >= 12) tbSets++; // 7-5 or 7-6 tiebreaks
+        // WEAPONIZED LOGIC: A tiebreak set (7-6) always has exactly 13 games. 
+        // 7-5 sets (12 games) are standard breaks and should NOT count toward the TB Index.
+        if ((aSets[i] + bSets[i]) >= 13) tbSets++; 
       }
 
       const games = match.playerGames;
+
       if (Number.isFinite(games)) {
         overallGames.push(games);
         if (currentSurface && match.surface && String(match.surface).toLowerCase().includes(String(currentSurface).toLowerCase())) {
@@ -6509,85 +6691,101 @@ body.dark-mode .tracker-analytics-section-head {
         h2h = extraBundle.h2h;
       }
 
-      const recentA10 = recentA.slice(0, 10);
+            const recentA10 = recentA.slice(0, 10);
       const recentB10 = recentB.slice(0, 10);
-      const aGames = recentA10.map(function (m) { return m.playerGames; }).filter(Number.isFinite);
-      const bGames = recentB10.map(function (m) { return m.playerGames; }).filter(Number.isFinite);
-      const aSet1Games = recentA10.map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
-      const bSet1Games = recentB10.map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
-      const h2hMatchTotals = h2h.slice(0, 5).map(function (m) { return m.totalGames; }).filter(Number.isFinite);
-      const h2hSet1Totals = h2h.slice(0, 5).map(function (m) { return m.set1Total; }).filter(Number.isFinite);
 
-      // Lowered the hard floor from 5 to 3 to allow thin-sample predictions
-      if (aGames.length < 3) {
-        throw new Error("Player A has fewer than 3 recent completed matches in the fetched ESPN sample. Sample too small to run.");
-      }
-      if (bGames.length < 3) {
-        throw new Error("Player B has fewer than 3 recent completed matches in the fetched ESPN sample. Sample too small to run.");
-      }
-      if (aSet1Games.length < 3 || bSet1Games.length < 3) {
-        throw new Error("Set 1 history is too short (needs at least 3) in the fetched ESPN sample.");
-      }
-
-
-      applyAutofillData({
-        aGames: aGames,
-        bGames: bGames,
-        aSet1Games: aSet1Games,
-        bSet1Games: bSet1Games,
-        h2hMatchTotals: h2hMatchTotals,
-        h2hSet1Totals: h2hSet1Totals
-      });
-
+      // WEAPONIZED ELO: Dynamically calculating Surface-Specific Bayesian Elo
       const fixtureSelect = qs("fixtureSelect");
       const selectedFixtureKey = fixtureSelect ? fixtureSelect.value : "";
       const selectedFixtureRecord = selectedFixtureKey ? fixtureRecordMap.get(selectedFixtureKey) : null;
+      const surfaceSelect = qs("surfaceSelect");
+      const currentSurface = surfaceSelect && surfaceSelect.value ? surfaceSelect.value : (selectedFixtureRecord ? selectedFixtureRecord.surface : "Hard");
+      const surfaceKey = currentSurface.toLowerCase();
+      
+      const eloMap = new Map();
+      const K_FACTOR = 32;
 
-      const tournamentName =
-        (selectedFixtureRecord && selectedFixtureRecord.tournamentName) ||
-        (recentA[0] && recentA[0].tournamentName) ||
-        (recentB[0] && recentB[0].tournamentName) ||
-        "";
+      // Bayesian Surface Filter: Process matches on target surface in chronological order
+      workingRecords.filter(r => r.surface && r.surface.toLowerCase().includes(surfaceKey))
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .forEach(r => {
+          if (!eloMap.has(r.playerAId)) eloMap.set(r.playerAId, 1500);
+          if (!eloMap.has(r.playerBId)) eloMap.set(r.playerBId, 1500);
+          const rA = eloMap.get(r.playerAId), rB = eloMap.get(r.playerBId);
+          const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
+          const scoreA = r.playerAGames > r.playerBGames ? 1 : 0;
+          eloMap.set(r.playerAId, rA + K_FACTOR * (scoreA - expectedA));
+          eloMap.set(r.playerBId, rB + K_FACTOR * ((1 - scoreA) - (1 - expectedA)));
+        });
 
-      const eventLevel =
-        (selectedFixtureRecord && selectedFixtureRecord.eventLevel) ||
-        classifyEventLevel(tournamentName);
+      const eloA = eloMap.get(playerAId) || 1500;
+      const eloB = eloMap.get(playerBId) || 1500;
 
-      const roundName =
-        (selectedFixtureRecord && selectedFixtureRecord.roundName) ||
-        "";
+      const aGames = recentA10.map(m => m.playerGames).filter(Number.isFinite);
+      const bGames = recentB10.map(m => m.playerGames).filter(Number.isFinite);
+      const aSet1Games = recentA10.map(m => m.playerSet1Games).filter(Number.isFinite);
+      const bSet1Games = recentB10.map(m => m.playerSet1Games).filter(Number.isFinite);
+      const h2hMatchTotals = h2h.slice(0, 5).map(m => m.totalGames).filter(Number.isFinite);
+      const h2hSet1Totals = h2h.slice(0, 5).map(m => m.set1Total).filter(Number.isFinite);
 
-            const matchFormat = inferMatchFormat(league, eventLevel);
+            // WEAPONIZED BAYESIAN PRIORS: Protecting against small-sample-size bias.
+      // If a player has < 5 matches, we inject "Phantom" matches representing the Tour Average.
+      // This prevents the engine from overreacting to "Challenger-level" stars with thin data.
+      const TOUR_AVG_GAMES = 10.2; 
+      const TOUR_AVG_S1 = 4.7;     
+      const MIN_SAMPLE_SIZE = 5;
+
+      const applyPrior = (dataArray, priorValue) => {
+        let result = [...dataArray];
+        while (result.length < MIN_SAMPLE_SIZE) {
+          result.push(priorValue); // Anchor the data to the mean
+        }
+        return result;
+      };
+
+      const bayesianA = aGames.length < MIN_SAMPLE_SIZE ? applyPrior(aGames, TOUR_AVG_GAMES) : aGames;
+      const bayesianB = bGames.length < MIN_SAMPLE_SIZE ? applyPrior(bGames, TOUR_AVG_GAMES) : bGames;
+      const bayesianS1A = aSet1Games.length < MIN_SAMPLE_SIZE ? applyPrior(aSet1Games, TOUR_AVG_S1) : aSet1Games;
+      const bayesianS1B = bSet1Games.length < MIN_SAMPLE_SIZE ? applyPrior(bSet1Games, TOUR_AVG_S1) : bSet1Games;
+
+      // Ensure we have at least 1 real match before even attempting a prior-based run
+      if (aGames.length < 1 || bGames.length < 1) {
+        throw new Error("Zero match history found. Bayesian anchor requires at least one real data point.");
+      }
+
+      applyAutofillData({ 
+        aGames: bayesianA, 
+        bGames: bayesianB, 
+        aSet1Games: bayesianS1A, 
+        bSet1Games: bayesianS1B, 
+        h2hMatchTotals, 
+        h2hSet1Totals 
+      });
+
+
+      const tournamentName = (selectedFixtureRecord?.tournamentName) || (recentA[0]?.tournamentName) || "";
+      const eventLevel = (selectedFixtureRecord?.eventLevel) || classifyEventLevel(tournamentName);
+      const roundName = (selectedFixtureRecord?.roundName) || "";
+      const matchFormat = inferMatchFormat(league, eventLevel);
       const fatigueA = computeFatigueProfile(recentA10);
       const fatigueB = computeFatigueProfile(recentB10);
-
-      // EXTRACT BRUTAL METRICS
-      const surfaceSelect = qs("surfaceSelect");
-      const currentSurface = surfaceSelect && surfaceSelect.value ? surfaceSelect.value : (selectedFixtureRecord ? selectedFixtureRecord.surface : "");
       const brutalA = computeBrutalMetrics(recentA10, currentSurface);
       const brutalB = computeBrutalMetrics(recentB10, currentSurface);
 
       latestFetchedContext = {
         matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
         tour: league,
-        competitionId: selectedFixtureRecord && selectedFixtureRecord.competitionId ? selectedFixtureRecord.competitionId : "",
-        eventId: selectedFixtureRecord && selectedFixtureRecord.eventId ? selectedFixtureRecord.eventId : "",
-        fixtureDate: selectedFixtureRecord && selectedFixtureRecord.date ? selectedFixtureRecord.date : "",
-        tournamentName: tournamentName || "",
-        eventLevel: eventLevel || "",
-        roundName: roundName || "",
-        matchFormat: matchFormat || "",
-        fatigueA: fatigueA,
-        fatigueB: fatigueB,
-        brutalA: brutalA,
-        brutalB: brutalB,
-        recentMatchA: aGames,
-        recentMatchB: bGames,
-        recentSet1A: aSet1Games,
-        recentSet1B: bSet1Games,
-        h2hMatch: h2hMatchTotals,
-        h2hSet1: h2hSet1Totals
+        competitionId: selectedFixtureRecord?.competitionId || "",
+        eventId: selectedFixtureRecord?.eventId || "",
+        fixtureDate: selectedFixtureRecord?.date || "",
+        tournamentName, eventLevel, roundName, matchFormat,
+        fatigueA, fatigueB, brutalA, brutalB,
+        eloA, eloB, // INJECTED WEAPONIZED DATA
+        recentMatchA: aGames, recentMatchB: bGames,
+        recentSet1A: aSet1Games, recentSet1B: bSet1Games,
+        h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals
       };
+
 
       populateFetchedContext({
 
