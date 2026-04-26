@@ -681,14 +681,6 @@ input,
       color: #9aa0a8 !important;
     }
 
-   .lock {
-  font-size: 4px !important;
-  display: inline-block;
-  vertical-align: middle;
-  transform: translateY(-1px);
-  margin-left: 4px;
-  margin-right: 0;
-}
 
     .track-pending {
       background: #eceff3 !important;
@@ -3947,20 +3939,21 @@ body.dark-mode .tracker-analytics-section-head {
       const predictionText = getPredictionText(result);
       const isLock = idx === lockIdx && !isNoPlay;
 
-                        return (
+                              return (
         '<tr>' +
           '<td class="result-market" style="font-weight:800;">' + htmlEscape(result.market) + '</td>' +
           '<td style="font-family:monospace;">' + fairLine + '</td>' +
           '<td style="color:#2f8f4a;">' + edgePct + '</td>' +
           '<td style="font-weight:bold;">' + probText + '</td>' +
           '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
-            '<div style="display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">' +
+            '<div style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">' +
               '<span>' + htmlEscape(predictionText) + '</span>' +
-              (isLock ? '<span style="font-size: 4px; line-height: -1;">🔒</span>' : '') +
+              (isLock ? '<span style="font-size: 4px; transform: translateY(1px);">🔒</span>' : '') +
             '</div>' +
           '</td>' +
         '</tr>'
       );
+
 
 
 
@@ -5555,7 +5548,13 @@ body.dark-mode .tracker-analytics-section-head {
           '<td>' + htmlEscape(item.match) + '</td>' +
           '<td>' + htmlEscape(item.market) + '</td>' +
           '<td>' + htmlEscape(item.line || "—") + '</td>' +
-          '<td class="' + getPickCellClass(item.rawPick, item.confidence) + '">' + htmlEscape(item.pick) + (item.isLock ? ' <span class="lock">🔒</span>' : '') + '</td>' +
+'<td class="' + getPickCellClass(item.rawPick, item.confidence) + '">' +
+  '<div style="display: flex; align-items: center; justify-content: center; gap: 4px;">' +
+    '<span>' + htmlEscape(item.pick) + '</span>' +
+    (item.isLock ? '<span style="font-size: 12px; transform: translateY(1px);">🔒</span>' : '') +
+  '</div>' +
+'</td>' +
+
           '<td>' + htmlEscape(edgeText) + '</td>' +
           '<td class="' + statusClass + '">' + statusBadge(item) + '</td>' +
         '</tr>'
