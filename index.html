@@ -2761,7 +2761,7 @@ body.dark-mode .tracker-analytics-section-head {
         <th>Fair Line</th>
         <th>Edge %</th>
         <th>Win Prob</th>
-        <th>Fair Odds / Pick</th>
+<th>Pick</th>
       </tr>
     </thead>
 
@@ -3947,19 +3947,19 @@ body.dark-mode .tracker-analytics-section-head {
       const predictionText = getPredictionText(result);
       const isLock = idx === lockIdx && !isNoPlay;
 
-      return (
+            return (
         '<tr>' +
           '<td class="result-market" style="font-weight:800;">' + htmlEscape(result.market) + '</td>' +
           '<td style="font-family:monospace;">' + fairLine + '</td>' +
           '<td style="color:#2f8f4a;">' + edgePct + '</td>' +
           '<td style="font-weight:bold;">' + probText + '</td>' +
           '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
-            '<div style="font-size:14px;letter-spacing:1px;">' + fairOdds + '</div>' +
-            '<div style="font-size:10px;opacity:0.9;">' + htmlEscape(predictionText) + '</div>' +
+            '<div style="font-size:12px;font-weight:bold;letter-spacing:1px;">' + htmlEscape(predictionText) + '</div>' +
             (isLock ? ' <span class="lock">🔒</span>' : '') +
           '</td>' +
         '</tr>'
       );
+
     }).join("");
 
 
