@@ -3948,7 +3948,7 @@ body.dark-mode .tracker-analytics-section-head {
           '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
             '<div style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">' +
               '<span>' + htmlEscape(predictionText) + '</span>' +
-              (isLock ? '<span style="font-size: 4px; transform: translateY(1px);">🔒</span>' : '') +
+              (isLock ? '<span style="font-size: 4px; transform: translateY(0.5px);">🔒</span>' : '') +
             '</div>' +
           '</td>' +
         '</tr>'
@@ -5551,7 +5551,7 @@ body.dark-mode .tracker-analytics-section-head {
 '<td class="' + getPickCellClass(item.rawPick, item.confidence) + '">' +
   '<div style="display: flex; align-items: center; justify-content: center; gap: 4px;">' +
     '<span>' + htmlEscape(item.pick) + '</span>' +
-    (item.isLock ? '<span style="font-size: 12px; transform: translateY(1px);">🔒</span>' : '') +
+    (item.isLock ? '<span style="font-size: 4px; transform: translateY(0.5px);">🔒</span>' : '') +
   '</div>' +
 '</td>' +
 
