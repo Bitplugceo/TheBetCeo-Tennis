@@ -3947,7 +3947,7 @@ body.dark-mode .tracker-analytics-section-head {
       const predictionText = getPredictionText(result);
       const isLock = idx === lockIdx && !isNoPlay;
 
-                  return (
+                        return (
         '<tr>' +
           '<td class="result-market" style="font-weight:800;">' + htmlEscape(result.market) + '</td>' +
           '<td style="font-family:monospace;">' + fairLine + '</td>' +
@@ -3955,12 +3955,13 @@ body.dark-mode .tracker-analytics-section-head {
           '<td style="font-weight:bold;">' + probText + '</td>' +
           '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
             '<div style="display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">' +
-              (isLock ? '<span style="font-size: 13px; line-height: 1;">🔒</span>' : '') +
               '<span>' + htmlEscape(predictionText) + '</span>' +
+              (isLock ? '<span style="font-size: 13px; line-height: 1;">🔒</span>' : '') +
             '</div>' +
           '</td>' +
         '</tr>'
       );
+
 
 
     }).join("");
