@@ -3947,18 +3947,21 @@ body.dark-mode .tracker-analytics-section-head {
       const predictionText = getPredictionText(result);
       const isLock = idx === lockIdx && !isNoPlay;
 
-            return (
+                  return (
         '<tr>' +
           '<td class="result-market" style="font-weight:800;">' + htmlEscape(result.market) + '</td>' +
           '<td style="font-family:monospace;">' + fairLine + '</td>' +
           '<td style="color:#2f8f4a;">' + edgePct + '</td>' +
           '<td style="font-weight:bold;">' + probText + '</td>' +
           '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
-            '<div style="font-size:12px;font-weight:bold;letter-spacing:1px;">' + htmlEscape(predictionText) + '</div>' +
-            (isLock ? ' <span class="lock">🔒</span>' : '') +
+            '<div style="display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">' +
+              (isLock ? '<span style="font-size: 13px; line-height: 1;">🔒</span>' : '') +
+              '<span>' + htmlEscape(predictionText) + '</span>' +
+            '</div>' +
           '</td>' +
         '</tr>'
       );
+
 
     }).join("");
 
@@ -6274,26 +6277,32 @@ body.dark-mode .tracker-analytics-section-head {
         if (league === "ATP" && record.gender === "WTA") return false;
         if (league === "WTA" && record.gender === "ATP") return false;
 
-        function invalidName(value) {
+                function invalidName(value) {
           return !value || value === "tbd" || value === "bye" || value === "qualifier" || value === "winner" || value === "loser";
         }
 
-        const isLive = state === "in" || name === "STATUS_IN_PROGRESS" || name === "STATUS_HALFTIME";
-        const isScheduled = state === "pre" || name === "STATUS_SCHEDULED" || name === "STATUS_TIME_TBD";
+        // --- STRICT PRE-MATCH FILTERING ---
+        const isLive = state === "in" || name.includes("IN_PROGRESS") || name.includes("HALFTIME");
+        const isScheduled = state === "pre" || name.includes("SCHEDULED") || name.includes("TBD") || name.includes("DELAYED");
+        const isActuallyCompleted = completed || name.includes("FINAL") || name.includes("CANCELED") || name.includes("POSTPONED");
 
         const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
         const notPlaceholderPair = !aNorm.includes(" tbd") && !bNorm.includes(" tbd") && !aNorm.startsWith("tbd ") && !bNorm.startsWith("tbd ") && !aNorm.includes(" winner") && !bNorm.includes(" winner") && !aNorm.includes(" qualifier") && !bNorm.includes(" qualifier") && !aNorm.includes(" bye") && !bNorm.includes(" bye");
 
-        if (completed) return false;
+        // 1. Instantly drop finished matches AND matches that have already started playing
+        if (isActuallyCompleted || isLive) return false;
+        
         if (!hasRealPlayers || !notPlaceholderPair) return false;
         if (!hasValidDate) return false;
         if (dateKeyFromDate(scheduledAt) !== targetDayKey) return false;
 
+        // 2. For today's matches, only show them if their start time is still in the future
         if (offset === 0) {
-          return isLive || (isScheduled && scheduledAt.getTime() > now.getTime());
+          return isScheduled && scheduledAt.getTime() > now.getTime();
         }
 
-        return isLive || isScheduled;
+        return isScheduled;
+
       }).sort(function (a, b) {
         // --- SYNDICATE FIX: BULLETPROOF TIME SORTING ---
         const tA = new Date(a.date).getTime();
