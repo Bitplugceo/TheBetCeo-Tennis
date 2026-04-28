@@ -4605,6 +4605,11 @@ const ENGINE_INTEGRITY_SHIELD = {
     return sTs > lTs ? server : local;
   }
 
+
+  function trackerItemMergeKey(item) {
+    return [item.tour, item.match, item.market, item.line].join("|");
+  }
+
   function mergeTrackerStates(localState, serverState) {
     const local = localState && localState.items ? localState.items : [];
     const server = serverState && serverState.items ? serverState.items : [];
@@ -5827,7 +5832,7 @@ latestRunBundle._trackerSaved = true;
       updateTrackerUI();
       renderTrackerDebug();
       return 0;
-    }
+  
 
     g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
     saveTrackerItems(items);
