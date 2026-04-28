@@ -2987,6 +2987,67 @@ const ENGINE_INTEGRITY_SHIELD = {
     lastError: ""
   };
 
+  // --- BOSS STORAGE: INDEXEDDB CORE ---
+  const DB_NAME = "TennisEngineData";
+  const STORE_NAME = "trackerStore";
+
+  function initDatabase() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = (e) => {
+        if (!e.target.result.objectStoreNames.contains(STORE_NAME)) e.target.result.createObjectStore(STORE_NAME);
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function writeAsync(key, value) {
+    try {
+      const db = await initDatabase();
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).put(value, key);
+      return new Promise(resolve => { tx.oncomplete = () => resolve(true); });
+    } catch (err) {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    }
+  }
+
+  async function readAsync(key) {
+    try {
+      const db = await initDatabase();
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const req = tx.objectStore(STORE_NAME).get(key);
+      return new Promise(resolve => { req.onsuccess = () => resolve(req.result); });
+    } catch (err) {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : undefined;
+    }
+  }
+
+  // --- TRACKER MEMORY LOADERS ---
+  window.loadTrackerStateFromLocal = async function() {
+    const cached = await readAsync(TRACKER_CACHE_KEY);
+    if (cached) {
+      g_trackerState = normalizeTrackerState(cached);
+      g_trackerSaveVersion = g_trackerState.vId || 0;
+      g_trackerPersistedVersion = g_trackerState.vId || 0;
+    }
+    return g_trackerState;
+  };
+
+  window.saveTrackerStateToLocal = async function(state) {
+    const normalized = normalizeTrackerState(state);
+    g_trackerState = normalized;
+    g_trackerDebug.lastLocalSaveAt = new Date().toISOString();
+    g_trackerDebug.lastLocalCount = normalized.items.length;
+    
+    await writeAsync(TRACKER_CACHE_KEY, normalized);
+    renderTrackerDebug();
+    return normalized;
+  };
+
   function qs(id) {
     return document.getElementById(id);
   }
@@ -3882,9 +3943,8 @@ const ENGINE_INTEGRITY_SHIELD = {
     const isBO5 = config.ctx?.matchFormat === "BO5";
 
     // Run the point-by-point simulation
-            const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000);
+        const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000);
     const simPct = (pick === "OVER") ? sim.overPct : sim.underPct;
-
 
 
     if (lineDecision.atMid) { notes.push("Projection exactly on midpoint"); confidence = "PASS"; pick = "PASS"; }
@@ -4739,10 +4799,7 @@ const ENGINE_INTEGRITY_SHIELD = {
   }
 
   function getTrackerItems() {
-    if (!g_trackerState || !Array.isArray(g_trackerState.items)) {
-      g_trackerState = loadTrackerStateFromLocal();
-    }
-    return g_trackerState.items.slice();
+    return (g_trackerState && Array.isArray(g_trackerState.items)) ? g_trackerState.items : [];
   }
 
   function saveTrackerItems(items) {
@@ -7190,6 +7247,12 @@ document.addEventListener("DOMContentLoaded", function () {
        if (typeof forceTrackerSaveNow === "function") forceTrackerSaveNow();
     });
   });
+    // 🔥 BOSS EXPORTS: Makes the UI buttons work
+    window.renderTrackerAnalytics = renderTrackerAnalytics;
+    window.renderTrackerDebug = renderTrackerDebug;
+    window.refreshTrackerNow = refreshTrackerNow;
+    window.forceTrackerSaveNow = forceTrackerSaveNow;
+
 })();
 </script>
 </body>
