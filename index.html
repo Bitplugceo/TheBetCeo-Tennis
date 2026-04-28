@@ -4855,21 +4855,23 @@ const ENGINE_INTEGRITY_SHIELD = {
   }
 
     function getTrackerItems() {
-    // Ensure we always return a real array, never a Promise
-    if (!g_trackerState || !Array.isArray(g_trackerState.items)) {
-      return []; 
-    }
-    return g_trackerState.items.slice();
+  try {
+    const data = localStorage.getItem("tennis_tracker_items");
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error("[Tracker] Load failed:", e);
+    return [];
   }
-
+}
 
   function saveTrackerItems(items) {
-    const normalized = saveTrackerStateToLocal({
-      items: Array.isArray(items) ? items : [],
-      updatedAt: new Date().toISOString()
-    });
-    queueTrackerSync(normalized);
+  try {
+    const cleanItems = Array.isArray(items) ? items : [];
+    localStorage.setItem("tennis_tracker_items", JSON.stringify(cleanItems));
+  } catch (e) {
+    console.error("[Tracker] Save failed:", e);
   }
+}
 
   function getTrackerEdgeBucket(edge) {
     const absEdge = Math.abs(Number(edge) || 0);
@@ -5792,8 +5794,7 @@ const ENGINE_INTEGRITY_SHIELD = {
     entries.reverse().forEach(function (entry) {
       const duplicate = items.some(function (item) {
         // Anchor to the actual event ID or fixture date, NOT the moment you hit "Run"
-        const sameEvent = (item.eventId && entry.eventId && item.eventId === entry.eventId) || 
-                          (item.match === entry.match && item.fixtureDate === entry.fixtureDate);
+        const sameEvent = item.eventId && entry.eventId && item.eventId === entry.eventId;
         
         return sameEvent &&
           item.market === entry.market &&
@@ -5801,7 +5802,11 @@ const ENGINE_INTEGRITY_SHIELD = {
           item.pick === entry.pick;
       });
 
-      if (!duplicate) {
+if (duplicate) {
+  console.warn("DUPLICATE BLOCKED:", entry);
+}
+
+if (!duplicate) {
 
         items.unshift(entry);
         g_trackerDebug.lastInsertedEntries += 1;
@@ -5811,7 +5816,11 @@ const ENGINE_INTEGRITY_SHIELD = {
     });
 
     if (g_trackerDebug.lastInsertedEntries === 0) {
-      latestRunBundle._trackerSaved = true;
+  console.warn("[Tracker] No new entries inserted");
+  return 0;
+}
+
+latestRunBundle._trackerSaved = true;
       g_trackerDebug.lastSaveDiagnosis = g_trackerDebug.lastDuplicateSkipped
         ? "All generated picks matched existing same-day tracker entries, so nothing new was added."
         : "No new tracker entries were inserted.";
