@@ -2923,6 +2923,34 @@ const ENGINE_INTEGRITY_SHIELD = {
 
 (function () {
   const THEME_KEY = "tennis_engine_theme";
+    // 🧠 THE ENGINE BRAIN (Moved to top for visibility)
+  function normalizeTrackerItem(item) {
+    const base = item && typeof item === "object" ? item : {};
+    return Object.assign({
+      id: "", savedAt: null, match: "", playerAName: "", playerBName: "",
+      tour: "", market: "", line: "", range: "", projection: null, edge: null,
+      pick: "", rawPick: "", confidence: "", status: "PENDING", isLock: false,
+      notes: "", actualTotal: null, settledAt: null, archived: false,
+      archivedAt: null, playerAId: "", playerBId: "", competitionId: "",
+      eventId: "", fixtureDate: "", tournamentName: "", eventLevel: "", roundName: ""
+    }, base);
+  }
+
+  function normalizeTrackerState(raw) {
+    const source = (raw && typeof raw === "object") ? raw : {};
+    let items = [];
+    if (Array.isArray(source.items)) {
+      items = source.items.map(normalizeTrackerItem);
+    } else {
+      const active = Array.isArray(source.activePicks) ? source.activePicks : [];
+      const archived = Array.isArray(source.archivedPicks) ? source.archivedPicks : [];
+      items = active.map(i => normalizeTrackerItem({...i, archived: false}))
+                   .concat(archived.map(i => normalizeTrackerItem({...i, archived: true})));
+    }
+    items.sort((a, b) => (Date.parse(b.savedAt || 0) - Date.parse(a.savedAt || 0)));
+    return { items: items, updatedAt: source.updatedAt || null, vId: source.vId || 0 };
+  }
+
   const APP_BUILD_VERSION = "tennis_cleanup_v1_prison_model";
   const ENGINE_MODEL_VERSION = "tennis_v1_final";
   let g_engineDebugLog = [];
@@ -4826,9 +4854,14 @@ const ENGINE_INTEGRITY_SHIELD = {
     return g_trackerHydratePromise;
   }
 
-  function getTrackerItems() {
-    return (g_trackerState && Array.isArray(g_trackerState.items)) ? g_trackerState.items : [];
+    function getTrackerItems() {
+    // Ensure we always return a real array, never a Promise
+    if (!g_trackerState || !Array.isArray(g_trackerState.items)) {
+      return []; 
+    }
+    return g_trackerState.items.slice();
   }
+
 
   function saveTrackerItems(items) {
     const normalized = saveTrackerStateToLocal({
@@ -7275,13 +7308,15 @@ document.addEventListener("DOMContentLoaded", function () {
        if (typeof forceTrackerSaveNow === "function") forceTrackerSaveNow();
     });
   });
-    // 🔥 BOSS EXPORTS: Makes the UI buttons work
+    // 🔥 BOSS EXPORTS
     window.renderTrackerAnalytics = renderTrackerAnalytics;
     window.renderTrackerDebug = renderTrackerDebug;
     window.refreshTrackerNow = refreshTrackerNow;
     window.forceTrackerSaveNow = forceTrackerSaveNow;
-        window.loadTrackerStateFromLocal = loadTrackerStateFromLocal;
+    window.loadTrackerStateFromLocal = loadTrackerStateFromLocal;
     window.saveTrackerStateToLocal = saveTrackerStateToLocal;
+    window.normalizeTrackerState = normalizeTrackerState;
+
 
 
 })();
