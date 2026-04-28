@@ -3183,6 +3183,9 @@ const ENGINE_INTEGRITY_SHIELD = {
             </div>
           </div>
         </div>
+        <div style="padding:10px 0 4px;">
+          ${(g_trackerDebug.lastSyncStatus === "error" || g_engineAlertNeedsReview) ? `<button style="background:#ff5c61;color:#fff;border:none;padding:8px 14px;font-weight:900;cursor:pointer;font-size:11px;font-family:inherit;text-transform:uppercase;width:100%;" onclick="forceTrackerSaveNow(); alert('Tennis Engine: Forced Hard Sync Triggered!'); renderTrackerAnalytics();">🩹 Force Hard Sync</button>` : ''}
+        </div>
       </div>
     `;
   }
@@ -3608,48 +3611,49 @@ const ENGINE_INTEGRITY_SHIELD = {
 
         // WEAPONIZED DYNAMIC SHIFTS: Replacing "Magic Numbers" with Statistical Scaling
     // BO5 (Grand Slams) are not just +2.75 games; they are historically ~1.45x the length of a BO3 match.
-    if (marketKey === "match" && ctx.matchFormat === "BO5") {
-      const bo5Multiplier = 1.42; 
+    // 🎾 WEAPONIZED SCALING: Multiplicative vs Linear
+    const isMatch = marketKey === "match";
+    const isBO5 = ctx.matchFormat === "BO5";
+
+    // 1. Format Scaling (Institutional Multipliers)
+    if (isMatch && isBO5) {
+      const bo5Multiplier = 1.45; // BO5 is statistically 1.45x longer than BO3
       avgA *= bo5Multiplier;
       avgB *= bo5Multiplier;
-      notes.push("BO5 Scale Applied (1.42x)");
+      notes.push("Format: BO5 Multiplier (1.45x)");
     }
 
-    if (marketKey === "match") {
-      // Grind factor and Tiebreak index now scale based on the baseline projection rather than flat addition.
-      const baseline = avgA + avgB;
-      if (avgGrind >= 0.40) { 
-        const grindAdjustment = baseline * 0.065; // Dynamic 6.5% increase for high-grind matchups
-        projectionShift += grindAdjustment; 
-        notes.push(`Dynamic Grind Adj: +${grindAdjustment.toFixed(1)}`);
-      }
-      if (avgTb >= 0.25) { 
-        const tbAdjustment = baseline * 0.045; // Dynamic 4.5% increase for serve-heavy matchups
-        projectionShift += tbAdjustment; 
-        notes.push(`Dynamic TB Adj: +${tbAdjustment.toFixed(1)}`);
-      }
-      
-      const surfDelta = (brutalA.surfaceDelta + brutalB.surfaceDelta) / 2;
-      if (Math.abs(surfDelta) >= 0.8) {
-        projectionShift += surfDelta;
-        notes.push(`Surface Delta: ${surfDelta > 0 ? '+' : ''}${surfDelta.toFixed(1)}`);
-      }
-    } else if (marketKey === "set1") {
-      if (avgS1Kill >= 0.35) { 
-        const s1Adjustment = (avgA + avgB) * 0.08; // Dynamic 8% reduction for blowout potential
-        projectionShift -= s1Adjustment; 
-        notes.push("Set 1 Kill Scaling"); 
-      }
+    // 2. Surface Multipliers (Percentage-based)
+    // Fast surfaces (Grass) increase total games by ~3.5% due to higher hold rates.
+    // Slow surfaces (Clay) decrease total games by ~3.5% due to higher break rates.
+    if (ctx.surface === "Grass") {
+      const grassMult = 1.035;
+      avgA *= grassMult;
+      avgB *= grassMult;
+      notes.push("Surface: Grass (+3.5%)");
+    } else if (ctx.surface === "Clay") {
+      const clayMult = 0.965;
+      avgA *= clayMult;
+      avgB *= clayMult;
+      notes.push("Surface: Clay (-3.5%)");
     }
 
-
-    if (ctx && ctx.surface === "Grass") { projectionShift += (marketKey === "match" ? 0.60 : 0.25); notes.push("Grass Court"); } 
-    else if (ctx && ctx.surface === "Clay") { projectionShift -= (marketKey === "match" ? 0.60 : 0.25); notes.push("Clay Court"); }
-
+    // 3. Fatigue Re-balancing (Zero-Sum Logic)
     const fatiguePenaltyA = computeFatiguePenalty(ctx.fatigueA, marketKey);
     const fatiguePenaltyB = computeFatiguePenalty(ctx.fatigueB, marketKey);
-    if (fatiguePenaltyA > 0) { avgA = Math.max(0, avgA - fatiguePenaltyA); notes.push("Fatigue A"); }
-    if (fatiguePenaltyB > 0) { avgB = Math.max(0, avgB - fatiguePenaltyB); notes.push("Fatigue B"); }
+    
+    if (fatiguePenaltyA > 0) { 
+      // If Player A is tired, they win fewer games, but Player B wins MORE of them.
+      // We re-distribute 50% of the lost games to the opponent.
+      avgA = Math.max(0, avgA - fatiguePenaltyA); 
+      avgB += (fatiguePenaltyA * 0.5); 
+      notes.push("Fatigue A (Re-balanced)"); 
+    }
+    if (fatiguePenaltyB > 0) { 
+      avgB = Math.max(0, avgB - fatiguePenaltyB); 
+      avgA += (fatiguePenaltyB * 0.5); 
+      notes.push("Fatigue B (Re-balanced)"); 
+    }
 
     if (ctx.eventLevel) notes.push(ctx.eventLevel);
 
@@ -3735,32 +3739,75 @@ const ENGINE_INTEGRITY_SHIELD = {
   } // END OF PERSISTENT MARKOV SIMULATOR
 
   // MISSING MONTE CARLO FUNCTION RESTORED
-  async function runTennisMonteCarlo(projection, volatility, lineMid, runs = 8000) {
+  async function runTennisMarkovSimulation(pA_serve, pB_serve, lineMid, isBO5 = false, runs = 10000) {
     return new Promise(resolve => {
-      let overHits = 0;
-      for (let i = 0; i < runs; i++) {
-        // Box-Muller transform to generate normally distributed random numbers
-        let u1 = Math.random();
-        let u2 = Math.random();
-        
-        // Prevent log(0)
-        if (u1 === 0) u1 = 0.00000001; 
-        
-        let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-        
-        // Calculate the simulated total games for this run
-        let simulatedTotal = projection + (z0 * volatility);
-        
-        if (simulatedTotal > lineMid) {
-          overHits++;
-        }
-      }
+      // 1. Point probabilities
+      // pA_serve: Probability Player A wins a point on their serve
+      // pB_serve: Probability Player B wins a point on their serve
       
-      const overPct = (overHits / runs) * 100;
-      resolve({
-        overPct: overPct,
-        underPct: 100 - overPct
-      });
+      const workerCode = `
+        function simGame(p_server) {
+          let ptsA = 0, ptsB = 0;
+          while (true) {
+            if (Math.random() < p_server) ptsA++; else ptsB++;
+            if (ptsA >= 4 && ptsA - ptsB >= 2) return "A";
+            if (ptsB >= 4 && ptsB - ptsA >= 2) return "B";
+          }
+        }
+        function simTiebreak(pA_srv, pB_srv, serverStart) {
+          let ptsA = 0, ptsB = 0, currentServer = serverStart;
+          while (true) {
+            // If currentServer is A, they use their serve %
+            // If currentServer is B, A's win probability is (1 - pB_srv)
+            let p = (currentServer === "A") ? pA_srv : (1 - pB_srv);
+            if (Math.random() < p) ptsA++; else ptsB++;
+            if ((ptsA + ptsB) % 2 !== 0) currentServer = (currentServer === "A") ? "B" : "A";
+            if (ptsA >= 7 && ptsA - ptsB >= 2) return "A";
+            if (ptsB >= 7 && ptsB - ptsA >= 2) return "B";
+          }
+        }
+        function simSet(pA, pB) {
+          let gA = 0, gB = 0, server = "A";
+          while (true) {
+            let winner = simGame(server === "A" ? pA : (1 - pB));
+            if (winner === "A") gA++; else gB++;
+            server = (server === "A") ? "B" : "A";
+            if (gA === 6 && gB <= 4) return { gA, gB };
+            if (gB === 6 && gA <= 4) return { gA, gB };
+            if (gA === 7 && gB === 5) return { gA: 7, gB: 5 };
+            if (gB === 7 && gA === 5) return { gA: 5, gB: 7 };
+            if (gA === 6 && gB === 6) {
+              let tbWinner = simTiebreak(pA, pB, server);
+              return (tbWinner === "A") ? { gA: 7, gB: 6 } : { gA: 6, gB: 7 };
+            }
+          }
+        }
+        onmessage = function(e) {
+          const { pA, pB, line, isBO5, runs } = e.data;
+          let overHits = 0;
+          for (let i = 0; i < runs; i++) {
+            let totalGames = 0, setsA = 0, setsB = 0;
+            let target = isBO5 ? 3 : 2;
+            while (setsA < target && setsB < target) {
+              let res = simSet(pA, pB);
+              totalGames += (res.gA + res.gB);
+              if (res.gA > res.gB) setsA++; else setsB++;
+            }
+            if (totalGames > line) overHits++;
+          }
+          postMessage({ overPct: (overHits/runs)*100 });
+        };
+      `;
+
+      const blob = new Blob([workerCode], { type: "application/javascript" });
+      const worker = new Worker(URL.createObjectURL(blob));
+      
+      worker.onmessage = (e) => {
+        worker.terminate();
+        resolve({ overPct: e.data.overPct, underPct: 100 - e.data.overPct });
+      };
+
+      worker.postMessage({ pA: pA_serve, pB: pB_serve, line: lineMid, isBO5, runs });
     });
   }
 
@@ -3796,7 +3843,23 @@ const ENGINE_INTEGRITY_SHIELD = {
     let terminalVeto = false;
 
 
-    const sim = await runTennisMonteCarlo(projection, Math.max(1.5, volatility), config.lineRange.mid, 8000);
+    // 🏎️ MARKOV SIMULATION WIRING
+    // We convert the raw game averages into point-level serve probabilities
+// 🏎️ MARKOV POINT CALIBRATION (Surface-Aware)
+    let baseHoldProb = config.ctx?.tour === "ATP" ? 0.645 : 0.625;
+    
+    // Fast surfaces increase the "Base Hold" probability for everyone
+    if (config.ctx?.surface === "Grass") baseHoldProb += 0.025;
+    if (config.ctx?.surface === "Clay") baseHoldProb -= 0.025;
+
+    // Distribute the dominance based on the game-won averages
+    const pA = baseHoldProb + (config.avgA / (config.avgA + config.avgB || 1) - 0.5) * 0.18;
+    const pB = baseHoldProb + (config.avgB / (config.avgA + config.avgB || 1) - 0.5) * 0.18;
+    const isBO5 = config.ctx?.matchFormat === "BO5";
+
+    // Run the point-by-point simulation
+    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000);
+    const simPct = (pick === "OVER") ? sim.overPct : sim.underPct;
     const simPct = pick === "OVER" ? sim.overPct : sim.underPct;
 
     if (lineDecision.atMid) { notes.push("Projection exactly on midpoint"); confidence = "PASS"; pick = "PASS"; }
@@ -4117,8 +4180,9 @@ const ENGINE_INTEGRITY_SHIELD = {
     const preferred = pickBestResult(match, set1);
     qs("bHitIntel").value = preferred ? (
       preferred.market + ' -> ' +
-      getPredictionText(preferred) + ' ' + preferred.confidence +
-      ' | Edge ' + (preferred.edge > 0 ? '+' : '') + fmt(preferred.edge)
+      getPredictionText(preferred) + ' [Grade ' + preferred.confidence + ']' +
+      ' | Edge ' + (preferred.edge > 0 ? '+' : '') + fmt(preferred.edge) +
+      ' | Sim ' + preferred.simPct.toFixed(1) + '%'
     ) : "—";
   }
 
@@ -4405,177 +4469,57 @@ const ENGINE_INTEGRITY_SHIELD = {
   }
 
 
-  function normalizeTrackerItem(item) {
-    const base = item && typeof item === "object" ? item : {};
-    return Object.assign({
-      id: "",
-      savedAt: null,
-      match: "",
-      playerAName: "",
-      playerBName: "",
-      tour: "",
-      market: "",
-      line: "",
-      range: "",
-      projection: null,
-      edge: null,
-      pick: "",
-      rawPick: "",
-      confidence: "",
-      status: "PENDING",
-      isLock: false,
-      notes: "",
-      actualTotal: null,
-      settledAt: null,
-      archived: false,
-      archivedAt: null,
-      playerAId: "",
-      playerBId: "",
-      competitionId: "",
-      eventId: "",
-      fixtureDate: "",
-      tournamentName: "",
-      eventLevel: "",
-      roundName: ""
-    }, base);
+  // 🚨 PRISON MODEL: STATE HIERARCHY
+  function getPickStateWeight(status) {
+    const s = String(status || "PENDING").toUpperCase();
+    return (s === "WIN" || s === "LOSS" || s === "PUSH") ? 1 : 0;
   }
 
-  function normalizeTrackerState(raw) {
-    const source = Array.isArray(raw) ? { items: raw } : (raw && typeof raw === "object" ? raw : {});
-    let items = [];
+  function resolveTrackedItem(local, server) {
+    const lWeight = getPickStateWeight(local.status);
+    const sWeight = getPickStateWeight(server.status);
 
-    if (Array.isArray(source.items)) {
-      items = source.items.map(normalizeTrackerItem);
-    } else {
-      const activePicks = Array.isArray(source.activePicks) ? source.activePicks : [];
-      const archivedPicks = Array.isArray(source.archivedPicks) ? source.archivedPicks : [];
-      items = activePicks.map(function (item) {
-        return normalizeTrackerItem(Object.assign({}, item, { archived: false }));
-      }).concat(
-        archivedPicks.map(function (item) {
-          return normalizeTrackerItem(Object.assign({}, item, { archived: true }));
-        })
-      );
-    }
+    // RULE 1: Server Patching. If server is settled and local isn't, take server.
+    if (sWeight > lWeight) return server;
 
-    items.sort(function (a, b) {
-      return (Date.parse(b.savedAt || "") || 0) - (Date.parse(a.savedAt || "") || 0);
-    });
-    return {
-      items: items,
-      updatedAt: source.updatedAt || null
-    };
-  }
+    // RULE 2: Local Authority. If local is settled, server CANNOT revert it.
+    if (lWeight > sWeight) return local;
 
-  function exportTrackerStatePayload(state) {
-    const normalized = normalizeTrackerState(state);
-    const activePicks = normalized.items
-      .filter(function (item) { return !item.archived; })
-      .map(function (item) { return Object.assign({}, item, { archived: false }); });
-    const archivedPicks = normalized.items
-      .filter(function (item) { return !!item.archived; })
-      .map(function (item) { return Object.assign({}, item, { archived: true }); });
-
-    const settled = normalized.items.filter(function (item) { return item.status !== "PENDING"; });
-    const wins = normalized.items.filter(function (item) { return item.status === "WIN"; }).length;
-    const losses = normalized.items.filter(function (item) { return item.status === "LOSS"; }).length;
-    const pushes = normalized.items.filter(function (item) { return item.status === "PUSH"; }).length;
-
-    return {
-      activePicks: activePicks,
-      archivedPicks: archivedPicks,
-      stats: {
-        total: normalized.items.length,
-        settled: settled.length,
-        wins: wins,
-        losses: losses,
-        pushes: pushes
-      },
-      updatedAt: normalized.updatedAt || new Date().toISOString(),
-      lineMemory: {}
-    };
-  }
-
-  function getTrackerHeaders(includeJson) {
-    const headers = { "X-Tracker-User": TRACKER_STORAGE_KEY };
-    if (includeJson) headers["Content-Type"] = "application/json";
-    return headers;
-  }
-
-  function loadTrackerStateFromLocal() {
-    try {
-      const raw = localStorage.getItem(TRACKER_CACHE_KEY) || localStorage.getItem(TRACKER_STORAGE_KEY) || "";
-      if (!raw) return normalizeTrackerState({});
-      return normalizeTrackerState(JSON.parse(raw));
-    } catch (err) {
-      return normalizeTrackerState({});
-    }
-  }
-
-  function saveTrackerStateToLocal(state) {
-    const normalized = normalizeTrackerState(state);
-    g_trackerState = normalized;
-    g_trackerDebug.lastLocalSaveAt = new Date().toISOString();
-    g_trackerDebug.lastLocalCount = normalized.items.length;
-    g_trackerDebug.lastSavedStateAt = normalized.updatedAt || "";
-    try {
-      localStorage.setItem(TRACKER_CACHE_KEY, JSON.stringify(normalized));
-      localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(exportTrackerStatePayload(normalized)));
-    } catch (err) {
-      g_trackerDebug.lastSyncError = "Local cache write failed: " + (err && err.message ? err.message : String(err));
-    }
-    renderTrackerDebug();
-    return normalized;
-  }
-
-  function trackerItemMergeKey(item) {
-    const savedDay = item && item.savedAt ? String(item.savedAt).slice(0, 10) : "";
-    return [
-      String(item && item.match || "").trim(),
-      String(item && item.market || "").trim(),
-      String(item && item.line || "").trim(),
-      String(item && item.pick || "").trim(),
-      savedDay
-    ].join("|");
-  }
-
-  function trackerItemScore(item) {
-    const status = String(item && item.status || "PENDING").toUpperCase();
-    const settledScore = status === "PENDING" ? 0 : 50;
-    const archivedScore = item && item.archived ? 20 : 0;
-    const actualScore = item && item.actualTotal != null ? 10 : 0;
-    const lockScore = item && item.isLock ? 1 : 0;
-    const timeScore = Date.parse(item && (item.archivedAt || item.settledAt || item.savedAt) || "") || 0;
-    return settledScore + archivedScore + actualScore + lockScore + (timeScore / 1000000000000000);
+    // RULE 3: Tiebreaker. If both are same weight, newest update wins.
+    const lTs = Date.parse(local.savedAt || 0);
+    const sTs = Date.parse(server.savedAt || 0);
+    return sTs > lTs ? server : local;
   }
 
   function mergeTrackerStates(localState, serverState) {
-    const local = normalizeTrackerState(localState);
-    const server = normalizeTrackerState(serverState);
+    const local = localState && localState.items ? localState.items : [];
+    const server = serverState && serverState.items ? serverState.items : [];
     const map = new Map();
 
-    local.items.forEach(function (item) {
-      map.set(trackerItemMergeKey(item), normalizeTrackerItem(item));
+    // Map local first as authority
+    local.forEach(item => {
+      const key = trackerItemMergeKey(item);
+      map.set(key, item);
     });
 
-    server.items.forEach(function (item) {
+    // Merge server as a patch
+    server.forEach(item => {
       const key = trackerItemMergeKey(item);
-      const existing = map.get(key);
-      const candidate = normalizeTrackerItem(item);
-      if (!existing || trackerItemScore(candidate) >= trackerItemScore(existing)) {
-        map.set(key, candidate);
+      if (!map.has(key)) {
+        map.set(key, item);
+      } else {
+        map.set(key, resolveTrackedItem(map.get(key), item));
       }
     });
 
-    return normalizeTrackerState({
+    return {
       items: Array.from(map.values()),
-      updatedAt: new Date(Math.max(
-        Date.parse(local.updatedAt || "") || 0,
-        Date.parse(server.updatedAt || "") || 0,
-        Date.now()
-      )).toISOString()
-    });
+      vId: Math.max(localState?.vId || 0, serverState?.vId || 0),
+      updatedAt: new Date().toISOString()
+    };
   }
+
+  
 
   function withTrackerCacheBust(url) {
     try {
@@ -4615,52 +4559,69 @@ const ENGINE_INTEGRITY_SHIELD = {
   }
 
   async function pushTrackerStateToServer(stateSnapshot) {
-    let payloadState = normalizeTrackerState(stateSnapshot);
+    if (!stateSnapshot || !stateSnapshot.items || stateSnapshot.items.length === 0) {
+      return { ok: true };
+    }
+
+    // Weaponized Versioning
+    stateSnapshot.vId = (Number(stateSnapshot.vId) || 0) + 1;
+    stateSnapshot.sId = window.__BETCEO_SESSION_ID;
+    stateSnapshot.updatedAt = new Date().toISOString();
 
     try {
+      // 1. Pre-sync check
       const pre = await fetchTrackerJson(TRACKER_API_URL, {
         method: "GET",
         headers: getTrackerHeaders(false)
       });
 
-      g_trackerDebug.lastWorkerGetStatus = String(pre.res.status || "");
-      g_trackerDebug.lastWorkerGetBodyShape =
-        pre.data && pre.data.state
-          ? Object.keys(pre.data.state).join(", ")
-          : (pre.data ? Object.keys(pre.data).join(", ") : "empty");
-      g_trackerDebug.lastWorkerCount =
-        pre.data && pre.data.state
-          ? String(normalizeTrackerState(pre.data.state).items.length)
-          : "0";
-
-      if (pre.res.ok && pre.data && pre.data.ok && pre.data.state) {
-        payloadState = mergeTrackerStates(payloadState, pre.data.state);
+      let finalState = stateSnapshot;
+      if (pre.res.ok && pre.data?.state) {
+        // If server is further ahead, merge into local before pushing
+        if ((pre.data.state.vId || 0) > stateSnapshot.vId) {
+          finalState = mergeTrackerStates(stateSnapshot, pre.data.state);
+          finalState.vId = pre.data.state.vId + 1;
+        }
       }
+
+      // 2. Final Push
+      const pushed = await fetchTrackerJson(TRACKER_API_URL, {
+        method: "POST",
+        headers: getTrackerHeaders(true),
+        body: JSON.stringify(exportTrackerStatePayload(finalState))
+      });
+
+      if (!pushed.res.ok) throw new Error("Push failed: " + pushed.res.status);
+      
+      g_trackerPersistedVersion = finalState.vId;
+      return { ok: true, state: pushed.data?.state || finalState };
     } catch (err) {
+      window.engineDebug("SYNC ERROR", err.message);
+      throw err;
+    }
+  }
+
+  async function forceTrackerSaveNow() {
+    if (typeof g_trackerSaveTimer !== "undefined" && g_trackerSaveTimer) {
+      clearTimeout(g_trackerSaveTimer);
+      g_trackerSaveTimer = null;
     }
 
-    payloadState.updatedAt = new Date().toISOString();
+    g_trackerDebug.lastSaveDiagnosis = "Forcing hard sync to cloud...";
+    g_trackerState.updatedAt = new Date().toISOString();
+    
+    // Explicitly increment version for the hard push
+    g_trackerState.vId = (Number(g_trackerState.vId) || 0) + 1;
+    
+    saveTrackerStateToLocal(g_trackerState);
 
-    const payloadBody = exportTrackerStatePayload(payloadState);
-    payloadBody.updatedAt = payloadState.updatedAt;
-
-    const pushed = await fetchTrackerJson(TRACKER_API_URL, {
-      method: "POST",
-      headers: getTrackerHeaders(true),
-      body: JSON.stringify(payloadBody)
-    });
-
-    g_trackerDebug.lastWorkerPostStatus = String(pushed.res.status || "");
-
-    if (!pushed.res.ok) {
-      throw new Error("Tracker POST failed (" + pushed.res.status + ")");
+    try {
+      await queueTrackerSync(g_trackerState);
+      window.engineDebug("HARD SYNC SUCCESS", { version: g_trackerState.vId });
+    } catch (err) {
+      window.engineDebug("HARD SYNC FAILED", err.message);
+      console.error("[Tennis Engine] forceTrackerSaveNow failed", err);
     }
-
-    if (pushed.data && pushed.data.ok && pushed.data.state) {
-      return normalizeTrackerState(pushed.data.state);
-    }
-
-    return payloadState;
   }
 
   function queueTrackerSync(stateSnapshot) {
@@ -4818,39 +4779,31 @@ const ENGINE_INTEGRITY_SHIELD = {
 
     function shouldArchiveTrackerItem(item) {
     if (!item || item.archived) return false;
-    const ts = getTrackerItemTimeMs(item);
-    if (!ts) return false;
+    
+    // We anchor purely to the settlement time
+    const settleTs = item.settledAt ? Date.parse(item.settledAt) : 0;
+    if (!settleTs) return false;
 
-    const hoursOld = (Date.now() - ts) / (1000 * 60 * 60);
-
-    // WEAPONIZED ARCHIVE LOGIC:
-    // PENDING items (active bets) stay alive for 36 hours for rain delays.
-    if (item.status === "PENDING") {
-      return hoursOld >= 36;
-    }
-
-    // SETTLED items (finished bets) archive after 10 hours to clear the UI.
-    return hoursOld >= 10;
+    const hoursSinceSettlement = (Date.now() - settleTs) / (1000 * 60 * 60);
+    
+    // 🚨 THE 10-HOUR LOCK: 
+    // Do not hide the result from the UI until 10 hours have passed.
+    return hoursSinceSettlement >= 10;
   }
 
-
   function archiveOldTrackerItems(items) {
-
     let changed = false;
-    const updated = (items || []).map(function (item) {
+    const updated = items.map(item => {
       if (shouldArchiveTrackerItem(item)) {
         changed = true;
-        return Object.assign({}, item, {
-          archived: true,
-          archivedAt: new Date().toISOString()
-        });
+        // Strip heavy data before archiving to keep storage light
+        const lean = Object.assign({}, item, { archived: true, archivedAt: new Date().toISOString() });
+        delete lean.context;
+        return lean;
       }
       return item;
     });
-    return {
-      changed: changed,
-      items: updated
-    };
+    return { changed, items: updated };
   }
 
   function formatTrackerWinRate(items) {
@@ -7196,6 +7149,21 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }, 300000);
     setTrackerView("list");
+
+    // 🔥 TENNIS BRUTAL AUTO-SYNC
+    // Slams local data to the cloud the millisecond the DOM is ready.
+    setTimeout(() => {
+      g_trackerSaveFailureCount = 0;
+      if (typeof forceTrackerSaveNow === "function") {
+        forceTrackerSaveNow();
+        refreshTrackerNow(true);
+      }
+    }, 50);
+
+    // Tab-Wake Auto-Sync: Hard sync whenever you switch back to this tab
+    window.addEventListener("focus", () => {
+       if (typeof forceTrackerSaveNow === "function") forceTrackerSaveNow();
+    });
   });
 })();
 </script>
