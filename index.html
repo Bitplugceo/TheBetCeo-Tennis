@@ -3126,65 +3126,89 @@ const ENGINE_INTEGRITY_SHIELD = {
     el.textContent = text;
   }
 
+  // ── GOD FATHER: TENNIS X-RAY PANEL ──────────────────────────────────────────────
+  function buildGodFatherDebugHtml() {
+    const active = getTrackerItems();
+    const tableStyles = `width:100%; table-layout:fixed; border-collapse:collapse; font-size:10px; font-family:ui-monospace, monospace;`;
+    const btnStyles = `background:#f44336; color:#fff; border:1px solid #d32f2f; padding:4px 8px; border-radius:4px; font-size:9px; font-weight:bold; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;`;
+    
+    function badge(color, text) { return `<span style="background:${color};color:#000;padding:2px 5px;border-radius:3px;font-size:9px;font-weight:900;letter-spacing:0.5px;text-transform:uppercase;">${text}</span>`; }
+
+    // 1. SYSTEM & MEMORY
+    const lineMemSize = Object.keys(historyPoolCache || {}).length;
+    const sysHealthHtml = `
+      <div class="godfather-box" style="background:#111; border:1px solid #333; border-left:4px solid #4caf50; border-radius:6px; padding:12px; display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:12px; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:0.5px;">🖥️ System & Memory</div>
+          ${badge("#4caf50", "HEALTHY")}
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size:10px; color:#aaa; background:#0a0a0a; padding:10px; border-radius:4px; border:1px solid #222;">
+          <div>Active Items: <b style="color:#fff">${active.length}</b></div>
+          <div>History Pool: <b style="color:#fff">${historyPoolCache.size}</b></div>
+        </div>
+      </div>`;
+
+    // 2. CLOUD SYNC CORE X-RAY
+    const isDesynced = g_trackerSaveVersion > g_trackerPersistedVersion;
+    const syncBadge = g_trackerSaveFailureCount > 0 ? badge("#f44336", "FAILING") : isDesynced ? badge("#ff9800", "DESYNCED") : badge("#4caf50", "SYNCED");
+    const syncHealthHtml = `
+      <div class="godfather-box" style="background:#111; border:1px solid ${isDesynced ? '#ff9800' : '#333'}; border-left:4px solid ${isDesynced ? '#ff9800' : '#4caf50'}; border-radius:6px; padding:12px; display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:12px; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:0.5px;">☁️ Cloud Sync X-Ray</div>
+          ${syncBadge}
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size:10px; color:#aaa; background:#0a0a0a; padding:10px; border-radius:4px; border:1px solid #222;">
+          <div>Local Queue: <b style="color:#fff">${g_trackerSaveVersion}</b></div>
+          <div>Cloud Confirmed: <b style="color:#fff">${g_trackerPersistedVersion}</b></div>
+        </div>
+        ${isDesynced ? `<button style="${btnStyles} width:100%; margin-top:5px;" onclick="forceTrackerSaveNow()">🩹 Force Hard Sync</button>` : ''}
+      </div>`;
+
+    // 3. SETTLEMENT PROBES
+    let probeRows = (g_trackerDebug.lastSettlementDetails || []).map(d => `
+      <tr style="border-bottom:1px solid #1e1e1e">
+        <td style="padding:6px 4px;color:#aaa;font-size:9px;">${d.match.substring(0,15)}</td>
+        <td style="padding:6px 4px;color:#fff;font-size:9px;">${d.reason}</td>
+      </tr>`).join('');
+
+    const attemptSection = `
+      <div class="godfather-box" style="background:#111; border:1px solid #333; border-left:4px solid #2196f3; border-radius:6px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:12px; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:0.5px;">📡 Settlement Log</div>
+        <div style="background:#0a0a0a; border:1px solid #222; border-radius:4px; max-height:150px; overflow-y:auto;">
+          <table style="${tableStyles}"><thead><tr style="color:#555; background:#151515"><th>Match</th><th>Result</th></tr></thead>
+          <tbody>${probeRows || '<tr><td colspan="2" style="padding:10px;text-align:center;">No active probes.</td></tr>'}</tbody></table>
+        </div>
+      </div>`;
+
+    return sysHealthHtml + syncHealthHtml + attemptSection;
+  }
+
   function renderTrackerDebug() {
     const panel = qs("trackerDebugPanel");
     if (!panel) return;
-
-    let diagnosis = g_trackerDebug.lastSaveDiagnosis || "No tracker save attempt yet.";
-    let severityClass = "debug-ok";
-
-    if (g_trackerDebug.lastHydrateStatus === "running" || g_trackerDebug.lastSettlementSummary === "Running settlement...") {
-      diagnosis = "Tracker refresh is currently checking ESPN for final scores...";
-      severityClass = "debug-warn";
-    } else if (g_trackerDebug.lastEngineError) {
-      diagnosis = "Engine error blocked saving: " + g_trackerDebug.lastEngineError;
-      severityClass = "debug-critical";
-    } else if (g_trackerDebug.lastSyncStatus === "error") {
-      diagnosis = "Local save worked, but cloud sync failed: " + (g_trackerDebug.lastSyncError || "unknown error");
-      severityClass = "debug-error";
-    } else {
-      diagnosis = "Watchdog: Settle/Sync cycle complete. " + (g_trackerDebug.lastSettlementSummary || "");
-    }
-
-    const settlementRows = (g_trackerDebug.lastSettlementDetails || []).map(function(d) {
-      const isErr = d.reason && (d.reason.includes("failed") || d.reason.includes("no completed") || d.reason.includes("no debug"));
-      const sClass = isErr ? "debug-warn" : "debug-ok";
-      return '<li class="' + sClass + '">' + htmlEscape(d.match) + ' [' + htmlEscape(d.market) + ']<br><span style="color:var(--muted);font-size:9px;">' + htmlEscape(d.reason) + '</span></li>';
-    }).join('');
+    
+    // Check if we are in debug view
+    const trackerModal = qs("trackerModal");
+    const isDebugView = trackerModal && trackerModal.querySelector(".tracker-panel").classList.contains("debug-view");
+    if (!isDebugView) return;
 
     panel.innerHTML = `
       <div class="tracker-analytics-shell">
         <div class="tracker-analytics-topbar">
           <div class="tracker-analytics-heading">
-            <div class="tracker-analytics-kicker">Engine Security</div>
-            <div class="tracker-analytics-title">Watch Dog 🐶</div>
-            <div class="tracker-analytics-subtitle">Critical system alerts and completion status.</div>
+            <div class="tracker-analytics-kicker" style="color:#f44336;">Immune System</div>
+            <div class="tracker-analytics-title" style="color:#fff;">God Father 🛡️</div>
+            <div class="tracker-analytics-subtitle" style="color:#888;">Tennis core diagnostics and auto-sorting health checks.</div>
           </div>
         </div>
-        <div class="report-debug-grid">
-          <div class="tracker-analytics-card">
-            <div class="tracker-analytics-card-head">
-              <div class="tracker-analytics-card-title">Important Engine Events</div>
-              <div class="tracker-analytics-card-meta">latest run</div>
-            </div>
-            <div class="tracker-analytics-card-body">
-              <ul class="tracker-debug-log">
-                <li class="${severityClass}">${htmlEscape(diagnosis)}</li>
-              </ul>
-            </div>
-          </div>
-          <div class="tracker-analytics-card">
-            <div class="tracker-analytics-card-head">
-              <div class="tracker-analytics-card-title">Settlement Probes</div>
-              <div class="tracker-analytics-card-meta">latest checks</div>
-            </div>
-            <div class="tracker-analytics-card-body">
-              ${settlementRows ? `<ul class="tracker-debug-log">${settlementRows}</ul>` : '<div class="report-debug-empty">No active settlement probes.</div>'}
-            </div>
-          </div>
+        <div id="godfatherGrid" style="padding:10px 0;">
+          ${buildGodFatherDebugHtml()}
         </div>
-        <div style="padding:10px 0 4px;">
-          ${(g_trackerDebug.lastSyncStatus === "error" || g_engineAlertNeedsReview) ? `<button style="background:#ff5c61;color:#fff;border:none;padding:8px 14px;font-weight:900;cursor:pointer;font-size:11px;font-family:inherit;text-transform:uppercase;width:100%;" onclick="forceTrackerSaveNow(); alert('Tennis Engine: Forced Hard Sync Triggered!'); renderTrackerAnalytics();">🩹 Force Hard Sync</button>` : ''}
+        <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">
+           <div style="color:#fff; font-size:11px; font-weight:900; text-transform:uppercase; margin-bottom:8px;">📜 Logic Event Log</div>
+           <div style="background:#000; border:1px solid #222; padding:10px; font-family:monospace; font-size:9px; color:#0f0; max-height:200px; overflow-y:auto;">
+             ${g_engineDebugLog.map(log => `<div>${htmlEscape(log)}</div>`).join('') || 'Waiting for events...'}
+           </div>
         </div>
       </div>
     `;
@@ -4601,7 +4625,7 @@ const ENGINE_INTEGRITY_SHIELD = {
     }
   }
 
-  async function forceTrackerSaveNow() {
+  window.forceTrackerSaveNow = async function() { // Added window. to make it global
     if (typeof g_trackerSaveTimer !== "undefined" && g_trackerSaveTimer) {
       clearTimeout(g_trackerSaveTimer);
       g_trackerSaveTimer = null;
