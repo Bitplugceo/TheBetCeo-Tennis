@@ -3942,9 +3942,10 @@ const ENGINE_INTEGRITY_SHIELD = {
     const pB = baseHoldProb + (config.avgB / (config.avgA + config.avgB || 1) - 0.5) * 0.18;
     const isBO5 = config.ctx?.matchFormat === "BO5";
 
-    // Run the point-by-point simulation
-        const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000);
+        // Run the point-by-point simulation
+    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000);
     const simPct = (pick === "OVER") ? sim.overPct : sim.underPct;
+
 
 
     if (lineDecision.atMid) { notes.push("Projection exactly on midpoint"); confidence = "PASS"; pick = "PASS"; }
