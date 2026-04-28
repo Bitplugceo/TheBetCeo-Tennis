@@ -3956,7 +3956,7 @@ const ENGINE_INTEGRITY_SHIELD = {
       notes.push("VETO UNDER: Grind Factor");
       confidence = "PASS"; pick = "PASS";
       terminalVeto = true;
-
+}
     if (config.avgTb >= 0.25 && pick === "UNDER") {
       filtersTriggered.push("tb_veto");
       notes.push("VETO UNDER: Serve-Bot Alert");
@@ -4617,7 +4617,8 @@ const ENGINE_INTEGRITY_SHIELD = {
     }, base);
   }
 
-  function normalizeTrackerState(raw) {
+  window.normalizeTrackerState = function(raw) {
+
     const source = (raw && typeof raw === "object") ? raw : {};
     let items = [];
     if (Array.isArray(source.items)) {
