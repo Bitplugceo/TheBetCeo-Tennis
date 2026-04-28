@@ -2825,8 +2825,112 @@ body.dark-mode .tracker-analytics-section-head {
 </div>
 
 <script>
+/**
+ * 🛡️ TENNIS-CEO UNKILLABLE GOD-MODE WATCHDOG
+ * Detects: Syntax Errors, Typos, CORS Blocks, and Boot Failures.
+ */
+(function () {
+  if (window.__TENNISCEO_WATCHDOG_LOADED) return;
+  window.__TENNISCEO_WATCHDOG_LOADED = true;
+  window.__TENNISCEO_ENGINE_BOOT_SEEN = false;
+
+  // 1. FATAL TERMINAL UI (Hijacks screen on crash)
+  function spawnFatalTerminal(msg, file, line, col, stack) {
+    if (document.getElementById("fatalGodModeTerminal")) return;
+    const t = document.createElement("div");
+    t.id = "fatalGodModeTerminal";
+    t.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.98); z-index:1000000; padding:20px; box-sizing:border-box; overflow-y:auto; font-family: ui-monospace, Consolas, monospace; color: #0f0;";
+    
+       t.innerHTML = `
+      <div style="border:2px solid #ff5c61; background:#111; max-width:900px; margin:20px auto; box-shadow: 0 0 50px rgba(255, 0, 0, 0.3);">
+        <div style="background:#3b0000; color:#ff5c61; padding:15px; font-size:16px; font-weight:900; border-bottom:2px solid #ff5c61; display:flex; justify-content:space-between; text-transform:uppercase;">
+          <span>🚨 FATAL TENNIS ENGINE CRASH</span>
+          <span>[SYSTEM LOCK]</span>
+        </div>
+        <div style="padding:25px;">
+          <div style="color:#ffcf73; margin-bottom:20px; font-size:14px; border-left: 3px solid #ffcf73; padding-left: 15px; font-weight:800;">
+            CATASTROPHIC ERROR: The engine parser died. The UI is disabled to protect your data.
+          </div>
+          <div style="display:grid; gap:12px; margin-bottom:25px;">
+            <div><strong style="color:#fff; text-transform:uppercase; font-size:11px;">Error Message:</strong><br><span style="color:#ff5c61; font-size:15px; font-weight:bold;">${msg}</span></div>
+            <div style="display:flex; gap:30px;">
+                <div><strong style="color:#fff; text-transform:uppercase; font-size:11px;">Line:</strong><br><span style="color:#0f0; font-size:18px; font-weight:900;">${line}</span></div>
+                <div><strong style="color:#fff; text-transform:uppercase; font-size:11px;">Column:</strong><br><span style="color:#0f0; font-size:18px; font-weight:900;">${col}</span></div>
+                <div><strong style="color:#fff; text-transform:uppercase; font-size:11px;">Source:</strong><br><span style="color:#aaa; font-size:13px;">${file}</span></div>
+            </div>
+          </div>
+          <strong style="color:#777; text-transform:uppercase; font-size:11px;">Debug Stack Trace:</strong>
+          <div style="background:#000; border: 1px solid #222; padding:15px; color:#555; margin-top:8px; white-space:pre-wrap; overflow-x:auto; font-size:11px; line-height:1.4;">${stack || 'Syntax Error: No trace available for parser death.'}</div>
+          <button onclick="location.reload()" style="margin-top:25px; background:#ff5c61; color:#fff; border:none; padding:12px 24px; font-weight:900; cursor:pointer; font-family:inherit; text-transform:uppercase;">Try Reboot</button>
+        </div>
+      </div>
+    `;
+
+    document.body ? document.body.appendChild(t) : document.addEventListener("DOMContentLoaded", () => document.body.appendChild(t));
+  }
+
+    // 2. RAW ERROR INTERCEPTOR
+    window.addEventListener("error", function (e) {
+    if (e.message === "Script error." && e.lineno === 0) return;
+    const file = e.filename ? e.filename.split('/').pop() : "Inline Script";
+    
+    // Fire the red terminal
+    spawnFatalTerminal(e.message, file, e.lineno, e.colno, e.error?.stack);
+
+    if (typeof window.engineDebug === "function") {
+        window.engineDebug("ENGINE BREAKDOWN", `${e.message} | Loc: ${file}:${e.lineno}`);
+    }
+  });
+
+  // 3. NETWORK & PROMISE INTERCEPTOR
+  window.addEventListener("unhandledrejection", function (e) {
+    const reason = e.reason?.message || String(e.reason);
+    if (typeof window.engineDebug === "function") {
+        window.engineDebug("NETWORK/PROMISE ERROR", { detail: reason });
+    }
+    if (reason.includes("fetch") || reason.includes("Load failed")) {
+        if (typeof window.triggerGlobalEngineAlert === "function") {
+            window.triggerGlobalEngineAlert("Watchdog: Network connection to Cloudflare was blocked.");
+        }
+    }
+  });
+
+  // 4. ENGINE BOOT PROTECTION
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      if (!window.__TENNISCEO_ENGINE_BOOT_SEEN) {
+        spawnFatalTerminal("Initialization Failure", "Core Logic", "Check Syntax", "N/A", "The script stopped running immediately after load. Check for missing '}' or illegal characters.");
+      }
+    }, 5000);
+  });
+})();
+</script>
+
+<script>
+window.__TENNISCEO_ENGINE_BOOT_SEEN = true;
+window.__BETCEO_SESSION_ID = "sess_tennis_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+
+// --- GOD-MODE WATCHDOG CORE ---
+const ENGINE_INTEGRITY_SHIELD = {
+  audit: function() {
+    const issues = [];
+    if (typeof runTennisPointSimulation !== 'function') issues.push("CRITICAL: Markov Simulator logic is missing.");
+    if (typeof weightedMean !== 'function') issues.push("INTEGRITY: Decay math has been altered.");
+    if (!window.indexedDB) issues.push("ENV: Browser IndexedDB is disabled. Data loss imminent.");
+    return issues;
+  }
+};
+
 (function () {
   const THEME_KEY = "tennis_engine_theme";
+  const APP_BUILD_VERSION = "tennis_cleanup_v1_prison_model";
+  const ENGINE_MODEL_VERSION = "tennis_v1_final";
+  let g_engineDebugLog = [];
+  let g_engineAlertNeedsReview = false;
+  let g_trackerSaveInFlight = false;
+  let g_trackerSaveFailureCount = 0;
+  let g_trackerSaveVersion = 0;
+  let g_trackerPersistedVersion = 0;
   const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
   const TRACKER_STORAGE_KEY = "The_Bet_Ceo_Key2";
   const TRACKER_API_URL = String(WORKER_URL || "").replace(/\/+$/, "") + "/tracker-state";
@@ -6892,11 +6996,33 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
+  function renderHeaderErrorState() {
+    const btn = qs("headerErrorBtn");
+    if (!btn) return;
+    const hasIssues = g_engineAlertNeedsReview;
+    btn.classList.toggle("active", hasIssues);
+    document.body.classList.toggle("engine-alert", hasIssues);
+  }
+
+  window.engineDebug = function(msg, detail) {
+    const stamp = new Date().toLocaleTimeString();
+    const line = `[${stamp}] ${msg} ${detail ? '| ' + JSON.stringify(detail) : ''}`;
+    g_engineDebugLog.unshift(line);
+    if (line.toLowerCase().includes("error") || line.toLowerCase().includes("fail")) {
+      g_engineAlertNeedsReview = true;
+      renderHeaderErrorState();
+    }
+    renderTrackerDebug();
+  };
+
     const headerErrorBtn = qs("headerErrorBtn");
     if (headerErrorBtn) {
       headerErrorBtn.addEventListener("click", function () {
-        const target = (qs("runStatus") && qs("runStatus").textContent) ? qs("runStatus") : qs("fetchStatus");
-        if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+        openTrackerModal();
+        setTrackerView("debug");
+        g_engineAlertNeedsReview = false;
+        document.body.classList.remove("engine-alert");
+        renderHeaderErrorState();
       });
     }
 
