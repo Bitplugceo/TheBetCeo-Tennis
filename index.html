@@ -3955,7 +3955,7 @@ const ENGINE_INTEGRITY_SHIELD = {
       notes.push("VETO UNDER: Grind Factor");
       confidence = "PASS"; pick = "PASS";
       terminalVeto = true;
-    }
+
     if (config.avgTb >= 0.25 && pick === "UNDER") {
       filtersTriggered.push("tb_veto");
       notes.push("VETO UNDER: Serve-Bot Alert");
@@ -4604,7 +4604,33 @@ const ENGINE_INTEGRITY_SHIELD = {
     };
   }
 
-  
+    function normalizeTrackerItem(item) {
+    const base = item && typeof item === "object" ? item : {};
+    return Object.assign({
+      id: "", savedAt: null, match: "", playerAName: "", playerBName: "",
+      tour: "", market: "", line: "", range: "", projection: null, edge: null,
+      pick: "", rawPick: "", confidence: "", status: "PENDING", isLock: false,
+      notes: "", actualTotal: null, settledAt: null, archived: false,
+      archivedAt: null, playerAId: "", playerBId: "", competitionId: "",
+      eventId: "", fixtureDate: "", tournamentName: "", eventLevel: "", roundName: ""
+    }, base);
+  }
+
+  function normalizeTrackerState(raw) {
+    const source = (raw && typeof raw === "object") ? raw : {};
+    let items = [];
+    if (Array.isArray(source.items)) {
+      items = source.items.map(normalizeTrackerItem);
+    } else {
+      const active = Array.isArray(source.activePicks) ? source.activePicks : [];
+      const archived = Array.isArray(source.archivedPicks) ? source.archivedPicks : [];
+      items = active.map(i => normalizeTrackerItem({...i, archived: false}))
+                   .concat(archived.map(i => normalizeTrackerItem({...i, archived: true})));
+    }
+    items.sort((a, b) => (Date.parse(b.savedAt || 0) - Date.parse(a.savedAt || 0)));
+    return { items: items, updatedAt: source.updatedAt || null, vId: source.vId || 0 };
+  }
+
 
   function withTrackerCacheBust(url) {
     try {
@@ -7252,6 +7278,7 @@ document.addEventListener("DOMContentLoaded", function () {
     window.renderTrackerDebug = renderTrackerDebug;
     window.refreshTrackerNow = refreshTrackerNow;
     window.forceTrackerSaveNow = forceTrackerSaveNow;
+    window.normalizeTrackerState = normalizeTrackerState;
 
 })();
 </script>
