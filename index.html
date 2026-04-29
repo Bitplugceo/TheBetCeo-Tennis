@@ -3137,17 +3137,13 @@ const MODEL_TUNING = {
   recencyWeights: [1.35, 1.20, 1.00, 0.85, 0.70]
 };
 
+// --- FOOTBALL-ONLY CONFIGURATION (WEAPONIZED) ---
 const MASSACRE_TUNING = {
   modelCountFloor: 3,
-  // Normalize runs for soccer's lower variance
-  monteCarloRuns: { nba: 6500, ncaa: 9000, other: 8000 }, 
-  // MASSIVE FIX: Max range between models shrunk from 22 points to 1.8 goals
-  maxModelRange: { ft: 1.8, h1: 1.2, h2: 1.2, team: 1.0 }, 
+  monteCarloRuns: 10000,
+  maxModelRange: { ft: 1.2, h1: 0.6, h2: 0.6, team: 0.8 },
   thresholds: {
-    nba: { ft: { sim: 57, brutality: 60, agreement: 2, convergence: 0 }, h1: { sim: 56, brutality: 57, agreement: 2, convergence: 0 }, h2: { sim: 56, brutality: 57, agreement: 2, convergence: 0 }, team: { sim: 55, brutality: 55, agreement: 1, convergence: -1 } },
-    ncaa: { ft: { sim: 59, brutality: 62, agreement: 2, convergence: 0 }, h1: { sim: 58, brutality: 59, agreement: 2, convergence: 0 }, h2: { sim: 58, brutality: 59, agreement: 2, convergence: 0 }, team: { sim: 56, brutality: 56, agreement: 1, convergence: -1 } },
-    // Soccer falls into the 'other' bucket. Lowered brutality expectations slightly since goals are harder to predict cleanly than points.
-    other: {
+    football: {
       ft:   { sim: 55, brutality: 55, agreement: 2, convergence: 0 },
       h1:   { sim: 54, brutality: 54, agreement: 1, convergence: -1 },
       h2:   { sim: 54, brutality: 54, agreement: 1, convergence: -1 },
@@ -3156,221 +3152,24 @@ const MASSACRE_TUNING = {
   }
 };
 
-const TEAM_MEMORY_RULES = {
-  minSample: 8,
-  strongSample: 12,
-  badWinRate: 0.38,
-  hardBlockWinRate: 0.30
-};
-// IMPORTANT: When advisoryOnly = true, the tracker win/loss history has ZERO effect on
-// pick output. Shadow data is computed and displayed in the UI (badges, hypothetical grades)
-// but the actual pick, confidence grade, and NO PLAY decisions are completely unaffected.
-// To enable live tracker influence on picks, set advisoryOnly: false AND set
-// PHASE2_CONTROL.trackerFeedbackLive = true (requires 20+ settled picks first).
-const TRACKER_POLICY = {
-  advisoryOnly: true,
-  dailyWatchlistOnly: false,
-  reviewCheckpointSettled: 20,
-  policyVersion: "soft_tracker_advisory_v3"
+const TRAP_RULES = {
+  minEdgePct: 0.015,
+  extremeEdgePct: 0.15,
+  lowLineUnder: 1.5,
+  volThresholds: { ft: 1.4, h1: 0.8, h2: 0.8, team: 1.0 }
 };
 
-const TRACKER_SOFT_EFFECTS = {
-  enabled: true,
-  minSettled: 20,
-  strongFactorBoost: 1.05,
-  weakFactorCut: 0.94,
-  hardBlockFactor: 0.88,
-  weakEdgeNoPlayPct: 0.055,
-  weakTeamNoPlayPct: 0.060,
-  lockRestrictFactor: 0.96,
-  lockBoost: 0.20
+const ANCHOR_RULES = {
+  ft:   { diff: 0.25, weight: 0.50 },
+  h1:   { diff: 0.15, weight: 0.50 },
+  h2:   { diff: 0.15, weight: 0.50 },
+  team: { diff: 0.20, weight: 0.50 }
 };
-
-const PHASE2_CONTROL = {
-  mode: "shadow", // phase-2 dashboards stay in shadow; separate soft tracker influence is allowed to alter live picks/locks
-  trackerFeedbackLive: false,
-  teamMemoryLive: false
-};
-
-const PHASE2_ACTIVATION_RULES = {
-  trackerFeedback: {
-    minSettled: 20,
-    minMarketSideSignals: 2,
-    minProfileSignals: 1
-  },
-  teamMemory: {
-    minSettled: 20,
-    minTeamSignals: 2,
-    minMatchupSignals: 1
-  }
-};
-
-function isPhase2ShadowMode() {
-  return PHASE2_CONTROL.mode === "shadow";
-}
-
-function getPhase2ActivationState() {
-  const derived = g_trackerDerivedState || defaultTrackerDerivedState();
-  const settled = Number(derived?.settledPicks || 0);
-
-  const marketSideSignals = Array.isArray(derived?.signalBoards?.marketSides)
-    ? derived.signalBoards.marketSides
-    : [];
-  const profileSignals = Array.isArray(derived?.signalBoards?.profiles)
-    ? derived.signalBoards.profiles
-    : [];
-  const teamSignals = Array.isArray(derived?.signalBoards?.teams)
-    ? derived.signalBoards.teams
-    : [];
-  const matchupSignals = Array.isArray(derived?.signalBoards?.matchups)
-    ? derived.signalBoards.matchups
-    : [];
-
-  const learningEnabled = !!TRACKER_LEARNING_ENABLED;
-  const forcedShadow = PHASE2_CONTROL.mode === "shadow";
-  const forcedLive = PHASE2_CONTROL.mode === "live";
-
-  const trackerReady =
-    settled >= PHASE2_ACTIVATION_RULES.trackerFeedback.minSettled &&
-    marketSideSignals.length >= PHASE2_ACTIVATION_RULES.trackerFeedback.minMarketSideSignals &&
-    profileSignals.length >= PHASE2_ACTIVATION_RULES.trackerFeedback.minProfileSignals;
-
-  const teamReady =
-    settled >= PHASE2_ACTIVATION_RULES.teamMemory.minSettled &&
-    teamSignals.length >= PHASE2_ACTIVATION_RULES.teamMemory.minTeamSignals &&
-    matchupSignals.length >= PHASE2_ACTIVATION_RULES.teamMemory.minMatchupSignals;
-
-  const trackerFeedbackLive =
-    learningEnabled &&
-    !forcedShadow &&
-    !!PHASE2_CONTROL.trackerFeedbackLive &&
-    (forcedLive || trackerReady);
-
-  const teamMemoryLive =
-    learningEnabled &&
-    !forcedShadow &&
-    !!PHASE2_CONTROL.teamMemoryLive &&
-    (forcedLive || teamReady);
-
-  return {
-    phase2Mode: !learningEnabled ? "frozen" : forcedShadow ? "shadow" : forcedLive ? "live" : "auto",
-    settled,
-    advisoryOnly: !!TRACKER_POLICY.advisoryOnly,
-    dailyWatchlistOnly: !!TRACKER_POLICY.dailyWatchlistOnly,
-    reviewCheckpointSettled: Number(TRACKER_POLICY.reviewCheckpointSettled || PHASE2_ACTIVATION_RULES.trackerFeedback.minSettled || 20),
-    trackerReady,
-    teamReady,
-    trackerCheckpointReady: trackerReady,
-    teamCheckpointReady: teamReady,
-    trackerFeedbackLive,
-    teamMemoryLive,
-    trackerReasons: [
-      `settled:${settled}/${PHASE2_ACTIVATION_RULES.trackerFeedback.minSettled}`,
-      `marketSideSignals:${marketSideSignals.length}/${PHASE2_ACTIVATION_RULES.trackerFeedback.minMarketSideSignals}`,
-      `profileSignals:${profileSignals.length}/${PHASE2_ACTIVATION_RULES.trackerFeedback.minProfileSignals}`
-    ],
-    teamReasons: [
-      `settled:${settled}/${PHASE2_ACTIVATION_RULES.teamMemory.minSettled}`,
-      `teamSignals:${teamSignals.length}/${PHASE2_ACTIVATION_RULES.teamMemory.minTeamSignals}`,
-      `matchupSignals:${matchupSignals.length}/${PHASE2_ACTIVATION_RULES.teamMemory.minMatchupSignals}`
-    ]
-  };
-}
-const PICK_RULES = {
-  default: { over: 0.050, under: 0.050, underExtra: 0, underBlockRatio: 0.56 },
-  ft:      { over: 0.050, under: 0.050, underExtra: 0, underBlockRatio: 0.56 },
-  team:    { over: 0.055, under: 0.055, underExtra: 0, underBlockRatio: 0.57 },
-  h1:      { underExtra: 0, underBlockRatio: 0.56 },
-  h2:      { underExtra: 0, underBlockRatio: 0.56 }
-};
-
-
-
-    const LEAGUE_EDGE_THRESHOLDS = {
-      nba:     { h1: 0.050 },
-      ncaa:    { h1: 0.058 },
-      europe:  { h1: 0.059 },
-      asia:    { h1: 0.063 },
-      default: { h1: 0.067 }
-    };
-
-    const EUROPE_EDGE_LEAGUES = [
-      "euroleague","eurocup","acb","lba","bbl","bcl","lkl","proa","prob",
-      "bsl","isl","aba","plk","serbia_kls","croatia_premier","elbl",
-      "georgia_super","hungary_nb1","romania_ln","austria_zweite",
-      "belgium_top","bih_1st","bulgaria_nbl","nbl_cz","denmark_bliga",
-      "england_slb","finland_koris","finland_koris_w","germany_proa",
-      "germany_prob","a2","italy_a2","italy_serb","lithuania_nkl",
-      "poland_1liga","portugal_lpb","portugal_proliga","serbia_2mls",
-      "spain_primera","spain_segunda","sweden_super","sweden_sbl",
-      "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
-      "united_league"
-    ];
-
-    const ASIA_EDGE_LEAGUES = [
-      "cba","china_nbl","taipei_pleague","taipei_sbl","taipei_tpbl",
-      "bleague","pba","korea_kbl"
-    ];
-
-    const TRAP_RULES = {
-      minEdgePct: 0.015,
-      extremeEdgePct: 0.12,
-      lowLineUnder: { nba: 1.5, ncaa: 1.5 }, // Adjusted down for football goals
-      volThresholds: {
-        ft:   { nba: 1.8, other: 1.8 },
-        h1:   { nba: 1.2, other: 1.2 },
-        h2:   { nba: 1.2, other: 1.2 },
-        team: { nba: 1.3, other: 1.3 }
-      }
-    };
-
-    const ANCHOR_RULES = {
-      ft:   { nbaDiff: 0.35, otherDiff: 0.35, nbaWeight: MODEL_CONFIG.LINE_ANCHOR_NBA, otherWeight: MODEL_CONFIG.LINE_ANCHOR_OTHER },
-      h1:   { nbaDiff: 0.20, otherDiff: 0.20, nbaWeight: MODEL_CONFIG.LINE_ANCHOR_NBA, otherWeight: MODEL_CONFIG.LINE_ANCHOR_OTHER },
-      h2:   { nbaDiff: 0.20, otherDiff: 0.20, nbaWeight: MODEL_CONFIG.LINE_ANCHOR_NBA, otherWeight: MODEL_CONFIG.LINE_ANCHOR_OTHER },
-      team: { nbaDiff: 0.25, otherDiff: 0.25, nbaWeight: 0.55, otherWeight: 0.50 }
-    };
-
-
-
-// Football averages: ~2.8 goals per match
-const LEAGUE_BASES = new Proxy({}, {
-  get: function(target, prop) {
-    return 2.8; 
-  }
-});
-
-// Football home edge is typically +0.35 goals
-const LEAGUE_HOME_EDGE = new Proxy({}, {
-  get: function(target, prop) {
-    return 0.35; 
-  }
-});
-
-// Goal variance is much tighter than basketball points
-const LEAGUE_VOL_LIMITS = new Proxy({}, {
-  get: function(target, prop) {
-    return 1.4; 
-  }
-});
-
 
 const LEAGUE_TRUST_PROFILES = {
-  trusted: [
-    "nba","ncaa","euroleague","eurocup","acb","lba","bbl","bcl","bsl","isl","cba","pba"
-  ],
-  advisory: [
-    "aba","lkl","plk","proa","prob","elbl","germany_proa","germany_prob","serbia_kls",
-    "croatia_premier","romania_ln","hungary_nb1","nbl_cz","denmark_bliga","england_slb",
-    "finland_koris","finland_koris_w","a2","italy_a2","italy_serb","lithuania_nkl","poland_1liga",
-    "portugal_lpb","portugal_proliga","spain_primera","spain_segunda","sweden_super","sweden_sbl",
-    "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w","united_league",
-    "china_nbl","taipei_pleague","taipei_sbl","taipei_tpbl","bleague","korea_kbl",
-    "austria_zweite","belgium_top","bih_1st","bulgaria_nbl","georgia_super","serbia_2mls"
-  ],
-  blocked: [
-    "lnb","nbb","cebl","bal","nigeria","rwanda","ausnbl","nznbl","fiba_wc","fiba_eb","fiba_ac","unknown"
-  ]
+  trusted:  ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions"],
+  advisory: ["eng.2", "usa.1", "ned.1", "por.1", "bra.1", "mex.1"],
+  blocked:  ["unknown"]
 };
 
 function normalizeLeagueTrustKey(league) {
@@ -3439,9 +3238,9 @@ const LEAGUE_FETCH_RULES = new Proxy({}, {
 
         // Basketball hardcoded maps wiped out. 
     // Engine will now dynamically search ESPN's soccer databases for team IDs.
-    const NBA_TEAM_MAP = {};
+    // Basketball Maps DELETED.
+const NBA_TEAM_MAP = {};
     const NCAA_TEAM_MAP = {};
-
     const _schedCache = new Map();
     const _summaryCache = new Map();
     const _fixtureCache = new Map();
@@ -9171,82 +8970,39 @@ function settleTrackedPickFromCompetition(pick, competition, boxscore) {
   if (!pick || !competition) return "pending";
 
   const status = competition?.status?.type?.name || "";
-  const state = competition?.status?.type?.state || "";
   const completed = competition?.status?.type?.completed || false;
-
-  // Ensure the game is actually over
-  if (!completed && state !== "post" && status !== "STATUS_FINAL") return "pending";
+  if (!completed && status !== "STATUS_FINAL") return "pending";
 
   const competitors = competition.competitors || [];
-  const home = competitors.find(c => c.homeAway === "home") || competitors[0];
-  const away = competitors.find(c => c.homeAway === "away") || competitors[1];
-
+  const home = competitors.find(c => c.homeAway === "home");
+  const away = competitors.find(c => c.homeAway === "away");
   if (!home || !away) return "pending";
 
-  // ESPN's API is chaotic. Scores can be "105", 105, or { value: "105" }. This safely handles all.
-  const getVal = (v) => {
-    if (v === null || v === undefined) return 0;
-    if (typeof v === "object") return parseFloat(v.value ?? v.displayValue ?? 0);
-    return parseFloat(v) || 0;
-  };
+  const getVal = (v) => (typeof v === "object" ? parseFloat(v.value ?? 0) : parseFloat(v ?? 0));
 
   const sHome = getVal(home.score);
   const sAway = getVal(away.score);
-  
   const lsHome = home.linescores || [];
   const lsAway = away.linescores || [];
-  
-  let h1Home = 0, h1Away = 0, h2Home = 0, h2Away = 0;
-  
-  // Extract period scores based on league format safely
-  if (lsHome.length >= 2 && lsAway.length >= 2) {
-     if (pick.league === "nba") {
-        h1Home = getVal(lsHome[0]) + getVal(lsHome[1]);
-        h1Away = getVal(lsAway[0]) + getVal(lsAway[1]);
-        if (lsHome.length >= 4 && lsAway.length >= 4) {
-          h2Home = getVal(lsHome[2]) + getVal(lsHome[3]);
-          h2Away = getVal(lsAway[2]) + getVal(lsAway[3]);
-        }
-     } else { // NCAA
-        h1Home = getVal(lsHome[0]);
-        h1Away = getVal(lsAway[0]);
-        if (lsHome.length >= 2 && lsAway.length >= 2) {
-          h2Home = getVal(lsHome[1]);
-          h2Away = getVal(lsAway[1]);
-        }
-     }
-  }
+
+  const h1Home = lsHome.length > 0 ? getVal(lsHome[0]) : 0;
+  const h1Away = lsAway.length > 0 ? getVal(lsAway[0]) : 0;
 
   const market = pick.marketKey;
   const line = parseFloat(pick.line);
-  if (isNaN(line)) return "pending";
-
   let actual = 0;
-  const isTeamAHome = String(pick.homeId) === String(home.id) || pick.homeTeam === home.team?.displayName;
 
-  // Grade based on market type
-  if (market === "ft") {
-     actual = sHome + sAway;
-  } else if (market === "h1") {
-     if (!h1Home && !h1Away) return "pending"; 
-     actual = h1Home + h1Away;
-  } else if (market === "h2") {
-     if (!h2Home && !h2Away) return "pending";
-     actual = h2Home + h2Away;
-  } else if (market === "team_a") {
-     actual = isTeamAHome ? sHome : sAway;
-  } else if (market === "team_b") {
-     actual = isTeamAHome ? sAway : sHome;
-  } else {
-     return "pending";
-  }
+  if (market === "ft") actual = sHome + sAway;
+  else if (market === "h1") actual = h1Home + h1Away;
+  else if (market === "h2") actual = (sHome + sAway) - (h1Home + h1Away);
+  else if (market === "team_a") actual = (String(pick.homeId) === String(home.id)) ? sHome : sAway;
+  else if (market === "team_b") actual = (String(pick.homeId) === String(home.id)) ? sAway : sHome;
+  else return "pending";
 
-  // Save the exact score context for your God's Eye post-mortem UI
   pick.actualScore = actual;
-
-  const pickSide = String(pick.side).toLowerCase();
-  if (actual > line) return pickSide === "over" ? "win" : "loss";
-  if (actual < line) return pickSide === "under" ? "win" : "loss";
+  const side = String(pick.side).toLowerCase();
+  if (actual > line) return side === "over" ? "win" : "loss";
+  if (actual < line) return side === "under" ? "win" : "loss";
   return "push";
 }
 
@@ -11204,21 +10960,7 @@ async function fetchH2HCore(base, teamAId, teamBId, leagueKey) {
     .slice(0, 10);
 }
 
-async function fetchNbaSchedule(base, teamId, requiredVenue, allowFallback = true) {
-  return fetchScheduleCore(base, teamId, "nba", requiredVenue, allowFallback);
-}
 
-async function fetchNcaaSchedule(base, teamId, requiredVenue, allowFallback = true) {
-  return fetchScheduleCore(base, teamId, "ncaa", requiredVenue, allowFallback);
-}
-
-async function fetchNbaH2H(base, teamAId, teamBId) {
-  return fetchH2HCore(base, teamAId, teamBId, "nba");
-}
-
-async function fetchNcaaH2H(base, teamAId, teamBId) {
-  return fetchH2HCore(base, teamAId, teamBId, "ncaa");
-}
 
 function renderInjuryBox(boxId, contentId, inj) {
       const box = document.getElementById(boxId);
