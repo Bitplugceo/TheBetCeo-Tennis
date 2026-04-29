@@ -2878,9 +2878,13 @@ body.dark-mode .tracker-analytics-section-head {
       </div>
     `;
 
-    document.body ? document.body.appendChild(t) :
+    document.body ? document.body.appendChild(t) : document.documentElement.appendChild(t);
+  }
 
-
+  // 2. CATCH GLOBAL RUNTIME ERRORS
+  window.addEventListener("error", function (e) {
+    spawnFatalTerminal(e.message, e.filename, e.lineno, e.colno, e.error?.stack);
+  });
 
   // 3. NETWORK & PROMISE INTERCEPTOR
   window.addEventListener("unhandledrejection", function (e) {
@@ -11523,6 +11527,11 @@ function runEngine() {
 
 
 
+function toggleTheme() {
+  const isDark = document.body.classList.toggle("dark-mode");
+  try { localStorage.setItem("bb_theme", isDark ? "dark" : "light"); } catch(e) {}
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (typeof ensureFreshBuild === "function" && ensureFreshBuild()) return;
 
@@ -11579,7 +11588,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   openSection("leagueSection");
-  setEngineMode();
   makeSectionsCollapsible();
 
   await primeTrackerStateForRun();
