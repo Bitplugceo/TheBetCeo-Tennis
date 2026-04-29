@@ -11148,6 +11148,144 @@ async function loadFixtures(timeFilter = 'all') {
   } catch (e) { list.innerHTML = '<div style="padding:20px; text-align:center; color:red;">Connection Shield Error</div>'; }
 }
 
+// ==========================================
+// BATCH 1.5: UI RESTORATION & HELPERS
+// ==========================================
+
+// 1. UI State & Modal Logic (Restored)
+let uiState = { activeModal: null, selectedDateOffset: 'all', selectedSort: 'time', activeCategoryIdx: 0, stagedLeagueSlug: null, appliedLeagueSlug: null };
+
+function openProModal(type) {
+  uiState.activeModal = type;
+  document.getElementById("proModalOverlay").classList.add("open");
+  const dual = document.getElementById("proDualPane");
+  const simple = document.getElementById("proSimpleList");
+  const act = document.getElementById("proModalActions");
+  const title = document.getElementById("proModalTitle");
+
+  if (type === 'league') {
+    title.textContent = "Select League"; dual.style.display = "flex"; simple.style.display = "none"; act.style.display = "flex";
+    uiState.stagedLeagueSlug = uiState.appliedLeagueSlug; renderLeaguePaneLeft(); renderLeaguePaneRight();
+  } else if (type === 'date') {
+    title.textContent = "Select Timeframe"; dual.style.display = "none"; simple.style.display = "block"; act.style.display = "none";
+    renderDateList();
+  } else if (type === 'sort') {
+    title.textContent = "Sort Matches"; dual.style.display = "none"; simple.style.display = "block"; act.style.display = "none";
+    renderSortList();
+  }
+}
+
+function closeProModal() {
+  document.getElementById("proModalOverlay").classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function renderLeaguePaneLeft() {
+  document.getElementById("proPaneLeft").innerHTML = SOCCER_TAXONOMY.map((group, idx) => `
+    <div class="pane-item ${idx === uiState.activeCategoryIdx ? 'active' : ''}" onclick="setCategory(${idx})">
+      <span>${group.cat}</span><span class="item-badge">${group.leagues.length}</span>
+    </div>`).join("");
+}
+
+function setCategory(idx) { uiState.activeCategoryIdx = idx; renderLeaguePaneLeft(); renderLeaguePaneRight(); }
+
+function renderLeaguePaneRight() {
+  const leagues = SOCCER_TAXONOMY[uiState.activeCategoryIdx].leagues;
+  document.getElementById("proPaneRight").innerHTML = leagues.map(l => `
+    <div class="pane-item" onclick="stageLeague('${l.slug}')">
+      <input type="checkbox" class="pro-checkbox" ${uiState.stagedLeagueSlug === l.slug ? 'checked' : ''}>
+      <span>${l.name}</span>
+    </div>`).join("");
+}
+
+function stageLeague(slug) { uiState.stagedLeagueSlug = slug; renderLeaguePaneRight(); }
+
+function renderDateList() {
+  const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const options = [ { id: 'all', label: 'All' }, { id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' } ];
+  for (let i = 2; i <= 5; i++) {
+    const d = new Date(); d.setDate(new Date().getDate() + i);
+    options.push({ id: getLocalDateKey(i), label: dayNames[d.getDay()] });
+  }
+  options.push({ id: 'weekend', label: 'Weekend' });
+  document.getElementById("proSimpleList").innerHTML = options.map(opt => `
+    <div class="pane-item ${uiState.selectedDateOffset === opt.id ? 'active' : ''}" onclick="applyDate('${opt.id}', '${opt.label}')">
+      <span>${opt.label}</span>${uiState.selectedDateOffset === opt.id ? '<span style="color:#2f8f4a;">&#x2713;</span>' : ''}
+    </div>`).join("");
+}
+
+function renderSortList() {
+  const list = ["Default", "Time", "League"];
+  document.getElementById("proSimpleList").innerHTML = list.map(item => `
+    <div class="pane-item" onclick="applySort('${item.toLowerCase()}', '${item}')">
+      <span>${item}</span>
+    </div>`).join("");
+}
+
+function applyDate(filterId, text) {
+  uiState.selectedDateOffset = filterId;
+  document.getElementById("uiDateBtn").textContent = text;
+  closeProModal();
+  if (document.getElementById("leagueSelect")?.value) loadFixtures(filterId);
+}
+
+function applySort(val, text) {
+  uiState.selectedSort = val;
+  document.getElementById("uiSortBtn").textContent = text;
+  closeProModal();
+}
+
+// 2. Missing Math & Naming Helpers
+function avgOrNaN(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return NaN;
+  const nums = arr.map(Number).filter(v => isFinite(v));
+  return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : NaN;
+}
+
+function getMarketKeyFromName(name) {
+  if (name === "FT Total") return "ft";
+  if (name === "1H Total") return "h1";
+  if (name === "2H Total") return "h2";
+  if (name === "Team A Total") return "team_a";
+  if (name === "Team B Total") return "team_b";
+  return "other";
+}
+
+// 3. Theme & Tracker Fallbacks
+function toggleTheme() {
+  const isDark = document.body.classList.toggle("dark-mode");
+  localStorage.setItem("theme", isDark ? "dark" : "light");
+}
+
+function loadTrackedPicks() {
+  try {
+    const raw = localStorage.getItem("fb_engine_tracked_picks");
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+
+function saveTrackedPicks(picks) {
+  try { localStorage.setItem("fb_engine_tracked_picks", JSON.stringify(picks)); } catch (e) {}
+}
+
+function setEngineMode() {
+  console.log("Engine Mode Initialized.");
+}
+
+// 4. Run Engine Placeholder
+async function runEngine() {
+  const runBtn = document.getElementById("runBtn");
+  const table = document.getElementById("results");
+  if (runBtn) runBtn.disabled = true;
+  acknowledgeGlobalEngineAlert();
+  try {
+    if (table) {
+      table.style.display = "table";
+      table.innerHTML = `<tr><th colspan="5" style="padding:20px; text-align:center; background:#111; color:#49a443; font-weight:900;">&#x2705; UI RESTORED. READY FOR FOOTBALL MATH &#x26BD;</th></tr>`;
+    }
+  } catch (err) { console.error(err); } finally { if (runBtn) runBtn.disabled = false; }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("themeToggleBtn")?.addEventListener("click", toggleTheme);
   document.getElementById("trackerToggleBtn")?.addEventListener("click", openTrackerModal);
