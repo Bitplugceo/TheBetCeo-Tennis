@@ -5522,13 +5522,14 @@ Any suggestion made here without proof is an audit error.
         }
         return workerData;
       } catch (workerErr) {
-        // We log to standard console, but NOT trackerDebug to avoid red boxes
-        console.warn("[BB Engine] Worker failed, attempting direct connection...");
+        console.warn(`[FB Engine] Worker failed for ${fetchLabel}. Retrying with backoff...`);
+        await new Promise(res => setTimeout(res, 800));
         try {
-          const directData = await fetchJson(url, "Direct fetch");
-          return directData;
-        } catch (directErr) {
-          engineDebug("fetch failed completely", { request: fetchLabel, error: directErr.message });
+          const retryData = await fetchJson(WORKER_URL + "?url=" + encodeURIComponent(url), "Worker Retry");
+          trackerDebug("Recovered fetch via backoff retry", { request: fetchLabel });
+          return retryData;
+        } catch (retryErr) {
+          engineDebug("Fetch failed completely after retry", { request: fetchLabel, error: retryErr.message });
           throw workerErr;
         }
       }
@@ -9218,9 +9219,9 @@ function addTrackedPicks(newPicks) {
 
   if (isFinite(divergence)) {
     const diff = Math.abs(divergence);
-    if (diff >= 18) base *= 0.45;
-    else if (diff >= 12) base *= 0.62;
-    else if (diff >= 8) base *= 0.80;
+    if (diff >= 2.5) base *= 0.60;
+    else if (diff >= 1.5) base *= 0.75;
+    else if (diff >= 1.0) base *= 0.90;
   }
 
   const maxCap =
@@ -9315,15 +9316,19 @@ function applyContextAdjustments(baseProjection, ctx) {
   const rules = PICK_RULES[marketType] || PICK_RULES.default;
   const underBlockRatio = rules.underBlockRatio ?? PICK_RULES.default.underBlockRatio;
 
-  const overMin =
+  const lineScalar = line < 2.0 ? 1.25 : (line > 3.0 ? 0.85 : 1.0);
+
+  const overMin = (
     marketType === "h2" ? (periodThresholds.h1 + 0.008) :
     (marketType === "h1") ? periodThresholds.h1 :
-    Number(rules.over ?? PICK_RULES.default.over);
+    Number(rules.over ?? PICK_RULES.default.over)
+  ) * lineScalar;
 
-  const underMin =
+  const underMin = (
     marketType === "h2" ? (periodThresholds.h1 + Number(rules.underExtra || 0) + 0.010) :
     (marketType === "h1") ? (periodThresholds.h1 + Number(rules.underExtra || 0)) :
-    Number(rules.under ?? PICK_RULES.default.under);
+    Number(rules.under ?? PICK_RULES.default.under)
+  ) * lineScalar;
 
   const pct = Math.abs(edge / line);
   if (edge === 0) return "NO PLAY";
@@ -9371,18 +9376,14 @@ function applyContextAdjustments(baseProjection, ctx) {
   if (valid.length <= 1) return -1;
 
   const best = [...valid].sort((a, b) => {
-    const aEdgePct = Math.abs(a.edge / a.line) * 100;
-    const bEdgePct = Math.abs(b.edge / b.line) * 100;
+    const aVolRisk = a.volatility > 0 ? (1 / a.volatility) : 1;
+    const bVolRisk = b.volatility > 0 ? (1 / b.volatility) : 1;
 
-    const aFullModelBonus = a.fullModel ? 0.6 : 0;
-    const bFullModelBonus = b.fullModel ? 0.6 : 0;
+    const aEdgePct = (Math.abs(a.edge / a.line) * 100) * (a.fullModel ? 1.1 : 0.9) * aVolRisk;
+    const bEdgePct = (Math.abs(b.edge / b.line) * 100) * (b.fullModel ? 1.1 : 0.9) * bVolRisk;
 
-    const aMassacreBonus = isFinite(Number(a.lockStrength)) ? Number(a.lockStrength) : 0;
-    const bMassacreBonus = isFinite(Number(b.lockStrength)) ? Number(b.lockStrength) : 0;
-
-    const aLockScore = aEdgePct + aFullModelBonus + aMassacreBonus;
-    const bLockScore = bEdgePct + bFullModelBonus + bMassacreBonus;
-
+    const aLockScore = aEdgePct + (isFinite(Number(a.lockStrength)) ? Number(a.lockStrength) : 0);
+    const bLockScore = bEdgePct + (isFinite(Number(b.lockStrength)) ? Number(b.lockStrength) : 0);
     if (Math.abs(bLockScore - aLockScore) > 0.0001) {
       return bLockScore - aLockScore;
     }
@@ -10616,8 +10617,14 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
   const h2Scored10 = [];
   const h2Allowed10 = [];
 
-    const summaries = await Promise.all(
-    chosen.slice(0, 10).map(async ref => {
+    // Weaponized Concurrency Limiter: Process 3 requests at a time
+  const batchSize = 3;
+  const targetGames = chosen.slice(0, 10);
+  const summaries = [];
+
+  for (let i = 0; i < targetGames.length; i += batchSize) {
+    const chunk = targetGames.slice(i, i + batchSize);
+    const chunkResults = await Promise.all(chunk.map(async ref => {
       let ms = ref.rawS;
       let os = ref.rawA;
       let h1m = 0;
@@ -10656,37 +10663,32 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
             const lm = mine?.linescores || [];
             const lo = opp?.linescores || [];
 
-            // In soccer, linescores[0] is 1st Half goals.
-            // We map 1H goals to h2m/h2o so it hits the correct UI boxes we set up in Batch 1.
+            // Correct actual half-time goal mapping
             if (lm.length >= 1 && lo.length >= 1) {
-              h2m = readVal(lm[0]) || 0; 
-              h2o = readVal(lo[0]) || 0; 
+              h1m = readVal(lm[0]) || 0;
+              h1o = readVal(lo[0]) || 0;
+            }
+            if (lm.length >= 2 && lo.length >= 2) {
+              h2m = readVal(lm[1]) || 0;
+              h2o = readVal(lo[1]) || 0;
             }
 
-            // LEVEL 2 HIJACK: Advanced Box Score Extraction (xG)
+            // LEVEL 2: Pure Advanced Box Score Extraction
             if (boxscore && boxscore.teams) {
               const myBox = boxscore.teams.find(t => matchesTeam(t, tId));
               const oppBox = boxscore.teams.find(t => !matchesTeam(t, tId));
 
               if (myBox && myBox.statistics && oppBox && oppBox.statistics) {
-                const sMap = {};
-                myBox.statistics.forEach(s => { sMap[s.name] = s.displayValue; });
-                const oMap = {};
-                oppBox.statistics.forEach(s => { oMap[s.name] = s.displayValue; });
+                const sMap = {}; myBox.statistics.forEach(s => { sMap[s.name] = s.displayValue; });
+                const oMap = {}; oppBox.statistics.forEach(s => { oMap[s.name] = s.displayValue; });
 
                 const advResult = calculateAdvancedMetrics(sMap, ms, os, 90);
                 const oppAdvResult = calculateAdvancedMetrics(oMap, os, ms, 90);
 
                 if (advResult) {
                   advanced = advResult;
-                  // Opponent's xG created becomes our xG conceded (drtg)
-                  advanced.drtg = oppAdvResult ? oppAdvResult.ortg : 0; 
-
-                  // Map xG to h1m / h1o so it populates the xG UI boxes
-                  h1m = advanced.ortg;
-                  h1o = advanced.drtg;
-
-                  trackerDebug(`Level 2 Soccer Stats Extracted: ${ref.id}`, advanced);
+                  advanced.drtg = oppAdvResult ? oppAdvResult.ortg : 0;
+                  trackerDebug(`Clean xG Extracted: ${ref.id}`, advanced);
                 }
               }
             }
@@ -11046,19 +11048,33 @@ const SOCCER_TAXONOMY = [
   ]}
 ];
 
-async function runMassacreMonteCarlo(mean, stdDev, line, runs = 8000) {
+async function runMassacreMonteCarlo(projA, projB, line) {
   return new Promise((resolve) => {
     function poisson(lambda, k) {
-      const e = Math.exp(-lambda);
+      if (lambda <= 0) return k === 0 ? 1 : 0;
       let k_fact = 1;
       for (let i = 2; i <= k; i++) k_fact *= i;
-      return (Math.pow(lambda, k) * e) / k_fact;
+      return (Math.pow(lambda, k) * Math.exp(-lambda)) / k_fact;
     }
+
+    const rho = (projA < 1.5 && projB < 1.5) ? -0.12 : 0.0;
     let overProb = 0;
-    for (let goals = 0; goals <= 8; goals++) {
-      let p = poisson(mean, goals);
-      if (goals > line) overProb += p;
+
+    for (let i = 0; i <= 8; i++) {
+      for (let j = 0; j <= 8; j++) {
+        let probA = poisson(projA, i);
+        let probB = poisson(projB, j);
+        let baseProb = probA * probB;
+
+        if (i === 0 && j === 0) baseProb *= (1 - projA * projB * rho);
+        else if (i === 0 && j === 1) baseProb *= (1 + projA * rho);
+        else if (i === 1 && j === 0) baseProb *= (1 + projB * rho);
+        else if (i === 1 && j === 1) baseProb *= (1 - rho);
+
+        if ((i + j) > line) overProb += Math.max(0, baseProb);
+      }
     }
+
     const overPct = overProb * 100;
     resolve({ overPct, underPct: 100 - overPct });
   });
@@ -11132,7 +11148,7 @@ async function loadFixtures(timeFilter = 'all') {
   let dParam = (timeFilter==='today') ? getFmt(0) : (timeFilter==='tomorrow') ? getFmt(1) : `${getFmt(0)}-${getFmt(7)}`;
 
   try {
-    const data = await proxyFetch(`${base}/scoreboard?dates=${dParam}&limit=100`);
+    const data = await proxyFetch(`${base}/scoreboard?dates=${dParam}&limit=800`);
     if (myToken !== _fixtureLoadToken) return;
     const events = (data?.events || []).filter(ev => ev.status?.type?.state === "pre");
     if (!events.length) { list.innerHTML = '<div style="padding:20px; text-align:center;">No upcoming matches found.</div>'; return; }
@@ -11363,15 +11379,29 @@ function runEngine() {
   const dynW = getDynamicWeights(sampleTier, Math.max(aVol, bVol), league);
   const leagueBase = LEAGUE_BASES[league] || 1.35;
 
-  let projA = robustRecentAverage(aFTScored) * (g_injA.scoringMult || 1);
-  let projB = robustRecentAverage(bFTScored) * (g_injB.scoringMult || 1);
+  let rawProjA = robustRecentAverage(aFTScored);
+  let rawProjB = robustRecentAverage(bFTScored);
 
   if (aFTAllowed.length && bFTAllowed.length) {
     const aAllowedAvg = robustRecentAverage(aFTAllowed);
     const bAllowedAvg = robustRecentAverage(bFTAllowed);
-    projA = (projA * dynW.teamWeight) + (bAllowedAvg * dynW.oppWeight) * (projA / leagueBase);
-    projB = (projB * dynW.teamWeight) + (aAllowedAvg * dynW.oppWeight) * (projB / leagueBase);
+    rawProjA = (rawProjA * dynW.teamWeight) + (bAllowedAvg * dynW.oppWeight) * (rawProjA / leagueBase);
+    rawProjB = (rawProjB * dynW.teamWeight) + (aAllowedAvg * dynW.oppWeight) * (rawProjB / leagueBase);
   }
+
+  const intPack = updateIntelligencePack(league, { ftLine, h1Line, aLine, bLine });
+  let projA = rawProjA;
+  let projB = rawProjB;
+
+  if (intPack && isFinite(intPack.teamA.offense) && isFinite(intPack.teamB.defense)) {
+    projA = (rawProjA * 0.60) + ((leagueBase + intPack.teamA.offense + intPack.teamB.defense) * 0.40);
+  }
+  if (intPack && isFinite(intPack.teamB.offense) && isFinite(intPack.teamA.defense)) {
+    projB = (rawProjB * 0.60) + ((leagueBase + intPack.teamB.offense + intPack.teamA.defense) * 0.40);
+  }
+
+  projA *= (g_injA.scoringMult || 1);
+  projB *= (g_injB.scoringMult || 1);
 
   let ftProj = projA + projB;
 
