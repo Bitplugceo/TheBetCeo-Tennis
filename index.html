@@ -3497,26 +3497,25 @@ async function writeAsyncStorage(key, value) {
     } catch (lsErr) {
       // FIX 13: Storage Quota Timebomb Rescue
       // If we hit the 5MB wall, intercept the crash and slice the archive to survive
-      if (lsErr.name === 'QuotaExceededError' && typeof value === 'string' && value.includes('"archivedPicks"')) {
+      if (lsErr.name === 'QuotaExceededError' || lsErr.message?.includes('quota')) {
+        console.warn("[BB Engine] Quota exceeded. Executing emergency payload purge.");
+        engineDebug("Quota Rescue", "Slicing archive and line memory to survive limit.");
         try {
-          let parsed = JSON.parse(value);
-          if (parsed.archivedPicks && parsed.archivedPicks.length > 150) {
-            console.warn("[BB Engine] Quota exceeded. Slicing archive down to 150 to survive 5MB limit.");
-            engineDebug("Quota Rescue", "Sliced archive to 150 picks to survive localStorage 5MB limit.");
-
-            parsed.archivedPicks = parsed.archivedPicks.slice(0, 150);
-            localStorage.setItem(key, JSON.stringify(parsed));
-
-            // FIX: Mutate the live state so the engine stops trying to save 2000 items
-            if (typeof g_trackerState !== "undefined" && g_trackerState) {
-              g_trackerState.archivedPicks = parsed.archivedPicks;
-            }
-
-            return true;
+          let parsed = typeof value === 'string' ? JSON.parse(value) : value;
+          if (parsed.archivedPicks) parsed.archivedPicks = parsed.archivedPicks.slice(0, 100);
+          if (parsed.lineMemory) {
+            const keys = Object.keys(parsed.lineMemory).slice(0, 50);
+            const newMem = {};
+            keys.forEach(k => newMem[k] = parsed.lineMemory[k]);
+            parsed.lineMemory = newMem;
           }
-        } catch (rescueErr) {
-          // Fall through to standard error log
-        }
+          localStorage.setItem(key, JSON.stringify(parsed));
+          if (typeof g_trackerState !== "undefined" && g_trackerState) {
+            g_trackerState.archivedPicks = parsed.archivedPicks;
+            g_trackerState.lineMemory = parsed.lineMemory;
+          }
+          return true;
+        } catch (rescueErr) {}
       }
 
       console.error("[BB Engine] writeAsyncStorage localStorage fallback failed — data NOT saved:", lsErr?.name, lsErr?.message);
@@ -7164,7 +7163,12 @@ function renderTrackedPicks() {
   emptyEl.style.display = "none";
   wrapEl.style.display = "block";
 
-  bodyEl.innerHTML = displayPicks.map(p => {
+  // Detach element from DOM for high-performance rendering
+  const parent = bodyEl.parentNode;
+  const nextSibling = bodyEl.nextSibling;
+  if (parent) parent.removeChild(bodyEl);
+
+    bodyEl.innerHTML = displayPicks.map(p => {
     const status = String(p.resultStatus || "pending").toLowerCase();
     const statusClass = status === "win" ? "track-win" : status === "loss" ? "track-loss" : status === "push" ? "track-push" : "track-pending";
     const edgeText = (p.edgePct == null || isNaN(p.edgePct)) ? "—" : (p.edgePct > 0 ? "+" : "") + Number(p.edgePct).toFixed(2) + "%";
@@ -7185,6 +7189,9 @@ function renderTrackedPicks() {
       </tr>
     `;
   }).join("");
+
+  // Re-attach to DOM
+  if (parent) parent.insertBefore(bodyEl, nextSibling);
 }
 
 
