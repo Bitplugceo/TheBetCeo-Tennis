@@ -6693,7 +6693,8 @@ function makeTrackerActiveMergeKey(pick = {}) {
     String(safe.marketKey || ""),
     normalizeTeamName(safe.homeTeam || ""),
     normalizeTeamName(safe.awayTeam || ""),
-    String(safe.side || "").toLowerCase()
+    String(safe.side || "").toLowerCase(),
+    isFinite(Number(safe.lineAtPick)) ? Number(safe.lineAtPick).toFixed(1) : (isFinite(Number(safe.line)) ? Number(safe.line).toFixed(1) : "none")
   ].join("|");
 }
 
@@ -9560,10 +9561,12 @@ function hitRateOver(series, threshold) {
 
 function recentFormDelta(scored, allowed) {
   const margins = marginSeries(scored, allowed);
-  if (!margins.length) return NaN;
-  const recent = weightedRecentAverage(margins.slice(0, Math.min(3, margins.length)));
-  const baseline = weightedRecentAverage(margins);
-  return isFinite(recent) && isFinite(baseline) ? recent - baseline : NaN;
+  if (!margins.length || margins.length < 5) return 0;
+
+  const recent = weightedRecentAverage(margins.slice(0, 3));
+  const baseline = weightedRecentAverage(margins.slice(3));
+
+  return isFinite(recent) && isFinite(baseline) ? recent - baseline : 0;
 }
 
 function formatSignedIntel(value) {
@@ -11472,7 +11475,6 @@ function runEngine() {
   if (!picks.length) { alert("Enter at least one market line."); return; }
 
   const fixtureMeta = getCurrentFixtureMeta();
-  const intPack = updateIntelligencePack(league, { ftLine, h1Line, aLine, bLine });
   if (intPack) applyIntelligenceLayerToPicks(picks, intPack, league);
   applyTrackerFeedbackToPickRows(picks);
   applySoftTrackerInfluenceToPicks(picks, fixtureMeta);
