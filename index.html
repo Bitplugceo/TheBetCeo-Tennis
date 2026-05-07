@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Code Auto-Patcher Studio</title>
+  <title>Auto-Patcher V2</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -13,6 +13,7 @@
       --accent-hover: #2ea043;
       --border: #30363d;
       --error: #f85149;
+      --warning: #d29922;
     }
     
     body {
@@ -20,7 +21,7 @@
       background-color: var(--bg);
       color: var(--text);
       margin: 0;
-      padding: 30px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -28,47 +29,44 @@
 
     .container {
       width: 100%;
-      max-width: 1200px;
+      max-width: 1000px;
     }
 
     h1 {
       color: #ffffff;
       margin-bottom: 5px;
     }
-    
-    p.subtitle {
-      color: #8b949e;
-      margin-bottom: 25px;
-      font-size: 14px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 20px;
-    }
 
     .box-header {
       background: var(--panel);
-      padding: 10px 15px;
+      padding: 12px 15px;
       border: 1px solid var(--border);
       border-bottom: none;
       border-radius: 8px 8px 0 0;
       font-size: 14px;
-      font-weight: 600;
+      font-weight: bold;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
+    .upload-section {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="file"] {
+      font-size: 12px;
+      color: #8b949e;
+    }
+
     textarea {
       width: 100%;
-      height: 400px;
       background: #010409;
       color: #e6edf3;
       font-family: ui-monospace, monospace;
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.5;
       padding: 15px;
       border: 1px solid var(--border);
@@ -82,88 +80,113 @@
       border-color: #58a6ff;
     }
 
-    .controls {
+    .source-box { height: 250px; margin-bottom: 20px; }
+    .patch-box { height: 250px; margin-bottom: 10px; }
+
+    .action-row {
       display: flex;
-      justify-content: center;
-      gap: 15px;
-      margin: 20px 0;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
     }
 
     button {
-      background: var(--accent);
-      color: #ffffff;
-      border: none;
-      padding: 12px 24px;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
       border-radius: 6px;
-      font-size: 15px;
+      font-size: 13px;
       font-weight: bold;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: 0.2s;
     }
 
-    button:hover {
-      background: var(--accent-hover);
-    }
-
-    #downloadBtn {
-      display: none;
-      background: #1f6feb;
-    }
-
-    #downloadBtn:hover {
-      background: #388bfd;
-    }
+    button:hover { background: #30363d; }
     
+    .btn-primary { background: var(--accent); color: white; border: none; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    
+    .btn-danger { color: var(--error); border-color: rgba(248,81,73,0.4); }
+    .btn-danger:hover { background: rgba(248,81,73,0.1); }
+
+    .btn-download { background: #1f6feb; color: white; border: none; }
+    .btn-download:hover { background: #388bfd; }
+
     .status {
       text-align: center;
-      margin-top: 10px;
       font-weight: bold;
+      padding: 10px;
+      border-radius: 6px;
+      display: none;
     }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <h1>🛠️ The Auto-Patcher</h1>
-    <p class="subtitle">Feed it the original code and the patch instructions, and let it do the surgery.</p>
+    <h1>🛠️ Auto-Patcher V2</h1>
 
-    <div class="grid">
-      <div>
-        <div class="box-header">1. Paste Original File Here</div>
-        <textarea id="originalCode" spellcheck="false" placeholder="Paste your massive, main file here..."></textarea>
+    <div>
+      <div class="box-header">
+        <span>1. Master Code (Auto-Updates Here)</span>
+        <div class="upload-section">
+          <input type="file" id="fileUploader" accept=".txt,.html,.js,.css">
+        </div>
       </div>
-
-      <div>
-        <div class="box-header">2. Paste Patch Instructions Here</div>
-        <textarea id="patchCode" spellcheck="false" placeholder="Paste the ---FIND--- and ---REPLACE--- blocks here..."></textarea>
-      </div>
+      <textarea id="masterCode" class="source-box" spellcheck="false" placeholder="Upload a file above, OR manually paste your full master code here..."></textarea>
     </div>
 
-    <div class="controls">
-      <button onclick="applyPatches()">⚙️ Apply Patches</button>
-      <button id="downloadBtn" onclick="downloadFile()">📥 Download Fixed File</button>
+    <div>
+      <div class="box-header">2. Patch Instructions</div>
+      <textarea id="patchCode" class="patch-box" spellcheck="false" placeholder="Paste the ---FIND--- and ---REPLACE--- blocks here..."></textarea>
+    </div>
+
+    <div class="action-row">
+      <div class="btn-group">
+        <button class="btn-primary" onclick="applyPatches()">⚙️ Apply Patch to Master</button>
+        <button class="btn-download" onclick="downloadFile()">📥 Download Final File</button>
+      </div>
+      
+      <div class="btn-group">
+        <button onclick="clearPatchesOnly()">🧹 Clear Patches Only</button>
+        <button class="btn-danger" onclick="hardReset()">🚨 Hard Reset</button>
+      </div>
     </div>
 
     <div id="statusMsg" class="status"></div>
-
-    <div style="margin-top: 20px;">
-      <div class="box-header">3. Preview Output</div>
-      <textarea id="outputBox" spellcheck="false" readonly placeholder="Your updated code will appear here..."></textarea>
-    </div>
   </div>
 
   <script>
-    function applyPatches() {
-      let code = document.getElementById('originalCode').value;
-      const patches = document.getElementById('patchCode').value;
-      const statusMsg = document.getElementById('statusMsg');
+    // Handle File Upload to populate the Master Code box
+    document.getElementById('fileUploader').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        document.getElementById('masterCode').value = event.target.result;
+        showStatus(`File '${file.name}' loaded successfully!`, 'var(--accent)');
+      };
+      reader.readAsText(file);
+    });
 
-      if (!code.trim() || !patches.trim()) {
-        alert("Please paste both the original code and the patch instructions!");
+    function applyPatches() {
+      let master = document.getElementById('masterCode').value;
+      const patches = document.getElementById('patchCode').value;
+
+      if (!master.trim() || !patches.trim()) {
+        showStatus("⚠️ Missing master code or patches!", 'var(--warning)');
         return;
       }
 
-      // Split the instructions by the FIND delimiter
       const blocks = patches.split('---FIND---');
       let appliedCount = 0;
       let failedCount = 0;
@@ -172,13 +195,11 @@
         const parts = blocks[i].split('---REPLACE---');
         
         if (parts.length === 2) {
-          // Clean up leading/trailing white space from the blocks so it matches cleanly
           const findText = parts[0].trim();
           const replaceText = parts[1].trim();
 
-          if (code.includes(findText)) {
-            // Swap the old code with the new code
-            code = code.split(findText).join(replaceText);
+          if (master.includes(findText)) {
+            master = master.split(findText).join(replaceText);
             appliedCount++;
           } else {
             failedCount++;
@@ -187,39 +208,57 @@
         }
       }
 
-      document.getElementById('outputBox').value = code;
+      // AUTO-UPDATE THE MASTER BOX WITH THE NEW CODE
+      document.getElementById('masterCode').value = master;
 
-      // Update the UI based on success/failure
       if (failedCount > 0) {
-        statusMsg.style.color = "var(--error)";
-        statusMsg.innerText = `⚠️ Applied ${appliedCount} patches, but ${failedCount} failed. Check the console for details.`;
+        showStatus(`⚠️ Applied ${appliedCount} patches, but ${failedCount} failed. Check console.`, 'var(--warning)');
       } else {
-        statusMsg.style.color = "var(--accent)";
-        statusMsg.innerText = `✅ Successfully applied all ${appliedCount} patches!`;
-        document.getElementById('downloadBtn').style.display = 'inline-block';
+        showStatus(`✅ Surgery successful! ${appliedCount} patches applied. Master code updated.`, 'var(--accent)');
+      }
+    }
+
+    function clearPatchesOnly() {
+      document.getElementById('patchCode').value = '';
+      showStatus('🧹 Patch box cleared. Master file is ready for the next fix.', 'var(--text)');
+    }
+
+    function hardReset() {
+      if(confirm("Are you sure? This will delete the master code and all patches.")) {
+        document.getElementById('masterCode').value = '';
+        document.getElementById('patchCode').value = '';
+        document.getElementById('fileUploader').value = '';
+        document.getElementById('statusMsg').style.display = 'none';
       }
     }
 
     function downloadFile() {
-      const code = document.getElementById('outputBox').value;
-      if (!code) return;
+      const code = document.getElementById('masterCode').value;
+      if (!code) {
+        showStatus("⚠️ Nothing to download!", 'var(--warning)');
+        return;
+      }
 
-      // Create a blob file right in the browser
-      const blob = new Blob([code], { type: 'text/html' });
+      const blob = new Blob([code], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       
-      // Create a hidden link and click it automatically
       const a = document.createElement('a');
       a.href = url;
-      // Prompt for a custom file name or default to patched_file.html
-      const fileName = prompt("What do you want to name the downloaded file?", "patched_file.html");
-      if (!fileName) return; // Cancelled
+      const fileName = prompt("Name your final file:", "patched_file.txt");
+      if (!fileName) return; 
       
       a.download = fileName;
       a.click();
-      
-      // Clean up the URL object
       URL.revokeObjectURL(url);
+    }
+
+    function showStatus(msg, color) {
+      const statusDiv = document.getElementById('statusMsg');
+      statusDiv.style.display = 'block';
+      statusDiv.style.backgroundColor = color === 'var(--text)' ? '#30363d' : color + '20'; // 20 adds transparency
+      statusDiv.style.color = color === 'var(--text)' ? '#c9d1d9' : color;
+      statusDiv.style.border = `1px solid ${color}`;
+      statusDiv.innerText = msg;
     }
   </script>
 
