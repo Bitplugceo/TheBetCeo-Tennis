@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V4</title>
+  <title>Auto-Patcher V5</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -60,7 +60,20 @@
 
     h1 {
       color: #ffffff;
-      margin-bottom: 5px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* Stacked Header for cleaner UI */
+    .box-header-stacked {
+      background: var(--panel);
+      padding: 12px 15px;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
     .box-header {
@@ -71,21 +84,18 @@
       border-radius: 8px 8px 0 0;
       font-size: 14px;
       font-weight: bold;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
     }
 
-    .upload-section {
-      display: flex;
-      gap: 10px;
-      align-items: center;
+    .header-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #ffffff;
     }
 
-    /* Font size strictly 16px to prevent iOS Auto-Zoom */
     input[type="file"] {
-      font-size: 16px; 
+      font-size: 14px; 
       color: #8b949e;
+      width: 100%;
     }
 
     textarea {
@@ -105,56 +115,65 @@
 
     textarea:focus { border-color: #58a6ff; }
     .source-box { height: 250px; margin-bottom: 20px; }
-    .patch-box { height: 250px; margin-bottom: 10px; }
+    .patch-box { height: 250px; margin-bottom: 15px; }
 
-    .action-row {
+    /* New Icon-Only Action Row */
+    .icon-action-row {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
       gap: 10px;
-      margin-bottom: 10px;
+      width: 100%;
+      margin-bottom: 15px;
     }
 
-    .btn-group { 
-      display: flex; 
-      gap: 10px; 
-      flex-wrap: wrap;
+    .icon-btn-large {
+      flex: 1;
+      font-size: 24px;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: opacity 0.2s;
     }
+    .icon-btn-large:hover { opacity: 0.8; }
 
-    button {
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-download { background: #1f6feb; color: white; }
+    .btn-copy { background: #6e7681; color: white; }
+
+    /* Secondary Controls */
+    .secondary-controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .btn-text {
       background: var(--panel);
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 10px 16px;
+      padding: 8px 16px;
       border-radius: 6px;
       font-size: 13px;
       font-weight: bold;
       cursor: pointer;
-      transition: 0.2s;
     }
-
-    button:hover { background: #30363d; }
-    
-    .btn-primary { background: var(--accent); color: white; border: none; }
-    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-text:hover { background: #30363d; }
     
     .btn-danger { color: var(--error); border-color: rgba(248,81,73,0.4); }
     .btn-danger:hover { background: rgba(248,81,73,0.1); }
 
-    .btn-download { background: #1f6feb; color: white; border: none; flex: 1; }
-    .btn-download:hover { background: #388bfd; }
-
-    .btn-copy { background: #6e7681; color: white; border: none; flex: 1; }
-    .btn-copy:hover { background: #8b949e; }
-
     .status {
       text-align: center;
       font-weight: bold;
-      padding: 10px;
+      padding: 12px;
       border-radius: 6px;
       display: none;
       transition: opacity 0.3s ease;
+      font-size: 14px;
     }
 
     /* Debug Log Styling */
@@ -192,14 +211,12 @@
   <div id="microscopeBtn" onclick="toggleDebug()" title="View failed patches">🔬</div>
 
   <div class="container">
-    <h1>🛠️ Auto-Patcher V4</h1>
+    <h1>🛠️ Auto-Patcher V5</h1>
 
     <div>
-      <div class="box-header">
-        <span>1. Master Code (Auto-Updates Here)</span>
-        <div class="upload-section">
-          <input type="file" id="fileUploader" accept=".txt,.html,.js,.css">
-        </div>
+      <div class="box-header-stacked">
+        <div class="header-title">1. Master Code</div>
+        <input type="file" id="fileUploader" accept=".txt,.html,.js,.css">
       </div>
       <textarea id="masterCode" class="source-box" spellcheck="false" placeholder="Upload a file above, OR manually paste your full master code here..."></textarea>
     </div>
@@ -209,31 +226,27 @@
       <textarea id="patchCode" class="patch-box" spellcheck="false" placeholder="Paste the ---FIND--- and ---REPLACE--- blocks here..."></textarea>
     </div>
 
-    <div class="action-row">
-      <div class="btn-group">
-        <button class="btn-primary" onclick="applyPatches()">⚙️ Apply Patch to Master</button>
-        <div style="display: flex; gap: 10px;">
-          <button class="btn-download" onclick="downloadFile()">📥 Download</button>
-          <button class="btn-copy" onclick="copyMaster()">📋 Copy</button>
-        </div>
-      </div>
-      
-      <div class="btn-group">
-        <button onclick="clearPatchesOnly()">🧹 Clear Patches Only</button>
-        <button class="btn-danger" onclick="hardReset()">🚨 Hard Reset</button>
-      </div>
+    <div class="icon-action-row">
+      <button class="icon-btn-large btn-primary" onclick="applyPatches()" title="Apply Patch">⚙️</button>
+      <button class="icon-btn-large btn-download" onclick="downloadFile()" title="Download">📥</button>
+      <button class="icon-btn-large btn-copy" onclick="copyMaster()" title="Copy">📋</button>
+    </div>
+
+    <div class="secondary-controls">
+      <button class="btn-text" onclick="clearPatchesOnly()">🧹 Clear Patches</button>
+      <button class="btn-text btn-danger" onclick="hardReset()">🚨 Hard Reset</button>
     </div>
 
     <div id="statusMsg" class="status"></div>
     
     <div id="debugLog" class="debug-log">
-      <h4><span>🔬 Failed Patches (Could not locate these strings in the Master Code):</span> <span style="cursor:pointer" onclick="closeDebug()">✕</span></h4>
+      <h4><span>🔬 Failed Patches:</span> <span style="cursor:pointer" onclick="closeDebug()">✕</span></h4>
       <div id="failedList"></div>
     </div>
   </div>
 
   <script>
-    let currentFileName = "patched_master.txt"; // Default filename
+    let currentFileName = "patched_master.txt"; 
     let statusTimer;
 
     // Handle File Upload
@@ -246,7 +259,7 @@
       const reader = new FileReader();
       reader.onload = function(event) {
         document.getElementById('masterCode').value = event.target.result;
-        showStatus(`✅ File '${file.name}' loaded successfully!`, 'var(--accent)', true);
+        showStatus(`✅ File loaded!`, 'var(--accent)', true);
       };
       reader.readAsText(file);
     });
@@ -256,8 +269,8 @@
       const patches = document.getElementById('patchCode').value;
       const microscope = document.getElementById('microscopeBtn');
       
-      closeDebug(); // Close log on new run
-      microscope.style.display = 'none'; // Hide alert icon reset
+      closeDebug(); 
+      microscope.style.display = 'none'; 
 
       if (!master.trim() || !patches.trim()) {
         showStatus("⚠️ Missing master code or patches!", 'var(--warning)', false);
@@ -289,7 +302,6 @@
       document.getElementById('masterCode').value = master;
 
       if (failedCount > 0) {
-        // Populate debug list
         const listDiv = document.getElementById('failedList');
         listDiv.innerHTML = '';
         failedSnippets.forEach((snippet, index) => {
@@ -298,12 +310,10 @@
           listDiv.appendChild(pre);
         });
 
-        // Show the pulsing microscope icon top right
         microscope.style.display = 'flex';
-        showStatus(`⚠️ Applied ${appliedCount} patches, but ${failedCount} failed. Click 🔬 at top right to view.`, 'var(--warning)', false);
+        showStatus(`⚠️ ${failedCount} patches failed. Click 🔬`, 'var(--warning)', false);
       } else {
-        // Success: Show the 2-second vanishing message
-        showStatus(`✅ Master file updated to the new fixed file!`, 'var(--accent)', true);
+        showStatus(`✅ Master file updated!`, 'var(--accent)', true);
       }
     }
 
@@ -318,11 +328,11 @@
 
     function clearPatchesOnly() {
       document.getElementById('patchCode').value = '';
-      showStatus('🧹 Patch box cleared. Ready for next fix.', 'var(--text)', true);
+      showStatus('🧹 Patch box cleared.', 'var(--text)', true);
     }
 
     function hardReset() {
-      if(confirm("Are you sure? This will delete the master code and all patches.")) {
+      if(confirm("Delete master code and patches?")) {
         document.getElementById('masterCode').value = '';
         document.getElementById('patchCode').value = '';
         document.getElementById('fileUploader').value = '';
@@ -333,23 +343,27 @@
       }
     }
 
-    // Copy to clipboard
-    function copyMaster() {
-      const master = document.getElementById('masterCode');
-      if (!master.value) {
+    // Modern Copy function for iOS reliability
+    async function copyMaster() {
+      const masterValue = document.getElementById('masterCode').value;
+      if (!masterValue) {
         showStatus("⚠️ Nothing to copy!", 'var(--warning)', true);
         return;
       }
-      master.select();
-      document.execCommand('copy');
       
-      // Deselect text after copying
-      window.getSelection().removeAllRanges();
-      
-      showStatus(`📋 File copied to clipboard!`, 'var(--accent)', true);
+      try {
+        await navigator.clipboard.writeText(masterValue);
+        showStatus(`📋 File copied to clipboard!`, 'var(--accent)', true);
+      } catch (err) {
+        // Fallback for older browsers
+        const masterInput = document.getElementById('masterCode');
+        masterInput.select();
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+        showStatus(`📋 File copied to clipboard!`, 'var(--accent)', true);
+      }
     }
 
-    // 1-Click Auto Download
     function downloadFile() {
       const code = document.getElementById('masterCode').value;
       if (!code) {
@@ -367,10 +381,9 @@
       a.click();
       URL.revokeObjectURL(url);
       
-      showStatus(`📥 File downloaded as '${currentFileName}'`, 'var(--accent)', true);
+      showStatus(`📥 Downloaded as '${currentFileName}'`, 'var(--accent)', true);
     }
 
-    // Dynamic Status Messaging System
     function showStatus(htmlContent, color, autoHide) {
       const statusDiv = document.getElementById('statusMsg');
       statusDiv.style.display = 'block';
