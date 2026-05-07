@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V7</title>
+  <title>Auto-Patcher V8</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -174,7 +174,7 @@
       font-size: 14px;
     }
 
-    /* V7 FULL-SCREEN DEBUG OVERLAY */
+    /* FULL-SCREEN DEBUG OVERLAY */
     #debugOverlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -218,31 +218,30 @@
     }
     
     .btn-copy-log { background: #6e7681; }
-    .btn-close-log { background: var(--error); }
 
     .failed-item {
       background: #161b22;
       border: 1px solid #30363d;
       border-left: 3px solid var(--error);
       border-radius: 4px;
-      margin-bottom: 10px; /* Tighter layout */
-      padding: 10px; /* Smaller padding */
+      margin-bottom: 10px;
+      padding: 10px; 
     }
 
     .failed-reason {
       color: var(--warning);
       font-weight: bold;
-      font-size: 11px; /* Smaller text */
+      font-size: 11px; 
       margin-bottom: 6px;
     }
 
     .failed-item pre {
       background: #010409;
-      padding: 8px; /* Tighter box */
+      padding: 8px; 
       border-radius: 4px;
       border: 1px solid #30363d;
       color: #ff7b72;
-      font-size: 10px; /* Reduced font size to fit more code */
+      font-size: 10px; 
       line-height: 1.3;
       overflow-x: auto;
       margin: 0;
@@ -259,14 +258,13 @@
       <div class="debug-title">🔬 Diagnostic Log</div>
       <div class="debug-controls">
         <button class="btn-small btn-copy-log" id="copyLogBtn" onclick="copyDebugLog()">📋 Copy Log</button>
-        <button class="btn-small btn-close-log" onclick="toggleDebug()">✕ Close</button>
       </div>
     </div>
     <div id="failedList"></div>
   </div>
 
   <div class="container">
-    <h1>🛠️ Auto-Patcher V7</h1>
+    <h1>🛠️ Auto-Patcher V8</h1>
 
     <div>
       <div class="box-header-stacked">
@@ -299,7 +297,7 @@
     let currentFileName = "patched_master.txt"; 
     let statusTimer;
     let isDebugOpen = false;
-    let globalFailedSnippets = []; // Stores errors for the copy button
+    let globalFailedSnippets = []; 
 
     // Handle File Upload
     document.getElementById('fileUploader').addEventListener('change', function(e) {
@@ -398,7 +396,6 @@
       }
     }
 
-    // New: Copy Debug Log
     async function copyDebugLog() {
       if (globalFailedSnippets.length === 0) return;
       
