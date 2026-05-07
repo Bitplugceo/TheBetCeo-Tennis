@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V8</title>
+  <title>Auto-Patcher V9 (Smart Engine)</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -174,7 +174,7 @@
       font-size: 14px;
     }
 
-    /* FULL-SCREEN DEBUG OVERLAY */
+    /* FULL-SCREEN DEBUG OVERLAY V9 */
     #debugOverlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -183,17 +183,19 @@
       z-index: 2000;
       display: none;
       flex-direction: column;
-      padding: 60px 15px 20px 15px;
+      padding: 40px 15px 20px 15px;
       overflow-y: auto;
     }
 
     .debug-header {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start; /* Aligned to left */
       align-items: center;
+      gap: 15px; /* Spaces out title and button */
       margin-bottom: 15px;
       border-bottom: 1px solid var(--error);
       padding-bottom: 10px;
+      padding-right: 60px; /* Leaves room so text doesn't hit microscope */
     }
 
     .debug-title {
@@ -202,22 +204,21 @@
       font-weight: bold;
     }
 
-    .debug-controls {
-      display: flex;
-      gap: 8px;
-    }
-
-    .btn-small {
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: bold;
-      border: none;
-      cursor: pointer;
+    .icon-btn-small {
+      background: #1f6feb;
       color: white;
+      border: none;
+      border-radius: 4px;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
     }
-    
-    .btn-copy-log { background: #6e7681; }
+    .icon-btn-small:hover { background: #388bfd; }
 
     .failed-item {
       background: #161b22;
@@ -256,15 +257,13 @@
   <div id="debugOverlay">
     <div class="debug-header">
       <div class="debug-title">🔬 Diagnostic Log</div>
-      <div class="debug-controls">
-        <button class="btn-small btn-copy-log" id="copyLogBtn" onclick="copyDebugLog()">📋 Copy Log</button>
-      </div>
+      <button class="icon-btn-small" id="copyLogBtn" onclick="copyDebugLog()" title="Copy Errors to Clipboard">📋</button>
     </div>
     <div id="failedList"></div>
   </div>
 
   <div class="container">
-    <h1>🛠️ Auto-Patcher V8</h1>
+    <h1>🛠️ Auto-Patcher V9</h1>
 
     <div>
       <div class="box-header-stacked">
@@ -276,7 +275,7 @@
 
     <div>
       <div class="box-header">2. Patch Instructions</div>
-      <textarea id="patchCode" class="patch-box" spellcheck="false" placeholder="Paste the ---FIND--- and ---REPLACE--- blocks here..."></textarea>
+      <textarea id="patchCode" class="patch-box" spellcheck="false" placeholder="Paste the entire AI chat message here. The Smart Extractor will handle the rest!"></textarea>
     </div>
 
     <div class="icon-action-row">
@@ -318,45 +317,58 @@
 
     function applyPatches() {
       let master = document.getElementById('masterCode').value;
-      const patches = document.getElementById('patchCode').value;
+      let rawPatches = document.getElementById('patchCode').value;
       const microscope = document.getElementById('microscopeBtn');
       
       if(isDebugOpen) toggleDebug();
       microscope.style.display = 'none'; 
       microscope.classList.remove('pulse');
 
-      if (!master.trim() || !patches.trim()) {
+      if (!master.trim() || !rawPatches.trim()) {
         showStatus("⚠️ Missing master code or patches!", 'var(--warning)', false);
         return;
       }
 
-      const blocks = patches.split('---FIND---');
+      // SMART EXTRACTOR V9 PRE-PROCESSING
+      // Convert Markdown code blocks into explicit END markers to strip out chat text
+      let processedPatches = rawPatches
+        .replace(/```[a-z]*\n/gi, '\n') // Remove opening backticks
+        .replace(/```/g, '\n---END---\n'); // Turn closing backticks into a hard barrier
+
+      // The Smart Regex: Finds text between FIND and REPLACE, stops capturing at next FIND or END.
+      const patchRegex = /---FIND---\n?([\s\S]*?)\n?---REPLACE---\n?([\s\S]*?)(?=\n?---FIND---|\n?---END---|$)/g;
+
       let appliedCount = 0;
       let failedCount = 0;
       globalFailedSnippets = []; 
 
-      const normMaster = master.replace(/\\s+/g, '');
+      const normMaster = master.replace(/\s+/g, '');
+      let match;
+      let patchFound = false;
 
-      for (let i = 1; i < blocks.length; i++) {
-        const parts = blocks[i].split('---REPLACE---');
-        
-        if (parts.length === 2) {
-          const findText = parts[0].replace(/^\\n+|\\n+$/g, ''); 
-          const replaceText = parts[1].replace(/^\\n+|\\n+$/g, '');
+      while ((match = patchRegex.exec(processedPatches)) !== null) {
+        patchFound = true;
+        // Strip trailing/leading blank lines but keep internal structure perfect
+        const findText = match[1].replace(/^\n+|\n+$/g, ''); 
+        const replaceText = match[2].replace(/^\n+|\n+$/g, '');
 
-          if (master.includes(findText)) {
-            master = master.split(findText).join(replaceText);
-            appliedCount++;
-          } else {
-            failedCount++;
-            const normFind = findText.replace(/\\s+/g, '');
-            let reason = "Block not found in Master Code.";
-            if (normMaster.includes(normFind)) {
-              reason = "Whitespace/Indentation mismatch.";
-            }
-            globalFailedSnippets.push({ text: findText, reason: reason });
+        if (master.includes(findText)) {
+          master = master.split(findText).join(replaceText);
+          appliedCount++;
+        } else {
+          failedCount++;
+          const normFind = findText.replace(/\s+/g, '');
+          let reason = "Block not found in Master Code.";
+          if (normMaster.includes(normFind)) {
+            reason = "Whitespace/Indentation mismatch.";
           }
+          globalFailedSnippets.push({ text: findText, reason: reason });
         }
+      }
+
+      if (!patchFound) {
+        showStatus("⚠️ No valid ---FIND--- markers detected!", 'var(--warning)', false);
+        return;
       }
 
       document.getElementById('masterCode').value = master;
@@ -376,9 +388,9 @@
 
         microscope.style.display = 'flex';
         microscope.classList.add('pulse');
-        showStatus(`⚠️ ${failedCount} patches failed. Click 🔬`, 'var(--warning)', false);
+        showStatus(`⚠️ Applied ${appliedCount}. Failed ${failedCount}. Click 🔬`, 'var(--warning)', false);
       } else {
-        showStatus(`✅ Master file updated!`, 'var(--accent)', true);
+        showStatus(`✅ Smart Extractor: ${appliedCount} Patches Applied!`, 'var(--accent)', true);
       }
     }
 
@@ -399,15 +411,15 @@
     async function copyDebugLog() {
       if (globalFailedSnippets.length === 0) return;
       
-      let logText = "Auto-Patcher Error Log:\\n\\n";
+      let logText = "Auto-Patcher Error Log:\n\n";
       globalFailedSnippets.forEach((snippet, i) => {
-        logText += `[Failed Patch #${i + 1}]\\nReason: ${snippet.reason}\\nCODE:\\n${snippet.text}\\n\\n`;
+        logText += `[Failed Patch #${i + 1}]\nReason: ${snippet.reason}\nCODE:\n${snippet.text}\n\n`;
       });
 
       const btn = document.getElementById('copyLogBtn');
       try {
         await navigator.clipboard.writeText(logText);
-        btn.textContent = "✅ Copied!";
+        btn.textContent = "✅";
         btn.style.background = "var(--accent)";
       } catch (err) {
         const tempInput = document.createElement("textarea");
@@ -416,13 +428,13 @@
         tempInput.select();
         document.execCommand("copy");
         document.body.removeChild(tempInput);
-        btn.textContent = "✅ Copied!";
+        btn.textContent = "✅";
         btn.style.background = "var(--accent)";
       }
 
       setTimeout(() => {
-        btn.textContent = "📋 Copy Log";
-        btn.style.background = "#6e7681";
+        btn.textContent = "📋";
+        btn.style.background = "#1f6feb";
       }, 2000);
     }
 
