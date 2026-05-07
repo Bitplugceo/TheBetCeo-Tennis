@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V6</title>
+  <title>Auto-Patcher V7</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -43,7 +43,7 @@
       font-size: 20px;
       cursor: pointer;
       box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-      z-index: 3000; /* Stays above everything */
+      z-index: 3000;
     }
 
     .pulse {
@@ -174,7 +174,7 @@
       font-size: 14px;
     }
 
-    /* FULL-SCREEN DEBUG OVERLAY */
+    /* V7 FULL-SCREEN DEBUG OVERLAY */
     #debugOverlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -183,42 +183,67 @@
       z-index: 2000;
       display: none;
       flex-direction: column;
-      padding: 80px 20px 20px 20px;
+      padding: 60px 15px 20px 15px;
       overflow-y: auto;
     }
 
     .debug-header {
-      color: var(--error);
-      font-size: 18px;
-      font-weight: bold;
-      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
       border-bottom: 1px solid var(--error);
       padding-bottom: 10px;
     }
 
+    .debug-title {
+      color: var(--error);
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .debug-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      color: white;
+    }
+    
+    .btn-copy-log { background: #6e7681; }
+    .btn-close-log { background: var(--error); }
+
     .failed-item {
       background: #161b22;
       border: 1px solid #30363d;
-      border-left: 4px solid var(--error);
-      border-radius: 6px;
-      margin-bottom: 20px;
-      padding: 15px;
+      border-left: 3px solid var(--error);
+      border-radius: 4px;
+      margin-bottom: 10px; /* Tighter layout */
+      padding: 10px; /* Smaller padding */
     }
 
     .failed-reason {
       color: var(--warning);
       font-weight: bold;
-      font-size: 13px;
-      margin-bottom: 10px;
+      font-size: 11px; /* Smaller text */
+      margin-bottom: 6px;
     }
 
     .failed-item pre {
       background: #010409;
-      padding: 12px;
+      padding: 8px; /* Tighter box */
       border-radius: 4px;
       border: 1px solid #30363d;
       color: #ff7b72;
-      font-size: 12px;
+      font-size: 10px; /* Reduced font size to fit more code */
+      line-height: 1.3;
       overflow-x: auto;
       margin: 0;
       white-space: pre-wrap;
@@ -230,12 +255,18 @@
   <div id="microscopeBtn" onclick="toggleDebug()" title="Toggle Debug Log">🔬</div>
 
   <div id="debugOverlay">
-    <div class="debug-header">🔬 Diagnostic Log: Failed Patches</div>
+    <div class="debug-header">
+      <div class="debug-title">🔬 Diagnostic Log</div>
+      <div class="debug-controls">
+        <button class="btn-small btn-copy-log" id="copyLogBtn" onclick="copyDebugLog()">📋 Copy Log</button>
+        <button class="btn-small btn-close-log" onclick="toggleDebug()">✕ Close</button>
+      </div>
+    </div>
     <div id="failedList"></div>
   </div>
 
   <div class="container">
-    <h1>🛠️ Auto-Patcher V6</h1>
+    <h1>🛠️ Auto-Patcher V7</h1>
 
     <div>
       <div class="box-header-stacked">
@@ -253,7 +284,7 @@
     <div class="icon-action-row">
       <button class="icon-btn-large btn-primary" onclick="applyPatches()" title="Apply Patch">⚙️</button>
       <button class="icon-btn-large btn-download" onclick="downloadFile()" title="Download">📥</button>
-      <button class="icon-btn-large btn-copy" onclick="copyMaster()" title="Copy">📋</button>
+      <button class="icon-btn-large btn-copy" onclick="copyMaster()" title="Copy Code">📋</button>
     </div>
 
     <div class="secondary-controls">
@@ -268,6 +299,7 @@
     let currentFileName = "patched_master.txt"; 
     let statusTimer;
     let isDebugOpen = false;
+    let globalFailedSnippets = []; // Stores errors for the copy button
 
     // Handle File Upload
     document.getElementById('fileUploader').addEventListener('change', function(e) {
@@ -282,7 +314,6 @@
       reader.readAsText(file);
     });
 
-    // Safely escape HTML so it renders as text in the pre block
     function escapeHTML(str) {
       return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
@@ -292,7 +323,6 @@
       const patches = document.getElementById('patchCode').value;
       const microscope = document.getElementById('microscopeBtn');
       
-      // Reset state
       if(isDebugOpen) toggleDebug();
       microscope.style.display = 'none'; 
       microscope.classList.remove('pulse');
@@ -305,16 +335,15 @@
       const blocks = patches.split('---FIND---');
       let appliedCount = 0;
       let failedCount = 0;
-      let failedSnippets = []; 
+      globalFailedSnippets = []; 
 
-      // Create a master string with no whitespace for fuzzy matching
       const normMaster = master.replace(/\\s+/g, '');
 
       for (let i = 1; i < blocks.length; i++) {
         const parts = blocks[i].split('---REPLACE---');
         
         if (parts.length === 2) {
-          const findText = parts[0].replace(/^\\n+|\\n+$/g, ''); // Trim only leading/trailing newlines
+          const findText = parts[0].replace(/^\\n+|\\n+$/g, ''); 
           const replaceText = parts[1].replace(/^\\n+|\\n+$/g, '');
 
           if (master.includes(findText)) {
@@ -322,15 +351,12 @@
             appliedCount++;
           } else {
             failedCount++;
-            
-            // SMART DIAGNOSTICS: Check if it's just a spacing issue
             const normFind = findText.replace(/\\s+/g, '');
             let reason = "Block not found in Master Code.";
             if (normMaster.includes(normFind)) {
-              reason = "Whitespace/Indentation mismatch. Check spaces and line breaks.";
+              reason = "Whitespace/Indentation mismatch.";
             }
-
-            failedSnippets.push({ text: findText, reason: reason });
+            globalFailedSnippets.push({ text: findText, reason: reason });
           }
         }
       }
@@ -340,7 +366,7 @@
       if (failedCount > 0) {
         const listDiv = document.getElementById('failedList');
         listDiv.innerHTML = '';
-        failedSnippets.forEach((snippet, index) => {
+        globalFailedSnippets.forEach((snippet, index) => {
           const itemDiv = document.createElement('div');
           itemDiv.className = 'failed-item';
           itemDiv.innerHTML = `
@@ -361,16 +387,46 @@
     function toggleDebug() {
       const overlay = document.getElementById('debugOverlay');
       const microscope = document.getElementById('microscopeBtn');
-      
       isDebugOpen = !isDebugOpen;
       
       if (isDebugOpen) {
         overlay.style.display = 'flex';
-        microscope.classList.remove('pulse'); // Stop pulsing when looking at it
+        microscope.classList.remove('pulse'); 
       } else {
         overlay.style.display = 'none';
-        microscope.classList.add('pulse'); // Resume pulse if closed but still unresolved
+        microscope.classList.add('pulse'); 
       }
+    }
+
+    // New: Copy Debug Log
+    async function copyDebugLog() {
+      if (globalFailedSnippets.length === 0) return;
+      
+      let logText = "Auto-Patcher Error Log:\\n\\n";
+      globalFailedSnippets.forEach((snippet, i) => {
+        logText += `[Failed Patch #${i + 1}]\\nReason: ${snippet.reason}\\nCODE:\\n${snippet.text}\\n\\n`;
+      });
+
+      const btn = document.getElementById('copyLogBtn');
+      try {
+        await navigator.clipboard.writeText(logText);
+        btn.textContent = "✅ Copied!";
+        btn.style.background = "var(--accent)";
+      } catch (err) {
+        const tempInput = document.createElement("textarea");
+        tempInput.value = logText;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+        btn.textContent = "✅ Copied!";
+        btn.style.background = "var(--accent)";
+      }
+
+      setTimeout(() => {
+        btn.textContent = "📋 Copy Log";
+        btn.style.background = "#6e7681";
+      }, 2000);
     }
 
     function clearPatchesOnly() {
