@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V5</title>
+  <title>Auto-Patcher V6</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -43,7 +43,10 @@
       font-size: 20px;
       cursor: pointer;
       box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-      z-index: 1000;
+      z-index: 3000; /* Stays above everything */
+    }
+
+    .pulse {
       animation: pulseError 2s infinite;
     }
 
@@ -64,7 +67,6 @@
       text-align: center;
     }
 
-    /* Stacked Header for cleaner UI */
     .box-header-stacked {
       background: var(--panel);
       padding: 12px 15px;
@@ -103,7 +105,7 @@
       background: #010409;
       color: #e6edf3;
       font-family: ui-monospace, monospace;
-      font-size: 16px; /* 16px prevents iOS Safari from auto-zooming */
+      font-size: 16px; 
       line-height: 1.5;
       padding: 15px;
       border: 1px solid var(--border);
@@ -117,7 +119,6 @@
     .source-box { height: 250px; margin-bottom: 20px; }
     .patch-box { height: 250px; margin-bottom: 15px; }
 
-    /* New Icon-Only Action Row */
     .icon-action-row {
       display: flex;
       gap: 10px;
@@ -143,7 +144,6 @@
     .btn-download { background: #1f6feb; color: white; }
     .btn-copy { background: #6e7681; color: white; }
 
-    /* Secondary Controls */
     .secondary-controls {
       display: flex;
       justify-content: center;
@@ -161,10 +161,8 @@
       font-weight: bold;
       cursor: pointer;
     }
-    .btn-text:hover { background: #30363d; }
     
     .btn-danger { color: var(--error); border-color: rgba(248,81,73,0.4); }
-    .btn-danger:hover { background: rgba(248,81,73,0.1); }
 
     .status {
       text-align: center;
@@ -176,42 +174,68 @@
       font-size: 14px;
     }
 
-    /* Debug Log Styling */
-    .debug-log {
+    /* FULL-SCREEN DEBUG OVERLAY */
+    #debugOverlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(13, 17, 23, 0.98);
+      backdrop-filter: blur(5px);
+      z-index: 2000;
       display: none;
-      background: #1e0a0a;
-      border: 1px solid var(--error);
-      padding: 15px;
-      border-radius: 6px;
-      margin-top: 10px;
+      flex-direction: column;
+      padding: 80px 20px 20px 20px;
+      overflow-y: auto;
     }
 
-    .debug-log h4 {
+    .debug-header {
       color: var(--error);
-      margin: 0 0 10px 0;
-      font-size: 13px;
-      display: flex;
-      justify-content: space-between;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--error);
+      padding-bottom: 10px;
     }
 
-    .debug-log pre {
+    .failed-item {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-left: 4px solid var(--error);
+      border-radius: 6px;
+      margin-bottom: 20px;
+      padding: 15px;
+    }
+
+    .failed-reason {
+      color: var(--warning);
+      font-weight: bold;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .failed-item pre {
       background: #010409;
-      padding: 10px;
+      padding: 12px;
       border-radius: 4px;
       border: 1px solid #30363d;
       color: #ff7b72;
-      font-size: 11px;
+      font-size: 12px;
       overflow-x: auto;
-      margin-bottom: 10px;
+      margin: 0;
+      white-space: pre-wrap;
     }
   </style>
 </head>
 <body>
 
-  <div id="microscopeBtn" onclick="toggleDebug()" title="View failed patches">🔬</div>
+  <div id="microscopeBtn" onclick="toggleDebug()" title="Toggle Debug Log">🔬</div>
+
+  <div id="debugOverlay">
+    <div class="debug-header">🔬 Diagnostic Log: Failed Patches</div>
+    <div id="failedList"></div>
+  </div>
 
   <div class="container">
-    <h1>🛠️ Auto-Patcher V5</h1>
+    <h1>🛠️ Auto-Patcher V6</h1>
 
     <div>
       <div class="box-header-stacked">
@@ -238,24 +262,18 @@
     </div>
 
     <div id="statusMsg" class="status"></div>
-    
-    <div id="debugLog" class="debug-log">
-      <h4><span>🔬 Failed Patches:</span> <span style="cursor:pointer" onclick="closeDebug()">✕</span></h4>
-      <div id="failedList"></div>
-    </div>
   </div>
 
   <script>
     let currentFileName = "patched_master.txt"; 
     let statusTimer;
+    let isDebugOpen = false;
 
     // Handle File Upload
     document.getElementById('fileUploader').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
-      
       currentFileName = file.name;
-      
       const reader = new FileReader();
       reader.onload = function(event) {
         document.getElementById('masterCode').value = event.target.result;
@@ -264,13 +282,20 @@
       reader.readAsText(file);
     });
 
+    // Safely escape HTML so it renders as text in the pre block
+    function escapeHTML(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
     function applyPatches() {
       let master = document.getElementById('masterCode').value;
       const patches = document.getElementById('patchCode').value;
       const microscope = document.getElementById('microscopeBtn');
       
-      closeDebug(); 
+      // Reset state
+      if(isDebugOpen) toggleDebug();
       microscope.style.display = 'none'; 
+      microscope.classList.remove('pulse');
 
       if (!master.trim() || !patches.trim()) {
         showStatus("⚠️ Missing master code or patches!", 'var(--warning)', false);
@@ -282,19 +307,30 @@
       let failedCount = 0;
       let failedSnippets = []; 
 
+      // Create a master string with no whitespace for fuzzy matching
+      const normMaster = master.replace(/\\s+/g, '');
+
       for (let i = 1; i < blocks.length; i++) {
         const parts = blocks[i].split('---REPLACE---');
         
         if (parts.length === 2) {
-          const findText = parts[0].trim();
-          const replaceText = parts[1].trim();
+          const findText = parts[0].replace(/^\\n+|\\n+$/g, ''); // Trim only leading/trailing newlines
+          const replaceText = parts[1].replace(/^\\n+|\\n+$/g, '');
 
           if (master.includes(findText)) {
             master = master.split(findText).join(replaceText);
             appliedCount++;
           } else {
             failedCount++;
-            failedSnippets.push(findText);
+            
+            // SMART DIAGNOSTICS: Check if it's just a spacing issue
+            const normFind = findText.replace(/\\s+/g, '');
+            let reason = "Block not found in Master Code.";
+            if (normMaster.includes(normFind)) {
+              reason = "Whitespace/Indentation mismatch. Check spaces and line breaks.";
+            }
+
+            failedSnippets.push({ text: findText, reason: reason });
           }
         }
       }
@@ -305,12 +341,17 @@
         const listDiv = document.getElementById('failedList');
         listDiv.innerHTML = '';
         failedSnippets.forEach((snippet, index) => {
-          const pre = document.createElement('pre');
-          pre.textContent = `[Failed Patch #${index + 1}]\n${snippet}`;
-          listDiv.appendChild(pre);
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'failed-item';
+          itemDiv.innerHTML = `
+            <div class="failed-reason">[Patch #${index + 1}] Reason: ${snippet.reason}</div>
+            <pre>${escapeHTML(snippet.text)}</pre>
+          `;
+          listDiv.appendChild(itemDiv);
         });
 
         microscope.style.display = 'flex';
+        microscope.classList.add('pulse');
         showStatus(`⚠️ ${failedCount} patches failed. Click 🔬`, 'var(--warning)', false);
       } else {
         showStatus(`✅ Master file updated!`, 'var(--accent)', true);
@@ -318,12 +359,18 @@
     }
 
     function toggleDebug() {
-      const log = document.getElementById('debugLog');
-      log.style.display = log.style.display === 'block' ? 'none' : 'block';
-    }
-
-    function closeDebug() {
-      document.getElementById('debugLog').style.display = 'none';
+      const overlay = document.getElementById('debugOverlay');
+      const microscope = document.getElementById('microscopeBtn');
+      
+      isDebugOpen = !isDebugOpen;
+      
+      if (isDebugOpen) {
+        overlay.style.display = 'flex';
+        microscope.classList.remove('pulse'); // Stop pulsing when looking at it
+      } else {
+        overlay.style.display = 'none';
+        microscope.classList.add('pulse'); // Resume pulse if closed but still unresolved
+      }
     }
 
     function clearPatchesOnly() {
@@ -338,24 +385,21 @@
         document.getElementById('fileUploader').value = '';
         document.getElementById('statusMsg').style.display = 'none';
         document.getElementById('microscopeBtn').style.display = 'none';
+        if(isDebugOpen) toggleDebug();
         currentFileName = "patched_master.txt";
-        closeDebug();
       }
     }
 
-    // Modern Copy function for iOS reliability
     async function copyMaster() {
       const masterValue = document.getElementById('masterCode').value;
       if (!masterValue) {
         showStatus("⚠️ Nothing to copy!", 'var(--warning)', true);
         return;
       }
-      
       try {
         await navigator.clipboard.writeText(masterValue);
         showStatus(`📋 File copied to clipboard!`, 'var(--accent)', true);
       } catch (err) {
-        // Fallback for older browsers
         const masterInput = document.getElementById('masterCode');
         masterInput.select();
         document.execCommand('copy');
@@ -370,17 +414,13 @@
         showStatus("⚠️ Nothing to download!", 'var(--warning)', true);
         return;
       }
-
       const blob = new Blob([code], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
-      
       const a = document.createElement('a');
       a.href = url;
       a.download = currentFileName; 
-      
       a.click();
       URL.revokeObjectURL(url);
-      
       showStatus(`📥 Downloaded as '${currentFileName}'`, 'var(--accent)', true);
     }
 
@@ -394,7 +434,6 @@
       statusDiv.innerHTML = htmlContent;
 
       clearTimeout(statusTimer);
-
       if (autoHide) {
         statusTimer = setTimeout(() => {
           statusDiv.style.opacity = '0';
@@ -403,6 +442,5 @@
       }
     }
   </script>
-
 </body>
 </html>
