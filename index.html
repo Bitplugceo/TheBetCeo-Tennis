@@ -1,225 +1,237 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Unified Diff Patcher Engine</title>
+<title>Auto-Patcher X — Visual Diff Review (Tier 2)</title>
 
 <style>
 body{
   margin:0;
+  font-family:system-ui;
   background:#0d1117;
   color:#c9d1d9;
-  font-family:system-ui;
   padding:20px;
 }
 
-.container{
-  max-width:1000px;
-  margin:auto;
-}
+.container{max-width:1200px;margin:auto}
+
+h2{margin-bottom:10px}
 
 textarea{
   width:100%;
-  height:200px;
+  height:180px;
   margin:10px 0;
   background:#161b22;
-  color:#e6edf3;
   border:1px solid #30363d;
+  color:#e6edf3;
   padding:10px;
   font-family:monospace;
 }
 
 button{
-  padding:10px 15px;
+  padding:10px 14px;
   margin-right:10px;
   background:#238636;
   border:none;
   color:white;
   cursor:pointer;
+  border-radius:6px;
 }
 
-button:hover{opacity:.9}
+button.secondary{background:#21262d}
 
 #status{
-  margin-top:10px;
+  margin:10px 0;
   padding:10px;
   border:1px solid #30363d;
+  background:#161b22;
 }
-pre{
-  background:#010409;
+
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.panel{
+  border:1px solid #30363d;
+  background:#0d1117;
   padding:10px;
+  min-height:300px;
   overflow:auto;
+  font-family:monospace;
+  white-space:pre-wrap;
 }
+
+.line{
+  display:block;
+  padding:2px 4px;
+}
+
+.add{background:rgba(63,185,80,0.15);color:#3fb950}
+.del{background:rgba(248,81,73,0.15);color:#f85149;text-decoration:line-through}
+.ctx{color:#c9d1d9}
 </style>
 </head>
 
 <body>
+
 <div class="container">
 
-<h2>Unified Diff Patch Engine</h2>
+<h2>🛠 Auto-Patcher X — Visual Diff Review (Tier 2 Engine)</h2>
 
-<textarea id="master" placeholder="Master code (text)..."></textarea>
-<textarea id="diff" placeholder="Paste unified diff here..."></textarea>
+<textarea id="master" placeholder="Master text..."></textarea>
+<textarea id="diff" placeholder="Unified diff..."></textarea>
 
-<button onclick="applyDiff()">Apply Patch</button>
-<button onclick="undo()">Undo</button>
+<button onclick="runEngine()">⚙️ Run Engine</button>
+<button class="secondary" onclick="commit()">✔ Commit</button>
 
-<div id="status"></div>
+<div id="status">Ready</div>
 
-<h3>Output</h3>
-<pre id="output"></pre>
+<div class="grid">
+  <div>
+    <h3>Original</h3>
+    <div id="left" class="panel"></div>
+  </div>
+  <div>
+    <h3>Preview (New State)</h3>
+    <div id="right" class="panel"></div>
+  </div>
+</div>
 
 </div>
 
 <script>
 "use strict";
 
-const state = {
-  history: [],
-  last: null
-};
+/* =========================
+   TIER 2 ENGINE (UNCHANGED)
+========================= */
 
-function setStatus(msg){
-  document.getElementById("status").textContent = msg;
+function splitLines(s){
+  return s.replace(/\r\n/g,"\n").split("\n");
 }
 
-function splitLines(str){
-  return str.replace(/\r\n/g,"\n").split("\n");
-}
-
-/**
- * Parse unified diff
- */
-function parseUnifiedDiff(text){
+function parseDiff(text){
   const lines = splitLines(text);
-
   const hunks = [];
-  let hunk = null;
+  let h = null;
 
-  for(const line of lines){
-    if(line.startsWith("@@")){
-      const match = line.match(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/);
-      if(!match) continue;
+  for(const l of lines){
+    if(l.startsWith("@@")){
+      const m = l.match(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/);
+      if(!m) continue;
 
-      hunk = {
-        oldStart: parseInt(match[1]),
-        oldCount: parseInt(match[2] || "1"),
-        newStart: parseInt(match[3]),
-        newCount: parseInt(match[4] || "1"),
-        lines: []
-      };
-
-      hunks.push(hunk);
-    } else if(hunk){
-      hunk.lines.push(line);
+      h = { start: parseInt(m[1]), lines: [] };
+      hunks.push(h);
+    } else if(h){
+      h.lines.push(l);
     }
   }
 
   return hunks;
 }
 
-/**
- * Apply hunks transactionally
- */
-function applyHunks(originalLines, hunks){
-  let working = [...originalLines];
+function runStream(original, hunks){
+  const out = [];
+  const trace = [];
 
-  for(const hunk of hunks){
-    let idx = hunk.oldStart - 1;
+  let i = 0;
 
-    const newSegment = [];
-    const removedSegment = [];
+  for(const h of hunks){
+    let p = h.start - 1;
 
-    for(const line of hunk.lines){
-      if(line.startsWith("-")){
-        removedSegment.push(line.slice(1));
-      } 
-      else if(line.startsWith("+")){
-        newSegment.push(line.slice(1));
-      } 
-      else if(line.startsWith(" ")){
-        idx++;
+    while(i < p){
+      out.push(original[i]);
+      trace.push({type:"ctx", text:original[i]});
+      i++;
+    }
+
+    for(const l of h.lines){
+      const t = l[0];
+      const c = l.slice(1);
+
+      if(t === " "){
+        if(original[i] !== c) return {ok:false,error:"context mismatch"};
+        out.push(c);
+        trace.push({type:"ctx", text:c});
+        i++;
+      }
+
+      else if(t === "-"){
+        if(original[i] !== c) return {ok:false,error:"delete mismatch"};
+        trace.push({type:"del", text:c});
+        i++;
+      }
+
+      else if(t === "+"){
+        out.push(c);
+        trace.push({type:"add", text:c});
       }
     }
+  }
 
-    // validation: ensure match
-    const actualSlice = working.slice(hunk.oldStart - 1, hunk.oldStart - 1 + removedSegment.length);
+  while(i < original.length){
+    out.push(original[i]);
+    trace.push({type:"ctx", text:original[i]});
+    i++;
+  }
 
-    const match =
-      JSON.stringify(actualSlice) === JSON.stringify(removedSegment);
+  return {ok:true, out, trace};
+}
 
-    if(!match){
-      return {
-        success:false,
-        error:`Hunk mismatch at line ${hunk.oldStart}`
-      };
-    }
+/* =========================
+   VISUAL LAYER (NEW)
+========================= */
 
-    // apply
-    working.splice(
-      hunk.oldStart - 1,
-      removedSegment.length,
-      ...newSegment
+let lastResult = null;
+
+function render(trace, original, updated){
+  const left = document.getElementById("left");
+  const right = document.getElementById("right");
+
+  left.innerHTML = "";
+  right.innerHTML = "";
+
+  for(const t of trace){
+    const span = document.createElement("span");
+    span.className = "line " + (
+      t.type === "add" ? "add" :
+      t.type === "del" ? "del" : "ctx"
     );
-  }
+    span.textContent = t.text;
 
-  return { success:true, result:working };
+    if(t.type !== "add") left.appendChild(span.cloneNode(true));
+    if(t.type !== "del") right.appendChild(span);
+  }
 }
 
-/**
- * Main apply
- */
-function applyDiff(){
-  const masterText = document.getElementById("master").value;
-  const diffText = document.getElementById("diff").value;
+/* =========================
+   CONTROLS
+========================= */
 
-  if(!masterText || !diffText){
-    setStatus("Missing input");
+function runEngine(){
+  const m = splitLines(document.getElementById("master").value);
+  const d = document.getElementById("diff").value;
+
+  const hunks = parseDiff(d);
+  const res = runStream(m,hunks);
+
+  if(!res.ok){
+    document.getElementById("status").textContent = "❌ " + res.error;
     return;
   }
 
-  const originalLines = splitLines(masterText);
-  const hunks = parseUnifiedDiff(diffText);
-
-  if(!hunks.length){
-    setStatus("No valid diff hunks found");
-    return;
-  }
-
-  // save undo
-  state.history.push(masterText);
-
-  const result = applyHunks(originalLines, hunks);
-
-  if(!result.success){
-    state.history.pop();
-    setStatus("Patch failed: " + result.error);
-    return;
-  }
-
-  const output = result.result.join("\n");
-
-  document.getElementById("output").textContent = output;
-  document.getElementById("master").value = output;
-
-  setStatus("Patch applied successfully");
+  lastResult = res;
+  render(res.trace, m, res.out);
+  document.getElementById("status").textContent = "✔ Diff executed (review before commit)";
 }
 
-/**
- * Undo system
- */
-function undo(){
-  if(!state.history.length){
-    setStatus("Nothing to undo");
-    return;
-  }
-
-  const prev = state.history.pop();
-  document.getElementById("master").value = prev;
-  document.getElementById("output").textContent = prev;
-
-  setStatus("Undo successful");
+function commit(){
+  if(!lastResult) return;
+  document.getElementById("master").value = lastResult.out.join("\n");
+  document.getElementById("status").textContent = "✔ Committed";
 }
 </script>
 
