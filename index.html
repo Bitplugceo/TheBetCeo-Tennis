@@ -1,514 +1,775 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V9 (Smart Engine)</title>
-  <style>
-    :root {
-      --bg: #0d1117;
-      --panel: #161b22;
-      --text: #c9d1d9;
-      --accent: #238636;
-      --accent-hover: #2ea043;
-      --border: #30363d;
-      --error: #f85149;
-      --warning: #d29922;
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto-Patcher X Ultimate (Hardened)</title>
 
-    /* Top Right Microscope Alert */
-    #microscopeBtn {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: var(--panel);
-      border: 1px solid var(--error);
-      border-radius: 50%;
-      width: 45px;
-      height: 45px;
-      display: none;
-      justify-content: center;
-      align-items: center;
-      font-size: 20px;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-      z-index: 3000;
-    }
+<style>
+:root{
+  --bg:#0d1117;
+  --panel:#161b22;
+  --text:#c9d1d9;
+  --accent:#238636;
+  --accent-hover:#2ea043;
+  --border:#30363d;
+  --error:#f85149;
+  --warning:#d29922;
+  --info:#1f6feb;
+}
 
-    .pulse {
-      animation: pulseError 2s infinite;
-    }
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
 
-    @keyframes pulseError {
-      0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
-      70% { box-shadow: 0 0 0 10px rgba(248, 81, 73, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
-    }
+html,body{
+  margin:0;
+  min-height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
 
-    .container {
-      width: 100%;
-      max-width: 1000px;
-    }
+body{
+  padding:20px;
+  display:flex;
+  justify-content:center;
+}
 
-    h1 {
-      color: #ffffff;
-      margin-bottom: 20px;
-      text-align: center;
-    }
+.container{
+  width:100%;
+  max-width:1100px;
+}
 
-    .box-header-stacked {
-      background: var(--panel);
-      padding: 12px 15px;
-      border: 1px solid var(--border);
-      border-bottom: none;
-      border-radius: 8px 8px 0 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+h1{
+  text-align:center;
+  margin-bottom:20px;
+  color:#fff;
+}
 
-    .box-header {
-      background: var(--panel);
-      padding: 12px 15px;
-      border: 1px solid var(--border);
-      border-bottom: none;
-      border-radius: 8px 8px 0 0;
-      font-size: 14px;
-      font-weight: bold;
-    }
+.box-header,
+.box-header-stacked{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-bottom:none;
+  border-radius:8px 8px 0 0;
+  padding:12px 15px;
+}
 
-    .header-title {
-      font-size: 14px;
-      font-weight: bold;
-      color: #ffffff;
-    }
+.box-header-stacked{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
 
-    input[type="file"] {
-      font-size: 14px; 
-      color: #8b949e;
-      width: 100%;
-    }
+.header-title{
+  font-weight:700;
+  font-size:14px;
+}
 
-    textarea {
-      width: 100%;
-      background: #010409;
-      color: #e6edf3;
-      font-family: ui-monospace, monospace;
-      font-size: 16px; 
-      line-height: 1.5;
-      padding: 15px;
-      border: 1px solid var(--border);
-      border-radius: 0 0 8px 8px;
-      resize: vertical;
-      box-sizing: border-box;
-      outline: none;
-    }
+input[type="file"]{
+  width:100%;
+  color:#8b949e;
+}
 
-    textarea:focus { border-color: #58a6ff; }
-    .source-box { height: 250px; margin-bottom: 20px; }
-    .patch-box { height: 250px; margin-bottom: 15px; }
+textarea{
+  width:100%;
+  background:#010409;
+  color:#e6edf3;
+  border:1px solid var(--border);
+  border-radius:0 0 8px 8px;
+  padding:15px;
+  resize:vertical;
+  outline:none;
+  font-size:14px;
+  line-height:1.5;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  overflow:auto;
+}
 
-    .icon-action-row {
-      display: flex;
-      gap: 10px;
-      width: 100%;
-      margin-bottom: 15px;
-    }
+textarea:focus{
+  border-color:#58a6ff;
+}
 
-    .icon-btn-large {
-      flex: 1;
-      font-size: 24px;
-      padding: 12px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      transition: opacity 0.2s;
-    }
-    .icon-btn-large:hover { opacity: 0.8; }
+.source-box{
+  height:300px;
+  margin-bottom:20px;
+}
 
-    .btn-primary { background: var(--accent); color: white; }
-    .btn-download { background: #1f6feb; color: white; }
-    .btn-copy { background: #6e7681; color: white; }
+.patch-box{
+  height:260px;
+  margin-bottom:15px;
+}
 
-    .secondary-controls {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 15px;
-    }
-    
-    .btn-text {
-      background: var(--panel);
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    
-    .btn-danger { color: var(--error); border-color: rgba(248,81,73,0.4); }
+.icon-action-row,
+.secondary-controls{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:15px;
+}
 
-    .status {
-      text-align: center;
-      font-weight: bold;
-      padding: 12px;
-      border-radius: 6px;
-      display: none;
-      transition: opacity 0.3s ease;
-      font-size: 14px;
-    }
+.icon-btn-large,
+.btn-text{
+  cursor:pointer;
+  transition:opacity .2s ease;
+}
 
-    /* FULL-SCREEN DEBUG OVERLAY V9 */
-    #debugOverlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(13, 17, 23, 0.98);
-      backdrop-filter: blur(5px);
-      z-index: 2000;
-      display: none;
-      flex-direction: column;
-      padding: 40px 15px 20px 15px;
-      overflow-y: auto;
-    }
+.icon-btn-large:hover,
+.btn-text:hover{
+  opacity:.9;
+}
 
-    .debug-header {
-      display: flex;
-      justify-content: flex-start;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 15px;
-      border-bottom: 1px solid var(--error);
-      padding-bottom: 10px;
-      padding-right: 60px;
-    }
+.icon-btn-large{
+  flex:1;
+  border:none;
+  border-radius:8px;
+  padding:12px;
+  font-size:24px;
+}
 
-    .debug-title {
-      color: var(--error);
-      font-size: 16px;
-      font-weight: bold;
-      line-height: 1;
-      display: flex;
-      align-items: center;
-    }
+.btn-primary{
+  background:var(--accent);
+  color:#fff;
+}
 
-    .icon-btn-small {
-      background: #1f6feb;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      width: 26px;
-      height: 26px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .icon-btn-small:hover { background: #388bfd; }
+.btn-download{
+  background:var(--info);
+  color:#fff;
+}
 
-    .failed-item {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-left: 3px solid var(--error);
-      border-radius: 4px;
-      margin-bottom: 10px;
-      padding: 10px; 
-    }
+.btn-copy{
+  background:#6e7681;
+  color:#fff;
+}
 
-    .failed-reason {
-      color: var(--warning);
-      font-weight: bold;
-      font-size: 11px; 
-      margin-bottom: 6px;
-    }
+.btn-text{
+  background:var(--panel);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:8px 16px;
+  font-size:13px;
+  font-weight:700;
+}
 
-    .failed-item pre {
-      background: #010409;
-      padding: 8px; 
-      border-radius: 4px;
-      border: 1px solid #30363d;
-      color: #ff7b72;
-      font-size: 10px; 
-      line-height: 1.3;
-      overflow-x: auto;
-      margin: 0;
-      white-space: pre-wrap;
-    }
-  </style>
+.btn-danger{
+  color:var(--error);
+  border-color:rgba(248,81,73,.4);
+}
+
+.status{
+  display:none;
+  padding:12px;
+  border-radius:6px;
+  font-size:14px;
+  font-weight:700;
+  word-break:break-word;
+}
+
+#microscopeBtn{
+  position:fixed;
+  top:20px;
+  right:20px;
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  background:var(--panel);
+  border:1px solid var(--error);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  font-size:22px;
+  cursor:pointer;
+  z-index:1000;
+}
+
+.pulse{
+  animation:pulseError 2s infinite;
+}
+
+@keyframes pulseError{
+  0%{box-shadow:0 0 0 0 rgba(248,81,73,.4);}
+  70%{box-shadow:0 0 0 10px rgba(248,81,73,0);}
+  100%{box-shadow:0 0 0 0 rgba(248,81,73,0);}
+}
+
+#debugOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(13,17,23,.98);
+  z-index:999;
+  display:none;
+  flex-direction:column;
+  overflow:auto;
+  padding:20px;
+}
+
+.debug-header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:15px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--error);
+}
+
+.debug-title{
+  flex:1;
+  color:var(--error);
+  font-size:16px;
+  font-weight:700;
+}
+
+.icon-btn-small{
+  width:32px;
+  height:32px;
+  border:none;
+  border-radius:5px;
+  background:var(--info);
+  color:#fff;
+  cursor:pointer;
+}
+
+.close-btn{
+  background:var(--error);
+}
+
+.failed-item{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-left:3px solid var(--error);
+  border-radius:5px;
+  padding:10px;
+  margin-bottom:12px;
+}
+
+.failed-reason{
+  color:var(--warning);
+  font-size:12px;
+  margin-bottom:8px;
+  font-weight:700;
+}
+
+.failed-item pre{
+  margin:0;
+  background:#010409;
+  border:1px solid var(--border);
+  border-radius:5px;
+  padding:10px;
+  overflow:auto;
+  white-space:pre-wrap;
+  color:#ff7b72;
+  font-size:11px;
+  line-height:1.4;
+  max-height:300px;
+}
+
+.stats{
+  margin-bottom:15px;
+  font-size:13px;
+  color:#8b949e;
+}
+</style>
 </head>
+
 <body>
 
-  <div id="microscopeBtn" onclick="toggleDebug()" title="Toggle Debug Log">🔬</div>
+<button id="microscopeBtn" type="button">🔬</button>
 
-  <div id="debugOverlay">
-    <div class="debug-header">
-      <button class="icon-btn-small" id="copyLogBtn" onclick="copyDebugLog()" title="Copy Errors to Clipboard">📋</button>
-      <div class="debug-title">🔬 Diagnostic Log</div>
-    </div>
-    <div id="failedList"></div>
+<div id="debugOverlay">
+  <div class="debug-header">
+    <button class="icon-btn-small" id="copyLogBtn" type="button">📋</button>
+    <div class="debug-title">🔬 Diagnostic Log</div>
+    <button class="icon-btn-small close-btn" id="closeDebugBtn" type="button">✖</button>
+  </div>
+  <div id="failedList"></div>
+</div>
+
+<div class="container">
+  <h1>🛠️ Auto-Patcher X Ultimate (Hardened)</h1>
+
+  <div class="stats" id="stats">
+    Ready.
   </div>
 
-  <div class="container">
-    <h1>🛠️ Auto-Patcher V9</h1>
-
-    <div>
-      <div class="box-header-stacked">
-        <div class="header-title">1. Master Code</div>
-        <input type="file" id="fileUploader" accept=".txt,.html,.js,.css">
-      </div>
-      <textarea id="masterCode" class="source-box" spellcheck="false" placeholder="Upload a file above, OR manually paste your full master code here..."></textarea>
+  <div>
+    <div class="box-header-stacked">
+      <div class="header-title">1. Master Code</div>
+      <input type="file" id="fileUploader" accept=".txt,.html,.js,.css,.json,.md,text/plain" />
     </div>
 
-    <div>
-      <div class="box-header">2. Patch Instructions</div>
-      <textarea id="patchCode" class="patch-box" spellcheck="false" placeholder="Paste the entire AI chat message here. The Smart Extractor will handle the rest!"></textarea>
-    </div>
-
-    <div class="icon-action-row">
-      <button class="icon-btn-large btn-primary" onclick="applyPatches()" title="Apply Patch">⚙️</button>
-      <button class="icon-btn-large btn-download" onclick="downloadFile()" title="Download">📥</button>
-      <button class="icon-btn-large btn-copy" onclick="copyMaster()" title="Copy Code">📋</button>
-    </div>
-
-    <div class="secondary-controls">
-      <button class="btn-text" onclick="clearPatchesOnly()">🧹 Clear Patches</button>
-      <button class="btn-text btn-danger" onclick="hardReset()">🚨 Hard Reset</button>
-    </div>
-
-    <div id="statusMsg" class="status"></div>
+    <textarea id="masterCode" class="source-box" spellcheck="false" placeholder="Paste or upload your master code..."></textarea>
   </div>
 
-  <script>
-    let currentFileName = "patched_master.txt"; 
-    let statusTimer;
-    let isDebugOpen = false;
-    let globalFailedSnippets = []; 
+  <div>
+    <div class="box-header">2. Patch Instructions</div>
+    <textarea id="patchCode" class="patch-box" spellcheck="false" placeholder="Paste patch blocks here..."></textarea>
+  </div>
 
-    // Handle File Upload
-    document.getElementById('fileUploader').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      currentFileName = file.name;
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        document.getElementById('masterCode').value = event.target.result;
-        showStatus(`✅ File loaded!`, 'var(--accent)', true);
-      };
-      reader.readAsText(file);
+  <div class="icon-action-row">
+    <button class="icon-btn-large btn-primary" id="applyBtn" type="button" title="Apply Patches">⚙️</button>
+    <button class="icon-btn-large btn-download" id="downloadBtn" type="button" title="Download File">📥</button>
+    <button class="icon-btn-large btn-copy" id="copyBtn" type="button" title="Copy Code">📋</button>
+  </div>
+
+  <div class="secondary-controls">
+    <button class="btn-text" id="undoBtn" type="button">↩️ Undo</button>
+    <button class="btn-text" id="clearBtn" type="button">🧹 Clear Patches</button>
+    <button class="btn-text btn-danger" id="resetBtn" type="button">🚨 Hard Reset</button>
+  </div>
+
+  <div id="statusMsg" class="status"></div>
+</div>
+
+<script>
+"use strict";
+
+const CONFIG = Object.freeze({
+  MAX_FILE_SIZE: 5 * 1024 * 1024,
+  MAX_PATCHES: 500,
+  MAX_FAILURE_PREVIEW: 4000,
+  MAX_HISTORY: 20
+});
+
+const state = {
+  currentFileName: "patched_master.txt",
+  failedSnippets: [],
+  undoStack: [],
+  statusTimer: null,
+  fadeTimer: null
+};
+
+const els = {
+  microscope: document.getElementById("microscopeBtn"),
+  debugOverlay: document.getElementById("debugOverlay"),
+  failedList: document.getElementById("failedList"),
+  masterCode: document.getElementById("masterCode"),
+  patchCode: document.getElementById("patchCode"),
+  fileUploader: document.getElementById("fileUploader"),
+  status: document.getElementById("statusMsg"),
+  stats: document.getElementById("stats"),
+  copyLogBtn: document.getElementById("copyLogBtn")
+};
+
+document.getElementById("applyBtn").addEventListener("click", applyPatches);
+document.getElementById("downloadBtn").addEventListener("click", downloadFile);
+document.getElementById("copyBtn").addEventListener("click", copyMaster);
+document.getElementById("undoBtn").addEventListener("click", undoPatch);
+document.getElementById("clearBtn").addEventListener("click", clearPatchesOnly);
+document.getElementById("resetBtn").addEventListener("click", hardReset);
+document.getElementById("closeDebugBtn").addEventListener("click", toggleDebug);
+els.microscope.addEventListener("click", toggleDebug);
+els.copyLogBtn.addEventListener("click", copyDebugLog);
+els.fileUploader.addEventListener("change", handleFileUpload);
+
+function cssVar(name){
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+}
+
+function escapeHTML(str = ""){
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function normalizeLineEndings(str = ""){
+  return String(str).replace(/\r\n/g, "\n");
+}
+
+function safeSnippet(text){
+  return text.length > CONFIG.MAX_FAILURE_PREVIEW
+    ? text.slice(0, CONFIG.MAX_FAILURE_PREVIEW) + "\n\n[TRUNCATED]"
+    : text;
+}
+
+function updateStats(message){
+  els.stats.textContent = message;
+}
+
+function pushUndoSnapshot(content){
+  state.undoStack.push(content);
+
+  if(state.undoStack.length > CONFIG.MAX_HISTORY){
+    state.undoStack.shift();
+  }
+}
+
+function showStatus(message, type = "info", autoHide = true){
+  const colors = {
+    success: cssVar("--accent"),
+    error: cssVar("--error"),
+    warning: cssVar("--warning"),
+    info: cssVar("--info"),
+    neutral: cssVar("--text")
+  };
+
+  const color = colors[type] || colors.info;
+
+  els.status.style.display = "block";
+  els.status.style.opacity = "1";
+  els.status.style.backgroundColor = color + "20";
+  els.status.style.border = "1px solid " + color;
+  els.status.style.color = color;
+  els.status.textContent = message;
+
+  clearTimeout(state.statusTimer);
+  clearTimeout(state.fadeTimer);
+
+  if(autoHide){
+    state.statusTimer = setTimeout(() => {
+      els.status.style.opacity = "0";
+
+      state.fadeTimer = setTimeout(() => {
+        els.status.style.display = "none";
+      }, 300);
+
+    }, 2500);
+  }
+}
+
+function toggleDebug(){
+  const visible = els.debugOverlay.style.display === "flex";
+
+  els.debugOverlay.style.display = visible ? "none" : "flex";
+
+  if(!visible){
+    els.microscope.classList.remove("pulse");
+  }
+}
+
+function renderFailedList(){
+  els.failedList.innerHTML = "";
+
+  for(const [index, item] of state.failedSnippets.entries()){
+    const div = document.createElement("div");
+    div.className = "failed-item";
+
+    div.innerHTML = `
+      <div class="failed-reason">[Patch #${index + 1}] ${escapeHTML(item.reason)}</div>
+      <pre>${escapeHTML(item.text)}</pre>
+    `;
+
+    els.failedList.appendChild(div);
+  }
+}
+
+async function handleFileUpload(event){
+  const file = event.target.files?.[0];
+  if(!file) return;
+
+  if(file.size > CONFIG.MAX_FILE_SIZE){
+    showStatus("File exceeds 5MB limit.", "error");
+    event.target.value = "";
+    return;
+  }
+
+  try{
+    const text = await file.text();
+
+    pushUndoSnapshot(els.masterCode.value);
+
+    state.currentFileName = sanitizeFileName(file.name);
+    els.masterCode.value = normalizeLineEndings(text);
+
+    updateStats(`Loaded ${state.currentFileName} (${Math.round(file.size / 1024)} KB)`);
+    showStatus("File loaded.", "success");
+
+  }catch(error){
+    console.error(error);
+    showStatus("Failed to read file.", "error");
+  }
+}
+
+function sanitizeFileName(name){
+  return String(name)
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+    .slice(0, 120);
+}
+
+function parsePatchBlocks(raw){
+  const normalized = normalizeLineEndings(raw);
+
+  const regex = /---\s*FIND\s*---\n([\s\S]*?)\n---\s*REPLACE\s*---\n([\s\S]*?)\n---\s*END\s*---/g;
+
+  const blocks = [];
+  let match;
+
+  while((match = regex.exec(normalized)) !== null){
+    blocks.push({
+      find: match[1],
+      replace: match[2]
     });
+  }
 
-    function escapeHTML(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return blocks;
+}
+
+function countOccurrences(haystack, needle){
+  if(!needle) return 0;
+
+  let count = 0;
+  let position = 0;
+
+  while(true){
+    position = haystack.indexOf(needle, position);
+
+    if(position === -1){
+      return count;
     }
 
-    function applyPatches() {
-      let master = document.getElementById('masterCode').value;
-      let rawPatches = document.getElementById('patchCode').value;
-      const microscope = document.getElementById('microscopeBtn');
-      
-      if(isDebugOpen) toggleDebug();
-      microscope.style.display = 'none'; 
-      microscope.classList.remove('pulse');
+    count++;
+    position += needle.length;
+  }
+}
 
-      if (!master.trim() || !rawPatches.trim()) {
-        showStatus("⚠️ Missing master code or patches!", 'var(--warning)', false);
-        return;
-      }
+async function applyPatches(){
+  const rawMaster = normalizeLineEndings(els.masterCode.value);
+  const rawPatches = normalizeLineEndings(els.patchCode.value);
 
-      // SMART EXTRACTOR V9 PRE-PROCESSING
-      // Convert Markdown code blocks into explicit END markers to strip out chat text
-      let processedPatches = rawPatches
-        .replace(/```[a-z]*\n/gi, '\n') // Remove opening backticks
-        .replace(/```/g, '\n---END---\n'); // Turn closing backticks into a hard barrier
+  if(!rawMaster.trim() || !rawPatches.trim()){
+    showStatus("Missing master code or patches.", "warning");
+    return;
+  }
 
-      // The Smart Regex: Finds text between FIND and REPLACE, stops capturing at next FIND or END.
-      const patchRegex = /---FIND---\n?([\s\S]*?)\n?---REPLACE---\n?([\s\S]*?)(?=\n?---FIND---|\n?---END---|$)/g;
+  const patchBlocks = parsePatchBlocks(rawPatches);
 
-      let appliedCount = 0;
-      let failedCount = 0;
-      globalFailedSnippets = []; 
+  if(!patchBlocks.length){
+    showStatus("No valid patch blocks detected.", "warning");
+    return;
+  }
 
-      const normMaster = master.replace(/\s+/g, '');
-      let match;
-      let patchFound = false;
+  if(patchBlocks.length > CONFIG.MAX_PATCHES){
+    showStatus("Patch count exceeds safety limit.", "error");
+    return;
+  }
 
-      while ((match = patchRegex.exec(processedPatches)) !== null) {
-        patchFound = true;
-        // Strip trailing/leading blank lines but keep internal structure perfect
-        const findText = match[1].replace(/^\n+|\n+$/g, ''); 
-        const replaceText = match[2].replace(/^\n+|\n+$/g, '');
+  pushUndoSnapshot(rawMaster);
 
-        if (master.includes(findText)) {
-          master = master.split(findText).join(replaceText);
-          appliedCount++;
-        } else {
-          failedCount++;
-          const normFind = findText.replace(/\s+/g, '');
-          let reason = "Block not found in Master Code.";
-          if (normMaster.includes(normFind)) {
-            reason = "Whitespace/Indentation mismatch.";
-          }
-          globalFailedSnippets.push({ text: findText, reason: reason });
-        }
-      }
+  let working = rawMaster;
 
-      if (!patchFound) {
-        showStatus("⚠️ No valid ---FIND--- markers detected!", 'var(--warning)', false);
-        return;
-      }
+  state.failedSnippets = [];
+  els.microscope.style.display = "none";
+  els.microscope.classList.remove("pulse");
 
-      document.getElementById('masterCode').value = master;
+  let applied = 0;
+  let failed = 0;
 
-      if (failedCount > 0) {
-        const listDiv = document.getElementById('failedList');
-        listDiv.innerHTML = '';
-        globalFailedSnippets.forEach((snippet, index) => {
-          const itemDiv = document.createElement('div');
-          itemDiv.className = 'failed-item';
-          itemDiv.innerHTML = `
-            <div class="failed-reason">[Patch #${index + 1}] Reason: ${snippet.reason}</div>
-            <pre>${escapeHTML(snippet.text)}</pre>
-          `;
-          listDiv.appendChild(itemDiv);
-        });
+  showStatus("Applying patches...", "info", false);
 
-        microscope.style.display = 'flex';
-        microscope.classList.add('pulse');
-        showStatus(`⚠️ Applied ${appliedCount}. Failed ${failedCount}. Click 🔬`, 'var(--warning)', false);
-      } else {
-        showStatus(`✅ Smart Extractor: ${appliedCount} Patches Applied!`, 'var(--accent)', true);
-      }
+  for(const [index, block] of patchBlocks.entries()){
+
+    if(index % 20 === 0){
+      await new Promise(resolve => requestAnimationFrame(resolve));
     }
 
-    function toggleDebug() {
-      const overlay = document.getElementById('debugOverlay');
-      const microscope = document.getElementById('microscopeBtn');
-      isDebugOpen = !isDebugOpen;
-      
-      if (isDebugOpen) {
-        overlay.style.display = 'flex';
-        microscope.classList.remove('pulse'); 
-      } else {
-        overlay.style.display = 'none';
-        microscope.classList.add('pulse'); 
-      }
-    }
+    const find = block.find;
+    const replace = block.replace;
 
-    async function copyDebugLog() {
-      if (globalFailedSnippets.length === 0) return;
-      
-      let logText = "Auto-Patcher Error Log:\n\n";
-      globalFailedSnippets.forEach((snippet, i) => {
-        logText += `[Failed Patch #${i + 1}]\nReason: ${snippet.reason}\nCODE:\n${snippet.text}\n\n`;
+    if(!find.trim()){
+      failed++;
+      state.failedSnippets.push({
+        reason: "Empty FIND block.",
+        text: ""
       });
-
-      const btn = document.getElementById('copyLogBtn');
-      try {
-        await navigator.clipboard.writeText(logText);
-        btn.textContent = "✅";
-        btn.style.background = "var(--accent)";
-      } catch (err) {
-        const tempInput = document.createElement("textarea");
-        tempInput.value = logText;
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        document.execCommand("copy");
-        document.body.removeChild(tempInput);
-        btn.textContent = "✅";
-        btn.style.background = "var(--accent)";
-      }
-
-      setTimeout(() => {
-        btn.textContent = "📋";
-        btn.style.background = "#1f6feb";
-      }, 2000);
+      continue;
     }
 
-    function clearPatchesOnly() {
-      document.getElementById('patchCode').value = '';
-      showStatus('🧹 Patch box cleared.', 'var(--text)', true);
+    const occurrences = countOccurrences(working, find);
+
+    if(occurrences === 0){
+      failed++;
+      state.failedSnippets.push({
+        reason: "Target block not found.",
+        text: safeSnippet(find)
+      });
+      continue;
     }
 
-    function hardReset() {
-      if(confirm("Delete master code and patches?")) {
-        document.getElementById('masterCode').value = '';
-        document.getElementById('patchCode').value = '';
-        document.getElementById('fileUploader').value = '';
-        document.getElementById('statusMsg').style.display = 'none';
-        document.getElementById('microscopeBtn').style.display = 'none';
-        if(isDebugOpen) toggleDebug();
-        currentFileName = "patched_master.txt";
-      }
+    if(occurrences > 1){
+      failed++;
+      state.failedSnippets.push({
+        reason: "Ambiguous patch. Multiple exact matches found.",
+        text: safeSnippet(find)
+      });
+      continue;
     }
 
-    async function copyMaster() {
-      const masterValue = document.getElementById('masterCode').value;
-      if (!masterValue) {
-        showStatus("⚠️ Nothing to copy!", 'var(--warning)', true);
-        return;
-      }
-      try {
-        await navigator.clipboard.writeText(masterValue);
-        showStatus(`📋 File copied to clipboard!`, 'var(--accent)', true);
-      } catch (err) {
-        const masterInput = document.getElementById('masterCode');
-        masterInput.select();
-        document.execCommand('copy');
-        window.getSelection().removeAllRanges();
-        showStatus(`📋 File copied to clipboard!`, 'var(--accent)', true);
-      }
-    }
+    working = working.replace(find, replace);
+    applied++;
+  }
 
-    function downloadFile() {
-      const code = document.getElementById('masterCode').value;
-      if (!code) {
-        showStatus("⚠️ Nothing to download!", 'var(--warning)', true);
-        return;
-      }
-      const blob = new Blob([code], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = currentFileName; 
-      a.click();
-      URL.revokeObjectURL(url);
-      showStatus(`📥 Downloaded as '${currentFileName}'`, 'var(--accent)', true);
-    }
+  els.masterCode.value = working;
 
-    function showStatus(htmlContent, color, autoHide) {
-      const statusDiv = document.getElementById('statusMsg');
-      statusDiv.style.display = 'block';
-      statusDiv.style.opacity = '1';
-      statusDiv.style.backgroundColor = color === 'var(--text)' ? '#30363d' : color + '20';
-      statusDiv.style.color = color === 'var(--text)' ? '#c9d1d9' : color;
-      statusDiv.style.border = `1px solid ${color}`;
-      statusDiv.innerHTML = htmlContent;
+  if(failed > 0){
+    renderFailedList();
+    els.microscope.style.display = "flex";
+    els.microscope.classList.add("pulse");
 
-      clearTimeout(statusTimer);
-      if (autoHide) {
-        statusTimer = setTimeout(() => {
-          statusDiv.style.opacity = '0';
-          setTimeout(() => { statusDiv.style.display = 'none'; }, 300); 
-        }, 2000); 
-      }
-    }
-  </script>
+    showStatus(
+      `Applied ${applied} patch(es). ${failed} failed.`,
+      "warning"
+    );
+  }else{
+    showStatus(
+      `${applied} patch(es) applied successfully.`,
+      "success"
+    );
+  }
+
+  updateStats(
+    `Applied: ${applied} | Failed: ${failed} | History: ${state.undoStack.length}`
+  );
+}
+
+function undoPatch(){
+  if(!state.undoStack.length){
+    showStatus("Nothing to undo.", "warning");
+    return;
+  }
+
+  const previous = state.undoStack.pop();
+  els.masterCode.value = previous;
+
+  showStatus("Undo completed.", "success");
+}
+
+function clearPatchesOnly(){
+  els.patchCode.value = "";
+  showStatus("Patch box cleared.", "neutral");
+}
+
+function hardReset(){
+  const confirmed = confirm(
+    "Delete master code and patches? This cannot be undone."
+  );
+
+  if(!confirmed) return;
+
+  pushUndoSnapshot(els.masterCode.value);
+
+  els.masterCode.value = "";
+  els.patchCode.value = "";
+  els.fileUploader.value = "";
+
+  state.failedSnippets = [];
+
+  els.failedList.innerHTML = "";
+  els.microscope.style.display = "none";
+
+  state.currentFileName = "patched_master.txt";
+
+  updateStats("Reset complete.");
+  showStatus("Reset complete.", "success");
+}
+
+async function copyText(text){
+  if(navigator.clipboard && window.isSecureContext){
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  const textarea = document.createElement("textarea");
+
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+
+  document.body.appendChild(textarea);
+
+  textarea.focus();
+  textarea.select();
+
+  const success = document.execCommand("copy");
+
+  document.body.removeChild(textarea);
+
+  return success;
+}
+
+async function copyMaster(){
+  const value = els.masterCode.value;
+
+  if(!value){
+    showStatus("Nothing to copy.", "warning");
+    return;
+  }
+
+  try{
+    await copyText(value);
+    showStatus("Copied to clipboard.", "success");
+  }catch(error){
+    console.error(error);
+    showStatus("Clipboard operation failed.", "error");
+  }
+}
+
+async function copyDebugLog(){
+  if(!state.failedSnippets.length){
+    return;
+  }
+
+  let output = "Auto-Patcher Diagnostic Log\n\n";
+
+  for(const [index, item] of state.failedSnippets.entries()){
+    output += `[Patch #${index + 1}]\n`;
+    output += `Reason: ${item.reason}\n\n`;
+    output += `${item.text}\n\n`;
+  }
+
+  try{
+    await copyText(output);
+
+    els.copyLogBtn.textContent = "✅";
+
+    setTimeout(() => {
+      els.copyLogBtn.textContent = "📋";
+    }, 1500);
+
+  }catch(error){
+    console.error(error);
+    showStatus("Failed to copy diagnostic log.", "error");
+  }
+}
+
+function downloadFile(){
+  const code = els.masterCode.value;
+
+  if(!code){
+    showStatus("Nothing to download.", "warning");
+    return;
+  }
+
+  const blob = new Blob([code], {
+    type: "text/plain;charset=utf-8"
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = state.currentFileName;
+
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
+
+  showStatus(
+    `Downloaded as '${state.currentFileName}'.`,
+    "success"
+  );
+}
+</script>
+
 </body>
 </html>
