@@ -134,6 +134,7 @@
       return;
     }
 
+    // Sanitize AI markdown wrappers
     let processedPatches = rawPatches
       .replace(/```[a-z]*\n/gi, '\n')
       .replace(/```/g, '\n---END---\n');
@@ -152,29 +153,36 @@
       const findText = match[1].replace(/^\n+|\n+$/g, ''); 
       const replaceText = match[2].replace(/^\n+|\n+$/g, '');
 
+      // 1. TRY EXACT MATCH FIRST
       if (master.includes(findText)) {
         master = master.split(findText).join(replaceText);
         appliedCount++;
       } else {
-        // Fallback: Whitespace-Agnostic Regex Search
+        // 2. FALLBACK: WHITESPACE AGNOSTIC REGEX SEARCH
+        // This completely ignores indentation and spacing differences between the AI and your code
         const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         
-        // Convert the find block into an array of lines, trimming them
+        // Break the find block into individual lines, strip the outer spaces, and filter out empties
         const lines = findText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
         
-        // Build a regex that looks for those lines, allowing ANY amount of whitespace/newlines between them
-        const regexStr = lines.map(l => escapeRegExp(l)).join('\\s+');
-        const fuzzyRegex = new RegExp(regexStr, 'g');
+        if (lines.length > 0) {
+          // Join the cleaned lines with \s+ (meaning "one or more whitespace characters including line breaks")
+          const regexStr = lines.map(l => escapeRegExp(l)).join('\\s+');
+          const fuzzyRegex = new RegExp(regexStr, 'g');
 
-        if (fuzzyRegex.test(master)) {
-          master = master.replace(fuzzyRegex, replaceText);
-          appliedCount++;
-        } else {
-          failedCount++;
-          const normFind = findText.replace(/\s+/g, '');
-          let reason = normMaster.includes(normFind) ? "Indentation/Whitespace mismatch." : "Block not found in Master Code.";
-          globalFailedSnippets.push({ text: findText, reason: reason });
+          if (fuzzyRegex.test(master)) {
+            // Pass a function to replace to avoid issues with special $ characters in replacement strings
+            master = master.replace(fuzzyRegex, () => replaceText);
+            appliedCount++;
+            continue; // Skip the failure logging below
+          }
         }
+        
+        // 3. TRUE FAILURE: The block actually doesn't exist in the code
+        failedCount++;
+        const normFind = findText.replace(/\s+/g, '');
+        let reason = normMaster.includes(normFind) ? "Fuzzy Search Failed: Partial Match." : "Block not found in Master Code.";
+        globalFailedSnippets.push({ text: findText, reason: reason });
       }
     }
 
