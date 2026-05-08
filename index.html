@@ -112,7 +112,7 @@
 
     if (!hunks.length) return showStatus("⚠️ No valid FROM/TO blocks!", "var(--warning)");
 
-    // Sort backwards to prevent line shift issues
+    // Sort backwards so multiple patches don't mess up earlier line numbers
     hunks.sort((a,b) => b.start - a.start);
 
     let applied = 0;
@@ -123,10 +123,12 @@
       if (h.start < 1 || h.start > masterLines.length) {
         failed.push(`Line ${h.start} is out of range.`);
       } else {
-        // Check if current lines match NEW content (Anti-Duplicate)
-        const currentSlice = masterLines.slice(h.start - 1, h.start - 1 + h.content.length).join("\n");
-        const newContent = h.content.join("\n");
+        // --- SMART CONTENT CHECK ---
+        // We look at the lines currently in the file at that position
+        const currentSlice = masterLines.slice(h.start - 1, h.start - 1 + h.content.length).join("\n").trim();
+        const newContent = h.content.join("\n").trim();
 
+        // If the code is already there, skip it!
         if (currentSlice === newContent) {
           skipped++;
         } else {
@@ -146,7 +148,7 @@
     } else if (applied === 0 && skipped > 0) {
       showStatus(`ℹ️ Already up to date!`, "var(--blue)");
     } else {
-      showStatus(`✅ Successfully applied ${applied} patch(es)!`, "var(--accent)");
+      showStatus(`✅ Applied ${applied} patch(es)!`, "var(--accent)");
     }
   }
 
