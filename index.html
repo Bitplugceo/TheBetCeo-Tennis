@@ -3,141 +3,160 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V9 — Perfected Engine</title>
+  <title>Auto-Patcher V9 — Direct Engine</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --text: #c9d1d9;
       --accent: #238636; --border: #30363d; --error: #f85149;
+      --warning: #d29922; --blue: #1f6feb;
     }
-    body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    .container { width: 100%; max-width: 1000px; }
-    .box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
-    .box-header { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; }
-    textarea { width: 100%; background: #010409; color: #e6edf3; font-family: monospace; font-size: 14px; padding: 15px; border: none; box-sizing: border-box; resize: vertical; outline: none; }
-    .action-row { display: flex; gap: 10px; margin-bottom: 20px; }
-    .btn { flex: 1; padding: 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 18px; transition: opacity 0.2s; }
+    
+    body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    .container { width: 100%; max-width: 800px; }
+
+    #microscopeBtn {
+      position: fixed; top: 20px; right: 20px; background: var(--panel); border: 1px solid var(--error);
+      border-radius: 50%; width: 45px; height: 45px; display: none; justify-content: center;
+      align-items: center; font-size: 20px; cursor: pointer; z-index: 3000;
+    }
+    .pulse { animation: pulseError 2s infinite; }
+    @keyframes pulseError {
+      0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(248, 81, 73, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
+    }
+
+    .box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; overflow: hidden; }
+    .box-header { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: bold; color: #8b949e; display: flex; justify-content: space-between; }
+    textarea { width: 100%; background: #010409; color: #e6edf3; font-family: monospace; font-size: 15px; padding: 15px; border: none; box-sizing: border-box; resize: vertical; outline: none; }
+
+    .icon-row { display: flex; gap: 10px; margin-bottom: 15px; }
+    .btn-lg { flex: 1; padding: 15px; border-radius: 8px; border: none; cursor: pointer; font-size: 22px; display: flex; justify-content: center; align-items: center; transition: 0.2s; }
     .btn-run { background: var(--accent); color: white; }
-    .btn-commit { background: #1f6feb; color: white; }
-    .btn-util { background: #21262d; border: 1px solid var(--border); color: var(--text); font-size: 14px; }
-    
-    #status { padding: 12px; border-radius: 6px; text-align: center; margin-bottom: 20px; font-weight: bold; display: none; }
-    
-    .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .panel { background: #010409; border: 1px solid var(--border); border-radius: 8px; height: 400px; overflow: auto; font-family: monospace; white-space: pre; font-size: 12px; padding: 10px; }
-    .line { display: block; height: 1.5em; line-height: 1.5em; padding: 0 4px; }
-    .del { background: rgba(248,81,73,0.2); color: #f85149; text-decoration: line-through; }
-    .add { background: rgba(63,185,80,0.2); color: #3fb950; }
-    .spacer { opacity: 0.3; }
+    .btn-dl { background: var(--blue); color: white; }
+
+    .util-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+    .btn-sm { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; }
+    .btn-danger { color: var(--error); border-color: rgba(248,81,73,0.4); }
+
+    #status { padding: 12px; border-radius: 6px; text-align: center; margin-bottom: 15px; font-weight: bold; display: none; font-size: 14px; }
+
+    #debugOverlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13, 17, 23, 0.98);
+      z-index: 2000; display: none; flex-direction: column; padding: 40px 20px; overflow-y: auto;
+    }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <h1>🛠️ Auto-Patcher V9 (Perfected)</h1>
+  <div id="microscopeBtn" onclick="toggleDebug()">🔬</div>
 
-  <div class="box">
-    <div class="box-header">
-      <span>1. MASTER CODE</span>
-      <input type="file" id="fileLoader" style="font-size: 12px;">
+  <div id="debugOverlay">
+    <h2 style="color:var(--error)">🔬 Diagnostic Log</h2>
+    <div id="failedList" style="font-family: monospace; background: #010409; padding: 15px; border-radius: 8px; border: 1px solid var(--border);"></div>
+    <button class="btn-sm" onclick="toggleDebug()" style="margin-top:20px">Close Log</button>
+  </div>
+
+  <div class="container">
+    <h1 style="text-align:center">🛠️ Auto-Patcher V9</h1>
+
+    <div class="box">
+      <div class="box-header"><span>1. MASTER CODE</span><input type="file" id="loader" style="font-size:11px"></div>
+      <textarea id="master" style="height:300px" placeholder="Paste or Upload code..."></textarea>
     </div>
-    <textarea id="master" style="height: 200px;" placeholder="Upload or paste code..."></textarea>
-  </div>
 
-  <div class="box">
-    <div class="box-header">2. PATCH INSTRUCTIONS (FROM/TO BLOCK)</div>
-    <textarea id="patch" style="height: 150px;" placeholder="FROM LINE X TO Y&#10;...&#10;END"></textarea>
-  </div>
+    <div class="box">
+      <div class="box-header">2. PATCH INSTRUCTIONS</div>
+      <textarea id="patch" style="height:200px" placeholder="FROM LINE X TO Y&#10;...&#10;END"></textarea>
+    </div>
 
-  <div class="action-row">
-    <button class="btn btn-run" onclick="runEngine()">⚙️ RUN ENGINE</button>
-    <button class="btn btn-commit" onclick="commitChanges()">✔ COMMIT</button>
-  </div>
+    <div class="icon-row">
+      <button class="btn-lg btn-run" onclick="applyPatches()" title="Apply Patches Directly">⚙️</button>
+      <button class="btn-lg btn-dl" onclick="download()" title="Download File">📥</button>
+    </div>
 
-  <div class="action-row">
-    <button class="btn btn-util" onclick="downloadResult()">📥 DOWNLOAD</button>
-    <button class="btn btn-util" onclick="location.reload()">🚨 HARD RESET</button>
-  </div>
+    <div class="util-row">
+      <button class="btn-sm" onclick="clearPatches()">🧹 Clear Patches</button>
+      <button class="btn-sm btn-danger" onclick="hardReset()">🚨 Hard Reset</button>
+    </div>
 
-  <div id="status"></div>
-
-  <div class="diff-grid">
-    <div><h3 style="text-align:center">ORIGINAL</h3><div id="left" class="panel"></div></div>
-    <div><h3 style="text-align:center">PREVIEW</h3><div id="right" class="panel"></div></div>
+    <div id="status"></div>
   </div>
-</div>
 
 <script>
-let lastOutput = null;
-let currentFileName = "patched_file.txt";
+  let fileName = "patched_code.txt";
 
-document.getElementById('fileLoader').addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  currentFileName = file.name;
-  const reader = new FileReader();
-  reader.onload = (ee) => document.getElementById('master').value = ee.target.result;
-  reader.readAsText(file);
-});
-
-function runEngine() {
-  const masterLines = document.getElementById('master').value.split(/\r?\n/);
-  const patchText = document.getElementById('patch').value;
-  const hunks = [];
-  const regex = /FROM LINE (\d+) TO (\d+)\n([\s\S]*?)\nEND/g;
-  let m;
-
-  while ((m = regex.exec(patchText)) !== null) {
-    hunks.push({ start: parseInt(m[1]), end: parseInt(m[2]), content: m[3].split("\n") });
-  }
-
-  if (!hunks.length) return showStatus("❌ No valid FROM/TO blocks!", "var(--error)");
-
-  hunks.sort((a,b) => a.start - b.start);
-  const trace = [];
-  let cur = 1;
-
-  for (const h of hunks) {
-    while (cur < h.start) { trace.push({type:'ctx', text: masterLines[cur-1] || ""}); cur++; }
-    for (let j = h.start; j <= h.end; j++) { trace.push({type:'del', text: masterLines[j-1] || ""}); }
-    for (const nl of h.content) { trace.push({type:'add', text: nl}); }
-    cur = h.end + 1;
-  }
-  while (cur <= masterLines.length) { trace.push({type:'ctx', text: masterLines[cur-1] || ""}); cur++; }
-
-  lastOutput = trace.filter(t => t.type !== 'del').map(t => t.text).join("\n");
-  render(trace);
-  showStatus("✅ Preview Generated. Review highlights below.", "var(--accent)");
-}
-
-function render(trace) {
-  const l = document.getElementById('left'), r = document.getElementById('right');
-  l.innerHTML = ""; r.innerHTML = "";
-  trace.forEach(t => {
-    const sL = document.createElement("span"), sR = document.createElement("span");
-    sL.className = sR.className = "line";
-    if (t.type==='ctx') { sL.textContent = sR.textContent = t.text; }
-    else if (t.type==='del') { sL.textContent = t.text; sL.classList.add("del"); sR.textContent = "."; sR.classList.add("spacer"); }
-    else { sL.textContent = "."; sL.classList.add("spacer"); sR.textContent = t.text; sR.classList.add("add"); }
-    l.appendChild(sL); r.appendChild(sR);
+  document.getElementById('loader').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    fileName = file.name;
+    const reader = new FileReader();
+    reader.onload = (ev) => document.getElementById('master').value = ev.target.result;
+    reader.readAsText(file);
   });
-}
 
-function commitChanges() {
-  if (!lastOutput) return;
-  document.getElementById('master').value = lastOutput;
-  showStatus("🚀 Changes committed to Master!", "var(--accent)");
-}
+  function applyPatches() {
+    const masterEl = document.getElementById('master');
+    const patchText = document.getElementById('patch').value;
+    const microscope = document.getElementById('microscopeBtn');
+    
+    microscope.style.display = 'none';
+    let masterLines = masterEl.value.split(/\r?\n/);
+    const regex = /FROM LINE (\d+) TO (\d+)\n([\s\S]*?)\nEND/g;
+    
+    let m;
+    let hunks = [];
+    while ((m = regex.exec(patchText)) !== null) {
+      hunks.push({ start: parseInt(m[1]), end: parseInt(m[2]), content: m[3].split("\n") });
+    }
 
-function downloadResult() {
-  const blob = new Blob([document.getElementById('master').value], {type:'text/plain'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = "patched_" + currentFileName; a.click();
-}
+    if (!hunks.length) return showStatus("⚠️ No valid FROM/TO blocks!", "var(--warning)");
 
-function showStatus(msg, col) {
-  const s = document.getElementById('status');
-  s.style.display = "block"; s.style.border = `1px solid ${col}`; s.style.color = col; s.textContent = msg;
-}
+    // Sort backwards so line shifts don't affect lower indices
+    hunks.sort((a,b) => b.start - a.start);
+
+    let failed = [];
+    hunks.forEach((h, index) => {
+      if (h.start < 1 || h.start > masterLines.length) {
+        failed.push(`Patch #${hunks.length - index}: Line ${h.start} out of range.`);
+      } else {
+        const count = h.end - h.start + 1;
+        masterLines.splice(h.start - 1, count, ...h.content);
+      }
+    });
+
+    masterEl.value = masterLines.join("\n");
+
+    if (failed.length > 0) {
+      document.getElementById('failedList').innerHTML = failed.map(f => `<div style="color:var(--warning);margin-bottom:10px">${f}</div>`).join('');
+      microscope.style.display = 'flex'; microscope.classList.add('pulse');
+      showStatus(`⚠️ Applied ${hunks.length - failed.length}. Failed ${failed.length}. Click 🔬`, "var(--warning)");
+    } else {
+      showStatus(`✅ ${hunks.length} Patches Applied Successfully!`, "var(--accent)");
+    }
+  }
+
+  function clearPatches() { document.getElementById('patch').value = ""; }
+
+  function hardReset() {
+    if(confirm("Hard Reset?")) location.reload();
+  }
+
+  function toggleDebug() {
+    const ov = document.getElementById('debugOverlay');
+    ov.style.display = (ov.style.display === 'flex') ? 'none' : 'flex';
+  }
+
+  function download() {
+    const blob = new Blob([document.getElementById('master').value], {type:'text/plain'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = "patched_" + fileName; a.click();
+  }
+
+  function showStatus(msg, col) {
+    const s = document.getElementById('status');
+    s.style.display = "block"; s.style.border = `1px solid ${col}`; s.style.color = col; s.textContent = msg;
+  }
 </script>
 </body>
 </html>
