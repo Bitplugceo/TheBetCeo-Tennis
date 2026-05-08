@@ -1,773 +1,225 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Auto-Patcher X Ultimate (Hardened)</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Unified Diff Patcher Engine</title>
 
 <style>
-:root{
-  --bg:#0d1117;
-  --panel:#161b22;
-  --text:#c9d1d9;
-  --accent:#238636;
-  --accent-hover:#2ea043;
-  --border:#30363d;
-  --error:#f85149;
-  --warning:#d29922;
-  --info:#1f6feb;
-}
-
-*{
-  box-sizing:border-box;
-  -webkit-tap-highlight-color:transparent;
-}
-
-html,body{
-  margin:0;
-  min-height:100%;
-  background:var(--bg);
-  color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-}
-
 body{
+  margin:0;
+  background:#0d1117;
+  color:#c9d1d9;
+  font-family:system-ui;
   padding:20px;
-  display:flex;
-  justify-content:center;
 }
 
 .container{
-  width:100%;
-  max-width:1100px;
-}
-
-h1{
-  text-align:center;
-  margin-bottom:20px;
-  color:#fff;
-}
-
-.box-header,
-.box-header-stacked{
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-bottom:none;
-  border-radius:8px 8px 0 0;
-  padding:12px 15px;
-}
-
-.box-header-stacked{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-
-.header-title{
-  font-weight:700;
-  font-size:14px;
-}
-
-input[type="file"]{
-  width:100%;
-  color:#8b949e;
+  max-width:1000px;
+  margin:auto;
 }
 
 textarea{
   width:100%;
-  background:#010409;
+  height:200px;
+  margin:10px 0;
+  background:#161b22;
   color:#e6edf3;
-  border:1px solid var(--border);
-  border-radius:0 0 8px 8px;
-  padding:15px;
-  resize:vertical;
-  outline:none;
-  font-size:14px;
-  line-height:1.5;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  overflow:auto;
-}
-
-textarea:focus{
-  border-color:#58a6ff;
-}
-
-.source-box{
-  height:300px;
-  margin-bottom:20px;
-}
-
-.patch-box{
-  height:260px;
-  margin-bottom:15px;
-}
-
-.icon-action-row,
-.secondary-controls{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-bottom:15px;
-}
-
-.icon-btn-large,
-.btn-text{
-  cursor:pointer;
-  transition:opacity .2s ease;
-}
-
-.icon-btn-large:hover,
-.btn-text:hover{
-  opacity:.9;
-}
-
-.icon-btn-large{
-  flex:1;
-  border:none;
-  border-radius:8px;
-  padding:12px;
-  font-size:24px;
-}
-
-.btn-primary{
-  background:var(--accent);
-  color:#fff;
-}
-
-.btn-download{
-  background:var(--info);
-  color:#fff;
-}
-
-.btn-copy{
-  background:#6e7681;
-  color:#fff;
-}
-
-.btn-text{
-  background:var(--panel);
-  color:var(--text);
-  border:1px solid var(--border);
-  border-radius:6px;
-  padding:8px 16px;
-  font-size:13px;
-  font-weight:700;
-}
-
-.btn-danger{
-  color:var(--error);
-  border-color:rgba(248,81,73,.4);
-}
-
-.status{
-  display:none;
-  padding:12px;
-  border-radius:6px;
-  font-size:14px;
-  font-weight:700;
-  word-break:break-word;
-}
-
-#microscopeBtn{
-  position:fixed;
-  top:20px;
-  right:20px;
-  width:48px;
-  height:48px;
-  border-radius:50%;
-  background:var(--panel);
-  border:1px solid var(--error);
-  display:none;
-  justify-content:center;
-  align-items:center;
-  font-size:22px;
-  cursor:pointer;
-  z-index:1000;
-}
-
-.pulse{
-  animation:pulseError 2s infinite;
-}
-
-@keyframes pulseError{
-  0%{box-shadow:0 0 0 0 rgba(248,81,73,.4);}
-  70%{box-shadow:0 0 0 10px rgba(248,81,73,0);}
-  100%{box-shadow:0 0 0 0 rgba(248,81,73,0);}
-}
-
-#debugOverlay{
-  position:fixed;
-  inset:0;
-  background:rgba(13,17,23,.98);
-  z-index:999;
-  display:none;
-  flex-direction:column;
-  overflow:auto;
-  padding:20px;
-}
-
-.debug-header{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-bottom:15px;
-  padding-bottom:10px;
-  border-bottom:1px solid var(--error);
-}
-
-.debug-title{
-  flex:1;
-  color:var(--error);
-  font-size:16px;
-  font-weight:700;
-}
-
-.icon-btn-small{
-  width:32px;
-  height:32px;
-  border:none;
-  border-radius:5px;
-  background:var(--info);
-  color:#fff;
-  cursor:pointer;
-}
-
-.close-btn{
-  background:var(--error);
-}
-
-.failed-item{
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-left:3px solid var(--error);
-  border-radius:5px;
+  border:1px solid #30363d;
   padding:10px;
-  margin-bottom:12px;
+  font-family:monospace;
 }
 
-.failed-reason{
-  color:var(--warning);
-  font-size:12px;
-  margin-bottom:8px;
-  font-weight:700;
+button{
+  padding:10px 15px;
+  margin-right:10px;
+  background:#238636;
+  border:none;
+  color:white;
+  cursor:pointer;
 }
 
-.failed-item pre{
-  margin:0;
+button:hover{opacity:.9}
+
+#status{
+  margin-top:10px;
+  padding:10px;
+  border:1px solid #30363d;
+}
+pre{
   background:#010409;
-  border:1px solid var(--border);
-  border-radius:5px;
   padding:10px;
   overflow:auto;
-  white-space:pre-wrap;
-  color:#ff7b72;
-  font-size:11px;
-  line-height:1.4;
-  max-height:300px;
-}
-
-.stats{
-  margin-bottom:15px;
-  font-size:13px;
-  color:#8b949e;
 }
 </style>
 </head>
 
 <body>
-
-<button id="microscopeBtn" type="button">🔬</button>
-
-<div id="debugOverlay">
-  <div class="debug-header">
-    <button class="icon-btn-small" id="copyLogBtn" type="button">📋</button>
-    <div class="debug-title">🔬 Diagnostic Log</div>
-    <button class="icon-btn-small close-btn" id="closeDebugBtn" type="button">✖</button>
-  </div>
-  <div id="failedList"></div>
-</div>
-
 <div class="container">
-  <h1>🛠️ Auto-Patcher X Ultimate (Hardened)</h1>
 
-  <div class="stats" id="stats">
-    Ready.
-  </div>
+<h2>Unified Diff Patch Engine</h2>
 
-  <div>
-    <div class="box-header-stacked">
-      <div class="header-title">1. Master Code</div>
-      <input type="file" id="fileUploader" accept=".txt,.html,.js,.css,.json,.md,text/plain" />
-    </div>
+<textarea id="master" placeholder="Master code (text)..."></textarea>
+<textarea id="diff" placeholder="Paste unified diff here..."></textarea>
 
-    <textarea id="masterCode" class="source-box" spellcheck="false" placeholder="Paste or upload your master code..."></textarea>
-  </div>
+<button onclick="applyDiff()">Apply Patch</button>
+<button onclick="undo()">Undo</button>
 
-  <div>
-    <div class="box-header">2. Patch Instructions</div>
-    <textarea id="patchCode" class="patch-box" spellcheck="false" placeholder="Paste patch blocks here..."></textarea>
-  </div>
+<div id="status"></div>
 
-  <div class="icon-action-row">
-    <button class="icon-btn-large btn-primary" id="applyBtn" type="button" title="Apply Patches">⚙️</button>
-    <button class="icon-btn-large btn-download" id="downloadBtn" type="button" title="Download File">📥</button>
-    <button class="icon-btn-large btn-copy" id="copyBtn" type="button" title="Copy Code">📋</button>
-  </div>
+<h3>Output</h3>
+<pre id="output"></pre>
 
-  <div class="secondary-controls">
-    <button class="btn-text" id="undoBtn" type="button">↩️ Undo</button>
-    <button class="btn-text" id="clearBtn" type="button">🧹 Clear Patches</button>
-    <button class="btn-text btn-danger" id="resetBtn" type="button">🚨 Hard Reset</button>
-  </div>
-
-  <div id="statusMsg" class="status"></div>
 </div>
 
 <script>
 "use strict";
 
-const CONFIG = Object.freeze({
-  MAX_FILE_SIZE: 5 * 1024 * 1024,
-  MAX_PATCHES: 500,
-  MAX_FAILURE_PREVIEW: 4000,
-  MAX_HISTORY: 20
-});
-
 const state = {
-  currentFileName: "patched_master.txt",
-  failedSnippets: [],
-  undoStack: [],
-  statusTimer: null,
-  fadeTimer: null
+  history: [],
+  last: null
 };
 
-const els = {
-  microscope: document.getElementById("microscopeBtn"),
-  debugOverlay: document.getElementById("debugOverlay"),
-  failedList: document.getElementById("failedList"),
-  masterCode: document.getElementById("masterCode"),
-  patchCode: document.getElementById("patchCode"),
-  fileUploader: document.getElementById("fileUploader"),
-  status: document.getElementById("statusMsg"),
-  stats: document.getElementById("stats"),
-  copyLogBtn: document.getElementById("copyLogBtn")
-};
-
-document.getElementById("applyBtn").addEventListener("click", applyPatches);
-document.getElementById("downloadBtn").addEventListener("click", downloadFile);
-document.getElementById("copyBtn").addEventListener("click", copyMaster);
-document.getElementById("undoBtn").addEventListener("click", undoPatch);
-document.getElementById("clearBtn").addEventListener("click", clearPatchesOnly);
-document.getElementById("resetBtn").addEventListener("click", hardReset);
-document.getElementById("closeDebugBtn").addEventListener("click", toggleDebug);
-els.microscope.addEventListener("click", toggleDebug);
-els.copyLogBtn.addEventListener("click", copyDebugLog);
-els.fileUploader.addEventListener("change", handleFileUpload);
-
-function cssVar(name){
-  return getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
+function setStatus(msg){
+  document.getElementById("status").textContent = msg;
 }
 
-function escapeHTML(str = ""){
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+function splitLines(str){
+  return str.replace(/\r\n/g,"\n").split("\n");
 }
 
-function normalizeLineEndings(str = ""){
-  return String(str).replace(/\r\n/g, "\n");
-}
+/**
+ * Parse unified diff
+ */
+function parseUnifiedDiff(text){
+  const lines = splitLines(text);
 
-function safeSnippet(text){
-  return text.length > CONFIG.MAX_FAILURE_PREVIEW
-    ? text.slice(0, CONFIG.MAX_FAILURE_PREVIEW) + "\n\n[TRUNCATED]"
-    : text;
-}
+  const hunks = [];
+  let hunk = null;
 
-function updateStats(message){
-  els.stats.textContent = message;
-}
+  for(const line of lines){
+    if(line.startsWith("@@")){
+      const match = line.match(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/);
+      if(!match) continue;
 
-function pushUndoSnapshot(content){
-  state.undoStack.push(content);
+      hunk = {
+        oldStart: parseInt(match[1]),
+        oldCount: parseInt(match[2] || "1"),
+        newStart: parseInt(match[3]),
+        newCount: parseInt(match[4] || "1"),
+        lines: []
+      };
 
-  if(state.undoStack.length > CONFIG.MAX_HISTORY){
-    state.undoStack.shift();
-  }
-}
-
-function showStatus(message, type = "info", autoHide = true){
-  const colors = {
-    success: cssVar("--accent"),
-    error: cssVar("--error"),
-    warning: cssVar("--warning"),
-    info: cssVar("--info"),
-    neutral: cssVar("--text")
-  };
-
-  const color = colors[type] || colors.info;
-
-  els.status.style.display = "block";
-  els.status.style.opacity = "1";
-  els.status.style.backgroundColor = color + "20";
-  els.status.style.border = "1px solid " + color;
-  els.status.style.color = color;
-  els.status.textContent = message;
-
-  clearTimeout(state.statusTimer);
-  clearTimeout(state.fadeTimer);
-
-  if(autoHide){
-    state.statusTimer = setTimeout(() => {
-      els.status.style.opacity = "0";
-
-      state.fadeTimer = setTimeout(() => {
-        els.status.style.display = "none";
-      }, 300);
-
-    }, 2500);
-  }
-}
-
-function toggleDebug(){
-  const visible = els.debugOverlay.style.display === "flex";
-
-  els.debugOverlay.style.display = visible ? "none" : "flex";
-
-  if(!visible){
-    els.microscope.classList.remove("pulse");
-  }
-}
-
-function renderFailedList(){
-  els.failedList.innerHTML = "";
-
-  for(const [index, item] of state.failedSnippets.entries()){
-    const div = document.createElement("div");
-    div.className = "failed-item";
-
-    div.innerHTML = `
-      <div class="failed-reason">[Patch #${index + 1}] ${escapeHTML(item.reason)}</div>
-      <pre>${escapeHTML(item.text)}</pre>
-    `;
-
-    els.failedList.appendChild(div);
-  }
-}
-
-async function handleFileUpload(event){
-  const file = event.target.files?.[0];
-  if(!file) return;
-
-  if(file.size > CONFIG.MAX_FILE_SIZE){
-    showStatus("File exceeds 5MB limit.", "error");
-    event.target.value = "";
-    return;
+      hunks.push(hunk);
+    } else if(hunk){
+      hunk.lines.push(line);
+    }
   }
 
-  try{
-    const text = await file.text();
-
-    pushUndoSnapshot(els.masterCode.value);
-
-    state.currentFileName = sanitizeFileName(file.name);
-    els.masterCode.value = normalizeLineEndings(text);
-
-    updateStats(`Loaded ${state.currentFileName} (${Math.round(file.size / 1024)} KB)`);
-    showStatus("File loaded.", "success");
-
-  }catch(error){
-    console.error(error);
-    showStatus("Failed to read file.", "error");
-  }
+  return hunks;
 }
 
-function sanitizeFileName(name){
-  return String(name)
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
-    .slice(0, 120);
-}
+/**
+ * Apply hunks transactionally
+ */
+function applyHunks(originalLines, hunks){
+  let working = [...originalLines];
 
-function parsePatchBlocks(raw){
-  const normalized = normalizeLineEndings(raw);
+  for(const hunk of hunks){
+    let idx = hunk.oldStart - 1;
 
-  const regex = /---\s*FIND\s*---\n([\s\S]*?)\n---\s*REPLACE\s*---\n([\s\S]*?)\n---\s*END\s*---/g;
+    const newSegment = [];
+    const removedSegment = [];
 
-  const blocks = [];
-  let match;
-
-  while((match = regex.exec(normalized)) !== null){
-    blocks.push({
-      find: match[1],
-      replace: match[2]
-    });
-  }
-
-  return blocks;
-}
-
-function countOccurrences(haystack, needle){
-  if(!needle) return 0;
-
-  let count = 0;
-  let position = 0;
-
-  while(true){
-    position = haystack.indexOf(needle, position);
-
-    if(position === -1){
-      return count;
+    for(const line of hunk.lines){
+      if(line.startsWith("-")){
+        removedSegment.push(line.slice(1));
+      } 
+      else if(line.startsWith("+")){
+        newSegment.push(line.slice(1));
+      } 
+      else if(line.startsWith(" ")){
+        idx++;
+      }
     }
 
-    count++;
-    position += needle.length;
-  }
-}
+    // validation: ensure match
+    const actualSlice = working.slice(hunk.oldStart - 1, hunk.oldStart - 1 + removedSegment.length);
 
-async function applyPatches(){
-  const rawMaster = normalizeLineEndings(els.masterCode.value);
-  const rawPatches = normalizeLineEndings(els.patchCode.value);
+    const match =
+      JSON.stringify(actualSlice) === JSON.stringify(removedSegment);
 
-  if(!rawMaster.trim() || !rawPatches.trim()){
-    showStatus("Missing master code or patches.", "warning");
-    return;
-  }
-
-  const patchBlocks = parsePatchBlocks(rawPatches);
-
-  if(!patchBlocks.length){
-    showStatus("No valid patch blocks detected.", "warning");
-    return;
-  }
-
-  if(patchBlocks.length > CONFIG.MAX_PATCHES){
-    showStatus("Patch count exceeds safety limit.", "error");
-    return;
-  }
-
-  pushUndoSnapshot(rawMaster);
-
-  let working = rawMaster;
-
-  state.failedSnippets = [];
-  els.microscope.style.display = "none";
-  els.microscope.classList.remove("pulse");
-
-  let applied = 0;
-  let failed = 0;
-
-  showStatus("Applying patches...", "info", false);
-
-  for(const [index, block] of patchBlocks.entries()){
-
-    if(index % 20 === 0){
-      await new Promise(resolve => requestAnimationFrame(resolve));
+    if(!match){
+      return {
+        success:false,
+        error:`Hunk mismatch at line ${hunk.oldStart}`
+      };
     }
 
-    const find = block.find;
-    const replace = block.replace;
-
-    if(!find.trim()){
-      failed++;
-      state.failedSnippets.push({
-        reason: "Empty FIND block.",
-        text: ""
-      });
-      continue;
-    }
-
-    const occurrences = countOccurrences(working, find);
-
-    if(occurrences === 0){
-      failed++;
-      state.failedSnippets.push({
-        reason: "Target block not found.",
-        text: safeSnippet(find)
-      });
-      continue;
-    }
-
-    if(occurrences > 1){
-      failed++;
-      state.failedSnippets.push({
-        reason: "Ambiguous patch. Multiple exact matches found.",
-        text: safeSnippet(find)
-      });
-      continue;
-    }
-
-    working = working.replace(find, replace);
-    applied++;
-  }
-
-  els.masterCode.value = working;
-
-  if(failed > 0){
-    renderFailedList();
-    els.microscope.style.display = "flex";
-    els.microscope.classList.add("pulse");
-
-    showStatus(
-      `Applied ${applied} patch(es). ${failed} failed.`,
-      "warning"
-    );
-  }else{
-    showStatus(
-      `${applied} patch(es) applied successfully.`,
-      "success"
+    // apply
+    working.splice(
+      hunk.oldStart - 1,
+      removedSegment.length,
+      ...newSegment
     );
   }
 
-  updateStats(
-    `Applied: ${applied} | Failed: ${failed} | History: ${state.undoStack.length}`
-  );
+  return { success:true, result:working };
 }
 
-function undoPatch(){
-  if(!state.undoStack.length){
-    showStatus("Nothing to undo.", "warning");
+/**
+ * Main apply
+ */
+function applyDiff(){
+  const masterText = document.getElementById("master").value;
+  const diffText = document.getElementById("diff").value;
+
+  if(!masterText || !diffText){
+    setStatus("Missing input");
     return;
   }
 
-  const previous = state.undoStack.pop();
-  els.masterCode.value = previous;
+  const originalLines = splitLines(masterText);
+  const hunks = parseUnifiedDiff(diffText);
 
-  showStatus("Undo completed.", "success");
-}
-
-function clearPatchesOnly(){
-  els.patchCode.value = "";
-  showStatus("Patch box cleared.", "neutral");
-}
-
-function hardReset(){
-  const confirmed = confirm(
-    "Delete master code and patches? This cannot be undone."
-  );
-
-  if(!confirmed) return;
-
-  pushUndoSnapshot(els.masterCode.value);
-
-  els.masterCode.value = "";
-  els.patchCode.value = "";
-  els.fileUploader.value = "";
-
-  state.failedSnippets = [];
-
-  els.failedList.innerHTML = "";
-  els.microscope.style.display = "none";
-
-  state.currentFileName = "patched_master.txt";
-
-  updateStats("Reset complete.");
-  showStatus("Reset complete.", "success");
-}
-
-async function copyText(text){
-  if(navigator.clipboard && window.isSecureContext){
-    await navigator.clipboard.writeText(text);
-    return true;
-  }
-
-  const textarea = document.createElement("textarea");
-
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-
-  document.body.appendChild(textarea);
-
-  textarea.focus();
-  textarea.select();
-
-  const success = document.execCommand("copy");
-
-  document.body.removeChild(textarea);
-
-  return success;
-}
-
-async function copyMaster(){
-  const value = els.masterCode.value;
-
-  if(!value){
-    showStatus("Nothing to copy.", "warning");
+  if(!hunks.length){
+    setStatus("No valid diff hunks found");
     return;
   }
 
-  try{
-    await copyText(value);
-    showStatus("Copied to clipboard.", "success");
-  }catch(error){
-    console.error(error);
-    showStatus("Clipboard operation failed.", "error");
-  }
-}
+  // save undo
+  state.history.push(masterText);
 
-async function copyDebugLog(){
-  if(!state.failedSnippets.length){
+  const result = applyHunks(originalLines, hunks);
+
+  if(!result.success){
+    state.history.pop();
+    setStatus("Patch failed: " + result.error);
     return;
   }
 
-  let output = "Auto-Patcher Diagnostic Log\n\n";
+  const output = result.result.join("\n");
 
-  for(const [index, item] of state.failedSnippets.entries()){
-    output += `[Patch #${index + 1}]\n`;
-    output += `Reason: ${item.reason}\n\n`;
-    output += `${item.text}\n\n`;
-  }
+  document.getElementById("output").textContent = output;
+  document.getElementById("master").value = output;
 
-  try{
-    await copyText(output);
-
-    els.copyLogBtn.textContent = "✅";
-
-    setTimeout(() => {
-      els.copyLogBtn.textContent = "📋";
-    }, 1500);
-
-  }catch(error){
-    console.error(error);
-    showStatus("Failed to copy diagnostic log.", "error");
-  }
+  setStatus("Patch applied successfully");
 }
 
-function downloadFile(){
-  const code = els.masterCode.value;
-
-  if(!code){
-    showStatus("Nothing to download.", "warning");
+/**
+ * Undo system
+ */
+function undo(){
+  if(!state.history.length){
+    setStatus("Nothing to undo");
     return;
   }
 
-  const blob = new Blob([code], {
-    type: "text/plain;charset=utf-8"
-  });
+  const prev = state.history.pop();
+  document.getElementById("master").value = prev;
+  document.getElementById("output").textContent = prev;
 
-  const url = URL.createObjectURL(blob);
-
-  const anchor = document.createElement("a");
-
-  anchor.href = url;
-  anchor.download = state.currentFileName;
-
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 1000);
-
-  showStatus(
-    `Downloaded as '${state.currentFileName}'.`,
-    "success"
-  );
+  setStatus("Undo successful");
 }
 </script>
 
