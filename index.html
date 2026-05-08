@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V9 — Classic Smart Engine</title>
+  <title>Auto-Patcher V10 — Boundary Match Edition</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --text: #c9d1d9;
@@ -74,7 +74,7 @@
   </div>
 
   <div class="container">
-    <h1 style="text-align:center">🛠️ Auto-Patcher V9</h1>
+    <h1 style="text-align:center">🛠️ Auto-Patcher V10</h1>
 
     <div class="box">
       <div class="box-header">
@@ -144,7 +144,6 @@
     let appliedCount = 0;
     let failedCount = 0;
     globalFailedSnippets = []; 
-    const normMaster = master.replace(/\s+/g, '');
     let match;
     let patchFound = false;
 
@@ -153,37 +152,46 @@
       const findText = match[1].replace(/^\n+|\n+$/g, ''); 
       const replaceText = match[2].replace(/^\n+|\n+$/g, '');
 
-      // 1. TRY EXACT MATCH FIRST
+      // TIER 1: EXACT MATCH
       if (master.includes(findText)) {
         master = master.split(findText).join(replaceText);
         appliedCount++;
-      } else {
-        // 2. FALLBACK: WHITESPACE AGNOSTIC REGEX SEARCH
-        // This completely ignores indentation and spacing differences between the AI and your code
-        const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        // Break the find block into individual lines, strip the outer spaces, and filter out empties
-        const lines = findText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-        
-        if (lines.length > 0) {
-          // Join the cleaned lines with \s+ (meaning "one or more whitespace characters including line breaks")
-          const regexStr = lines.map(l => escapeRegExp(l)).join('\\s+');
-          const fuzzyRegex = new RegExp(regexStr, 'g');
+        continue;
+      } 
+      
+      const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const lines = findText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-          if (fuzzyRegex.test(master)) {
-            // Pass a function to replace to avoid issues with special $ characters in replacement strings
-            master = master.replace(fuzzyRegex, () => replaceText);
-            appliedCount++;
-            continue; // Skip the failure logging below
-          }
+      // TIER 2: FUZZY MATCH (Whitespace/Indentation Agnostic)
+      if (lines.length > 0) {
+        const fuzzyRegexStr = lines.map(l => escapeRegExp(l)).join('\\s+');
+        const fuzzyRegex = new RegExp(fuzzyRegexStr, 'g');
+
+        if (fuzzyRegex.test(master)) {
+          master = master.replace(fuzzyRegex, () => replaceText);
+          appliedCount++;
+          continue;
         }
-        
-        // 3. TRUE FAILURE: The block actually doesn't exist in the code
-        failedCount++;
-        const normFind = findText.replace(/\s+/g, '');
-        let reason = normMaster.includes(normFind) ? "Fuzzy Search Failed: Partial Match." : "Block not found in Master Code.";
-        globalFailedSnippets.push({ text: findText, reason: reason });
       }
+
+      // TIER 3: BOUNDARY MATCH (First Line & Last Line Target)
+      if (lines.length >= 2) {
+        const firstLine = escapeRegExp(lines[0]).replace(/\s+/g, '\\s+');
+        const lastLine = escapeRegExp(lines[lines.length - 1]).replace(/\s+/g, '\\s+');
+        
+        // Find the first line, then grab EVERYTHING in between until it hits the last line
+        const boundaryRegex = new RegExp(firstLine + '[\\s\\S]*?' + lastLine, 'g');
+        
+        if (boundaryRegex.test(master)) {
+          master = master.replace(boundaryRegex, () => replaceText);
+          appliedCount++;
+          continue;
+        }
+      }
+        
+      // TIER 4: TRUE FAILURE
+      failedCount++;
+      globalFailedSnippets.push({ text: findText, reason: "Block not found (Exact, Fuzzy, and Boundary searches all failed)." });
     }
 
     if (!patchFound) {
