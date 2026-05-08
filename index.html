@@ -1,318 +1,143 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Auto-Patcher X — AI-Proof Visual Review</title>
-
-<style>
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#0d1117;
-  color:#c9d1d9;
-  padding:20px;
-}
-
-.container{max-width:1200px;margin:auto}
-
-h2{margin-bottom:10px}
-
-textarea{
-  width:100%;
-  height:180px;
-  margin:10px 0;
-  background:#161b22;
-  border:1px solid #30363d;
-  color:#e6edf3;
-  padding:10px;
-  font-family:monospace;
-  border-radius:6px;
-}
-
-button{
-  padding:10px 14px;
-  margin-right:10px;
-  background:#238636;
-  border:none;
-  color:white;
-  cursor:pointer;
-  border-radius:6px;
-  font-weight:bold;
-}
-
-button.secondary{background:#21262d}
-button:hover{opacity:0.85}
-
-#status{
-  margin:10px 0;
-  padding:12px;
-  border:1px solid #30363d;
-  background:#161b22;
-  border-radius:6px;
-  font-weight:bold;
-}
-
-.grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-top:10px;
-}
-
-.panel{
-  border:1px solid #30363d;
-  background:#0d1117;
-  padding:10px;
-  min-height:400px;
-  overflow:auto;
-  font-family:monospace;
-  white-space:pre; /* Changed to pre for better alignment */
-  border-radius:6px;
-}
-
-.line{
-  display:block;
-  padding:2px 4px;
-  height:1.4em; /* Fixed height for alignment */
-  line-height:1.4em;
-}
-
-.add{background:rgba(63,185,80,0.15);color:#3fb950}
-.del{background:rgba(248,81,73,0.15);color:#f85149;text-decoration:line-through}
-.ctx{color:#c9d1d9}
-.spacer{background:transparent; pointer-events: none;}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Auto-Patcher V9 — Perfected Engine</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --text: #c9d1d9;
+      --accent: #238636; --border: #30363d; --error: #f85149;
+    }
+    body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    .container { width: 100%; max-width: 1000px; }
+    .box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+    .box-header { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; }
+    textarea { width: 100%; background: #010409; color: #e6edf3; font-family: monospace; font-size: 14px; padding: 15px; border: none; box-sizing: border-box; resize: vertical; outline: none; }
+    .action-row { display: flex; gap: 10px; margin-bottom: 20px; }
+    .btn { flex: 1; padding: 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 18px; transition: opacity 0.2s; }
+    .btn-run { background: var(--accent); color: white; }
+    .btn-commit { background: #1f6feb; color: white; }
+    .btn-util { background: #21262d; border: 1px solid var(--border); color: var(--text); font-size: 14px; }
+    
+    #status { padding: 12px; border-radius: 6px; text-align: center; margin-bottom: 20px; font-weight: bold; display: none; }
+    
+    .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .panel { background: #010409; border: 1px solid var(--border); border-radius: 8px; height: 400px; overflow: auto; font-family: monospace; white-space: pre; font-size: 12px; padding: 10px; }
+    .line { display: block; height: 1.5em; line-height: 1.5em; padding: 0 4px; }
+    .del { background: rgba(248,81,73,0.2); color: #f85149; text-decoration: line-through; }
+    .add { background: rgba(63,185,80,0.2); color: #3fb950; }
+    .spacer { opacity: 0.3; }
+  </style>
 </head>
-
 <body>
 
 <div class="container">
+  <h1>🛠️ Auto-Patcher V9 (Perfected)</h1>
 
-<h2>🛠 Auto-Patcher X — AI-Proof Review</h2>
-
-<textarea id="master" placeholder="Paste full Master Code here..."></textarea>
-<textarea id="diff" placeholder="Paste AI-generated Unified Diff here..."></textarea>
-
-<div class="controls">
-  <button onclick="runEngine()">⚙️ Run Engine</button>
-  <button class="secondary" onclick="commit()">✔ Commit Changes</button>
-</div>
-
-<div id="status">Ready</div>
-
-<div class="grid">
-  <div>
-    <h3>Original</h3>
-    <div id="left" class="panel"></div>
+  <div class="box">
+    <div class="box-header">
+      <span>1. MASTER CODE</span>
+      <input type="file" id="fileLoader" style="font-size: 12px;">
+    </div>
+    <textarea id="master" style="height: 200px;" placeholder="Upload or paste code..."></textarea>
   </div>
-  <div>
-    <h3>Preview (New State)</h3>
-    <div id="right" class="panel"></div>
-  </div>
-</div>
 
+  <div class="box">
+    <div class="box-header">2. PATCH INSTRUCTIONS (FROM/TO BLOCK)</div>
+    <textarea id="patch" style="height: 150px;" placeholder="FROM LINE X TO Y&#10;...&#10;END"></textarea>
+  </div>
+
+  <div class="action-row">
+    <button class="btn btn-run" onclick="runEngine()">⚙️ RUN ENGINE</button>
+    <button class="btn btn-commit" onclick="commitChanges()">✔ COMMIT</button>
+  </div>
+
+  <div class="action-row">
+    <button class="btn btn-util" onclick="downloadResult()">📥 DOWNLOAD</button>
+    <button class="btn btn-util" onclick="location.reload()">🚨 HARD RESET</button>
+  </div>
+
+  <div id="status"></div>
+
+  <div class="diff-grid">
+    <div><h3 style="text-align:center">ORIGINAL</h3><div id="left" class="panel"></div></div>
+    <div><h3 style="text-align:center">PREVIEW</h3><div id="right" class="panel"></div></div>
+  </div>
 </div>
 
 <script>
-"use strict";
+let lastOutput = null;
+let currentFileName = "patched_file.txt";
 
-function splitLines(s){
-  return s.replace(/\r\n/g,"\n").split("\n");
-}
+document.getElementById('fileLoader').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  currentFileName = file.name;
+  const reader = new FileReader();
+  reader.onload = (ee) => document.getElementById('master').value = ee.target.result;
+  reader.readAsText(file);
+});
 
-/* =========================
-   PARSER
-========================= */
-function parseDiff(text){
-  const lines = splitLines(text);
+function runEngine() {
+  const masterLines = document.getElementById('master').value.split(/\r?\n/);
+  const patchText = document.getElementById('patch').value;
   const hunks = [];
-  let h = null;
+  const regex = /FROM LINE (\d+) TO (\d+)\n([\s\S]*?)\nEND/g;
+  let m;
 
-  for(const l of lines){
-    if(l.startsWith("@@")){
-      const m = l.match(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/);
-      if(!m) continue;
-      h = { start: parseInt(m[1]), lines: [] };
-      hunks.push(h);
-    } else if(h){
-      // Only capture valid diff lines
-      if (l.startsWith(' ') || l.startsWith('+') || l.startsWith('-')) {
-        h.lines.push(l);
-      }
-    }
+  while ((m = regex.exec(patchText)) !== null) {
+    hunks.push({ start: parseInt(m[1]), end: parseInt(m[2]), content: m[3].split("\n") });
   }
-  return hunks;
+
+  if (!hunks.length) return showStatus("❌ No valid FROM/TO blocks!", "var(--error)");
+
+  hunks.sort((a,b) => a.start - b.start);
+  const trace = [];
+  let cur = 1;
+
+  for (const h of hunks) {
+    while (cur < h.start) { trace.push({type:'ctx', text: masterLines[cur-1] || ""}); cur++; }
+    for (let j = h.start; j <= h.end; j++) { trace.push({type:'del', text: masterLines[j-1] || ""}); }
+    for (const nl of h.content) { trace.push({type:'add', text: nl}); }
+    cur = h.end + 1;
+  }
+  while (cur <= masterLines.length) { trace.push({type:'ctx', text: masterLines[cur-1] || ""}); cur++; }
+
+  lastOutput = trace.filter(t => t.type !== 'del').map(t => t.text).join("\n");
+  render(trace);
+  showStatus("✅ Preview Generated. Review highlights below.", "var(--accent)");
 }
 
-/* =========================
-   AI-PROOF ENGINE
-========================= */
-function isMatch(original, startIdx, signature) {
-  if (startIdx < 0 || startIdx + signature.length > original.length) return false;
-  for (let i = 0; i < signature.length; i++) {
-    if (original[startIdx + i] !== signature[i]) return false;
-  }
-  return true;
-}
-
-function findStartingPoint(original, hunk, lastIdx) {
-  const signature = hunk.lines
-    .filter(l => l[0] !== '+')
-    .slice(0, 3) 
-    .map(l => l.slice(1));
-
-  if (signature.length === 0) return Math.max(0, hunk.start - 1);
-
-  // Check AI's suggested line first
-  const suggested = hunk.start - 1;
-  if (isMatch(original, suggested, signature)) return suggested;
-
-  // Scan entire file if AI math is wrong
-  for (let s = 0; s <= original.length - signature.length; s++) {
-    if (isMatch(original, s, signature)) return s;
-  }
-  return -1;
-}
-
-function runStream(original, hunks){
-  const out = [];
-  const trace = []; // Trace stores {type, text, pair} for side-by-side syncing
-  let i = 0;
-
-  for(const h of hunks){
-    let actualStart = findStartingPoint(original, h, i);
-
-    if(actualStart === -1) {
-      return {ok:false, error: `Context not found for hunk at line ${h.start}`};
-    }
-
-    // Catch up unmodified lines
-    while(i < actualStart){
-      out.push(original[i]);
-      trace.push({type:"ctx", text:original[i]});
-      i++;
-    }
-
-    // Apply hunk instructions
-    for(const l of h.lines){
-      const t = l[0];
-      const c = l.slice(1);
-
-      if(t === " "){
-        out.push(original[i]);
-        trace.push({type:"ctx", text:original[i]});
-        i++;
-      } else if(t === "-"){
-        trace.push({type:"del", text:c});
-        i++;
-      } else if(t === "+"){
-        out.push(c);
-        trace.push({type:"add", text:c});
-      }
-    }
-  }
-
-  while(i < original.length){
-    out.push(original[i]);
-    trace.push({type:"ctx", text:original[i]});
-    i++;
-  }
-
-  return {ok:true, out, trace};
-}
-
-/* =========================
-   VISUAL LAYER (WITH ALIGNMENT)
-========================= */
-let lastResult = null;
-
-function render(trace){
-  const left = document.getElementById("left");
-  const right = document.getElementById("right");
-  left.innerHTML = "";
-  right.innerHTML = "";
-
-  // The trace is a single stream. To keep them aligned, we process hunks of changes.
-  // We'll use a simple approach: render each trace line.
-  // If it's a "del", we put text on left and a spacer on right.
-  // If it's an "add", we put spacer on left and text on right.
-  // If it's "ctx", we put text on both.
-
+function render(trace) {
+  const l = document.getElementById('left'), r = document.getElementById('right');
+  l.innerHTML = ""; r.innerHTML = "";
   trace.forEach(t => {
-    const lLine = document.createElement("span");
-    const rLine = document.createElement("span");
-    
-    lLine.className = "line";
-    rLine.className = "line";
-
-    if(t.type === "ctx"){
-      lLine.className += " ctx";
-      rLine.className += " ctx";
-      lLine.textContent = t.text;
-      rLine.textContent = t.text;
-    } 
-    else if(t.type === "del"){
-      lLine.className += " del";
-      rLine.className += " spacer";
-      lLine.textContent = t.text;
-      rLine.textContent = ""; // Empty spacer
-    } 
-    else if(t.type === "add"){
-      lLine.className += " spacer";
-      rLine.className += " add";
-      lLine.textContent = ""; // Empty spacer
-      rLine.textContent = t.text;
-    }
-
-    left.appendChild(lLine);
-    right.appendChild(rLine);
+    const sL = document.createElement("span"), sR = document.createElement("span");
+    sL.className = sR.className = "line";
+    if (t.type==='ctx') { sL.textContent = sR.textContent = t.text; }
+    else if (t.type==='del') { sL.textContent = t.text; sL.classList.add("del"); sR.textContent = "."; sR.classList.add("spacer"); }
+    else { sL.textContent = "."; sL.classList.add("spacer"); sR.textContent = t.text; sR.classList.add("add"); }
+    l.appendChild(sL); r.appendChild(sR);
   });
 }
 
-/* =========================
-   CONTROLS
-========================= */
-function runEngine(){
-  const mValue = document.getElementById("master").value;
-  const dValue = document.getElementById("diff").value;
-
-  if(!mValue.trim() || !dValue.trim()){
-    document.getElementById("status").textContent = "⚠️ Missing Master code or Diff!";
-    return;
-  }
-
-  const m = splitLines(mValue);
-  const hunks = parseDiff(dValue);
-
-  if(hunks.length === 0){
-    document.getElementById("status").textContent = "❌ No valid @@ hunks found in Diff.";
-    return;
-  }
-
-  const res = runStream(m, hunks);
-
-  if(!res.ok){
-    document.getElementById("status").textContent = "❌ " + res.error;
-    document.getElementById("left").innerHTML = "";
-    document.getElementById("right").innerHTML = "";
-    return;
-  }
-
-  lastResult = res;
-  render(res.trace);
-  document.getElementById("status").textContent = "✔ Diff Ready. Review Original vs Preview below.";
+function commitChanges() {
+  if (!lastOutput) return;
+  document.getElementById('master').value = lastOutput;
+  showStatus("🚀 Changes committed to Master!", "var(--accent)");
 }
 
-function commit(){
-  if(!lastResult) {
-    document.getElementById("status").textContent = "⚠️ Run Engine first!";
-    return;
-  }
-  document.getElementById("master").value = lastResult.out.join("\n");
-  document.getElementById("status").textContent = "✔ Changes Committed to Master Code.";
+function downloadResult() {
+  const blob = new Blob([document.getElementById('master').value], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = "patched_" + currentFileName; a.click();
+}
+
+function showStatus(msg, col) {
+  const s = document.getElementById('status');
+  s.style.display = "block"; s.style.border = `1px solid ${col}`; s.style.color = col; s.textContent = msg;
 }
 </script>
-
 </body>
 </html>
