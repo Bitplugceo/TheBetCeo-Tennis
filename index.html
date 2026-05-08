@@ -156,10 +156,25 @@
         master = master.split(findText).join(replaceText);
         appliedCount++;
       } else {
-        failedCount++;
-        const normFind = findText.replace(/\s+/g, '');
-        let reason = normMaster.includes(normFind) ? "Indentation/Whitespace mismatch." : "Block not found in Master Code.";
-        globalFailedSnippets.push({ text: findText, reason: reason });
+        // Fallback: Whitespace-Agnostic Regex Search
+        const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Convert the find block into an array of lines, trimming them
+        const lines = findText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        
+        // Build a regex that looks for those lines, allowing ANY amount of whitespace/newlines between them
+        const regexStr = lines.map(l => escapeRegExp(l)).join('\\s+');
+        const fuzzyRegex = new RegExp(regexStr, 'g');
+
+        if (fuzzyRegex.test(master)) {
+          master = master.replace(fuzzyRegex, replaceText);
+          appliedCount++;
+        } else {
+          failedCount++;
+          const normFind = findText.replace(/\s+/g, '');
+          let reason = normMaster.includes(normFind) ? "Indentation/Whitespace mismatch." : "Block not found in Master Code.";
+          globalFailedSnippets.push({ text: findText, reason: reason });
+        }
       }
     }
 
