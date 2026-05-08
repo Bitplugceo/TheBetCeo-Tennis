@@ -2943,6 +2943,73 @@
   </script>
   <script>
     window.__BETCEO_ENGINE_BOOT_SEEN = true, window.__BETCEO_SESSION_ID = "sess_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+    (function injectVisualDebugger() {
+      const panel = document.createElement("div");
+      panel.id = "bb_debug_panel";
+      panel.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#0a0a0a;color:#d4af37;font-family:monospace;font-size:11px;padding:10px;max-height:220px;overflow-y:auto;border-top:2px solid #d4af37;";
+      panel.innerHTML = '<div style="font-weight:900;font-size:12px;margin-bottom:6px;">🔬 BB VISUAL DEBUGGER — checking suspects...</div>';
+      const closeBtn = document.createElement("button");
+      closeBtn.textContent = "✕ Close Debugger";
+      closeBtn.style.cssText = "position:absolute;top:8px;right:8px;background:#333;color:#fff;border:none;padding:4px 10px;cursor:pointer;font-size:11px;";
+      closeBtn.onclick = () => panel.remove();
+      panel.appendChild(closeBtn);
+      document.body ? document.body.appendChild(panel) : document.documentElement.appendChild(panel);
+      function log(msg, ok) {
+        const line = document.createElement("div");
+        line.style.color = ok === true ? "#49d45f" : ok === false ? "#ff5c61" : "#ffcf73";
+        line.textContent = (ok === true ? "✅ " : ok === false ? "❌ " : "⚠️ ") + msg;
+        panel.insertBefore(line, closeBtn);
+      }
+      setTimeout(function() {
+        try {
+          // SUSPECT 1: ensureFreshBuild blocking entire init
+          if (typeof ensureFreshBuild === "function") {
+            const fbResult = ensureFreshBuild();
+            log("ensureFreshBuild() returned: " + fbResult + (fbResult ? " — THIS IS BLOCKING ALL EVENT LISTENERS" : " — OK"), !fbResult);
+          } else {
+            log("ensureFreshBuild is not defined — OK", true);
+          }
+        } catch(e) { log("ensureFreshBuild threw: " + e.message, false); }
+        try {
+          // SUSPECT 2: body class locking the UI
+          const bodyClass = document.body.className;
+          log("body classes: [" + (bodyClass || "none") + "]", !bodyClass.includes("tracker-open"));
+          if (bodyClass.includes("tracker-open")) {
+            document.body.classList.remove("tracker-open");
+            log("AUTO-FIXED: removed tracker-open from body", true);
+          }
+        } catch(e) { log("body class check threw: " + e.message, false); }
+        try {
+          // SUSPECT 3: key DOM elements exist
+          const ids = ["runBtn","clearBtn","leagueSelect","teamAName","teamBName","fetchBtn"];
+          ids.forEach(id => {
+            const el = document.getElementById(id);
+            log("DOM #" + id + ": " + (el ? "FOUND" : "MISSING"), !!el);
+          });
+        } catch(e) { log("DOM check threw: " + e.message, false); }
+        try {
+          // SUSPECT 4: section toggles exist and are wired
+          const toggles = document.querySelectorAll(".section-toggle");
+          log("Section toggles found: " + toggles.length, toggles.length > 0);
+          const sections = document.querySelectorAll(".section");
+          log("Sections found: " + sections.length, sections.length > 0);
+        } catch(e) { log("Toggle check threw: " + e.message, false); }
+        try {
+          // SUSPECT 5: primeTrackerStateForRun blocking
+          log("__BETCEO_ENGINE_BOOT_SEEN: " + window.__BETCEO_ENGINE_BOOT_SEEN, !!window.__BETCEO_ENGINE_BOOT_SEEN);
+        } catch(e) { log("Boot flag check threw: " + e.message, false); }
+        try {
+          // SUSPECT 6: IndexedDB available
+          log("IndexedDB available: " + (!!window.indexedDB), !!window.indexedDB);
+        } catch(e) { log("IndexedDB check threw: " + e.message, false); }
+        try {
+          // SUSPECT 7: makeSectionsCollapsible ran
+          const ready = document.querySelectorAll("[data-collapsible-ready='1']");
+          log("Collapsible sections initialized: " + ready.length + (ready.length === 0 ? " — makeSectionsCollapsible() NEVER RAN" : ""), ready.length > 0);
+        } catch(e) { log("Collapsible check threw: " + e.message, false); }
+        log("--- Debugger scan complete. Red lines = your killers. ---", null);
+      }, 1200);
+    })();
     const ENGINE_INTEGRITY_SHIELD = {
         expectedFingerprints: {
           math: "v1_calibrated",
@@ -6945,7 +7012,13 @@
     }
     
     function stripOTFromScores(e, t, a, r, n) {
-      return [e, t]
+      if (!Array.isArray(a) || !Array.isArray(r) || a.length < n) return [e, t];
+      let regTeam = 0, regOpp = 0;
+      for (let i = 0; i < n; i++) {
+        regTeam += readVal(a[i]) || 0;
+        regOpp  += readVal(r[i]) || 0;
+      }
+      return (regTeam > 0 || regOpp > 0) ? [regTeam, regOpp] : [e, t];
     }
     async function fetchScheduleCore(E, t, e, a, r = !0) {
       var n = LEAGUE_FETCH_RULES[e];
@@ -7434,8 +7507,8 @@
           const c = await fetchH2HCore(i, t, e, a);
           2 <= c ? .length ? (uiLog(`✅ Found ${c.length} recent H2H matchups.`), document.getElementById("aFTH2H")
               .value =
-              c.map(e => normalizeId(e.teamAId) == t ? e.scoreA : e.scoreB).join(","), document.getElementById(
-                "bFTH2H").value = c.map(e => normalizeId(e.teamAId) == t ? e.scoreB : e.scoreA).join(","),
+              c.map(e => String(e.teamAId).trim() === String(t).trim() ? e.scoreA : e.scoreB).join(","), document.getElementById(
+                "bFTH2H").value = c.map(e => String(e.teamAId).trim() === String(t).trim() ? e.scoreB : e.scoreA).join(","),
               setAutoTagVisible("h2hAutoTag", document.getElementById("useFTH2H").checked = !0)) : uiLog(
               "⚠️ H2H skipped: Found less than 2 recent matchups."), setStatusHTML(
               "&#x2705; Tactical Data Synchronized.", "ok"), uiLog("🎉 Auto-fetch cycle complete!"),
@@ -7787,6 +7860,9 @@
                 }
               }
               if (c) { n = anchorProjection(n, c, g, "ft"); }
+              const dissonanceRatio = (isFinite(n) && n > 0) ? (n / (a + r)) : 1;
+              a *= dissonanceRatio;
+              r *= dissonanceRatio;
               let s = NaN;
               if (l) {
                 const h1Ratio = (g === "usa.1" || g === "ger.1") ? 0.46 : 0.44;
@@ -7851,7 +7927,7 @@
                 l = safeArr(parseGames("b2HScored"));
                 if (c && l && 2 <= c.length && 2 <= l.length) o = robustRecentAverage(c) + robustRecentAverage(l);
                 else if (isFinite(n) && isFinite(s)) o = n - s;
-                else o = n * 0.52;
+                else o = n * ((g === "usa.1" || g === "ger.1") ? 0.54 : 0.56);
                 if (isFinite(o)) o = anchorProjection(o, v, g, "h2");
               }
               f("2H Total", "h2", "h2", o, v, 1.1 * Math.max(y, S), !1);
