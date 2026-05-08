@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V9 — Direct Engine</title>
+  <title>Auto-Patcher V9 — Smart Direct</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --text: #c9d1d9;
@@ -112,16 +112,28 @@
 
     if (!hunks.length) return showStatus("⚠️ No valid FROM/TO blocks!", "var(--warning)");
 
-    // Sort backwards so line shifts don't affect lower indices
+    // Sort backwards to prevent line shift issues
     hunks.sort((a,b) => b.start - a.start);
 
+    let applied = 0;
+    let skipped = 0;
     let failed = [];
-    hunks.forEach((h, index) => {
+
+    hunks.forEach((h) => {
       if (h.start < 1 || h.start > masterLines.length) {
-        failed.push(`Patch #${hunks.length - index}: Line ${h.start} out of range.`);
+        failed.push(`Line ${h.start} is out of range.`);
       } else {
-        const count = h.end - h.start + 1;
-        masterLines.splice(h.start - 1, count, ...h.content);
+        // Check if current lines match NEW content (Anti-Duplicate)
+        const currentSlice = masterLines.slice(h.start - 1, h.start - 1 + h.content.length).join("\n");
+        const newContent = h.content.join("\n");
+
+        if (currentSlice === newContent) {
+          skipped++;
+        } else {
+          const count = h.end - h.start + 1;
+          masterLines.splice(h.start - 1, count, ...h.content);
+          applied++;
+        }
       }
     });
 
@@ -130,9 +142,11 @@
     if (failed.length > 0) {
       document.getElementById('failedList').innerHTML = failed.map(f => `<div style="color:var(--warning);margin-bottom:10px">${f}</div>`).join('');
       microscope.style.display = 'flex'; microscope.classList.add('pulse');
-      showStatus(`⚠️ Applied ${hunks.length - failed.length}. Failed ${failed.length}. Click 🔬`, "var(--warning)");
+      showStatus(`⚠️ Failed ${failed.length} patches. Click 🔬`, "var(--warning)");
+    } else if (applied === 0 && skipped > 0) {
+      showStatus(`ℹ️ Already up to date!`, "var(--blue)");
     } else {
-      showStatus(`✅ ${hunks.length} Patches Applied Successfully!`, "var(--accent)");
+      showStatus(`✅ Successfully applied ${applied} patch(es)!`, "var(--accent)");
     }
   }
 
