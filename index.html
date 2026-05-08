@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Auto-Patcher X — Visual Diff Review (Tier 2)</title>
+<title>Auto-Patcher X — AI-Proof Visual Review</title>
 
 <style>
 body{
@@ -27,6 +27,7 @@ textarea{
   color:#e6edf3;
   padding:10px;
   font-family:monospace;
+  border-radius:6px;
 }
 
 button{
@@ -37,41 +38,50 @@ button{
   color:white;
   cursor:pointer;
   border-radius:6px;
+  font-weight:bold;
 }
 
 button.secondary{background:#21262d}
+button:hover{opacity:0.85}
 
 #status{
   margin:10px 0;
-  padding:10px;
+  padding:12px;
   border:1px solid #30363d;
   background:#161b22;
+  border-radius:6px;
+  font-weight:bold;
 }
 
 .grid{
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:10px;
+  margin-top:10px;
 }
 
 .panel{
   border:1px solid #30363d;
   background:#0d1117;
   padding:10px;
-  min-height:300px;
+  min-height:400px;
   overflow:auto;
   font-family:monospace;
-  white-space:pre-wrap;
+  white-space:pre; /* Changed to pre for better alignment */
+  border-radius:6px;
 }
 
 .line{
   display:block;
   padding:2px 4px;
+  height:1.4em; /* Fixed height for alignment */
+  line-height:1.4em;
 }
 
 .add{background:rgba(63,185,80,0.15);color:#3fb950}
 .del{background:rgba(248,81,73,0.15);color:#f85149;text-decoration:line-through}
 .ctx{color:#c9d1d9}
+.spacer{background:transparent; pointer-events: none;}
 </style>
 </head>
 
@@ -79,13 +89,15 @@ button.secondary{background:#21262d}
 
 <div class="container">
 
-<h2>🛠 Auto-Patcher X — Visual Diff Review (Tier 2 Engine)</h2>
+<h2>🛠 Auto-Patcher X — AI-Proof Review</h2>
 
-<textarea id="master" placeholder="Master text..."></textarea>
-<textarea id="diff" placeholder="Unified diff..."></textarea>
+<textarea id="master" placeholder="Paste full Master Code here..."></textarea>
+<textarea id="diff" placeholder="Paste AI-generated Unified Diff here..."></textarea>
 
-<button onclick="runEngine()">⚙️ Run Engine</button>
-<button class="secondary" onclick="commit()">✔ Commit</button>
+<div class="controls">
+  <button onclick="runEngine()">⚙️ Run Engine</button>
+  <button class="secondary" onclick="commit()">✔ Commit Changes</button>
+</div>
 
 <div id="status">Ready</div>
 
@@ -105,14 +117,13 @@ button.secondary{background:#21262d}
 <script>
 "use strict";
 
-/* =========================
-   TIER 2 ENGINE (UNCHANGED)
-========================= */
-
 function splitLines(s){
   return s.replace(/\r\n/g,"\n").split("\n");
 }
 
+/* =========================
+   PARSER
+========================= */
 function parseDiff(text){
   const lines = splitLines(text);
   const hunks = [];
@@ -122,50 +133,80 @@ function parseDiff(text){
     if(l.startsWith("@@")){
       const m = l.match(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/);
       if(!m) continue;
-
       h = { start: parseInt(m[1]), lines: [] };
       hunks.push(h);
     } else if(h){
-      h.lines.push(l);
+      // Only capture valid diff lines
+      if (l.startsWith(' ') || l.startsWith('+') || l.startsWith('-')) {
+        h.lines.push(l);
+      }
     }
   }
-
   return hunks;
+}
+
+/* =========================
+   AI-PROOF ENGINE
+========================= */
+function isMatch(original, startIdx, signature) {
+  if (startIdx < 0 || startIdx + signature.length > original.length) return false;
+  for (let i = 0; i < signature.length; i++) {
+    if (original[startIdx + i] !== signature[i]) return false;
+  }
+  return true;
+}
+
+function findStartingPoint(original, hunk, lastIdx) {
+  const signature = hunk.lines
+    .filter(l => l[0] !== '+')
+    .slice(0, 3) 
+    .map(l => l.slice(1));
+
+  if (signature.length === 0) return Math.max(0, hunk.start - 1);
+
+  // Check AI's suggested line first
+  const suggested = hunk.start - 1;
+  if (isMatch(original, suggested, signature)) return suggested;
+
+  // Scan entire file if AI math is wrong
+  for (let s = 0; s <= original.length - signature.length; s++) {
+    if (isMatch(original, s, signature)) return s;
+  }
+  return -1;
 }
 
 function runStream(original, hunks){
   const out = [];
-  const trace = [];
-
+  const trace = []; // Trace stores {type, text, pair} for side-by-side syncing
   let i = 0;
 
   for(const h of hunks){
-    let p = h.start - 1;
+    let actualStart = findStartingPoint(original, h, i);
 
-    while(i < p){
+    if(actualStart === -1) {
+      return {ok:false, error: `Context not found for hunk at line ${h.start}`};
+    }
+
+    // Catch up unmodified lines
+    while(i < actualStart){
       out.push(original[i]);
       trace.push({type:"ctx", text:original[i]});
       i++;
     }
 
+    // Apply hunk instructions
     for(const l of h.lines){
       const t = l[0];
       const c = l.slice(1);
 
       if(t === " "){
-        if(original[i] !== c) return {ok:false,error:"context mismatch"};
-        out.push(c);
-        trace.push({type:"ctx", text:c});
+        out.push(original[i]);
+        trace.push({type:"ctx", text:original[i]});
         i++;
-      }
-
-      else if(t === "-"){
-        if(original[i] !== c) return {ok:false,error:"delete mismatch"};
+      } else if(t === "-"){
         trace.push({type:"del", text:c});
         i++;
-      }
-
-      else if(t === "+"){
+      } else if(t === "+"){
         out.push(c);
         trace.push({type:"add", text:c});
       }
@@ -182,56 +223,94 @@ function runStream(original, hunks){
 }
 
 /* =========================
-   VISUAL LAYER (NEW)
+   VISUAL LAYER (WITH ALIGNMENT)
 ========================= */
-
 let lastResult = null;
 
-function render(trace, original, updated){
+function render(trace){
   const left = document.getElementById("left");
   const right = document.getElementById("right");
-
   left.innerHTML = "";
   right.innerHTML = "";
 
-  for(const t of trace){
-    const span = document.createElement("span");
-    span.className = "line " + (
-      t.type === "add" ? "add" :
-      t.type === "del" ? "del" : "ctx"
-    );
-    span.textContent = t.text;
+  // The trace is a single stream. To keep them aligned, we process hunks of changes.
+  // We'll use a simple approach: render each trace line.
+  // If it's a "del", we put text on left and a spacer on right.
+  // If it's an "add", we put spacer on left and text on right.
+  // If it's "ctx", we put text on both.
 
-    if(t.type !== "add") left.appendChild(span.cloneNode(true));
-    if(t.type !== "del") right.appendChild(span);
-  }
+  trace.forEach(t => {
+    const lLine = document.createElement("span");
+    const rLine = document.createElement("span");
+    
+    lLine.className = "line";
+    rLine.className = "line";
+
+    if(t.type === "ctx"){
+      lLine.className += " ctx";
+      rLine.className += " ctx";
+      lLine.textContent = t.text;
+      rLine.textContent = t.text;
+    } 
+    else if(t.type === "del"){
+      lLine.className += " del";
+      rLine.className += " spacer";
+      lLine.textContent = t.text;
+      rLine.textContent = ""; // Empty spacer
+    } 
+    else if(t.type === "add"){
+      lLine.className += " spacer";
+      rLine.className += " add";
+      lLine.textContent = ""; // Empty spacer
+      rLine.textContent = t.text;
+    }
+
+    left.appendChild(lLine);
+    right.appendChild(rLine);
+  });
 }
 
 /* =========================
    CONTROLS
 ========================= */
-
 function runEngine(){
-  const m = splitLines(document.getElementById("master").value);
-  const d = document.getElementById("diff").value;
+  const mValue = document.getElementById("master").value;
+  const dValue = document.getElementById("diff").value;
 
-  const hunks = parseDiff(d);
-  const res = runStream(m,hunks);
+  if(!mValue.trim() || !dValue.trim()){
+    document.getElementById("status").textContent = "⚠️ Missing Master code or Diff!";
+    return;
+  }
+
+  const m = splitLines(mValue);
+  const hunks = parseDiff(dValue);
+
+  if(hunks.length === 0){
+    document.getElementById("status").textContent = "❌ No valid @@ hunks found in Diff.";
+    return;
+  }
+
+  const res = runStream(m, hunks);
 
   if(!res.ok){
     document.getElementById("status").textContent = "❌ " + res.error;
+    document.getElementById("left").innerHTML = "";
+    document.getElementById("right").innerHTML = "";
     return;
   }
 
   lastResult = res;
-  render(res.trace, m, res.out);
-  document.getElementById("status").textContent = "✔ Diff executed (review before commit)";
+  render(res.trace);
+  document.getElementById("status").textContent = "✔ Diff Ready. Review Original vs Preview below.";
 }
 
 function commit(){
-  if(!lastResult) return;
+  if(!lastResult) {
+    document.getElementById("status").textContent = "⚠️ Run Engine first!";
+    return;
+  }
   document.getElementById("master").value = lastResult.out.join("\n");
-  document.getElementById("status").textContent = "✔ Committed";
+  document.getElementById("status").textContent = "✔ Changes Committed to Master Code.";
 }
 </script>
 
