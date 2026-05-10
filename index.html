@@ -2,280 +2,155 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V11 — Safety Lock Edition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto-Patcher V12 — Cloning Edition</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --text: #c9d1d9;
       --accent: #238636; --border: #30363d; --error: #f85149;
-      --warning: #d29922; --blue: #1f6feb;
+      --blue: #1f6feb; --purple: #8957e5;
     }
     
-    body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    .container { width: 100%; max-width: 800px; }
+    body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    
+    /* Dual Column Layout */
+    .workbench { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+    
+    .box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+    .box-header { padding: 10px 15px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); }
+    
+    textarea { width: 100%; background: #010409; color: #e6edf3; font-family: 'Fira Code', monospace; font-size: 13px; padding: 15px; border: none; box-sizing: border-box; resize: none; flex-grow: 1; line-height: 1.5; min-height: 400px; }
 
-    /* FULL-SCREEN DEBUG OVERLAY */
-    #debugOverlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(13, 17, 23, 0.98); backdrop-filter: blur(5px);
-      z-index: 2000; display: none; flex-direction: column;
-      padding: 40px 15px 20px 15px; overflow-y: auto;
-    }
+    /* Controls */
+    .patch-area { background: var(--panel); border: 1px solid var(--purple); border-radius: 8px; margin-bottom: 15px; }
+    .btn-row { display: flex; gap: 10px; margin-bottom: 15px; }
+    .btn { flex: 1; padding: 12px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; }
+    
+    .btn-clone { background: var(--purple); } /* The "Bundle" button */
+    .btn-run { background: var(--accent); }
+    .btn-dl { background: var(--blue); }
 
-    .debug-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid var(--error); padding-bottom: 10px; }
-    .debug-title { color: var(--error); font-size: 16px; font-weight: bold; }
-
-    /* Microscope Pulse Alert */
-    #microscopeBtn {
-      position: fixed; top: 20px; right: 20px; background: var(--panel); border: 1px solid var(--error);
-      border-radius: 50%; width: 45px; height: 45px; display: none; justify-content: center;
-      align-items: center; font-size: 20px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 3000;
-    }
-    .pulse { animation: pulseError 2s infinite; }
-    @keyframes pulseError {
-      0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
-      70% { box-shadow: 0 0 0 10px rgba(248, 81, 73, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
-    }
-
-    /* UI Components */
-    .box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; overflow: hidden; }
-    .box-header { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: bold; color: #8b949e; display: flex; justify-content: space-between; align-items: center;}
-    textarea { width: 100%; background: #010409; color: #e6edf3; font-family: monospace; font-size: 16px; padding: 15px; border: none; box-sizing: border-box; resize: vertical; outline: none; line-height: 1.5; }
-
-    .icon-row { display: flex; gap: 10px; margin-bottom: 15px; }
-    .btn-lg { flex: 1; padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-size: 24px; display: flex; justify-content: center; align-items: center; transition: 0.2s; }
-    .btn-run { background: var(--accent); color: white; }
-    .btn-dl { background: var(--blue); color: white; }
-    .btn-copy { background: #6e7681; color: white; }
-
-    .util-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
-    .btn-text { background: var(--panel); color: var(--text); border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; }
-    .btn-danger { color: var(--error); border-color: rgba(248,81,73,0.4); }
-
-    .status { text-align: center; font-weight: bold; padding: 12px; border-radius: 6px; display: none; font-size: 14px; margin-bottom: 15px; }
-
-    .failed-item { background: #161b22; border: 1px solid #30363d; border-left: 3px solid var(--error); border-radius: 4px; margin-bottom: 10px; padding: 10px; }
-    .failed-reason { color: var(--warning); font-weight: bold; font-size: 11px; margin-bottom: 6px; }
-    .failed-item pre { background: #010409; padding: 8px; border-radius: 4px; border: 1px solid #30363d; color: #ff7b72; font-size: 10px; overflow-x: auto; margin: 0; white-space: pre-wrap; }
+    .status { text-align: center; padding: 10px; border-radius: 6px; display: none; font-size: 13px; margin-bottom: 10px; }
+    
+    .label-donor { color: #ff7b72; }
+    .label-recipient { color: #79c0ff; }
   </style>
 </head>
 <body>
 
-  <div id="microscopeBtn" onclick="toggleDebug()" title="Toggle Debug Log">🔬</div>
-
-  <div id="debugOverlay">
-    <div class="debug-header">
-      <button class="btn-text" style="padding: 5px 10px;" onclick="copyDebugLog()">📋 Copy Errors</button>
-      <div class="debug-title">🔬 Diagnostic Log</div>
-      <button class="btn-text" style="margin-left:auto" onclick="toggleDebug()">Close</button>
-    </div>
-    <div id="failedList"></div>
+  <div class="header">
+    <h2 style="margin:0">🛠️ Auto-Patcher V12</h2>
+    <small style="color: #8b949e;">CLONING ENGINE: Basketball ➔ Tennis</small>
   </div>
 
-  <div class="container">
-    <h1 style="text-align:center">🛠️ Auto-Patcher V11</h1>
+  <div class="workbench">
+    <div class="box">
+      <div class="box-header">
+        <span class="label-donor">🧬 SOURCE (BASKETBALL)</span>
+        <input type="file" id="donorUpload" style="font-size:10px; width:140px;">
+      </div>
+      <textarea id="donorCode" placeholder="Paste source logic here..."></textarea>
+    </div>
 
     <div class="box">
       <div class="box-header">
-        <span>1. MASTER CODE</span>
-        <input type="file" id="fileUploader" style="font-size:11px; max-width:180px;">
+        <span class="label-recipient">🎯 RECIPIENT (TENNIS)</span>
+        <input type="file" id="recipientUpload" style="font-size:10px; width:140px;">
       </div>
-      <textarea id="masterCode" style="height:250px" spellcheck="false" placeholder="Paste or Upload master code..."></textarea>
+      <textarea id="recipientCode" placeholder="Paste code to be updated..."></textarea>
     </div>
+  </div>
 
-    <div class="box">
-      <div class="box-header">2. PATCH INSTRUCTIONS</div>
-      <textarea id="patchCode" style="height:250px" spellcheck="false" placeholder="Paste AI message here..."></textarea>
-    </div>
+  <div class="patch-area">
+    <div class="box-header" style="border-bottom: 1px solid var(--purple)">⚡ PATCH INSTRUCTIONS (PASTE FROM AI HERE)</div>
+    <textarea id="patchCode" style="min-height: 150px;" placeholder="Paste the ---FIND--- and ---REPLACE--- blocks I give you..."></textarea>
+  </div>
 
-    <div class="icon-row">
-      <button class="btn-lg btn-run" onclick="applyPatches()" title="Apply Patch">⚙️</button>
-      <button class="btn-lg btn-dl" onclick="downloadFile()" title="Download">📥</button>
-      <button class="btn-lg btn-copy" onclick="copyMaster()" title="Copy Code">📋</button>
-    </div>
+  <div id="statusMsg" class="status"></div>
 
-    <div class="util-row">
-      <button class="btn-text" onclick="clearPatchesOnly()">🧹 Clear Patches</button>
-      <button class="btn-text btn-danger" onclick="hardReset()">🚨 Hard Reset</button>
-    </div>
-
-    <div id="statusMsg" class="status"></div>
+  <div class="btn-row">
+    <button class="btn btn-clone" onclick="bundleForAI()">📋 BUNDLE FOR AI</button>
+    <button class="btn btn-run" onclick="applyPatches()">⚙️ APPLY CLONE</button>
+    <button class="btn btn-dl" onclick="downloadResult()">📥 DOWNLOAD TENNIS V2</button>
   </div>
 
 <script>
-  let currentFileName = "patched_master.txt"; 
-  let isDebugOpen = false;
-  let globalFailedSnippets = []; 
+  // Simple File Loaders
+  setupLoader('donorUpload', 'donorCode');
+  setupLoader('recipientUpload', 'recipientCode');
 
-  document.getElementById('fileUploader').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    currentFileName = file.name;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      document.getElementById('masterCode').value = event.target.result;
-      showStatus(`✅ File loaded!`, 'var(--accent)', true);
-    };
-    reader.readAsText(file);
-  });
+  function setupLoader(inputId, areaId) {
+    document.getElementById(inputId).addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => { document.getElementById(areaId).value = event.target.result; };
+      reader.readAsText(file);
+    });
+  }
+
+  function bundleForAI() {
+    const donor = document.getElementById('donorCode').value;
+    const recipient = document.getElementById('recipientCode').value;
+    
+    if (!donor || !recipient) {
+      alert("Please load both files first!");
+      return;
+    }
+
+    const bundle = `I need to clone a feature.
+SOURCE ENGINE (BASKETBALL):
+\`\`\`
+${donor}
+\`\`\`
+
+RECIPIENT ENGINE (TENNIS):
+\`\`\`
+${recipient}
+\`\`\`
+
+INSTRUCTION: [TELL ME WHAT TO CLONE HERE]`;
+
+    navigator.clipboard.writeText(bundle);
+    showStatus("✅ Bundle copied! Paste it to Gemini and tell it what to clone.", "var(--purple)");
+  }
 
   function applyPatches() {
-    let master = document.getElementById('masterCode').value;
+    let master = document.getElementById('recipientCode').value;
     let rawPatches = document.getElementById('patchCode').value;
-    const microscope = document.getElementById('microscopeBtn');
-    
-    if(isDebugOpen) toggleDebug();
-    microscope.style.display = 'none'; 
-    microscope.classList.remove('pulse');
 
-    if (!master.trim() || !rawPatches.trim()) {
-      showStatus("⚠️ Missing master code or patches!", 'var(--warning)', false);
-      return;
-    }
-
-    let processedPatches = rawPatches
-      .replace(/```[a-z]*\n/gi, '\n')
-      .replace(/```/g, '\n---END---\n');
-
+    let processedPatches = rawPatches.replace(/```[a-z]*\n/gi, '\n').replace(/```/g, '\n---END---\n');
     const patchRegex = /---FIND---\n?([\s\S]*?)\n?---REPLACE---\n?([\s\S]*?)(?=\n?---FIND---|\n?---END---|$)/g;
 
-    let appliedCount = 0;
-    let failedCount = 0;
-    globalFailedSnippets = []; 
+    let count = 0;
     let match;
-    let patchFound = false;
-
     while ((match = patchRegex.exec(processedPatches)) !== null) {
-      patchFound = true;
-      const findText = match[1].replace(/^\n+|\n+$/g, ''); 
-      const replaceText = match[2].replace(/^\n+|\n+$/g, '');
-
-      // TIER 1: EXACT MATCH
+      const findText = match[1].trim();
+      const replaceText = match[2].trim();
       if (master.includes(findText)) {
         master = master.split(findText).join(replaceText);
-        appliedCount++;
-        continue;
-      } 
-      
-      const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const lines = findText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-
-      // TIER 2: SAFE FUZZY MATCH
-      if (lines.length > 0) {
-        const fuzzyRegexStr = lines.map(l => escapeRegExp(l)).join('\\s+');
-        const fuzzyRegex = new RegExp(fuzzyRegexStr, 'g');
-        const matches = master.match(fuzzyRegex);
-
-        if (matches && matches.length === 1) {
-          master = master.replace(fuzzyRegex, () => replaceText);
-          appliedCount++;
-          continue;
-        } else if (matches && matches.length > 1) {
-          failedCount++;
-          globalFailedSnippets.push({ text: findText, reason: "SAFETY LOCK: Fuzzy match found multiple times. Aborted to prevent corruption." });
-          continue;
-        }
+        count++;
       }
-
-      // TIER 3: SAFE BOUNDARY MATCH (Uses 2 lines to anchor safely)
-      if (lines.length >= 4) {
-        const startAnchor = escapeRegExp(lines[0]) + '\\s+' + escapeRegExp(lines[1]);
-        const endAnchor = escapeRegExp(lines[lines.length - 2]) + '\\s+' + escapeRegExp(lines[lines.length - 1]);
-        const boundaryRegex = new RegExp(startAnchor + '[\\s\\S]*?' + endAnchor, 'g');
-        const boundMatches = master.match(boundaryRegex);
-        
-        if (boundMatches && boundMatches.length === 1) {
-          master = master.replace(boundaryRegex, () => replaceText);
-          appliedCount++;
-          continue;
-        } else if (boundMatches && boundMatches.length > 1) {
-          failedCount++;
-          globalFailedSnippets.push({ text: findText, reason: "SAFETY LOCK: Boundary match found multiple times. Aborted to prevent corruption." });
-          continue;
-        }
-      }
-        
-      // TIER 4: TRUE FAILURE
-      failedCount++;
-      globalFailedSnippets.push({ text: findText, reason: "Block not found (Exact, Fuzzy, and Boundary searches all failed/rejected)." });
     }
 
-    if (!patchFound) {
-      showStatus("⚠️ No valid ---FIND--- markers detected!", 'var(--warning)', false);
-      return;
-    }
-
-    document.getElementById('masterCode').value = master;
-
-    if (failedCount > 0) {
-      const listDiv = document.getElementById('failedList');
-      listDiv.innerHTML = '';
-      globalFailedSnippets.forEach((snippet, index) => {
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'failed-item';
-        itemDiv.innerHTML = `
-          <div class="failed-reason">[Patch #${index + 1}] Reason: ${snippet.reason}</div>
-          <pre>${snippet.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
-        `;
-        listDiv.appendChild(itemDiv);
-      });
-
-      microscope.style.display = 'flex';
-      microscope.classList.add('pulse');
-      showStatus(`⚠️ Applied ${appliedCount}. Failed ${failedCount}. Click 🔬`, 'var(--warning)', false);
-    } else {
-      showStatus(`✅ Applied ${appliedCount} Patches!`, 'var(--accent)', true);
-    }
+    document.getElementById('recipientCode').value = master;
+    showStatus(`✅ Successfully cloned ${count} blocks!`, "var(--accent)");
   }
 
-  function toggleDebug() {
-    const overlay = document.getElementById('debugOverlay');
-    const microscope = document.getElementById('microscopeBtn');
-    isDebugOpen = !isDebugOpen;
-    overlay.style.display = isDebugOpen ? 'flex' : 'none';
-    if (!isDebugOpen) microscope.classList.add('pulse');
-    else microscope.classList.remove('pulse');
-  }
-
-  function copyDebugLog() {
-    let logText = globalFailedSnippets.map((s, i) => `[Failed Patch #${i + 1}]\nReason: ${s.reason}\nCODE:\n${s.text}`).join('\n\n');
-    navigator.clipboard.writeText(logText);
-    alert("Copied to clipboard!");
-  }
-
-  function clearPatchesOnly() { document.getElementById('patchCode').value = ''; }
-
-  function hardReset() {
-    if(confirm("Delete everything?")) {
-      location.reload();
-    }
-  }
-
-  function copyMaster() {
-    const master = document.getElementById('masterCode');
-    master.select();
-    document.execCommand('copy');
-    showStatus("📋 Copied to clipboard!", "var(--accent)", true);
-  }
-
-  function downloadFile() {
-    const code = document.getElementById('masterCode').value;
+  function downloadResult() {
+    const code = document.getElementById('recipientCode').value;
     const blob = new Blob([code], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = currentFileName;
+    a.download = "tennis_engine_upgraded.txt";
     a.click();
   }
 
-  function showStatus(msg, color, autoHide) {
-    const statusDiv = document.getElementById('statusMsg');
-    statusDiv.style.display = 'block';
-    statusDiv.style.backgroundColor = color + '20';
-    statusDiv.style.color = color;
-    statusDiv.style.border = `1px solid ${color}`;
-    statusDiv.innerHTML = msg;
-    if (autoHide) setTimeout(() => { statusDiv.style.display = 'none'; }, 2500);
+  function showStatus(msg, color) {
+    const s = document.getElementById('statusMsg');
+    s.style.display = 'block'; s.style.color = color; s.style.border = `1px solid ${color}`;
+    s.innerHTML = msg;
   }
 </script>
 </body>
