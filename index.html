@@ -3,18 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Auto-Patcher V11 — Safety Lock Edition</title>
+  <title>Auto-Patcher V12 — Idempotent Edition</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --text: #c9d1d9;
       --accent: #238636; --border: #30363d; --error: #f85149;
-      --warning: #d29922; --blue: #1f6feb;
+      --warning: #d29922; --blue: #1f6feb; --verified: #a371f7;
     }
     
     body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
     .container { width: 100%; max-width: 800px; }
 
-    /* FULL-SCREEN DEBUG OVERLAY */
     #debugOverlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(13, 17, 23, 0.98); backdrop-filter: blur(5px);
@@ -25,7 +24,6 @@
     .debug-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid var(--error); padding-bottom: 10px; }
     .debug-title { color: var(--error); font-size: 16px; font-weight: bold; }
 
-    /* Microscope Pulse Alert */
     #microscopeBtn {
       position: fixed; top: 20px; right: 20px; background: var(--panel); border: 1px solid var(--error);
       border-radius: 50%; width: 45px; height: 45px; display: none; justify-content: center;
@@ -38,7 +36,6 @@
       100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
     }
 
-    /* UI Components */
     .box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; overflow: hidden; }
     .box-header { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: bold; color: #8b949e; display: flex; justify-content: space-between; align-items: center;}
     textarea { width: 100%; background: #010409; color: #e6edf3; font-family: monospace; font-size: 16px; padding: 15px; border: none; box-sizing: border-box; resize: vertical; outline: none; line-height: 1.5; }
@@ -58,6 +55,8 @@
     .failed-item { background: #161b22; border: 1px solid #30363d; border-left: 3px solid var(--error); border-radius: 4px; margin-bottom: 10px; padding: 10px; }
     .failed-reason { color: var(--warning); font-weight: bold; font-size: 11px; margin-bottom: 6px; }
     .failed-item pre { background: #010409; padding: 8px; border-radius: 4px; border: 1px solid #30363d; color: #ff7b72; font-size: 10px; overflow-x: auto; margin: 0; white-space: pre-wrap; }
+    
+    .verified-banner { background: rgba(35, 134, 54, 0.1); border: 1px solid var(--accent); padding: 10px; border-radius: 4px; margin-bottom: 15px; color: var(--accent); font-size: 12px; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -66,7 +65,7 @@
 
   <div id="debugOverlay">
     <div class="debug-header">
-      <button class="btn-text" style="padding: 5px 10px;" onclick="copyDebugLog()">📋 Copy Errors</button>
+      <button class="btn-text" style="padding: 5px 10px;" onclick="copyDebugLog()">📋 Copy Log</button>
       <div class="debug-title">🔬 Diagnostic Log</div>
       <button class="btn-text" style="margin-left:auto" onclick="toggleDebug()">Close</button>
     </div>
@@ -74,7 +73,7 @@
   </div>
 
   <div class="container">
-    <h1 style="text-align:center">🛠️ Auto-Patcher V11</h1>
+    <h1 style="text-align:center">🛠️ Auto-Patcher V12</h1>
 
     <div class="box">
       <div class="box-header">
@@ -107,6 +106,7 @@
   let currentFileName = "patched_master.txt"; 
   let isDebugOpen = false;
   let globalFailedSnippets = []; 
+  let stats = { applied: 0, verified: 0, failed: 0 };
 
   document.getElementById('fileUploader').addEventListener('change', function(e) {
     const file = e.target.files[0];
@@ -140,8 +140,7 @@
 
     const patchRegex = /---FIND---\n?([\s\S]*?)\n?---REPLACE---\n?([\s\S]*?)(?=\n?---FIND---|\n?---END---|$)/g;
 
-    let appliedCount = 0;
-    let failedCount = 0;
+    stats = { applied: 0, verified: 0, failed: 0 };
     globalFailedSnippets = []; 
     let match;
     let patchFound = false;
@@ -151,17 +150,28 @@
       const findText = match[1].replace(/^\n+|\n+$/g, ''); 
       const replaceText = match[2].replace(/^\n+|\n+$/g, '');
 
-      // TIER 1: EXACT MATCH
-      if (master.includes(findText)) {
+      // IDEMPOTENCY CHECK: Has this exact replacement block already been applied?
+      if (master.includes(replaceText) && !master.includes(findText)) {
+        stats.verified++;
+        continue;
+      }
+
+      // TIER 1: EXACT UNIQUE MATCH
+      const occurrences = master.split(findText).length - 1;
+      if (occurrences === 1) {
         master = master.split(findText).join(replaceText);
-        appliedCount++;
+        stats.applied++;
+        continue;
+      } else if (occurrences > 1) {
+        stats.failed++;
+        globalFailedSnippets.push({ text: findText, reason: "SAFETY LOCK: Block found multiple times. Aborted to prevent duplicating rubbish." });
         continue;
       } 
       
+      // TIER 2: SAFE FUZZY MATCH
       const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const lines = findText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-      // TIER 2: SAFE FUZZY MATCH
       if (lines.length > 0) {
         const fuzzyRegexStr = lines.map(l => escapeRegExp(l)).join('\\s+');
         const fuzzyRegex = new RegExp(fuzzyRegexStr, 'g');
@@ -169,16 +179,16 @@
 
         if (matches && matches.length === 1) {
           master = master.replace(fuzzyRegex, () => replaceText);
-          appliedCount++;
+          stats.applied++;
           continue;
         } else if (matches && matches.length > 1) {
-          failedCount++;
+          stats.failed++;
           globalFailedSnippets.push({ text: findText, reason: "SAFETY LOCK: Fuzzy match found multiple times. Aborted to prevent corruption." });
           continue;
         }
       }
 
-      // TIER 3: SAFE BOUNDARY MATCH (Uses 2 lines to anchor safely)
+      // TIER 3: SAFE BOUNDARY MATCH
       if (lines.length >= 4) {
         const startAnchor = escapeRegExp(lines[0]) + '\\s+' + escapeRegExp(lines[1]);
         const endAnchor = escapeRegExp(lines[lines.length - 2]) + '\\s+' + escapeRegExp(lines[lines.length - 1]);
@@ -187,17 +197,17 @@
         
         if (boundMatches && boundMatches.length === 1) {
           master = master.replace(boundaryRegex, () => replaceText);
-          appliedCount++;
+          stats.applied++;
           continue;
         } else if (boundMatches && boundMatches.length > 1) {
-          failedCount++;
+          stats.failed++;
           globalFailedSnippets.push({ text: findText, reason: "SAFETY LOCK: Boundary match found multiple times. Aborted to prevent corruption." });
           continue;
         }
       }
         
       // TIER 4: TRUE FAILURE
-      failedCount++;
+      stats.failed++;
       globalFailedSnippets.push({ text: findText, reason: "Block not found (Exact, Fuzzy, and Boundary searches all failed/rejected)." });
     }
 
@@ -208,9 +218,17 @@
 
     document.getElementById('masterCode').value = master;
 
-    if (failedCount > 0) {
-      const listDiv = document.getElementById('failedList');
-      listDiv.innerHTML = '';
+    const listDiv = document.getElementById('failedList');
+    listDiv.innerHTML = '';
+
+    if (stats.verified > 0) {
+      const banner = document.createElement('div');
+      banner.className = 'verified-banner';
+      banner.innerHTML = `ℹ️ ${stats.verified} patches were skipped because they are already present in your code.`;
+      listDiv.appendChild(banner);
+    }
+
+    if (stats.failed > 0) {
       globalFailedSnippets.forEach((snippet, index) => {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'failed-item';
@@ -223,9 +241,13 @@
 
       microscope.style.display = 'flex';
       microscope.classList.add('pulse');
-      showStatus(`⚠️ Applied ${appliedCount}. Failed ${failedCount}. Click 🔬`, 'var(--warning)', false);
+      
+      let msg = `⚠️ Applied ${stats.applied}. `;
+      if (stats.verified > 0) msg += `Verified ${stats.verified}. `;
+      msg += `Failed ${stats.failed}. Click 🔬`;
+      showStatus(msg, 'var(--warning)', false);
     } else {
-      showStatus(`✅ Applied ${appliedCount} Patches!`, 'var(--accent)', true);
+      showStatus(`✅ Applied ${stats.applied}${stats.verified > 0 ? ' (Verified ' + stats.verified + ')' : ''} Patches!`, 'var(--accent)', true);
     }
   }
 
@@ -234,14 +256,15 @@
     const microscope = document.getElementById('microscopeBtn');
     isDebugOpen = !isDebugOpen;
     overlay.style.display = isDebugOpen ? 'flex' : 'none';
-    if (!isDebugOpen) microscope.classList.add('pulse');
+    if (!isDebugOpen && stats.failed > 0) microscope.classList.add('pulse');
     else microscope.classList.remove('pulse');
   }
 
   function copyDebugLog() {
-    let logText = globalFailedSnippets.map((s, i) => `[Failed Patch #${i + 1}]\nReason: ${s.reason}\nCODE:\n${s.text}`).join('\n\n');
+    let logText = `DIAGNOSTIC SUMMARY:\nApplied: ${stats.applied}\nVerified: ${stats.verified}\nFailed: ${stats.failed}\n\n`;
+    logText += globalFailedSnippets.map((s, i) => `[Failed Patch #${i + 1}]\nReason: ${s.reason}\nCODE:\n${s.text}`).join('\n\n');
     navigator.clipboard.writeText(logText);
-    alert("Copied to clipboard!");
+    alert("Log copied to clipboard!");
   }
 
   function clearPatchesOnly() { document.getElementById('patchCode').value = ''; }
