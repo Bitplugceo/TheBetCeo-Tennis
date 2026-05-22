@@ -151,7 +151,7 @@
       const replaceText = match[2].replace(/^\n+|\n+$/g, '');
 
       // IDEMPOTENCY CHECK: Has this exact replacement block already been applied?
-if (master.includes(replaceText)) {
+      if (master.includes(replaceText) && !master.includes(findText)) {
         stats.verified++;
         continue;
       }
