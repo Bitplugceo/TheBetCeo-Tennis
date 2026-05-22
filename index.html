@@ -2793,7 +2793,7 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
   <button id="clearBtn" type="button">Clear</button>
-  <button id="copyResultsBtn" type="button" onclick="(function(btn){var b=document.getElementById('resultsBody');if(!b)return;var rows=[...b.querySelectorAll('tr')];var lines=['Market\tFair Line\tEdge %\tWin Prob\tPick'];rows.forEach(function(r){var cells=[...r.querySelectorAll('td')];if(cells.length)lines.push(cells.map(function(c){return c.textContent.trim();}).join('\t'));});var text=lines.join('\n');if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){btn.textContent='✅';setTimeout(function(){btn.textContent='📋';},1500);}).catch(function(){});}else{try{var ta=Object.assign(document.createElement('textarea'),{value:text,style:'position:fixed;opacity:0'});document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='✅';setTimeout(function(){btn.textContent='📋';},1500);}catch(e){}}})(this)" title="Copy results to clipboard" style="background:#3a404c!important;color:#fff!important;font-size:12px!important;padding:5px 14px!important;cursor:pointer!important;border:none!important;">📋</button>
+  <button id="copyResultsBtn" type="button" onclick="window.copyEngineJson(this)" title="Copy engine JSON to clipboard" style="background:#3a404c!important;color:#fff!important;font-size:12px!important;padding:5px 14px!important;cursor:pointer!important;border:none!important;">📋</button>
     <div id="runStatus"></div>
 </div>
 
@@ -3748,7 +3748,7 @@ let g_clearDebug = {
     return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: uniqueNotes(notes), avgGrind, avgTb, avgS1Kill };
   }
 
-      async function runTennisMarkovSimulation(pA_serve, pB_serve, lineMid, isBO5 = false, runs = 10000) {
+      async function runTennisMarkovSimulation(pA_serve, pB_serve, lineMid, isBO5 = false, runs = 10000, set1Only = false) {
     return new Promise(resolve => {
       const workerCode = `
         function simGame(p_server) {
@@ -3786,17 +3786,22 @@ let g_clearDebug = {
           }
         }
         onmessage = function(e) {
-          const { pA, pB, line, isBO5, runs } = e.data;
+          const { pA, pB, line, isBO5, runs, set1Only } = e.data;
           let overHits = 0;
           for (let i = 0; i < runs; i++) {
-            let totalGames = 0, setsA = 0, setsB = 0;
-            let target = isBO5 ? 3 : 2;
-            while (setsA < target && setsB < target) {
+            if (set1Only) {
               let res = simSet(pA, pB);
-              totalGames += (res.gA + res.gB);
-              if (res.gA > res.gB) setsA++; else setsB++;
+              if ((res.gA + res.gB) > line) overHits++;
+            } else {
+              let totalGames = 0, setsA = 0, setsB = 0;
+              let target = isBO5 ? 3 : 2;
+              while (setsA < target && setsB < target) {
+                let res = simSet(pA, pB);
+                totalGames += (res.gA + res.gB);
+                if (res.gA > res.gB) setsA++; else setsB++;
+              }
+              if (totalGames > line) overHits++;
             }
-            if (totalGames > line) overHits++;
           }
           postMessage({ overPct: (overHits/runs)*100 });
         };
@@ -3818,7 +3823,7 @@ let g_clearDebug = {
         resolve({ overPct: 50, underPct: 50 });
       };
 
-      worker.postMessage({ pA: pA_serve, pB: pB_serve, line: lineMid, isBO5, runs });
+      worker.postMessage({ pA: pA_serve, pB: pB_serve, line: lineMid, isBO5, runs, set1Only });
     });
   }
 
@@ -3872,7 +3877,7 @@ let g_clearDebug = {
     const isBO5 = config.ctx?.matchFormat === "BO5";
 
         // Run the point-by-point simulation
-    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000);
+    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000, config.marketKey === "set1");
     const simPct = (pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50;
 
 
@@ -7329,6 +7334,38 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
     // 🔥 BOSS EXPORTS
+    window.copyEngineJson = function(btn) {
+      if (!latestRunBundle) {
+        if (btn) { btn.textContent = '❌'; setTimeout(function() { btn.textContent = '📋'; }, 1500); }
+        return;
+      }
+      var payload;
+      try {
+        payload = JSON.stringify({
+          _meta: { copiedAt: new Date().toISOString(), model: "tennis_v1_final" },
+          tour: latestRunBundle.tour,
+          playerAName: latestRunBundle.playerAName,
+          playerBName: latestRunBundle.playerBName,
+          context: latestRunBundle.context,
+          matchResult: latestRunBundle.matchResult,
+          set1Result: latestRunBundle.set1Result
+        }, null, 2);
+      } catch(e) { return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(payload).then(function() {
+          if (btn) { btn.textContent = '✅'; setTimeout(function() { btn.textContent = '📋'; }, 1500); }
+        }).catch(function() {});
+      } else {
+        try {
+          var ta = Object.assign(document.createElement('textarea'), { value: payload, style: 'position:fixed;opacity:0' });
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          if (btn) { btn.textContent = '✅'; setTimeout(function() { btn.textContent = '📋'; }, 1500); }
+        } catch(e) {}
+      }
+    };
     window.runTennisMarkovSimulation = runTennisMarkovSimulation;
     window.getTrackerItems = getTrackerItems;
     window.selectedPlayerIds = selectedPlayerIds;
