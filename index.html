@@ -2822,7 +2822,6 @@ body.dark-mode .tracker-analytics-section-head {
     <div class="tracker-head">
       <span id="trackerHeadTitle">Tracked Picks</span>
       <div class="tracker-head-actions">
-        <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn state-idle" title="Open report" aria-label="Open report">📊 Report</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
     </div>
@@ -7072,15 +7071,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const trackerCloseBtn = qs("trackerCloseBtn");
     if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
 
-    const trackerInsightsBtn = qs("trackerInsightsBtn");
-    if (trackerInsightsBtn) {
-      trackerInsightsBtn.addEventListener("click", function() {
-        const panel = qs("trackerModal") ? qs("trackerModal").querySelector(".tracker-panel") : null;
-        if (!panel) return;
-        const isAnalytics = panel.classList.contains("analytics-view");
-        setTrackerView(isAnalytics ? "list" : "report");
-      });
-    }
+
 
     const trackerModal = qs("trackerModal");
     if (trackerModal) {
