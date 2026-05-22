@@ -3695,13 +3695,21 @@ let g_clearDebug = {
     const isMatch = marketKey === "match";
     const isBO5 = ctx.matchFormat === "BO5";
 
-    // 1. Format Scaling (Institutional Multipliers)
-    if (isMatch && isBO5) {
-      const bo5Multiplier = 1.45;
-      avgA *= bo5Multiplier;
-      avgB *= bo5Multiplier;
-      stdA *= bo5Multiplier;
-      stdB *= bo5Multiplier;
+    // 1. Format Scaling — data-driven expected sets replaces crude 1.45x linear multiplier.
+    // When auto-fetch data is present (seriesA populated), inputs are per-set normalized;
+    // scale back to full-match projection units. Falls back to 1.45x for manual BO5 entry.
+    if (isMatch && seriesA.length >= 3 && seriesB.length >= 3) {
+      const expectedSets = isBO5 ? 3.82 : 2.35;
+      avgA *= expectedSets;
+      avgB *= expectedSets;
+      stdA *= expectedSets;
+      stdB *= expectedSets;
+      notes.push(isBO5 ? "Format: BO5 \u00d73.82 sets" : "Normalized: \u00d72.35 sets");
+    } else if (isMatch && isBO5) {
+      avgA *= 1.45;
+      avgB *= 1.45;
+      stdA *= 1.45;
+      stdB *= 1.45;
       notes.push("Format: BO5 Multiplier (1.45x)");
     }
 
@@ -5267,6 +5275,7 @@ let g_clearDebug = {
         const payload = await fetchTennisScoreboard(league, dateQuery);
         const records = extractCompetitionRecords(payload).filter(function (r) {
           return r.status.completed &&
+            !r.retired &&
             Number.isFinite(r.totalGames) &&
             Number.isFinite(r.set1Total);
         });
@@ -6070,6 +6079,7 @@ let g_clearDebug = {
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
+        !record.retired &&
         Number.isFinite(record.totalGames) &&
         Number.isFinite(record.set1Total);
     });
@@ -6218,11 +6228,15 @@ let g_clearDebug = {
     const type = comp && comp.status && comp.status.type ? comp.status.type : {};
     const state = String(type.state || "").toLowerCase();
     const name = String(type.name || "").toUpperCase();
+    const detail = String(type.shortDetail || type.detail || type.description || "").trim();
+    const dl = detail.toLowerCase();
+    const retired = dl.includes("ret") || dl.includes("walkover") || dl.includes("w/o") || dl.includes("default") || dl.includes("abandoned");
     return {
       completed: !!type.completed || state === "post" || name === "STATUS_FINAL",
+      retired: retired,
       state: state,
       name: name,
-      detail: String(type.shortDetail || type.detail || type.description || "").trim()
+      detail: detail
     };
   }
 
@@ -6296,6 +6310,7 @@ let g_clearDebug = {
       roundName: String(comp.round && comp.round.displayName || "").trim(),
       date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || "").trim(),
       status: status,
+      retired: status.retired || false,
       surface: extractSurfaceText(comp, parentEvent),
       playerAId: aId, playerAName: aName, playerBId: bId, playerBName: bName,
       playerARank: playerARank, playerBRank: playerBRank,
@@ -6536,27 +6551,25 @@ let g_clearDebug = {
     }
 
     const promise = (async function () {
-      const chunks = getChunkedHistoryRanges(480, 120);
-      const all = [];
+      const chunks = getChunkedHistoryRanges(240, 80);
 
-      for (let i = 0; i < chunks.length; i += 1) {
-        const datesQuery = chunks[i];
-        const payload = await fetchTennisScoreboard(key, datesQuery);
-        const records = extractCompetitionRecords(payload).filter(function (record) {
-          return record.status.completed &&
-            Number.isFinite(record.totalGames) &&
-            Number.isFinite(record.set1Total) &&
-            Number.isFinite(record.playerAGames) &&
-            Number.isFinite(record.playerBGames) &&
-            Number.isFinite(record.playerASet1Games) &&
-            Number.isFinite(record.playerBSet1Games);
-        });
+      const settled = await Promise.all(chunks.map(async function(datesQuery) {
+        try {
+          const payload = await fetchTennisScoreboard(key, datesQuery);
+          return extractCompetitionRecords(payload).filter(function(record) {
+            return record.status.completed &&
+              !record.retired &&
+              Number.isFinite(record.totalGames) &&
+              Number.isFinite(record.set1Total) &&
+              Number.isFinite(record.playerAGames) &&
+              Number.isFinite(record.playerBGames) &&
+              Number.isFinite(record.playerASet1Games) &&
+              Number.isFinite(record.playerBSet1Games);
+          });
+        } catch(e) { return []; }
+      }));
 
-        all.push.apply(all, records);
-        await sleep(40);
-      }
-
-      return dedupeRecords(all);
+      return dedupeRecords([].concat.apply([], settled));
     })();
 
     historyPoolCache.set(key, promise);
@@ -6617,6 +6630,7 @@ let g_clearDebug = {
         surface: record.surface,
         playerRank: isA ? record.playerARank : record.playerBRank,
         playerRankMove: isA ? record.playerARankMove : record.playerBRankMove,
+        opponentRank: isA ? record.playerBRank : record.playerARank,
         aSets: isA ? record.aSets : record.bSets,
         bSets: isA ? record.bSets : record.aSets,
         setCount: record.setCount
@@ -6673,6 +6687,14 @@ let g_clearDebug = {
     };
   }
 
+  function getOpponentQualityMultiplier(opponentRank) {
+    if (!Number.isFinite(opponentRank) || opponentRank <= 0) return 1.0;
+    if (opponentRank <= 10) return 1.10;
+    if (opponentRank <= 30) return 1.05;
+    if (opponentRank <= 100) return 1.0;
+    return 0.92;
+  }
+
 
   function buildH2HSeries(records, playerAId, playerBId, playerAName, playerBName) {
     const normA = normalizeName(playerAName);
@@ -6695,30 +6717,32 @@ let g_clearDebug = {
   }
 
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
-    const extraRanges = getChunkedHistoryRanges(1200, 120).slice(4);
+    const extraRanges = getChunkedHistoryRanges(720, 120).slice(2);
     const all = existingRecords.slice();
 
-    for (let i = 0; i < extraRanges.length; i += 1) {
-      const datesQuery = extraRanges[i];
-      const payload = await fetchTennisScoreboard(league, datesQuery);
-      const records = extractCompetitionRecords(payload).filter(function (record) {
-        return record.status.completed &&
-          Number.isFinite(record.totalGames) &&
-          Number.isFinite(record.set1Total) &&
-          Number.isFinite(record.playerAGames) &&
-          Number.isFinite(record.playerBGames) &&
-          Number.isFinite(record.playerASet1Games) &&
-          Number.isFinite(record.playerBSet1Games);
-      });
-
-      all.push.apply(all, records);
+    for (let i = 0; i < extraRanges.length; i += 3) {
+      const batch = extraRanges.slice(i, i + 3);
+      const batchResults = await Promise.all(batch.map(async function(datesQuery) {
+        try {
+          const payload = await fetchTennisScoreboard(league, datesQuery);
+          return extractCompetitionRecords(payload).filter(function(record) {
+            return record.status.completed &&
+              !record.retired &&
+              Number.isFinite(record.totalGames) &&
+              Number.isFinite(record.set1Total) &&
+              Number.isFinite(record.playerAGames) &&
+              Number.isFinite(record.playerBGames) &&
+              Number.isFinite(record.playerASet1Games) &&
+              Number.isFinite(record.playerBSet1Games);
+          });
+        } catch(e) { return []; }
+      }));
+      batchResults.forEach(function(records) { all.push.apply(all, records); });
       const deduped = dedupeRecords(all);
       const h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
       if (h2h.length >= targetCount) {
         return { records: deduped, h2h: h2h };
       }
-
-      await sleep(40);
     }
 
     const deduped = dedupeRecords(all);
@@ -6910,23 +6934,39 @@ let g_clearDebug = {
       const h2hMatchTotals = h2h.slice(0, 5).map(m => m.totalGames).filter(Number.isFinite);
       const h2hSet1Totals = h2h.slice(0, 5).map(m => m.set1Total).filter(Number.isFinite);
 
-            // WEAPONIZED BAYESIAN PRIORS: Protecting against small-sample-size bias.
+      // Per-set normalization + opponent quality weighting for internal context.
+      // Display fields keep raw totals so the UI stays readable for manual edits.
+      const normalizeMatchGames = (series) => series.map(function(m) {
+        if (!Number.isFinite(m.playerGames)) return null;
+        const sets = Number.isFinite(m.setCount) && m.setCount > 0 ? m.setCount : 2;
+        const perSet = m.playerGames / sets;
+        const qMult = getOpponentQualityMultiplier(m.opponentRank);
+        return perSet * qMult;
+      }).filter(Number.isFinite);
+
+      const aGamesNorm = normalizeMatchGames(recentA10);
+      const bGamesNorm = normalizeMatchGames(recentB10);
+
+      // WEAPONIZED BAYESIAN PRIORS: Protecting against small-sample-size bias.
       // If a player has < 5 matches, we inject "Phantom" matches representing the Tour Average.
       // This prevents the engine from overreacting to "Challenger-level" stars with thin data.
-      const TOUR_AVG_GAMES = 10.2; 
-      const TOUR_AVG_S1 = 4.7;     
+      const TOUR_AVG_GAMES = 10.2;
+      const TOUR_AVG_GAMES_NORM = 4.35; // Per-set normalized tour average (games per player per set)
+      const TOUR_AVG_S1 = 4.7;
       const MIN_SAMPLE_SIZE = 5;
 
       const applyPrior = (dataArray, priorValue) => {
         let result = [...dataArray];
         while (result.length < MIN_SAMPLE_SIZE) {
-          result.push(priorValue); // Anchor the data to the mean
+          result.push(priorValue);
         }
         return result;
       };
 
       const bayesianA = aGames.length < MIN_SAMPLE_SIZE ? applyPrior(aGames, TOUR_AVG_GAMES) : aGames;
       const bayesianB = bGames.length < MIN_SAMPLE_SIZE ? applyPrior(bGames, TOUR_AVG_GAMES) : bGames;
+      const bayesianANorm = aGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(aGamesNorm, TOUR_AVG_GAMES_NORM) : aGamesNorm;
+      const bayesianBNorm = bGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(bGamesNorm, TOUR_AVG_GAMES_NORM) : bGamesNorm;
       const bayesianS1A = aSet1Games.length < MIN_SAMPLE_SIZE ? applyPrior(aSet1Games, TOUR_AVG_S1) : aSet1Games;
       const bayesianS1B = bSet1Games.length < MIN_SAMPLE_SIZE ? applyPrior(bSet1Games, TOUR_AVG_S1) : bSet1Games;
 
@@ -6935,13 +6975,13 @@ let g_clearDebug = {
         throw new Error("Zero match history found. Bayesian anchor requires at least one real data point.");
       }
 
-      applyAutofillData({ 
-        aGames: bayesianA, 
-        bGames: bayesianB, 
-        aSet1Games: bayesianS1A, 
-        bSet1Games: bayesianS1B, 
-        h2hMatchTotals, 
-        h2hSet1Totals 
+      applyAutofillData({
+        aGames: bayesianA,
+        bGames: bayesianB,
+        aSet1Games: bayesianS1A,
+        bSet1Games: bayesianS1B,
+        h2hMatchTotals,
+        h2hSet1Totals
       });
 
 
@@ -6963,7 +7003,7 @@ let g_clearDebug = {
         tournamentName, eventLevel, roundName, matchFormat,
         fatigueA, fatigueB, brutalA, brutalB,
         eloA, eloB, // INJECTED WEAPONIZED DATA
-        recentMatchA: bayesianA, recentMatchB: bayesianB,
+        recentMatchA: bayesianANorm, recentMatchB: bayesianBNorm,
         recentSet1A: bayesianS1A, recentSet1B: bayesianS1B,
         h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals
       };
