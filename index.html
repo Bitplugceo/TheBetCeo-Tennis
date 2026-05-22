@@ -3501,20 +3501,16 @@ let g_clearDebug = {
 
       function getRawConfidence(edge, volatility, lineMid) {
     const absEdge = Math.abs(edge);
-    
-    // WEAPONIZED NORMALIZATION: Comparing raw games across different markets is a flaw.
-    // We convert the edge to a percentage relative to the line midpoint.
     const edgePct = (absEdge / (lineMid || 22.0)) * 100;
 
-    if (volatility > 7.0) return "PASS"; 
-    
-    // Percent-based thresholds provide fair grading for both Set 1 and Match totals.
-    // A: >14.0% | B: >9.0% | C: >4.5%
-    if (edgePct >= 14.0 && volatility <= 4.5) return "A";
-    if (edgePct >= 9.0 && volatility <= 5.5) return "B";
-    if (edgePct >= 4.5 && volatility <= 6.5) return "C";
-    return "PASS";
+    if (volatility > 6.5) return "PASS";
 
+    // RECALIBRATED: Market regression naturally compresses edges, so tighter gates
+    // ensure only genuine signals survive. A: >12%+vol≤4.0 | B: >7.5% | C: >4.0%
+    if (edgePct >= 12.0 && volatility <= 4.0) return "A";
+    if (edgePct >= 7.5  && volatility <= 5.0) return "B";
+    if (edgePct >= 4.0  && volatility <= 6.0) return "C";
+    return "PASS";
   }
 
     function parseLineRange(raw, name, allowEmpty = false) {
@@ -3646,7 +3642,28 @@ let g_clearDebug = {
     let avgB = mean(options.manualB);
     let stdA = stdDev(options.manualA);
     let stdB = stdDev(options.manualB);
-    
+
+    // TREND DETECTION: Recent 3 vs older baseline. 12% directional weight catches
+    // genuine hot/cold streaks without overfitting to 1-match noise.
+    if (options.manualA.length >= 5) {
+      const recentA = mean(options.manualA.slice(0, 3));
+      const baseA   = mean(options.manualA.slice(3));
+      if (baseA > 0) {
+        const trendA = (recentA - baseA) / baseA;
+        avgA *= (1 + trendA * 0.12);
+        if (Math.abs(trendA) >= 0.08) notes.push("A " + (trendA > 0 ? "hot" : "cold") + " " + (trendA > 0 ? "+" : "") + Math.round(trendA * 100) + "%");
+      }
+    }
+    if (options.manualB.length >= 5) {
+      const recentB = mean(options.manualB.slice(0, 3));
+      const baseB   = mean(options.manualB.slice(3));
+      if (baseB > 0) {
+        const trendB = (recentB - baseB) / baseB;
+        avgB *= (1 + trendB * 0.12);
+        if (Math.abs(trendB) >= 0.08) notes.push("B " + (trendB > 0 ? "hot" : "cold") + " " + (trendB > 0 ? "+" : "") + Math.round(trendB * 100) + "%");
+      }
+    }
+
     // FIX: Strictly obey the UI input for H2H. Do not secretly override it with context data.
     let h2h = (options.manualH2H || []).slice();
     
@@ -3698,12 +3715,16 @@ let g_clearDebug = {
     // When auto-fetch data is present (seriesA populated), inputs are per-set normalized;
     // scale back to full-match projection units. Falls back to 1.45x for manual BO5 entry.
     if (isMatch && seriesA.length >= 3 && seriesB.length >= 3) {
-      const expectedSets = isBO5 ? 3.82 : 2.35;
+      // SURFACE-SPECIFIC SET COUNTS: Clay players go to 3 sets more often (2.47),
+      // grass serves dominate and sets finish faster (2.21). Hard is baseline (2.35).
+      const expectedSets = isBO5 ? 3.82 :
+        (ctx.surface === "Clay" ? 2.47 :
+         ctx.surface === "Grass" ? 2.21 : 2.35);
       avgA *= expectedSets;
       avgB *= expectedSets;
       stdA *= expectedSets;
       stdB *= expectedSets;
-      notes.push(isBO5 ? "Format: BO5 \u00d73.82 sets" : "Normalized: \u00d72.35 sets");
+      notes.push(isBO5 ? "Format: BO5 \u00d73.82 sets" : "Normalized: \u00d7" + expectedSets.toFixed(2) + " sets");
     } else if (isMatch && isBO5) {
       avgA *= 1.45;
       avgB *= 1.45;
@@ -3837,11 +3858,16 @@ let g_clearDebug = {
     else if (config.ctx && config.ctx.surface === "Clay") h2hWeight = 0.4; 
 
         const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
-    const projection = projectionCore + (config.projectionShift || 0);
-    
+    let projection = projectionCore + (config.projectionShift || 0);
+
+    // MARKET REGRESSION: Pull 20% toward the Vegas line.
+    // The market aggregates sharp money, real-world injury intel, and weather.
+    // Treating it as noise is arrogant. Blending it in keeps the model honest.
+    const MARKET_PULL = 0.20;
+    const preRegressionProjection = projection;
+    projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
+
     // WEAPONIZED MATH: Variance Summation Rule
-    // Standard deviations do not add linearly. We must sum the variances and take the square root.
-    // Correct Formula: σ_total = sqrt(σA² + σB²)
     let volatility = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2));
     
     if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15; 
@@ -3854,16 +3880,20 @@ let g_clearDebug = {
     let confidence = getRawConfidence(edge, volatility, config.lineRange.mid);
 
     const notes = [].concat(config.extraNotes || []);
+    if (Math.abs(preRegressionProjection - projection) >= 0.5) {
+      notes.push("Mkt pull: raw " + fmt(preRegressionProjection) + " \u2192 " + fmt(projection));
+    }
     const filtersTriggered = [];
     let terminalVeto = false;
 
-
-    // 🏎️ MARKOV SIMULATION WIRING
-    // We convert the raw game averages into point-level serve probabilities
     // 🏎️ MARKOV POINT CALIBRATION (Surface-Aware + Elo-Blended)
-    let baseHoldProb = config.ctx?.tour === "ATP" ? 0.645 : 0.625;
-    if (config.ctx?.surface === "Grass") baseHoldProb += 0.025;
-    if (config.ctx?.surface === "Clay") baseHoldProb -= 0.025;
+    // RESEARCH-BACKED HOLD RATES: ATP Clay 61.5% | Grass 67.5% | Hard 64.5%
+    //                             WTA Clay 59.5% | Grass 65.0% | Hard 62.5%
+    const _isATP = config.ctx?.tour === "ATP";
+    const _surf  = config.ctx?.surface || "Hard";
+    let baseHoldProb = _isATP
+      ? (_surf === "Clay" ? 0.615 : _surf === "Grass" ? 0.675 : 0.645)
+      : (_surf === "Clay" ? 0.595 : _surf === "Grass" ? 0.650 : 0.625);
 
     const _eloA = config.ctx?.eloA || 1500;
     const _eloB = config.ctx?.eloB || 1500;
@@ -3900,6 +3930,14 @@ let g_clearDebug = {
        notes.push("VETO OVER: Set 1 Kill Rate");
        confidence = "PASS"; pick = "PASS";
        terminalVeto = true;
+    }
+
+    // EDGE SANITY CAP: Edges above 18% after market regression are almost certainly
+    // outlier data artifacts, not real signal. Downgrade to protect the record.
+    const edgePctFinal = (Math.abs(edge) / (config.lineRange.mid || 22.0)) * 100;
+    if (edgePctFinal > 18.0 && confidence !== "PASS") {
+      confidence = downgradeConfidence(confidence);
+      notes.push("Edge cap: " + fmt(edgePctFinal) + "% > 18% ceiling");
     }
 
     const isRescueEligible = simPct >= 62 || Math.abs(edge) >= 4.0;
