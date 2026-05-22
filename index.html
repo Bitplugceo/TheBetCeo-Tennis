@@ -4631,10 +4631,9 @@ let g_clearDebug = {
       
       g_trackerPersistedVersion = finalState.vId;
       return { ok: true, state: pushed.data?.state || finalState };
-    } catch (err) {
-      window.engineDebug("SYNC ERROR", err.message);
-      throw err;
-    }
+          } catch (err) {
+        throw err;
+      }
   }
 
   window.forceTrackerSaveNow = async function() { // Added window. to make it global
@@ -7421,11 +7420,7 @@ const AFDB = (function() {
           '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
         '</div>' +
       '</div>' +
-      '<div style="padding:6px 12px;background:#0d0d0d;color:#555;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:10px;flex-shrink:0;">' +
-        '<span style="color:#d4af37;">◢ DRIFT TRACKER</span>' +
-        '<span>Rolling Mean Error (last 20): \u2014</span>' +
-        '<span>0 samples logged</span>' +
-      '</div>' +
+
       '<div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
         '<span>📡 FETCH &amp; ENGINE LOGS</span>' +
         '<button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">🎯 LEVEL: ' + _currentLogLevel + '</button>' +
