@@ -3063,9 +3063,10 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
     lastSettlementDetails: []
   };
   let g_trackerHydratePromise = null;
-  let g_trackerSyncPromise = Promise.resolve();
-  let g_trackerRefreshPromise = null;
-  let g_clearDebug = {
+let g_trackerSyncPromise = Promise.resolve();
+let 9_trackerRefreshPromise = null;
+let g_trackerSaveTimer = null;
+let g_clearDebug = {
     lastAction: "idle",
     lastFlagWrite: "",
     lastApplyAt: "",
@@ -7217,12 +7218,81 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }, 50);
 
-    // Tab-Wake Auto-Sync: Hard sync whenever you switch back to this tab
+        // Tab-Wake Auto-Sync: Hard sync whenever you switch back to this tab
     window.addEventListener("focus", () => {
        if (typeof forceTrackerSaveNow === "function") forceTrackerSaveNow();
     });
+
+    // Autocomplete — wired inside IIFE for direct closure access to historyPoolCache and selectedPlayerIds.
+    // historyPoolCache stores Promises; the async handler awaits them so resolved arrays are iterated correctly.
+    [["teamAName", "dropA", "A"], ["teamBName", "dropB", "B"]].forEach(function(cfg) {
+      var acInputId = cfg[0], acDropId = cfg[1], acKey = cfg[2];
+      var acInput = qs(acInputId);
+      var acDrop  = qs(acDropId);
+      if (!acInput || !acDrop) return;
+
+      acInput.addEventListener("input", async function() {
+        var query = acInput.value.trim().toLowerCase();
+        acDrop.innerHTML = "";
+        acDrop.style.display = "none";
+        if (!query || query.length < 2) return;
+
+        var league = String((qs("leagueSelect") || {}).value || "").trim().toUpperCase();
+        if (!league || !historyPoolCache.has(league)) return;
+
+        var records;
+        try { records = await historyPoolCache.get(league); } catch (e) { return; }
+        if (!Array.isArray(records)) return;
+
+        var seen = new Set();
+        var pool = [];
+        records.forEach(function(r) {
+          [[r.playerAId, r.playerAName], [r.playerBId, r.playerBName]].forEach(function(pair) {
+            if (pair[0] && pair[1] && !seen.has(pair[0])) {
+              seen.add(pair[0]);
+              pool.push({ id: pair[0], name: pair[1] });
+            }
+          });
+        });
+
+        var matches = pool.filter(function(p) {
+          return p.name.toLowerCase().includes(query);
+        }).slice(0, 10);
+
+        if (!matches.length) return;
+
+        matches.forEach(function(player) {
+          var div = document.createElement("div");
+          var eName = player.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          div.innerHTML = eName.replace(
+            new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi"),
+            "<strong>$1</strong>"
+          );
+          div.addEventListener("mousedown", function(e) {
+            e.preventDefault();
+            acInput.value = player.name;
+            selectedPlayerIds[acKey] = player.id;
+            acDrop.innerHTML = "";
+            acDrop.style.display = "none";
+          });
+          acDrop.appendChild(div);
+        });
+
+        acDrop.style.display = "block";
+      });
+
+      document.addEventListener("click", function(e) {
+        if (!acInput.contains(e.target) && !acDrop.contains(e.target)) {
+          acDrop.innerHTML = "";
+          acDrop.style.display = "none";
+        }
+      });
+    });
   });
     // 🔥 BOSS EXPORTS
+    window.runTennisMarkovSimulation = runTennisMarkovSimulation;
+    window.getTrackerItems = getTrackerItems;
+    window.selectedPlayerIds = selectedPlayerIds;
     window.renderTrackerAnalytics = renderTrackerAnalytics;
     window.renderTrackerDebug = renderTrackerDebug;
     window.refreshTrackerNow = refreshTrackerNow;
