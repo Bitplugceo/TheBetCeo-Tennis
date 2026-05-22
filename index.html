@@ -3643,6 +3643,8 @@ let g_clearDebug = {
     let stdA = stdDev(options.manualA);
     let stdB = stdDev(options.manualB);
 
+    const notes = [];
+
     // TREND DETECTION: Recent 3 vs older baseline. 12% directional weight catches
     // genuine hot/cold streaks without overfitting to 1-match noise.
     if (options.manualA.length >= 5) {
@@ -3668,7 +3670,6 @@ let g_clearDebug = {
     let h2h = (options.manualH2H || []).slice();
     
     let projectionShift = 0;
-    const notes = [];
 
         const brutalA = ctx && ctx.brutalA ? ctx.brutalA : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
     const brutalB = ctx && ctx.brutalB ? ctx.brutalB : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
@@ -7197,6 +7198,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (leagueSelect.value) {
           openSection("espnSection");
           loadFixtures(currentFixtureOffset);
+          fetchHistoryPool(leagueSelect.value);
         } else {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
           setFetchStatus("Select ATP or WTA first.", "");
