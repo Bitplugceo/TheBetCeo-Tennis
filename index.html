@@ -7416,17 +7416,22 @@ const AFDB = (function() {
         '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
           '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">📋 Copy Log</button>' +
           '<button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ Clear</button>' +
-          '<button onclick="AFDB.runTestSweep()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 SWEEP</button>' +
+          '<button onclick="AFDB.runTestSweep()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>' +
           '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
           '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
         '</div>' +
       '</div>' +
+      '<div style="padding:6px 12px;background:#0d0d0d;color:#555;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:10px;flex-shrink:0;">' +
+        '<span style="color:#d4af37;">◢ DRIFT TRACKER</span>' +
+        '<span>Rolling Mean Error (last 20): \u2014</span>' +
+        '<span>0 samples logged</span>' +
+      '</div>' +
       '<div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
-        '<span>📡 ENGINE &amp; TRACKER LOGS</span>' +
+        '<span>📡 FETCH &amp; ENGINE LOGS</span>' +
         '<button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">🎯 LEVEL: ' + _currentLogLevel + '</button>' +
       '</div>' +
       '<div style="flex:1;overflow-y:auto;background:#0a0a0a;">' +
-        (rows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">No log entries yet. Run a fetch or calculation.</div>') +
+        (rows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">No suspects arrested. The code is clean.</div>') +
       '</div>';
   }
 
@@ -7443,15 +7448,18 @@ const AFDB = (function() {
   }
 
   function runTestSweep() {
-    log('INFO', 'SWEEP', 'Starting Tennis Engine diagnostic sweep...');
+    log('INFO', 'SWEEP', 'Starting Military Raid diagnostic sweep...');
     var suspects = 0;
     var tour = (document.getElementById('leagueSelect') || {}).value || '';
-    if (!tour) { log('ERROR', 'INPUT', 'No tour selected (ATP/WTA) — fetch is blocked.'); suspects++; }
     var pA = ((document.getElementById('teamAName') || {}).value || '').trim();
     var pB = ((document.getElementById('teamBName') || {}).value || '').trim();
-    if (tour && (!pA || !pB)) { log('WARN', 'INPUT', 'Player name(s) missing — fetch will fail.'); suspects++; }
     var ft = ((document.getElementById('ftMarket') || {}).value || '').trim();
-    if (!ft) { log('WARN', 'MARKETS', 'Match total line is empty.'); suspects++; }
+    var freshPage = !tour && !pA && !pB && !ft;
+    if (!freshPage) {
+      if (!tour) { log('ERROR', 'INPUT', 'No tour selected (ATP/WTA) — fetch is blocked.'); suspects++; }
+      if (tour && (!pA || !pB)) { log('WARN', 'INPUT', 'Player name(s) missing — fetch will fail.'); suspects++; }
+      if (!ft) { log('WARN', 'MARKETS', 'Match total line is empty.'); suspects++; }
+    }
     try {
       var items = typeof getTrackerItems === 'function' ? getTrackerItems() : [];
       var pending = items.filter(function(p) { return String(p.status||'PENDING').toUpperCase() === 'PENDING'; }).length;
@@ -7463,7 +7471,7 @@ const AFDB = (function() {
       var pv = window.g_trackerPersistedVersion || 0;
       if (sv > pv) { log('WARN', 'SYNC', 'Local version (' + sv + ') ahead of cloud (' + pv + ') — force save recommended.'); suspects++; }
     } catch(e) {}
-    var verdict = suspects === 0 ? 'Sweep complete. Tennis engine is healthy.' : 'Sweep complete. ' + suspects + ' issue(s) detected.';
+    var verdict = suspects === 0 ? 'Military Raid complete. Tennis engine is healthy.' : 'Military Raid complete. ' + suspects + ' issue(s) detected.';
     log(suspects === 0 ? 'SUCCESS' : 'ERROR', 'SWEEP', verdict);
   }
 
