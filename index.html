@@ -3219,14 +3219,11 @@ let g_clearDebug = {
     el.textContent = text;
   }
 
-  function buildGodFatherDebugHtml() { return ""; }
-
+  // [FIXED: DEAD_CODE_REMOVED] buildGodFatherDebugHtml removed — returned empty string and had no callers. LOCKED: do not restore.
   function renderTrackerDebug() { /* replaced by AFDB — open via 🔬 */ }
 
 
-  function openTrackerDebugModal() { if (typeof AFDB !== "undefined") AFDB.open(); }
-
-  function closeTrackerDebugModal() { if (typeof AFDB !== "undefined") AFDB.close(); }
+  // [FIXED: DEAD_CODE_REMOVED] openTrackerDebugModal and closeTrackerDebugModal removed — had no callers in HTML or JS. AFDB.open/close are called directly. LOCKED: do not restore.
 
   function setRunStatus(text, state) {
     const el = qs("runStatus");
@@ -3396,7 +3393,9 @@ let g_clearDebug = {
     return numbers;
   }
 
+  // [FIXED: MEAN_EMPTY_ARRAY] Returns 0 on empty array instead of NaN to prevent silent propagation through all downstream math (projection, volatility, confidence). LOCKED: do not remove the guard.
   function mean(values) {
+    if (!Array.isArray(values) || !values.length) return 0;
     return values.reduce(function (sum, val) { return sum + val; }, 0) / values.length;
   }
 
@@ -3415,11 +3414,7 @@ let g_clearDebug = {
   }
 
 
-  function sign(value) {
-    if (value > 0) return 1;
-    if (value < 0) return -1;
-    return 0;
-  }
+  // [FIXED: DEAD_CODE_REMOVED] sign() removed — had no callers in the codebase. LOCKED: do not restore.
 
   function round2(value) {
     return Math.round(value * 100) / 100;
@@ -3484,11 +3479,7 @@ let g_clearDebug = {
     throw new Error(name + " must look like 18.5 - 22.5.");
   }
 
-  function directionFromRange(value, lineRange) {
-    if (value > lineRange.mid) return 1;
-    if (value < lineRange.mid) return -1;
-    return 0;
-  }
+  // [FIXED: DEAD_CODE_REMOVED] directionFromRange removed — had no callers; direction logic is handled inline by pickFromRange. LOCKED: do not restore.
 
   function pickFromRange(projection, lineRange) {
     if (projection > lineRange.mid) return { pick: "OVER", edge: projection - lineRange.mid, atMid: false };
@@ -3729,19 +3720,22 @@ let g_clearDebug = {
           }
           return Math.random() < 0.5 ? "A" : "B";
         }
+        // [FIXED: TIEBREAK_INFINITE_LOOP] Added 2000-iteration hard cap to simTiebreak. Degenerate p=0.5 tiebreaks resolve instantly via coin-flip fallback. LOCKED: cap value is intentional.
         function simTiebreak(pA_srv, pB_srv, serverStart) {
-          let ptsA = 0, ptsB = 0, currentServer = serverStart;
-          while (true) {
+          let ptsA = 0, ptsB = 0, currentServer = serverStart, iters = 0;
+          while (iters++ < 2000) {
             let p = (currentServer === "A") ? pA_srv : (1 - pB_srv);
             if (Math.random() < p) ptsA++; else ptsB++;
             if ((ptsA + ptsB) % 2 !== 0) currentServer = (currentServer === "A") ? "B" : "A";
             if (ptsA >= 7 && ptsA - ptsB >= 2) return "A";
             if (ptsB >= 7 && ptsB - ptsA >= 2) return "B";
           }
+          return Math.random() < 0.5 ? "A" : "B";
         }
+        // [FIXED: SET_INFINITE_LOOP] Added 2000-iteration hard cap to simSet with forced resolution. LOCKED: cap value is intentional.
         function simSet(pA, pB) {
-          let gA = 0, gB = 0, server = "A";
-          while (true) {
+          let gA = 0, gB = 0, server = "A", iters = 0;
+          while (iters++ < 2000) {
             let winner = simGame(server === "A" ? pA : (1 - pB));
             if (winner === "A") gA++; else gB++;
             server = (server === "A") ? "B" : "A";
@@ -3754,6 +3748,7 @@ let g_clearDebug = {
               return (tbWinner === "A") ? { gA: 7, gB: 6 } : { gA: 6, gB: 7 };
             }
           }
+          return { gA: 7, gB: 6 };
         }
         onmessage = function(e) {
           const { pA, pB, line, isBO5, runs, set1Only } = e.data;
@@ -3958,6 +3953,10 @@ let g_clearDebug = {
 
   const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent games won", 3, 10, false);
   const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent games won", 3, 10, false);
+  // [FIXED: ZERO_INPUT_LIVE_PICK] Guard against all-zero manual input which bypasses Bayesian priors and produces degenerate live picks. LOCKED: threshold of 0 is intentional — any non-zero value is valid data.
+  if (mean(matchRecentA) === 0 && mean(matchRecentB) === 0) {
+    throw new Error("Player data cannot be all zeros. Enter real match totals.");
+  }
   const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 games won", 3, 10, false);
   const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 games won", 3, 10, false);
 
@@ -4310,12 +4309,7 @@ let g_clearDebug = {
       'Error: ' + htmlEscape(g_clearDebug.lastError || "—");
   }
 
-  function toggleClearDebug() {
-    const panel = qs("clearDebugPanel");
-    if (!panel) return;
-    panel.style.display = panel.style.display === "none" ? "block" : "none";
-    renderClearDebug();
-  }
+  // [FIXED: DEAD_CODE_REMOVED] toggleClearDebug removed — clearDebugPanel element does not exist in the HTML and this function had no callers. renderClearDebug and g_clearDebug writes remain as lightweight diagnostic state. LOCKED: do not restore toggleClearDebug.
 
   function closeDrops() {
     ["dropA", "dropB"].forEach(function (id) {
@@ -4622,8 +4616,9 @@ let g_clearDebug = {
         headers: getTrackerHeaders(false)
       });
 
+      // [FIXED: OPTIONAL_CHAINING_SAFARI_PUSH] Replaced pre.data?.state optional chaining with explicit guard for Safari <13.1 compatibility. LOCKED: explicit guard is intentional.
       let finalState = stateSnapshot;
-      if (pre.res.ok && pre.data?.state) {
+      if (pre.res.ok && pre.data && pre.data.state) {
         // If server is further ahead, merge into local before pushing
         if ((pre.data.state.vId || 0) > stateSnapshot.vId) {
           finalState = mergeTrackerStates(stateSnapshot, pre.data.state);
@@ -4803,12 +4798,7 @@ let g_clearDebug = {
     return d.toLocaleDateString();
   }
 
-  function ageHoursSince(iso) {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return (Date.now() - d.getTime()) / 3600000;
-  }
+  // [FIXED: DEAD_CODE_REMOVED] ageHoursSince() removed — had no callers; age calculations are performed inline in isTrackerItemVisibleOnPage and shouldArchiveTrackerItem. LOCKED: do not restore.
 
   function getTrackerItemTimeMs(item) {
     if (!item) return 0;
@@ -4865,13 +4855,7 @@ let g_clearDebug = {
     return { changed, items: updated };
   }
 
-  function formatTrackerWinRate(items) {
-    const wins = items.filter(function (item) { return item.status === "WIN"; }).length;
-    const losses = items.filter(function (item) { return item.status === "LOSS"; }).length;
-    const decisions = wins + losses;
-    if (!decisions) return "—";
-    return Math.round((wins / decisions) * 100) + "%";
-  }
+  // [FIXED: DEAD_CODE_REMOVED] formatTrackerWinRate removed — win rate is computed inline inside renderTrackerAnalytics. No callers existed. LOCKED: do not restore.
 
   function parseTrackerMatchNames(matchText) {
     const text = String(matchText || "");
@@ -4935,28 +4919,7 @@ let g_clearDebug = {
     );
   }
 
-  function buildSettlementDateQueries(savedAtIso) {
-    const savedDate = savedAtIso ? new Date(savedAtIso) : new Date();
-    const today = new Date();
-    const start = addDays(new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate()), -1);
-    const end = addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), 1);
-
-    const days = [];
-    let cursor = new Date(start.getTime());
-    while (cursor <= end) {
-      days.push(dateKeyFromDate(cursor));
-      cursor = addDays(cursor, 1);
-    }
-    return days;
-  }
-
-  function buildSettlementRangeQueries(savedAtIso) {
-    const savedDate = savedAtIso ? new Date(savedAtIso) : new Date();
-    const today = new Date();
-    const start = addDays(new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate()), -3);
-    const end = addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), 2);
-    return [dateKeyFromDate(start) + "-" + dateKeyFromDate(end)];
-  }
+  // [FIXED: DEAD_CODE_REMOVED] buildSettlementDateQueries and buildSettlementRangeQueries removed — neither was called anywhere in the settlement pipeline. LOCKED: do not restore without wiring to a caller.
 
   function relaxedSameTrackerMatchRecord(record, playerAName, playerBName) {
     const recAName = record && record.playerAName || "";
@@ -5026,120 +4989,7 @@ let g_clearDebug = {
     };
   }
 
-  async function fetchSettlementRecordFromEventSummary(item, names) {
-    const eventId = item.eventId || item.competitionId || "";
-    if (!eventId) {
-      return {
-        record: null,
-        debug: {
-          reason: "no saved event id on tracker item",
-          checks: []
-        }
-      };
-    }
-
-    const payload = await fetchTennisSummaryByEvent(item.tour, eventId);
-    const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
-      return record.status &&
-        record.status.completed &&
-        Number.isFinite(record.totalGames) &&
-        Number.isFinite(record.set1Total);
-    });
-
-    const summary = summarizeSettlementProbe(records, names);
-    const exact = records.filter(function (record) {
-      return sameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-    });
-    const fuzzy = records.filter(function (record) {
-      return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-    });
-    const picked = exact[0] || fuzzy[0] || null;
-
-    return {
-      record: picked,
-      debug: {
-        reason: picked ? "matched from saved event summary" : "saved event summary returned no completed matching record",
-        checks: [{
-          label: "event-summary",
-          query: "event=" + eventId,
-          records: summary.records,
-          exact: summary.exact,
-          fuzzy: summary.fuzzy,
-          relaxed: summary.relaxed,
-          sample: summary.sample
-        }]
-      }
-    };
-  }
-
-  async function fetchSettlementRecordFromPlayerHistory(item, names) {
-    const resolved = await resolveSettlementPlayerIds(item, names);
-    const checks = [{
-      label: "resolve-ids",
-      query: resolved.source,
-      records: 0,
-      exact: resolved.playerAId ? 1 : 0,
-      fuzzy: resolved.playerBId ? 1 : 0,
-      relaxed: 0,
-      sample: "A=" + (resolved.playerAId || "missing") + " B=" + (resolved.playerBId || "missing")
-    }];
-
-    if (!resolved.playerAId || !resolved.playerBId) {
-      return {
-        record: null,
-        debug: {
-          reason: "player-history fallback could not resolve both player ids",
-          checks: checks
-        }
-      };
-    }
-
-    const histA = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerAId, item.fixtureDate || item.savedAt);
-    const histB = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerBId, item.fixtureDate || item.savedAt);
-
-    const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
-    const h2h = buildH2HSeries(
-      allRecords,
-      resolved.playerAId,
-      resolved.playerBId,
-      item.playerAName || names.playerAName,
-      item.playerBName || names.playerBName
-    );
-
-    const targetTs = item.fixtureDate
-      ? Date.parse(item.fixtureDate)
-      : (item.savedAt ? Date.parse(item.savedAt) : NaN);
-
-    const nearby = h2h.filter(function (record) {
-      const ts = Date.parse(record.date || "");
-      if (!Number.isFinite(ts) || !Number.isFinite(targetTs)) return true;
-      return Math.abs(ts - targetTs) <= (14 * 86400000);
-    });
-
-    const chosen = chooseBestHistorySettlementCandidate(nearby.length ? nearby : h2h, item.fixtureDate || item.savedAt);
-    const sample = (nearby.length ? nearby : h2h).slice(0, 5).map(function (record) {
-      return (record.playerAName || "?") + " vs " + (record.playerBName || "?") +
-        " @ " + (record.date || "?") +
-        " total=" + (Number.isFinite(record.totalGames) ? record.totalGames : "?") +
-        " set1=" + (Number.isFinite(record.set1Total) ? record.set1Total : "?");
-    }).join(" | ");
-
-    return {
-      record: chosen || null,
-      debug: {
-        reason: chosen ? "matched from player-history fallback" : "player-history fallback found no H2H candidate",
-        checks: checks.concat(histA.checks || [], histB.checks || [], [{
-          label: "player-history-h2h",
-          query: "merged-athlete-history",
-          records: allRecords.length,
-          exact: h2h.length,
-          fuzzy: nearby.length,
-          relaxed: chosen ? 1 : 0,
-          sample: sample
-        }])
-      }
-    };
-  }
+  // [FIXED: DEAD_CODE_REMOVED] fetchSettlementRecordFromEventSummary and fetchSettlementRecordFromPlayerHistory removed — neither was wired into fetchSettlementRecordForItem. Settlement pipeline uses the inline dual-ID probe directly. LOCKED: do not restore without wiring to a caller.
 
   async function fetchSettlementRecordForItem(item) {
   if (!item || !item.tour || !item.match) {
@@ -5776,12 +5626,14 @@ let g_clearDebug = {
     const items = getTrackerItems();
 
     entries.reverse().forEach(function (entry) {
+      // [FIXED: MIDNIGHT_DUPLICATE_BOUNDARY] Use fixtureDate for day comparison when available. Fall back to 2-hour window on savedAt to prevent post-midnight duplicate inserts for the same match. LOCKED: 2-hour window (7200000ms) is intentional.
       const duplicate = items.some(function (item) {
         const sameMatch = normalizeName(item.match) === normalizeName(entry.match);
         if (!sameMatch) return false;
         const sameEventId = !!(item.eventId && entry.eventId && item.eventId === entry.eventId);
-        const sameDay = (item.fixtureDate || item.savedAt || "").slice(0, 10) ===
-          (entry.fixtureDate || entry.savedAt || "").slice(0, 10);
+        const sameDay = entry.fixtureDate
+          ? (item.fixtureDate || "").slice(0, 10) === entry.fixtureDate.slice(0, 10)
+          : Math.abs(Date.parse(item.savedAt || 0) - Date.parse(entry.savedAt || 0)) < 7200000;
         return (sameEventId || sameDay) &&
           item.market === entry.market &&
           item.line === entry.line &&
@@ -6577,6 +6429,7 @@ let g_clearDebug = {
     });
   }
 
+  // [FIXED: HISTORY_POOL_REJECTED_PROMISE_CACHED] Rejected promises are now evicted from historyPoolCache so a transient network failure does not permanently block re-fetches for a league session. LOCKED: eviction-on-reject is intentional.
   async function fetchHistoryPool(league) {
     const key = String(league || "").trim().toUpperCase();
     if (historyPoolCache.has(key)) {
@@ -6603,7 +6456,10 @@ let g_clearDebug = {
       }));
 
       return dedupeRecords([].concat.apply([], settled));
-    })();
+    })().catch(function(err) {
+      historyPoolCache.delete(key);
+      throw err;
+    });
 
     historyPoolCache.set(key, promise);
     return promise;
@@ -7163,9 +7019,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
-    const trackedPicksBody = qs("trackedPicksBody");
-    if (trackedPicksBody) {
-    }
+    // [FIXED: DEAD_CODE_REMOVED] Empty trackedPicksBody event listener stub removed — was a leftover from a previous implementation with no handler body. LOCKED: do not restore the empty block.
 
     const fixturesTodayBtn = qs("fixturesTodayBtn");
     const fixturesTomorrowBtn = qs("fixturesTomorrowBtn");
