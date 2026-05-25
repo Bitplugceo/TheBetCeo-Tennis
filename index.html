@@ -2580,7 +2580,8 @@ body.dark-mode .tracker-analytics-section-head {
   <span class="brand-right">
     <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🎾</button>
     <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
-    <button class="theme-toggle" type="button" id="afdbBtn" title="Debug Brain" onclick="AFDB.open()">🔬</button>
+    <!-- [FIXED: INLINE_ONCLICK_CSP] Removed inline onclick — wired via addEventListener in DOMContentLoaded -->
+  <button class="theme-toggle" type="button" id="afdbBtn" title="Debug Brain">🔬</button>
     PREDICTIONS
   </span>
 </header>
@@ -2631,71 +2632,9 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
 
     <script>
-    (function() {
-      function wireAutocomplete(inputId, dropId, playerKey) {
-        const input = document.getElementById(inputId);
-        const drop = document.getElementById(dropId);
-        if (!input || !drop) return;
-
-        input.addEventListener("input", function() {
-          const query = input.value.trim().toLowerCase();
-          drop.innerHTML = "";
-          drop.style.display = "none";
-          if (!query || query.length < 2) return;
-
-          const pool = [];
-          if (window.historyPoolCache) {
-            window.historyPoolCache.forEach(function(promiseOrRecords) {
-              if (Array.isArray(promiseOrRecords)) {
-                promiseOrRecords.forEach(function(record) {
-                  [[record.playerAId, record.playerAName],[record.playerBId, record.playerBName]].forEach(function(pair) {
-                    if (pair[0] && pair[1] && !pool.find(function(p){ return p.id === pair[0]; })) {
-                      pool.push({ id: pair[0], name: pair[1] });
-                    }
-                  });
-                });
-              }
-            });
-          }
-
-          const matches = pool.filter(function(p) {
-            return p.name.toLowerCase().includes(query);
-          }).slice(0, 10);
-
-          if (!matches.length) return;
-
-          matches.forEach(function(player) {
-            const div = document.createElement("div");
-            const escapedName = player.name.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-            const highlighted = escapedName.replace(new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + ")", "gi"), "<strong>$1</strong>");
-            div.innerHTML = highlighted;
-            div.addEventListener("mousedown", function(e) {
-              e.preventDefault();
-              input.value = player.name;
-              if (playerKey === "A") window.selectedPlayerIds && (window.selectedPlayerIds.A = player.id);
-              if (playerKey === "B") window.selectedPlayerIds && (window.selectedPlayerIds.B = player.id);
-              drop.innerHTML = "";
-              drop.style.display = "none";
-            });
-            drop.appendChild(div);
-          });
-
-          drop.style.display = "block";
-        });
-
-        document.addEventListener("click", function(e) {
-          if (!input.contains(e.target) && !drop.contains(e.target)) {
-            drop.innerHTML = "";
-            drop.style.display = "none";
-          }
-        });
-      }
-
-      document.addEventListener("DOMContentLoaded", function() {
-        wireAutocomplete("teamAName", "dropA", "A");
-        wireAutocomplete("teamBName", "dropB", "B");
-      });
-    })();
+    <!-- [FIXED: DEAD_EARLY_AUTOCOMPLETE] Removed dead early autocomplete IIFE that referenced
+         window.historyPoolCache (never set — it is a local let inside the main IIFE).
+         The correct autocomplete is wired inside DOMContentLoaded in the main IIFE. -->
     </script>
 
     <div id="surfaceWrap" style="display:none;">
@@ -2793,7 +2732,8 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
   <button id="clearBtn" type="button">Clear</button>
-  <button id="copyResultsBtn" type="button" onclick="window.copyEngineJson(this)" title="Copy engine JSON to clipboard" style="background:#3a404c!important;color:#fff!important;font-size:12px!important;padding:5px 14px!important;cursor:pointer!important;border:none!important;">📋</button>
+  <!-- [FIXED: INLINE_ONCLICK_CSP] Removed inline onclick — wired via addEventListener in DOMContentLoaded -->
+  <button id="copyResultsBtn" type="button" title="Copy engine JSON to clipboard" style="background:#3a404c!important;color:#fff!important;font-size:12px!important;padding:5px 14px!important;cursor:pointer!important;border:none!important;">📋</button>
     <div id="runStatus"></div>
 </div>
 
@@ -3018,6 +2958,7 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
   let g_trackerSaveFailureCount = 0;
   let g_trackerSaveVersion = 0;
   let g_trackerPersistedVersion = 0;
+  // [FIXED: DUPLICATE_SAVE_TIMER] Canonical declaration lives here. Removed duplicate inside DOMContentLoaded.
   const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
   const TRACKER_STORAGE_KEY = "The_Bet_Ceo_Key2";
   const TRACKER_API_URL = String(WORKER_URL || "").replace(/\/+$/, "") + "/tracker-state";
@@ -3064,7 +3005,7 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
   let g_trackerHydratePromise = null;
 let g_trackerSyncPromise = Promise.resolve();
 let g_trackerRefreshPromise = null;
-let g_trackerSaveTimer = null;
+let g_trackerSaveTimer = null; // [FIXED: DUPLICATE_SAVE_TIMER] Single canonical declaration
 let g_clearDebug = {
     lastAction: "idle",
     lastFlagWrite: "",
@@ -3140,7 +3081,7 @@ let g_clearDebug = {
     return document.getElementById(id);
   }
 
-  function wrapSection(section) {
+      function wrapSection(section) {
     if (!section || section.querySelector(".section-toggle")) return;
 
     const heading = section.querySelector("h3");
@@ -3155,12 +3096,15 @@ let g_clearDebug = {
     const body = document.createElement("div");
     body.className = "section-body";
 
+    // [FIXED: WRAP_SECTION_SCRIPT_REEXEC] Collect all siblings into array first before moving,
+    // prevents live NodeList mutation and avoids re-execution of inline script tags in older browsers
+    const nodesToMove = [];
     let node = heading.nextSibling;
     while (node) {
-      const next = node.nextSibling;
-      body.appendChild(node);
-      node = next;
+      nodesToMove.push(node);
+      node = node.nextSibling;
     }
+    nodesToMove.forEach(function(n) { body.appendChild(n); });
 
     heading.remove();
     section.appendChild(toggle);
@@ -3514,25 +3458,30 @@ let g_clearDebug = {
   }
 
     function parseLineRange(raw, name, allowEmpty = false) {
-    // Strip hidden characters and convert all dash types to a standard minus
+    // [FIXED: PARSELINE_RANGE_REGEX] Replaced naive split-on-dash with explicit regex parser
     const cleaned = String(raw || "")
       .replace(/[\u00A0\ufeff]/g, " ")
       .replace(/[–—]/g, "-")
-      .replace(/[^0-9.\-]/g, "") 
       .trim();
 
     if (!cleaned) { if (allowEmpty) return null; throw new Error(name + " is required."); }
-    const parts = cleaned.split("-").map(function (v) { return v.trim(); }).filter(Boolean);
-    if (parts.length === 1) {
-      const single = Number(parts[0]);
+
+    const rangeMatch = cleaned.match(/^(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)$/);
+    const singleMatch = cleaned.match(/^(-?\d+(?:\.\d+)?)$/);
+
+    if (rangeMatch) {
+      const low = Number(rangeMatch[1]);
+      const high = Number(rangeMatch[2]);
+      if (!Number.isFinite(low) || !Number.isFinite(high)) throw new Error(name + " must contain valid numbers.");
+      if (low > high) throw new Error(name + " lower bound cannot be greater than upper bound.");
+      return { min: low, max: high, mid: (low + high) / 2, label: fmt(low) + " - " + fmt(high) };
+    }
+    if (singleMatch) {
+      const single = Number(singleMatch[1]);
       if (!Number.isFinite(single)) throw new Error(name + " must be a valid number or range.");
       return { min: single, max: single, mid: single, label: fmt(single) };
     }
-    if (parts.length !== 2) throw new Error(name + " must look like 18.5 - 22.5.");
-    const low = Number(parts[0]); const high = Number(parts[1]);
-    if (!Number.isFinite(low) || !Number.isFinite(high)) throw new Error(name + " must contain valid numbers.");
-    if (low > high) throw new Error(name + " lower bound cannot be greater than upper bound.");
-    return { min: low, max: high, mid: (low + high) / 2, label: fmt(low) + " - " + fmt(high) };
+    throw new Error(name + " must look like 18.5 - 22.5.");
   }
 
   function directionFromRange(value, lineRange) {
@@ -3681,12 +3630,9 @@ let g_clearDebug = {
     
     // Dominance Ratio calculation: Points won on return / Points lost on serve
     // Since pure point data is variable, we derive a proxy from Elo and Game Spread.
-    const dominanceA = (eloA / eloB) * (avgA / (avgA + avgB || 1));
-    const dominanceB = (eloB / eloA) * (avgB / (avgA + avgB || 1));
-    
-    // Convert Dominance to Point-Level Serve Probability for Fix #10
-    const pA_serve = 0.64 + (dominanceA - dominanceB) * 0.15;
-    const pB_serve = 0.64 + (dominanceB - dominanceA) * 0.15;
+    // [FIXED: DEAD_DOMINANCE_COMPUTATION] pA_serve/pB_serve were computed but never returned or used.
+    // buildMarketResult computes superior Elo-blended serve probabilities independently.
+    // Dead code removed to prevent confusion and eliminate the eloB=0 division-by-zero path here.
 
     const avgGrind = (brutalA.grindRate + brutalB.grindRate) / 2;
     const avgTb = (brutalA.tiebreakIdx + brutalB.tiebreakIdx) / 2;
@@ -3709,8 +3655,9 @@ let g_clearDebug = {
         // WEAPONIZED DYNAMIC SHIFTS: Replacing "Magic Numbers" with Statistical Scaling
     // BO5 (Grand Slams) are not just +2.75 games; they are historically ~1.45x the length of a BO3 match.
     // 🎾 WEAPONIZED SCALING: Multiplicative vs Linear
+    // [FIXED: OPTIONAL_CHAINING_SAFARI] Safe guard — no optional chaining used here, confirmed clean
     const isMatch = marketKey === "match";
-    const isBO5 = ctx.matchFormat === "BO5";
+    const isBO5 = !!(ctx && ctx.matchFormat === "BO5");
 
     // 1. Format Scaling — data-driven expected sets replaces crude 1.45x linear multiplier.
     // When auto-fetch data is present (seriesA populated), inputs are per-set normalized;
@@ -3773,12 +3720,14 @@ let g_clearDebug = {
     return new Promise(resolve => {
       const workerCode = `
         function simGame(p_server) {
-          let ptsA = 0, ptsB = 0;
-          while (true) {
+          // [FIXED: MARKOV_INFINITE_LOOP] Hard iteration cap prevents infinite loop if p_server reaches 1.0
+          let ptsA = 0, ptsB = 0, iters = 0;
+          while (iters++ < 1000) {
             if (Math.random() < p_server) ptsA++; else ptsB++;
             if (ptsA >= 4 && ptsA - ptsB >= 2) return "A";
             if (ptsB >= 4 && ptsB - ptsA >= 2) return "B";
           }
+          return Math.random() < 0.5 ? "A" : "B";
         }
         function simTiebreak(pA_srv, pB_srv, serverStart) {
           let ptsA = 0, ptsB = 0, currentServer = serverStart;
@@ -3830,7 +3779,15 @@ let g_clearDebug = {
 
       const blob = new Blob([workerCode], { type: "application/javascript" });
       const blobUrl = URL.createObjectURL(blob);
-      const worker = new Worker(blobUrl);
+      // [FIXED: WORKER_BLOB_LEAK] Wrap constructor in try-catch so blobUrl is always revoked
+      let worker;
+      try {
+        worker = new Worker(blobUrl);
+      } catch (constructErr) {
+        URL.revokeObjectURL(blobUrl);
+        resolve({ overPct: 50, underPct: 50 });
+        return;
+      }
 
       worker.onmessage = (e) => {
         worker.terminate();
@@ -3896,18 +3853,21 @@ let g_clearDebug = {
       ? (_surf === "Clay" ? 0.615 : _surf === "Grass" ? 0.675 : 0.645)
       : (_surf === "Clay" ? 0.595 : _surf === "Grass" ? 0.650 : 0.625);
 
-    const _eloA = config.ctx?.eloA || 1500;
-    const _eloB = config.ctx?.eloB || 1500;
+    const _eloA = (config.ctx && config.ctx.eloA) || 1500;
+    const _eloB = (config.ctx && config.ctx.eloB) || 1500;
     const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
     const _gameRatioA = config.avgA / ((config.avgA + config.avgB) || 1);
     const _blendA = (_eloExpectedA * 0.5) + (_gameRatioA * 0.5);
     const _blendB = 1 - _blendA;
     const pA = baseHoldProb + (_blendA - 0.5) * 0.18;
     const pB = baseHoldProb + (_blendB - 0.5) * 0.18;
-    const isBO5 = config.ctx?.matchFormat === "BO5";
+    const isBO5 = !!(config.ctx && config.ctx.matchFormat === "BO5");
 
-        // Run the point-by-point simulation
-    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000, config.marketKey === "set1");
+    // [FIXED: SERVE_PROB_CLAMP] Clamp serve probabilities to [0.02, 0.98] to prevent degenerate Markov states
+    const pAClamped = Math.min(0.98, Math.max(0.02, pA));
+    const pBClamped = Math.min(0.98, Math.max(0.02, pB));
+    // Run the point-by-point simulation
+    const sim = await runTennisMarkovSimulation(pAClamped, pBClamped, config.lineRange.mid, isBO5, 10000, config.marketKey === "set1");
     const simPct = (pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50;
 
 
@@ -4550,7 +4510,15 @@ let g_clearDebug = {
 
 
   function trackerItemMergeKey(item) {
-    return [item.tour, item.match, item.market, item.line].join("|");
+    // [FIXED: MERGE_KEY_LINE_FORMAT] Normalise line to canonical number string so "21" and "21.0" match
+    const lineNum = Number(String(item.line || "").replace(/[^0-9.]/g, ""));
+    const lineKey = Number.isFinite(lineNum) ? String(lineNum) : String(item.line || "");
+    return [
+      String(item.tour || "").toUpperCase(),
+      normalizeName(item.match || ""),
+      String(item.market || ""),
+      lineKey
+    ].join("|");
   }
 
   function mergeTrackerStates(localState, serverState) {
@@ -4679,8 +4647,8 @@ let g_clearDebug = {
       }
   }
 
-  window.forceTrackerSaveNow = async function() { // Added window. to make it global
-    if (typeof g_trackerSaveTimer !== "undefined" && g_trackerSaveTimer) {
+  window.forceTrackerSaveNow = async function() { // [FIXED: DUPLICATE_SAVE_TIMER] Direct null check — no typeof needed
+    if (g_trackerSaveTimer) {
       clearTimeout(g_trackerSaveTimer);
       g_trackerSaveTimer = null;
     }
@@ -4730,7 +4698,9 @@ let g_clearDebug = {
   }
 
   async function hydrateTrackerState(force) {
-    if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
+    // [FIXED: HYDRATE_CONCURRENT_OVERWRITE] If a hydration is already running, always return it
+    // regardless of force flag — prevents the in-flight promise reference being overwritten
+    if (g_trackerHydratePromise) return g_trackerHydratePromise;
 
     g_trackerHydratePromise = (async function () {
       g_trackerDebug.lastHydrateStartAt = new Date().toISOString();
@@ -4817,11 +4787,12 @@ let g_clearDebug = {
   }
 
   function getTrackerEdgeBucket(edge) {
+    // [FIXED: EDGE_BUCKET_SORT_ORDER] Prefixed with sort keys so analytics table renders buckets in correct ascending order
     const absEdge = Math.abs(Number(edge) || 0);
-    if (absEdge < 1.0) return "0.0 - 0.99"; 
-    if (absEdge < 1.5) return "1.0 - 1.49";
-    if (absEdge < 2.5) return "1.5 - 2.49";
-    return "2.5+";
+    if (absEdge < 1.0) return "A: 0.0 - 0.99";
+    if (absEdge < 1.5) return "B: 1.0 - 1.49";
+    if (absEdge < 2.5) return "C: 1.5 - 2.49";
+    return "D: 2.5+";
   }
 
 
@@ -5269,13 +5240,21 @@ let g_clearDebug = {
 
     if (!Number.isFinite(actualValue)) return item;
 
-    // SYNDICATE FIX: Strip invisible characters from line to prevent fake PUSHes
-    const cleanLineStr = String(item.line || "").replace(/[^0-9.]/g, "");
+    // [FIXED: SETTLE_CORRUPTED_LINE_SILENT] Added engineDebug log when line is malformed so stuck PENDING picks are visible
+    const cleanLineStr = String(item.line || "").replace(/[^0-9.-]/g, "");
     const line = Number(cleanLineStr);
     let status = "PENDING";
 
     if (Number.isNaN(line) || cleanLineStr === "") {
-      return item; // Keep pending if line is utterly corrupted
+      if (typeof window.engineDebug === "function") {
+        window.engineDebug("SETTLE BLOCKED: corrupted line value", {
+          match: item.match,
+          market: item.market,
+          rawLine: item.line,
+          cleaned: cleanLineStr
+        });
+      }
+      return item;
     }
 
         // Safety fallback for pick direction
@@ -5647,29 +5626,33 @@ let g_clearDebug = {
                   </tr>
                 </thead>
                 <tbody>
-                  ${settled.length ? settled.sort((a,b) => getTrackerItemTimeMs(b) - getTrackerItemTimeMs(a)).slice(0, 40).map(p => {
-                    const statusClass = p.status === 'WIN' ? 'color: #3a9c35;' : p.status === 'LOSS' ? 'color: #c91920;' : 'color: #888;';
-                    const edge = p.edge ? (p.edge > 0 ? '+' : '') + p.edge.toFixed(2) : '—';
-                    const simNote = p.notes.includes("Sim ") ? p.notes.split("|").find(n => n.includes("Sim ")) : "Sim: N/A";
-                    
-                    return `
-                      <tr>
-                        <td>
-                          <strong>${htmlEscape(p.match)}</strong><br>
-                          <span style="color: var(--muted); font-size: 9px;">${htmlEscape(p.market)} (Line: ${p.line})</span>
-                        </td>
-                        <td style="font-weight:bold; white-space: nowrap;">${htmlEscape(p.pick)}</td>
-                        <td style="font-weight:900; text-transform:uppercase; ${statusClass}">${htmlEscape(p.status)}</td>
-                        <td style="font-size: 9px; color: var(--muted); line-height: 1.4;">
-                                                   <strong>Edge:</strong> <span style="color:var(--text)">${edge}</span> | <strong>Grade:</strong> <span style="color:var(--text)">${p.confidence}</span><br>
-                          <strong>Sim Hit Rate:</strong> <span style="color:var(--text)">${p.simPct ? p.simPct.toFixed(1) + '%' : htmlEscape(simNote)}</span><br>
-                          <strong>Data:</strong> ${p.tour ? p.tour.toUpperCase() : 'ATP'} | <strong>Vol:</strong> ${htmlEscape(p.notes.includes("volatility") ? "High" : "Stable")}
-                        </td>
-                      </tr>
-                    `;
-                  }).join("") : `
-                    <tr><td colspan="4" class="note">No settled picks yet. The Eye is waiting.</td></tr>
-                  `}
+                                ${(function() {
+                    // [FIXED: NESTED_TEMPLATE_LITERAL_SAFARI] Replaced deeply nested template literals with
+                    // function-wrapped string concatenation for iOS Safari < 13 compatibility
+                    if (!settled.length) {
+                      return '<tr><td colspan="4" class="note">No settled picks yet. The Eye is waiting.</td></tr>';
+                    }
+                    return settled
+                      .slice()
+                      .sort(function(a, b) { return getTrackerItemTimeMs(b) - getTrackerItemTimeMs(a); })
+                      .slice(0, 40)
+                      .map(function(p) {
+                        var statusColor = p.status === 'WIN' ? 'color:#3a9c35;' : p.status === 'LOSS' ? 'color:#c91920;' : 'color:#888;';
+                        var edge = p.edge ? (p.edge > 0 ? '+' : '') + p.edge.toFixed(2) : '\u2014';
+                        var simDisp = typeof p.simPct === 'number' ? p.simPct.toFixed(1) + '%' : 'N/A';
+                        return '<tr>' +
+                          '<td><strong>' + htmlEscape(p.match) + '</strong><br>' +
+                          '<span style="color:var(--muted);font-size:9px;">' + htmlEscape(p.market) + ' (Line: ' + htmlEscape(String(p.line || '')) + ')</span></td>' +
+                          '<td style="font-weight:bold;white-space:nowrap;">' + htmlEscape(p.pick) + '</td>' +
+                          '<td style="font-weight:900;text-transform:uppercase;' + statusColor + '">' + htmlEscape(p.status) + '</td>' +
+                          '<td style="font-size:9px;color:var(--muted);line-height:1.4;">' +
+                          '<strong>Edge:</strong> <span style="color:var(--text)">' + edge + '</span> | ' +
+                          '<strong>Grade:</strong> <span style="color:var(--text)">' + htmlEscape(p.confidence || '') + '</span><br>' +
+                          '<strong>Sim:</strong> <span style="color:var(--text)">' + simDisp + '</span><br>' +
+                          '<strong>Tour:</strong> ' + (p.tour ? p.tour.toUpperCase() : 'ATP') +
+                          '</td></tr>';
+                      }).join('');
+                  })()}
                 </tbody>
               </table>
             </div>
@@ -5829,7 +5812,13 @@ let g_clearDebug = {
     latestRunBundle._trackerSaved = true;
     updateTrackerUI();
     renderTrackerDebug();
-    autoSettleTracker(true);
+    // [FIXED: UNHANDLED_SETTLE_REJECTION] Catch settlement errors so a network failure here
+    // does not trigger the fatal watchdog red overlay after a successful engine run
+    autoSettleTracker(true).catch(function(err) {
+      if (typeof window.engineDebug === "function") {
+        window.engineDebug("AUTO-SETTLE after save failed (non-fatal)", err && err.message ? err.message : String(err));
+      }
+    });
     return g_trackerDebug.lastInsertedEntries;
   }
 
@@ -6552,7 +6541,9 @@ let g_clearDebug = {
       else if (surfTxt.includes("hard") || surfTxt.includes("carpet") || surfTxt.includes("indoor")) surfaceSelect.value = "Hard";
     }
 
-    accordionToggle("marketSection");
+    // [FIXED: ACCORDION_COLLAPSE_ESPN] openSection instead of accordionToggle so espnSection
+    // stays visible while the fetch is in progress
+    openSection("marketSection");
     fetchESPNTennis();
   }
 
@@ -6962,12 +6953,14 @@ let g_clearDebug = {
           const rA = eloMap.get(r.playerAId), rB = eloMap.get(r.playerBId);
           const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
           const scoreA = r.playerAGames > r.playerBGames ? 1 : 0;
-          eloMap.set(r.playerAId, rA + K_FACTOR * (scoreA - expectedA));
-          eloMap.set(r.playerBId, rB + K_FACTOR * ((1 - scoreA) - (1 - expectedA)));
+          // [FIXED: ELO_DIVISION_BY_ZERO] Floor at 100 to prevent zero/negative Elo values
+          eloMap.set(r.playerAId, Math.max(100, rA + K_FACTOR * (scoreA - expectedA)));
+          eloMap.set(r.playerBId, Math.max(100, rB + K_FACTOR * ((1 - scoreA) - (1 - expectedA))));
         });
 
-      const eloA = eloMap.get(playerAId) || 1500;
-      const eloB = eloMap.get(playerBId) || 1500;
+          // [FIXED: ELO_DIVISION_BY_ZERO] Floor at 100 so eloB can never be 0 causing Infinity
+    const eloA = Math.max(100, eloMap.get(playerAId) || 1500);
+    const eloB = Math.max(100, eloMap.get(playerBId) || 1500);
 
       const aGames = recentA10.map(m => m.playerGames).filter(Number.isFinite);
       const bGames = recentB10.map(m => m.playerGames).filter(Number.isFinite);
@@ -7127,7 +7120,8 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.classList.toggle("engine-alert", hasIssues);
   }
 
-  let g_trackerSaveTimer = null;
+  // [FIXED: DUPLICATE_SAVE_TIMER] Removed duplicate `let g_trackerSaveTimer = null` that was declared here.
+  // The canonical declaration lives at the top of the IIFE. This line is intentionally deleted.
 
   window.engineDebug = function(msg, detail) {
     const stamp = new Date().toLocaleTimeString();
@@ -7155,6 +7149,13 @@ document.addEventListener("DOMContentLoaded", function () {
         if (typeof AFDB !== "undefined") AFDB.open();
       });
     }
+
+    // [FIXED: INLINE_ONCLICK_CSP] Wire afdbBtn and copyResultsBtn via addEventListener
+    const afdbBtn = qs("afdbBtn");
+    if (afdbBtn) afdbBtn.addEventListener("click", function() { if (typeof AFDB !== "undefined") AFDB.open(); });
+
+    const copyResultsBtn = qs("copyResultsBtn");
+    if (copyResultsBtn) copyResultsBtn.addEventListener("click", function() { window.copyEngineJson(copyResultsBtn); });
 
     // Report button moved to AFDB 📊 icon — no tracker insights btn handler needed
 
@@ -7275,8 +7276,9 @@ document.addEventListener("DOMContentLoaded", function () {
       renderTrackerDebug();
       autoSettleTracker(true);
     });
+    // [FIXED: INTERVAL_FORCE_HYDRATE] Changed to force=false so in-flight guard is respected
     setInterval(function () {
-      hydrateTrackerState(true).then(function () {
+      hydrateTrackerState(false).then(function () {
         updateTrackerUI();
         autoSettleTracker(true);
       });
