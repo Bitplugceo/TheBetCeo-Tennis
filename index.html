@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -686,6 +685,43 @@
 
     let currentDayOffset = 0;
     let selectedFixtureData = null;
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // CHECK FOR HIDDEN ERROR PAYLOADS (The primary block fix)
+            if (finalData && (finalData.error || finalData.message === "Forbidden" || (!finalData.events && url.includes("scheduled-events")))) {
+              AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy returned an error payload. Continuing rotation...`);
+              continue; // Do NOT stop here! Keep rotating!
+            }
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
 
     // --- BB UNKILLABLE AFDB DEBUG BRAIN (COPIED EXACTLY FROM BASKETBALL ENGINE) ---
     const AFDB = (function() {
