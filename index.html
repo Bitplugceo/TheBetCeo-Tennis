@@ -51,7 +51,7 @@
       --table-border: #333;
     }
 
-    /* Zero border-radius on all UI controls */
+    /* zero border-radius */
     button,
     input,
     select,
@@ -92,6 +92,18 @@
       background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #b91520 100%);
       color: #fff;
       box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    }
+
+    body.engine-alert {
+      background: #2a0608 !important;
+    }
+
+    body.engine-alert .app-header {
+      background: linear-gradient(90deg, #7b0007 0%, #cf1119 52%, #820008 100%) !important;
+    }
+
+    body.engine-alert .section {
+      border-color: #d91f26 !important;
     }
 
     .brand-name {
@@ -389,6 +401,7 @@
     <span class="brand-name">TheBetCeo TT ⚡️</span>
     <span class="brand-right">
       <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏓</button>
+      <button class="theme-toggle" type="button" id="afdbBtn" title="Auto-Fetch Debugger" onclick="AFDB.open()">🔬</button>
       PREDICTIONS
     </span>
   </header>
@@ -511,21 +524,111 @@
 
   </div>
 
+  <!-- AFDB Debugger Panel Overlay HTML -->
+  <div id="afdbOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,0.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
+    <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;"></div>
+  </div>
+
   <script>
     // Constants & Global State
     const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
     let currentDayOffset = 0;
     let selectedFixtureData = null;
 
-    // Theme Toggle
-    const themeToggleBtn = document.getElementById("themeToggleBtn");
-    themeToggleBtn.addEventListener("click", () => {
-      const isDark = document.body.classList.toggle("dark-mode");
-      localStorage.setItem("theme", isDark ? "dark" : "light");
-    });
-    if (localStorage.getItem("theme") === "light") {
-      document.body.classList.remove("dark-mode");
-    }
+    // --- AFDB ENGINE DEBUGGER MODULE (CORS DIAGNOSIS) ---
+    const AFDB = (function() {
+      const LOG_LIMIT = 200;
+      let _log = [];
+      let _isOpen = false;
+      let _currentLogLevel = 'ALL';
+
+      const LEVELS = {
+        FETCH:   { color: '#49d45f' },
+        SUCCESS: { color: '#49d45f' },
+        WARN:    { color: '#ffcf73' },
+        ERROR:   { color: '#ff5c61' },
+        ENGINE:  { color: '#d4af37' }
+      };
+
+      function log(level, section, msg, data = null) {
+        const entry = {
+          ts: new Date().toLocaleTimeString([], { hour12: false }),
+          level,
+          section: section || 'CORE',
+          msg,
+          data
+        };
+        _log.unshift(entry);
+        if (_log.length > LOG_LIMIT) _log = _log.slice(0, LOG_LIMIT);
+        
+        // Trigger red warning outline on body if error is registered
+        if (level === 'ERROR') {
+          document.body.classList.add("engine-alert");
+        }
+        
+        if (_isOpen) _render();
+      }
+
+      function clear() {
+        _log = [];
+        document.body.classList.remove("engine-alert");
+        _render();
+      }
+
+      function open() {
+        _isOpen = true;
+        const ov = document.getElementById('afdbOverlay');
+        if (ov) { ov.style.display = 'flex'; _render(); }
+      }
+
+      function close() {
+        _isOpen = false;
+        const ov = document.getElementById('afdbOverlay');
+        if (ov) ov.style.display = 'none';
+      }
+
+      function copy() {
+        const text = _log.map(e => `[${e.ts}] [${e.level}] [${e.section}] ${e.msg} ${e.data ? '| ' + JSON.stringify(e.data) : ''}`).join('\n');
+        navigator.clipboard.writeText(text).then(() => alert("Logs copied to clipboard!")).catch(() => alert("Clipboard blocked. View console."));
+      }
+
+      function _render() {
+        const panel = document.getElementById('afdbPanel');
+        if (!panel) return;
+
+        const rows = _log.map(e => {
+          const style = LEVELS[e.level] || { color: '#aaa' };
+          const dataStr = e.data ? `<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#050505;border-left:2px solid #333;white-space:pre-wrap;word-break:break-all;">${JSON.stringify(e.data, null, 2)}</pre>` : '';
+          return `
+            <div style="padding:8px;border-bottom:1px solid #222;">
+              <div style="display:flex;gap:8px;font-size:11px;">
+                <span style="color:#555;">${e.ts}</span>
+                <span style="color:${style.color};font-weight:900;">[${e.level}]</span>
+                <span style="color:#777;">[${e.section}]</span>
+                <span style="color:${style.color};flex:1;word-break:break-word;">${e.msg}</span>
+              </div>
+              ${dataStr}
+            </div>
+          `;
+        }).join('');
+
+        panel.innerHTML = `
+          <div style="background:#080808;border-bottom:1px solid #333;padding:12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div style="color:#d4af37;font-size:13px;font-weight:900;">🔬 TT ENGINE DEBUGGER</div>
+            <div style="display:flex;gap:6px;">
+              <button onclick="AFDB.copy()" style="background:#111;border:1px solid #333;color:#49d45f;padding:4px 10px;font-size:10px;font-weight:700;">Copy</button>
+              <button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:4px 10px;font-size:10px;font-weight:700;">Clear</button>
+              <button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:4px 10px;font-size:10px;font-weight:700;">Close</button>
+            </div>
+          </div>
+          <div style="flex:1;overflow-y:auto;background:#0a0a0a;color:#fff;">
+            ${rows || '<div style="color:#555;text-align:center;padding:30px;font-size:11px;">No logs in buffer. Select a league or fetch statistics.</div>'}
+          </div>
+        `;
+      }
+
+      return { log, clear, open, close, copy };
+    })();
 
     // Dynamic Collapsible Sections
     function makeSectionsCollapsible() {
@@ -579,11 +682,26 @@
       loadFixtures();
     }
 
-    // Proxy helper using your Worker
+    // CORS & Cloudflare Worker proxy helper
     async function proxyFetch(url) {
-      const response = await fetch(WORKER_URL + "?url=" + encodeURIComponent(url));
-      if (!response.ok) throw new Error("HTTP error " + response.status);
-      return response.json();
+      AFDB.log('FETCH', 'PROXY', `Calling proxy for URL: ${url}`);
+      try {
+        const proxyUrl = WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        
+        AFDB.log('FETCH', 'PROXY', `Proxy HTTP Status: ${response.status}`, { url: proxyUrl });
+        
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response!`);
+        return data;
+      } catch (err) {
+        AFDB.log('ERROR', 'PROXY', `Network Fetch Failed: ${err.message}`, { targetUrl: url });
+        throw err;
+      }
     }
 
     function getLocalDateKey(offset = 0) {
@@ -595,7 +713,7 @@
       return `${y}-${m}-${day}`;
     }
 
-    // Step 2: Fetch and Filter SofaScore table tennis events
+    // Fetch and Filter SofaScore table tennis events
     async function loadFixtures() {
       const leagueFilter = document.getElementById("leagueSelect").value;
       const select = document.getElementById("fixtureSelect");
@@ -615,6 +733,8 @@
           const tName = ev.tournament?.name || "";
           return tName.toLowerCase().includes(leagueFilter.toLowerCase());
         });
+
+        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
 
         if (filtered.length === 0) {
           select.innerHTML = "<option value=''>No matches found</option>";
@@ -638,8 +758,8 @@
         });
 
       } catch (err) {
-        console.error(err);
         select.innerHTML = "<option value=''>Error loading matches</option>";
+        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
       }
     }
 
@@ -661,9 +781,10 @@
 
       document.getElementById("playerAName").value = selectedFixtureData.homeName;
       document.getElementById("playerBName").value = selectedFixtureData.awayName;
+      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
     }
 
-    // Step 2: Extract set-by-set stats & populate forms automatically
+    // Extract set-by-set stats & populate forms automatically
     async function fetchMatchStats() {
       if (!selectedFixtureData) {
         alert("Please select a match first.");
@@ -679,6 +800,7 @@
         const awayId = selectedFixtureData.awayId;
 
         // Fetch last matches for Player A and Player B in parallel
+        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
         const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
           proxyFetch(`https://api.sofascore.com/api/v1/player/${homeId}/events/last/0`),
           proxyFetch(`https://api.sofascore.com/api/v1/player/${awayId}/events/last/0`),
@@ -686,8 +808,8 @@
         ]);
 
         // Parse point scoring profiles
-        const statsA = processPlayerPoints(homeHistory.events || [], homeId);
-        const statsB = processPlayerPoints(awayHistory.events || [], awayId);
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
 
         // Populate Player A Form
         document.getElementById("playerAPointsScored").value = statsA.avgScored.toFixed(1);
@@ -699,6 +821,8 @@
 
         // Parse and populate H2H Form
         const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
+        
         if (h2hMatches.length >= 2) {
           const setsA = [];
           const setsB = [];
@@ -732,27 +856,31 @@
         document.getElementById("h2hSection").classList.remove("collapsed");
 
       } catch (err) {
-        console.error(err);
         statusEl.className = "status-err";
-        statusEl.textContent = "❌ Error fetching stats. Try again.";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
       }
     }
 
     // Helper to calculate average points won/lost per set
-    function processPlayerPoints(events, playerId) {
+    function processPlayerPoints(events, playerId, label) {
       let totalSets = 0;
       let totalScored = 0;
       let totalAllowed = 0;
 
       // Scan up to 5 completed matches
       const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} finished matches for ${label} (ID: ${playerId})`);
 
-      completed.forEach(ev => {
+      completed.forEach((ev, idx) => {
         const isHome = String(ev.homeTeam?.id) === String(playerId);
         const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
         const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
 
         if (myScoreObj && oppScoreObj) {
+          let matchSets = 0;
+          let matchScored = 0;
+          let matchAllowed = 0;
           // Loop through up to 5 sets
           for (let s = 1; s <= 5; s++) {
             const mySet = myScoreObj[`period${s}`];
@@ -761,16 +889,21 @@
             if (mySet !== undefined && oppSet !== undefined) {
               totalScored += mySet;
               totalAllowed += oppSet;
+              matchScored += mySet;
+              matchAllowed += oppSet;
               totalSets++;
+              matchSets++;
             }
           }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Set Scores Scanned: ${matchSets}] -> Points Scored: ${matchScored}, Allowed: ${matchAllowed}`);
         }
       });
 
-      return {
-        avgScored: totalSets > 0 ? (totalScored / totalSets) : 9.8,
-        avgAllowed: totalSets > 0 ? (totalAllowed / totalSets) : 9.4
-      };
+      const avgScored = totalSets > 0 ? (totalScored / totalSets) : 9.8;
+      const avgAllowed = totalSets > 0 ? (totalAllowed / totalSets) : 9.4;
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Finished ${label} processing. Total Sets: ${totalSets}. Average: Scored=${avgScored.toFixed(2)}, Allowed=${avgAllowed.toFixed(2)}`);
+
+      return { avgScored, avgAllowed };
     }
 
     function runEngine() {
@@ -788,6 +921,8 @@
       makeSectionsCollapsible();
       document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
       document.getElementById("leagueSection").classList.remove("collapsed");
+      
+      AFDB.log('ENGINE', 'BOOT', `Table Tennis Engine successfully initialized. Session ID: sess_${Date.now()}`);
     });
   </script>
 </body>
