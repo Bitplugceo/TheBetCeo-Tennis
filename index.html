@@ -32,7 +32,6 @@
       --section-toggle-icon: #d91f26;
       --table-border: #dfe2e7;
       
-      /* Tracker variables copied from BB Engine */
       --tracker-head-bg: #3a404c;
       --tracker-head-text: #ffffff;
       --tracker-summary-bg: #f6f7f9;
@@ -61,7 +60,6 @@
       --section-toggle-icon: #d4af37;
       --table-border: #333;
       
-      /* Tracker variables copied from BB Engine */
       --tracker-head-bg: #111;
       --tracker-head-text: #d4af37;
       --tracker-summary-bg: #151515;
@@ -73,7 +71,6 @@
       --tracker-mini-head-text: #d4af37;
     }
 
-    /* zero border-radius */
     button,
     input,
     select,
@@ -236,7 +233,8 @@
     }
 
     input,
-    select {
+    select,
+    textarea {
       width: 100%;
       max-width: 260px;
       box-sizing: border-box;
@@ -252,13 +250,15 @@
       -moz-appearance: none;
     }
 
-    input::placeholder {
+    input::placeholder,
+    textarea::placeholder {
       color: var(--muted);
       opacity: 0.75;
     }
 
     input:focus,
-    select:focus {
+    select:focus,
+    textarea:focus {
       outline: none;
       border-color: #4aa346;
       box-shadow: 0 0 0 2px rgba(74, 163, 70, 0.12);
@@ -573,6 +573,14 @@
       <input id="playerBName" placeholder="Player B" readonly />
 
       <button class="fetch-btn" id="fetchBtn" type="button" onclick="fetchMatchStats()">📡 Fetch Stats</button>
+      
+      <!-- Failsafe Manual JSON Input Section -->
+      <div id="failsafeSection" style="margin-top: 10px; border-top: 1px dashed var(--panel-border); padding-top: 10px;">
+        <label style="color:#d4af37;">⚠️ Failsafe Manual JSON Paste</label>
+        <textarea id="failsafeJsonInput" placeholder="If fetch fails, paste Sofascore player events JSON here to auto-fill..." style="width:100%; max-width:100%; height:60px; background:var(--input-bg); color:#fff; font-size:10px; font-family:monospace; border:1px solid var(--input-border); padding:6px; resize:none;"></textarea>
+        <button type="button" onclick="parseFailsafeJson()" style="background:#555 !important; font-size:10px !important; padding:4px 8px !important; margin:4px 0 !important; width:auto !important;">Parse Paste</button>
+      </div>
+      
       <div id="fetchStatus"></div>
     </div>
 
@@ -669,6 +677,7 @@
     
     // Self-Healing Proxy fallback array to bypass SofaScore 403 blocks
     const PROXY_ROTATION_FALLBACKS = [
+      "https://corsproxy.io/?",
       "https://api.codetabs.com/v1/proxy?quest=",
       "https://api.allorigins.win/raw?url=",
       "https://thingproxy.freeboard.io/fetch/"
@@ -1242,12 +1251,86 @@
       return { avgScored, avgAllowed };
     }
 
+    // Failsafe Parser for direct SofaScore JSON paste
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      
+      if (!rawText) {
+        alert("Please paste the SofaScore JSON before clicking parse.");
+        return;
+      }
+      
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        
+        if (events.length === 0) {
+          throw new Error("No event elements found in pasted JSON.");
+        }
+
+        // Detect current Player ID from the pasted events array
+        const sampleEvent = events[0];
+        const select = document.getElementById("fixtureSelect");
+        
+        // Populate current fixture name if empty
+        const homeName = sampleEvent.homeTeam?.name || "Player A";
+        const awayName = sampleEvent.awayTeam?.name || "Player B";
+        
+        if (!selectedFixtureData) {
+          selectedFixtureData = {
+            eventId: sampleEvent.id || "manual_failsafe",
+            homeId: sampleEvent.homeTeam?.id || "A",
+            awayId: sampleEvent.awayTeam?.id || "B",
+            homeName,
+            awayName
+          };
+          document.getElementById("playerAName").value = homeName;
+          document.getElementById("playerBName").value = awayName;
+        }
+
+        const isHome = String(sampleEvent.homeTeam?.id) === String(selectedFixtureData.homeId);
+        const activeId = isHome ? selectedFixtureData.homeId : selectedFixtureData.awayId;
+        const targetLabel = isHome ? 'Player A' : 'Player B';
+
+        const stats = processPlayerPoints(events, activeId, targetLabel);
+
+        if (isHome) {
+          document.getElementById("playerAPointsScored").value = stats.avgScored.toFixed(1);
+          document.getElementById("playerAPointsAllowed").value = stats.avgAllowed.toFixed(1);
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed points for Player A (Home) manually!`);
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.avgScored.toFixed(1);
+          document.getElementById("playerBPointsAllowed").value = stats.avgAllowed.toFixed(1);
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed points for Player B (Away) manually!`);
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} stats from paste!`;
+        document.getElementById("failsafeJsonInput").value = "";
+
+        // Open up closed data segments
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
     function runEngine() {
       // Placeholder for next step
     }
 
     function clearAll() {
-      document.querySelectorAll("input").forEach(i => { if (i.type !== "checkbox") i.value = ""; else i.checked = false; });
+      document.querySelectorAll("input, textarea").forEach(i => { if (i.type !== "checkbox") i.value = ""; else i.checked = false; });
       const select = document.getElementById("leagueSelect");
       if (select) select.value = "";
       onLeagueChange();
