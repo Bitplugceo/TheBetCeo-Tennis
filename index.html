@@ -395,7 +395,7 @@
     }
   </style>
 </head>
-<body class="dark-mode">
+<body>
 
   <header class="app-header">
     <span class="brand-name">TheBetCeo TT ⚡️</span>
@@ -524,7 +524,7 @@
 
   </div>
 
-  <!-- AFDB Debugger Panel Overlay HTML -->
+  <!-- AFDB Debugger Panel Overlay HTML (Identical to BB Engine) -->
   <div id="afdbOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,0.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
     <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;"></div>
   </div>
@@ -535,20 +535,33 @@
     let currentDayOffset = 0;
     let selectedFixtureData = null;
 
-    // --- AFDB ENGINE DEBUGGER MODULE (CORS DIAGNOSIS) ---
+    // --- BB UNKILLABLE AFDB DEBUG BRAIN (COPIED EXACTLY FROM BASKETBALL ENGINE) ---
     const AFDB = (function() {
-      const LOG_LIMIT = 200;
+      const LOG_LIMIT = 600;
       let _log = [];
       let _isOpen = false;
-      let _currentLogLevel = 'ALL';
+      let _showOnlyErrors = true; 
+      let _currentLogLevel = 'ERROR';
 
       const LEVELS = {
-        FETCH:   { color: '#49d45f' },
-        SUCCESS: { color: '#49d45f' },
-        WARN:    { color: '#ffcf73' },
-        ERROR:   { color: '#ff5c61' },
-        ENGINE:  { color: '#d4af37' }
+        BOOT:    { color:'#7aa6ff' }, NET:     { color:'#4ea9ff' },
+        FETCH:   { color:'#49d45f' }, FILL:    { color:'#2aff9e' },
+        PICK:    { color:'#d4af37' }, H2H:     { color:'#c678dd' },
+        SUCCESS: { color:'#49d45f' }, WARN:    { color:'#ffcf73' },
+        ERROR:   { color:'#ff5c61' }, INFO:    { color:'#aaa'    },
+        ENGINE:  { color:'#d4af37' }, TRACKER: { color:'#4ea9ff' },
+        VERDICT: { color:'#49d45f' } 
       };
+
+      const ICONS = {
+        BOOT:'⚙️', NET:'🌐', FETCH:'📡', FILL:'✏️',
+        PICK:'📌', H2H:'🔄', SUCCESS:'✅', WARN:'⚠️', ERROR:'❌', INFO:'ℹ️',
+        ENGINE:'⚙️', TRACKER:'📊', VERDICT:'🏅'
+      };
+
+      function esc(s) {
+        return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
 
       function log(level, section, msg, data = null) {
         const entry = {
@@ -561,7 +574,6 @@
         _log.unshift(entry);
         if (_log.length > LOG_LIMIT) _log = _log.slice(0, LOG_LIMIT);
         
-        // Trigger red warning outline on body if error is registered
         if (level === 'ERROR') {
           document.body.classList.add("engine-alert");
         }
@@ -587,47 +599,74 @@
         if (ov) ov.style.display = 'none';
       }
 
-      function copy() {
-        const text = _log.map(e => `[${e.ts}] [${e.level}] [${e.section}] ${e.msg} ${e.data ? '| ' + JSON.stringify(e.data) : ''}`).join('\n');
-        navigator.clipboard.writeText(text).then(() => alert("Logs copied to clipboard!")).catch(() => alert("Clipboard blocked. View console."));
+      function copy(btnEl) {
+        const visibleLogs = _showOnlyErrors ? _log.filter(e => e.level === 'ERROR' || e.level === 'WARN' || e.level === 'VERDICT') : _log;
+        const textArr = visibleLogs.slice().reverse().map(e => {
+          let line = '[' + e.ts + '] [' + e.level + '] [' + e.section + '] ' + e.msg;
+          if (e.data !== null) {
+            try { line += ' | ' + JSON.stringify(e.data); }
+            catch(x) { line += ' | ' + String(e.data); }
+          }
+          return line;
+        });
+        const text = textArr.join(String.fromCharCode(10, 10));
+        try {
+          navigator.clipboard.writeText(text);
+          if (btnEl) {
+            const origText = btnEl.innerHTML;
+            btnEl.innerHTML = "✅ COPIED!";
+            setTimeout(() => { if (btnEl) btnEl.innerHTML = origText; }, 1500);
+          }
+        } catch(e) {
+          log('WARN','AFDB','Clipboard blocked — printed to console');
+        }
+      }
+
+      async function runTestFetch() {
+        log('INFO', 'POLICE RAID', 'Initiating diagnostic test fetch for today...');
+        const dateStr = getLocalDateKey(0);
+        const testUrl = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+        try {
+          const res = await proxyFetch(testUrl);
+          log('SUCCESS', 'POLICE RAID', `SofaScore ping OK. Recieved ${res?.events?.length || 0} event objects.`);
+        } catch(err) {
+          log('ERROR', 'POLICE RAID', `Test Fetch Failed: ${err.message}`);
+        }
       }
 
       function _render() {
         const panel = document.getElementById('afdbPanel');
         if (!panel) return;
 
-        const rows = _log.map(e => {
-          const style = LEVELS[e.level] || { color: '#aaa' };
-          const dataStr = e.data ? `<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#050505;border-left:2px solid #333;white-space:pre-wrap;word-break:break-all;">${JSON.stringify(e.data, null, 2)}</pre>` : '';
-          return `
-            <div style="padding:8px;border-bottom:1px solid #222;">
-              <div style="display:flex;gap:8px;font-size:11px;">
-                <span style="color:#555;">${e.ts}</span>
-                <span style="color:${style.color};font-weight:900;">[${e.level}]</span>
-                <span style="color:#777;">[${e.section}]</span>
-                <span style="color:${style.color};flex:1;word-break:break-word;">${e.msg}</span>
-              </div>
-              ${dataStr}
-            </div>
-          `;
+        const visibleLogs = _showOnlyErrors ? _log.filter(e => e.level === 'ERROR' || e.level === 'WARN' || e.level === 'VERDICT') : _log;
+        const logRows = _log.map(e => {
+          const def = LEVELS[e.level] || LEVELS.INFO;
+          const icon = ICONS[e.level] || '•';
+          let dataHtml = '';
+          if (e.data !== null) {
+            let ds;
+            try { ds = typeof e.data === 'object' ? JSON.stringify(e.data, null, 2) : String(e.data); }
+            catch(x) { ds = String(e.data); }
+            dataHtml = '<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;word-break:break-all;">' + esc(ds) + '</pre>';
+          }
+          return '<div style="padding:8px;border-bottom:1px solid #151515;"><div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;"><span style="color:#555;font-size:9px;min-width:65px;flex-shrink:0;">' + esc(e.ts) + '</span><span style="color:' + def.color + ';font-size:10px;font-weight:900;min-width:75px;flex-shrink:0;">' + icon + ' ' + esc(e.level) + '</span><span style="color:#777;font-size:9px;min-width:80px;flex-shrink:0;">[' + esc(e.section) + ']</span><span style="color:' + def.color + ';font-size:11px;font-weight:700;flex:1;white-space:pre-wrap;">' + esc(e.msg) + '</span></div>' + dataHtml + '</div>';
         }).join('');
 
-        panel.innerHTML = `
-          <div style="background:#080808;border-bottom:1px solid #333;padding:12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-            <div style="color:#d4af37;font-size:13px;font-weight:900;">🔬 TT ENGINE DEBUGGER</div>
-            <div style="display:flex;gap:6px;">
-              <button onclick="AFDB.copy()" style="background:#111;border:1px solid #333;color:#49d45f;padding:4px 10px;font-size:10px;font-weight:700;">Copy</button>
-              <button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:4px 10px;font-size:10px;font-weight:700;">Clear</button>
-              <button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:4px 10px;font-size:10px;font-weight:700;">Close</button>
-            </div>
-          </div>
-          <div style="flex:1;overflow-y:auto;background:#0a0a0a;color:#fff;">
-            ${rows || '<div style="color:#555;text-align:center;padding:30px;font-size:11px;">No logs in buffer. Select a league or fetch statistics.</div>'}
-          </div>
-        `;
+        const headerBtns = '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;">📋 Copy Log</button><button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;">🗑️ Clear</button><button onclick="AFDB.runTestFetch()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button><button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ Close</button>';
+        const emptyMsg = _showOnlyErrors ? 'No suspects arrested. The code is clean.' : 'No log entries yet. Select a league.';
+        const filterLabel = `🛰️ LEVEL: ${_currentLogLevel}`;
+        const driftHtml = '<div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;"><span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📐 DRIFT TRACKER</span><span style="color:#555;font-size:12px;font-weight:900;">Rolling Mean Error (last 20): —</span><span style="color:#555;font-size:10px;">0 samples logged</span></div>';
+
+        panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div>' + driftHtml + '<div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>🛰️ FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
       }
 
-      return { log, clear, open, close, copy };
+      function toggleFilter() {
+        _showOnlyErrors = !_showOnlyErrors;
+        _currentLogLevel = _showOnlyErrors ? 'ERROR' : 'ALL';
+        _render();
+      }
+
+      return { log, clear, open, close, copy, toggleFilter, runTestFetch };
     })();
 
     // Dynamic Collapsible Sections
@@ -917,12 +956,21 @@
       onLeagueChange();
     }
 
+    // Default theme management (Always boots to light mode)
+    (function applySavedTheme() {
+      if (localStorage.getItem("theme") === "dark") {
+        document.body.classList.add("dark-mode");
+      } else {
+        document.body.classList.remove("dark-mode");
+      }
+    })();
+
     document.addEventListener("DOMContentLoaded", () => {
       makeSectionsCollapsible();
       document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
       document.getElementById("leagueSection").classList.remove("collapsed");
       
-      AFDB.log('ENGINE', 'BOOT', `Table Tennis Engine successfully initialized. Session ID: sess_${Date.now()}`);
+      AFDB.log('BOOT', 'ENGINE', `Table Tennis Engine successfully initialized. Session ID: sess_${Date.now()}`);
     });
   </script>
 </body>
