@@ -71,10 +71,11 @@
       --tracker-mini-head-text: #d4af37;
     }
 
+    /* zero border-radius */
     button,
     input,
     select,
-    .section,
+    textarea,
     table,
     th,
     td,
@@ -567,10 +568,10 @@
       </select>
 
       <label>Player A Name (Home)</label>
-      <input id="playerAName" placeholder="Player A" readonly />
+      <input id="playerAName" placeholder="Player A" />
 
       <label>Player B Name (Away)</label>
-      <input id="playerBName" placeholder="Player B" readonly />
+      <input id="playerBName" placeholder="Player B" />
 
       <button class="fetch-btn" id="fetchBtn" type="button" onclick="fetchMatchStats()">📡 Fetch Stats</button>
       
@@ -604,12 +605,12 @@
       <h3>Player A - Last 5 Overall</h3>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <div>
-          <label>Avg Points Scored/Set</label>
-          <input id="playerAPointsScored" placeholder="e.g. 9.8" />
+          <label>Points Scored (Commas)</label>
+          <input id="playerAPointsScored" placeholder="e.g. 11,8,11,11,9" />
         </div>
         <div>
-          <label>Avg Points Allowed/Set</label>
-          <input id="playerAPointsAllowed" placeholder="e.g. 9.2" />
+          <label>Points Allowed (Commas)</label>
+          <input id="playerAPointsAllowed" placeholder="e.g. 7,11,6,8,11" />
         </div>
       </div>
     </div>
@@ -619,12 +620,12 @@
       <h3>Player B - Last 5 Overall</h3>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <div>
-          <label>Avg Points Scored/Set</label>
-          <input id="playerBPointsScored" placeholder="e.g. 9.4" />
+          <label>Points Scored (Commas)</label>
+          <input id="playerBPointsScored" placeholder="e.g. 11,9,11,8,11" />
         </div>
         <div>
-          <label>Avg Points Allowed/Set</label>
-          <input id="playerBPointsAllowed" placeholder="e.g. 9.6" />
+          <label>Points Allowed (Commas)</label>
+          <input id="playerBPointsAllowed" placeholder="e.g. 9,11,7,11,6" />
         </div>
       </div>
     </div>
@@ -812,6 +813,7 @@
         if (!panel) return;
 
         const headerBtns = '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📋 Copy Log</button><button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">🗑️ Clear</button><button onclick="AFDB.runTestFetch()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;box-shadow:0 0 8px rgba(217,31,38,0.4);margin-right:4px;">🚨 MILITARY RAID</button><button onclick="AFDB.toggleView()" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📊</button><button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ Close</button>';
+        const driftHtml = '<div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;"><span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📐 DRIFT TRACKER</span><span style="color:#555;font-size:12px;font-weight:900;">Rolling Mean Error (last 20): —</span><span style="color:#555;font-size:10px;">0 samples logged</span></div>';
 
         if (_activeView === 'report') {
           // --- THE REPORT VIEW: PERFECT MATCH TO BB SYSTEM REPORT (Inline SVG fixed to prevent crashes) ---
@@ -979,6 +981,4331 @@
         loadFixtures();
       } else {
         fetchSection.style.display = "none";
+      }
+    }
+
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
+      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
+      loadFixtures();
+    }
+
+    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
+    async function proxyFetch(url) {
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      
+      try {
+        // Attempt 1: Try your primary Cloudflare Worker
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url); // Rotate fallback!
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
+        return data;
+      } catch (err) {
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
+      }
+    }
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // Fetch and Filter SofaScore table tennis events
+    async function loadFixtures() {
+      const leagueFilter = document.getElementById("leagueSelect").value;
+      const select = document.getElementById("fixtureSelect");
+      if (!select || !leagueFilter) return;
+
+      select.innerHTML = "<option value=''>Loading matches...</option>";
+      
+      const dateStr = getLocalDateKey(currentDayOffset);
+      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+
+      try {
+        const data = await proxyFetch(url);
+        const events = data.events || [];
+        
+        // Filter events for "Setka Cup" or "TT Cup"
+        const filtered = events.filter(ev => {
+          const tName = ev.tournament?.name || "";
+          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
+        });
+
+        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
+
+        if (filtered.length === 0) {
+          select.innerHTML = "<option value=''>No matches found</option>";
+          return;
+        }
+
+        select.innerHTML = "<option value=''>- Select match -</option>";
+        filtered.forEach(ev => {
+          const home = ev.homeTeam?.name || "Player A";
+          const away = ev.awayTeam?.name || "Player B";
+          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+          
+          const opt = document.createElement("option");
+          opt.value = ev.id;
+          opt.textContent = `${time} — ${home} vs ${away}`;
+          opt.dataset.home = home;
+          opt.dataset.away = away;
+          opt.dataset.homeId = ev.homeTeam?.id || "";
+          opt.dataset.awayId = ev.awayTeam?.id || "";
+          select.appendChild(opt);
+        });
+
+      } catch (err) {
+        select.innerHTML = "<option value=''>Error loading matches</option>";
+        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
+      }
+    }
+
+    function onFixtureSelect() {
+      const select = document.getElementById("fixtureSelect");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        selectedFixtureData = null;
+        return;
+      }
+      
+      selectedFixtureData = {
+        eventId: opt.value,
+        homeId: opt.dataset.homeId,
+        awayId: opt.dataset.awayId,
+        homeName: opt.dataset.home,
+        awayName: opt.dataset.away
+      };
+
+      document.getElementById("playerAName").value = selectedFixtureData.homeName;
+      document.getElementById("playerBName").value = selectedFixtureData.awayName;
+      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
+    }
+
+    // Extract set-by-set stats & populate forms automatically
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) {
+        alert("Please select a match first.");
+        return;
+      }
+
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+
+        // Fetch last matches for Player A and Player B in parallel
+        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+
+        // Parse point scoring profiles
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
+
+        // Populate Player A Form (raw sets)
+        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
+        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
+
+        // Populate Player B Form (raw sets)
+        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
+        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
+
+        // Parse and populate H2H Form
+        const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
+        
+        if (h2hMatches.length >= 2) {
+          const setsA = [];
+          const setsB = [];
+          
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) {
+              setsA.push(scoreA);
+              setsB.push(scoreB);
+            }
+          });
+
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+
+        // Open up closed data segments automatically so user can review them
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+        document.getElementById("h2hSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate average points won/lost per set and extract raw lists
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [];
+      const allowedList = [];
+
+      // Scan up to 5 completed matches
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} finished matches for ${label} (ID: ${playerId})`);
+
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0;
+          let matchScored = 0;
+          let matchAllowed = 0;
+          // Loop through up to 5 sets
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            
+            if (mySet !== undefined && oppSet !== undefined) {
+              scoredList.push(mySet);
+              allowedList.push(oppSet);
+              matchScored += mySet;
+              matchAllowed += oppSet;
+              matchSets++;
+            }
+          }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Set Scores Scanned: ${matchSets}] -> Points Scored: ${matchScored}, Allowed: ${matchAllowed}`);
+        }
+      });
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Finished ${label} processing. Total Sets Scanned: ${scoredList.length}. Raw Scores: Scored=[${scoredList.join(",")}], Allowed=[${allowedList.join(",")}]`);
+
+      return { scoredList, allowedList };
+    }
+
+    // Failsafe Parser for direct SofaScore JSON paste
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      
+      if (!rawText) {
+        alert("Please paste the SofaScore JSON before clicking parse.");
+        return;
+      }
+      
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        
+        if (events.length === 0) {
+          throw new Error("No event elements found in pasted JSON.");
+        }
+
+        const sampleEvent = events[0];
+        
+        // Extract home and away names directly from raw JSON
+        const rawHomeName = sampleEvent.homeTeam?.name || "";
+        const rawAwayName = sampleEvent.awayTeam?.name || "";
+
+        // Read manual input player names for strict matching
+        const inputNameA = document.getElementById("playerAName").value.trim();
+        const inputNameB = document.getElementById("playerBName").value.trim();
+
+        let targetId = null;
+        let targetLabel = "";
+
+        // STRICT NAME MATCHING: Check which form player belongs to the pasted JSON
+        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+          // JSON belongs to Player A
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameA.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player A";
+        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
+          // JSON belongs to Player B
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameB.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player B";
+        } else {
+          // Fallback: If forms are empty, auto-initialize Player A's name
+          targetId = sampleEvent.homeTeam?.id;
+          targetLabel = "Player A";
+          document.getElementById("playerAName").value = rawHomeName;
+          document.getElementById("playerBName").value = rawAwayName;
+          
+          if (!selectedFixtureData) {
+            selectedFixtureData = {
+              eventId: sampleEvent.id || "manual_failsafe",
+              homeId: sampleEvent.homeTeam?.id || "A",
+              awayId: sampleEvent.awayTeam?.id || "B",
+              homeName: rawHomeName,
+              awayName: rawAwayName
+            };
+          }
+        }
+
+        if (!targetId) {
+          throw new Error("No matching Player Name found in forms. Please enter Player names first.");
+        }
+
+        const stats = processPlayerPoints(events, targetId, targetLabel);
+
+        if (targetLabel === "Player A") {
+          document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player A (Home) manually!`);
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player B (Away) manually!`);
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
+        document.getElementById("failsafeJsonInput").value = "";
+
+        // Open up closed data segments
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate mathematical mean of an array
+    function calculateMean(arr) {
+      if (!arr.length) return 0;
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    // Helper to calculate standard deviation (variance) of an array
+    function calculateStdDev(arr) {
+      if (arr.length < 2) return 1.5; // robust safety fallback
+      const mean = calculateMean(arr);
+      const variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    // Step 3: 10,000-Run Monte Carlo Prediction Simulator Engine (100% From Scratch)
+    function runEngine() {
+      AFDB.log('ENGINE', 'CALCULATION', "Initializing Monte Carlo Simulator...");
+
+      const league = document.getElementById("leagueSelect").value;
+      const matchLine = parseFloat(document.getElementById("matchPointsLine").value);
+      const set1Line = parseFloat(document.getElementById("set1PointsLine").value);
+
+      if (!league) {
+        alert("Please select a league first.");
+        return;
+      }
+
+      // Read raw comma-separated point series
+      const rawScoredA = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedA = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawScoredB = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedB = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+
+      if (rawScoredA.length === 0 || rawAllowedA.length === 0 || rawScoredB.length === 0 || rawAllowedB.length === 0) {
+        alert("Please ensure both Player A and Player B form inputs have valid set scores.");
+        return;
+      }
+
+      // Calculate historical averages & standard deviations dynamically
+      const meanScoredA = calculateMean(rawScoredA);
+      const meanAllowedA = calculateMean(rawAllowedA);
+      const meanScoredB = calculateMean(rawScoredB);
+      const meanAllowedB = calculateMean(rawAllowedB);
+
+      const stdDevA = calculateStdDev(rawScoredA);
+      const stdDevB = calculateStdDev(rawScoredB);
+
+      AFDB.log('ENGINE', 'MATH', `A: Mean Scored=${meanScoredA.toFixed(2)}, Mean Allowed=${meanAllowedA.toFixed(2)}, StdDev=${stdDevA.toFixed(2)}`);
+      AFDB.log('ENGINE', 'MATH', `B: Mean Scored=${meanScoredB.toFixed(2)}, Mean Allowed=${meanAllowedB.toFixed(2)}, StdDev=${stdDevB.toFixed(2)}`);
+
+      // Player rating calculations (Dean Oliver-style efficiency modeling)
+      const ratingA = (meanScoredA + meanAllowedB) / 2;
+      const ratingB = (meanScoredB + meanAllowedA) / 2;
+
+      // Probability of Player A winning a single played point
+      let probA = ratingA / (ratingA + ratingB);
+
+      // Apply H2H sets multiplier if enabled (30% weight)
+      const useH2H = document.getElementById("useFTH2H").checked;
+      const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
+
+      if (useH2H && rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const totalH2HSetsA = rawH2HA.reduce((a, b) => a + b, 0);
+        const totalH2HSetsB = rawH2HB.reduce((a, b) => a + b, 0);
+        const h2hProbA = totalH2HSetsA / (totalH2HSetsA + totalH2HSetsB);
+        
+        probA = (probA * 0.70) + (h2hProbA * 0.30);
+        AFDB.log('ENGINE', 'H2H', `H2H sets found. Blended ProbA adjusted to: ${(probA * 100).toFixed(1)}%`);
+      }
+
+      const totalSimRuns = 10000;
+      let matchOverHits = 0;
+      let set1OverHits = 0;
+      let totalMatchPointsSimulated = 0;
+      let totalSet1PointsSimulated = 0;
+
+      // 10,000 Simulated Matches Loop
+      for (let run = 0; run < totalSimRuns; run++) {
+        let setsWonA = 0;
+        let setsWonB = 0;
+        let matchPoints = 0;
+        let set1Points = 0;
+        let setNum = 1;
+
+        // Best of 5 Sets: First to win 3 sets wins the match
+        while (setsWonA < 3 && setsWonB < 3) {
+          let scoreA = 0;
+          let scoreB = 0;
+
+          // Simulate Set points (must win by 2, played to 11)
+          while ((scoreA < 11 && scoreB < 11) || Math.abs(scoreA - scoreB) < 2) {
+            // Box-Muller point execution based on blended probability
+            if (Math.random() < probA) {
+              scoreA++;
+            } else {
+              scoreB++;
+            }
+          }
+
+          const setPoints = scoreA + scoreB;
+          matchPoints += setPoints;
+          
+          if (setNum === 1) {
+            set1Points = setPoints;
+            totalSet1PointsSimulated += setPoints;
+          }
+
+          if (scoreA > scoreB) {
+            setsWonA++;
+          } else {
+            setsWonB++;
+          }
+          setNum++;
+        }
+
+        totalMatchPointsSimulated += matchPoints;
+
+        // Check if simulation went over lines
+        if (isFinite(matchLine) && matchPoints > matchLine) matchOverHits++;
+        if (isFinite(set1Line) && set1Points > set1Line) set1OverHits++;
+      }
+
+      const projectedMatchPoints = totalMatchPointsSimulated / totalSimRuns;
+      const projectedSet1Points = totalSet1PointsSimulated / totalSimRuns;
+
+      const overPctMatch = (matchOverHits / totalSimRuns) * 100;
+      const overPctSet1 = (set1OverHits / totalSimRuns) * 100;
+
+      AFDB.log('SUCCESS', 'ENGINE', `10,000 matches successfully simulated! Projected Match Points: ${projectedMatchPoints.toFixed(1)}, Set 1: ${projectedSet1Points.toFixed(1)}`);
+
+      // Populate Projections Output Table
+      renderProjectionsTable({
+        matchLine,
+        set1Line,
+        projectedMatchPoints,
+        projectedSet1Points,
+        overPctMatch,
+        overPctSet1
+      });
+    }
+
+    // Helper to render projections to UI
+    function renderProjectionsTable(data) {
+      const body = document.getElementById("resultsBody");
+      const table = document.getElementById("results");
+      if (!body || !table) return;
+
+      body.innerHTML = "";
+
+      const renderRow = (marketName, line, projection, overPct) => {
+        if (isNaN(line)) return;
+
+        const row = document.createElement("tr");
+        const edge = projection - line;
+        const edgePct = (edge / line) * 100;
+        
+        let pick = "NO PLAY";
+        let grade = "—";
+        let predClass = "pred-noplay";
+
+        // Prediction rules (Grade A/B/C/D based on probability and edge size)
+        if (edge > 0 && overPct >= 54) {
+          pick = "OVER";
+          predClass = "pred-over";
+          grade = overPct >= 62 ? "A" : overPct >= 57 ? "B" : "C";
+        } else if (edge < 0 && (100 - overPct) >= 54) {
+          pick = "UNDER";
+          predClass = "pred-under";
+          grade = (100 - overPct) >= 62 ? "A" : (100 - overPct) >= 57 ? "B" : "C";
+        }
+
+        row.innerHTML = `
+          <td>${marketName}</td>
+          <td>${line.toFixed(1)}</td>
+          <td>${projection.toFixed(1)}</td>
+          <td style="color:${edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
+            ${edge >= 0 ? '+' : ''}${edge.toFixed(1)} (${edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
+          </td>
+          <td class="${predClass}" style="font-weight:900;">${pick === "NO PLAY" ? "NO PLAY" : pick + " " + line.toFixed(1)} [${grade}]</td>
+        `;
+        body.appendChild(row);
+      };
+
+      renderRow("Match Points Total", data.matchLine, data.projectedMatchPoints, data.overPctMatch);
+      renderRow("Set 1 Points Total", data.set1Line, data.projectedSet1Points, data.overPctSet1);
+
+      table.style.display = "table";
+      table.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function onLeagueChange() {
+      const league = document.getElementById("leagueSelect").value;
+      const fetchSection = document.getElementById("fetchSection");
+      if (league) {
+        fetchSection.classList.remove("collapsed");
+        fetchSection.style.display = "block";
+        loadFixtures();
+      } else {
+        fetchSection.style.display = "none";
+      }
+    }
+
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
+      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
+      loadFixtures();
+    }
+
+    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
+    async function proxyFetch(url) {
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      
+      try {
+        // Attempt 1: Try your primary Cloudflare Worker
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url); // Rotate fallback!
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
+        return data;
+      } catch (err) {
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
+      }
+    }
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // Fetch and Filter SofaScore table tennis events
+    async function loadFixtures() {
+      const leagueFilter = document.getElementById("leagueSelect").value;
+      const select = document.getElementById("fixtureSelect");
+      if (!select || !leagueFilter) return;
+
+      select.innerHTML = "<option value=''>Loading matches...</option>";
+      
+      const dateStr = getLocalDateKey(currentDayOffset);
+      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+
+      try {
+        const data = await proxyFetch(url);
+        const events = data.events || [];
+        
+        // Filter events for "Setka Cup" or "TT Cup"
+        const filtered = events.filter(ev => {
+          const tName = ev.tournament?.name || "";
+          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
+        });
+
+        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
+
+        if (filtered.length === 0) {
+          select.innerHTML = "<option value=''>No matches found</option>";
+          return;
+        }
+
+        select.innerHTML = "<option value=''>- Select match -</option>";
+        filtered.forEach(ev => {
+          const home = ev.homeTeam?.name || "Player A";
+          const away = ev.awayTeam?.name || "Player B";
+          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+          
+          const opt = document.createElement("option");
+          opt.value = ev.id;
+          opt.textContent = `${time} — ${home} vs ${away}`;
+          opt.dataset.home = home;
+          opt.dataset.away = away;
+          opt.dataset.homeId = ev.homeTeam?.id || "";
+          opt.dataset.awayId = ev.awayTeam?.id || "";
+          select.appendChild(opt);
+        });
+
+      } catch (err) {
+        select.innerHTML = "<option value=''>Error loading matches</option>";
+        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
+      }
+    }
+
+    function onFixtureSelect() {
+      const select = document.getElementById("fixtureSelect");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        selectedFixtureData = null;
+        return;
+      }
+      
+      selectedFixtureData = {
+        eventId: opt.value,
+        homeId: opt.dataset.homeId,
+        awayId: opt.dataset.awayId,
+        homeName: opt.dataset.home,
+        awayName: opt.dataset.away
+      };
+
+      document.getElementById("playerAName").value = selectedFixtureData.homeName;
+      document.getElementById("playerBName").value = selectedFixtureData.awayName;
+      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
+    }
+
+    // Extract set-by-set stats & populate forms automatically
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) {
+        alert("Please select a match first.");
+        return;
+      }
+
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+
+        // Fetch last matches for Player A and Player B in parallel
+        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+
+        // Parse point scoring profiles
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
+
+        // Populate Player A Form (raw sets)
+        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
+        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
+
+        // Populate Player B Form (raw sets)
+        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
+        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
+
+        // Parse and populate H2H Form
+        const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
+        
+        if (h2hMatches.length >= 2) {
+          const setsA = [];
+          const setsB = [];
+          
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) {
+              setsA.push(scoreA);
+              setsB.push(scoreB);
+            }
+          });
+
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+
+        // Open up closed data segments automatically so user can review them
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+        document.getElementById("h2hSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate average points won/lost per set and extract raw lists
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [];
+      const allowedList = [];
+
+      // Scan up to 5 completed matches
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} finished matches for ${label} (ID: ${playerId})`);
+
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0;
+          let matchScored = 0;
+          let matchAllowed = 0;
+          // Loop through up to 5 sets
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            
+            if (mySet !== undefined && oppSet !== undefined) {
+              scoredList.push(mySet);
+              allowedList.push(oppSet);
+              matchScored += mySet;
+              matchAllowed += oppSet;
+              matchSets++;
+            }
+          }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Set Scores Scanned: ${matchSets}] -> Points Scored: ${matchScored}, Allowed: ${matchAllowed}`);
+        }
+      });
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Finished ${label} processing. Total Sets Scanned: ${scoredList.length}. Raw Scores: Scored=[${scoredList.join(",")}], Allowed=[${allowedList.join(",")}]`);
+
+      return { scoredList, allowedList };
+    }
+
+    // Failsafe Parser for direct SofaScore JSON paste
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      
+      if (!rawText) {
+        alert("Please paste the SofaScore JSON before clicking parse.");
+        return;
+      }
+      
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        
+        if (events.length === 0) {
+          throw new Error("No event elements found in pasted JSON.");
+        }
+
+        const sampleEvent = events[0];
+        
+        // Extract home and away names directly from raw JSON
+        const rawHomeName = sampleEvent.homeTeam?.name || "";
+        const rawAwayName = sampleEvent.awayTeam?.name || "";
+
+        // Read manual input player names for strict matching
+        const inputNameA = document.getElementById("playerAName").value.trim();
+        const inputNameB = document.getElementById("playerBName").value.trim();
+
+        let targetId = null;
+        let targetLabel = "";
+
+        // STRICT NAME MATCHING: Check which form player belongs to the pasted JSON
+        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+          // JSON belongs to Player A
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameA.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player A";
+        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
+          // JSON belongs to Player B
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameB.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player B";
+        } else {
+          // Fallback: If forms are empty, auto-initialize Player A's name
+          targetId = sampleEvent.homeTeam?.id;
+          targetLabel = "Player A";
+          document.getElementById("playerAName").value = rawHomeName;
+          document.getElementById("playerBName").value = rawAwayName;
+          
+          if (!selectedFixtureData) {
+            selectedFixtureData = {
+              eventId: sampleEvent.id || "manual_failsafe",
+              homeId: sampleEvent.homeTeam?.id || "A",
+              awayId: sampleEvent.awayTeam?.id || "B",
+              homeName: rawHomeName,
+              awayName: rawAwayName
+            };
+          }
+        }
+
+        if (!targetId) {
+          throw new Error("No matching Player Name found in forms. Please enter Player names first.");
+        }
+
+        const stats = processPlayerPoints(events, targetId, targetLabel);
+
+        if (targetLabel === "Player A") {
+          document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player A (Home) manually!`);
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player B (Away) manually!`);
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
+        document.getElementById("failsafeJsonInput").value = "";
+
+        // Open up closed data segments
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate mathematical mean of an array
+    function calculateMean(arr) {
+      if (!arr.length) return 0;
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    // Helper to calculate standard deviation (variance) of an array
+    function calculateStdDev(arr) {
+      if (arr.length < 2) return 1.5; // robust safety fallback
+      const mean = calculateMean(arr);
+      const variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    // Step 3: 10,000-Run Monte Carlo Prediction Simulator Engine (100% From Scratch)
+    function runEngine() {
+      AFDB.log('ENGINE', 'CALCULATION', "Initializing Monte Carlo Simulator...");
+
+      const league = document.getElementById("leagueSelect").value;
+      const matchLine = parseFloat(document.getElementById("matchPointsLine").value);
+      const set1Line = parseFloat(document.getElementById("set1PointsLine").value);
+
+      if (!league) {
+        alert("Please select a league first.");
+        return;
+      }
+
+      // Read raw comma-separated point series
+      const rawScoredA = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedA = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawScoredB = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedB = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+
+      if (rawScoredA.length === 0 || rawAllowedA.length === 0 || rawScoredB.length === 0 || rawAllowedB.length === 0) {
+        alert("Please ensure both Player A and Player B form inputs have valid set scores.");
+        return;
+      }
+
+      // Calculate historical averages & standard deviations dynamically
+      const meanScoredA = calculateMean(rawScoredA);
+      const meanAllowedA = calculateMean(rawAllowedA);
+      const meanScoredB = calculateMean(rawScoredB);
+      const meanAllowedB = calculateMean(rawAllowedB);
+
+      const stdDevA = calculateStdDev(rawScoredA);
+      const stdDevB = calculateStdDev(rawScoredB);
+
+      AFDB.log('ENGINE', 'MATH', `A: Mean Scored=${meanScoredA.toFixed(2)}, Mean Allowed=${meanAllowedA.toFixed(2)}, StdDev=${stdDevA.toFixed(2)}`);
+      AFDB.log('ENGINE', 'MATH', `B: Mean Scored=${meanScoredB.toFixed(2)}, Mean Allowed=${meanAllowedB.toFixed(2)}, StdDev=${stdDevB.toFixed(2)}`);
+
+      // Player rating calculations (Dean Oliver-style efficiency modeling)
+      const ratingA = (meanScoredA + meanAllowedB) / 2;
+      const ratingB = (meanScoredB + meanAllowedA) / 2;
+
+      // Probability of Player A winning a single played point
+      let probA = ratingA / (ratingA + ratingB);
+
+      // Apply H2H sets multiplier if enabled (30% weight)
+      const useH2H = document.getElementById("useFTH2H").checked;
+      const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
+
+      if (useH2H && rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const totalH2HSetsA = rawH2HA.reduce((a, b) => a + b, 0);
+        const totalH2HSetsB = rawH2HB.reduce((a, b) => a + b, 0);
+        const h2hProbA = totalH2HSetsA / (totalH2HSetsA + totalH2HSetsB);
+        
+        probA = (probA * 0.70) + (h2hProbA * 0.30);
+        AFDB.log('ENGINE', 'H2H', `H2H sets found. Blended ProbA adjusted to: ${(probA * 100).toFixed(1)}%`);
+      }
+
+      const totalSimRuns = 10000;
+      let matchOverHits = 0;
+      let set1OverHits = 0;
+      let totalMatchPointsSimulated = 0;
+      let totalSet1PointsSimulated = 0;
+
+      // 10,000 Simulated Matches Loop
+      for (let run = 0; run < totalSimRuns; run++) {
+        let setsWonA = 0;
+        let setsWonB = 0;
+        let matchPoints = 0;
+        let set1Points = 0;
+        let setNum = 1;
+
+        // Best of 5 Sets: First to win 3 sets wins the match
+        while (setsWonA < 3 && setsWonB < 3) {
+          let scoreA = 0;
+          let scoreB = 0;
+
+          // Simulate Set points (must win by 2, played to 11)
+          while ((scoreA < 11 && scoreB < 11) || Math.abs(scoreA - scoreB) < 2) {
+            // Box-Muller point execution based on blended probability
+            if (Math.random() < probA) {
+              scoreA++;
+            } else {
+              scoreB++;
+            }
+          }
+
+          const setPoints = scoreA + scoreB;
+          matchPoints += setPoints;
+          
+          if (setNum === 1) {
+            set1Points = setPoints;
+            totalSet1PointsSimulated += setPoints;
+          }
+
+          if (scoreA > scoreB) {
+            setsWonA++;
+          } else {
+            setsWonB++;
+          }
+          setNum++;
+        }
+
+        totalMatchPointsSimulated += matchPoints;
+
+        // Check if simulation went over lines
+        if (isFinite(matchLine) && matchPoints > matchLine) matchOverHits++;
+        if (isFinite(set1Line) && set1Points > set1Line) set1OverHits++;
+      }
+
+      const projectedMatchPoints = totalMatchPointsSimulated / totalSimRuns;
+      const projectedSet1Points = totalSet1PointsSimulated / totalSimRuns;
+
+      const overPctMatch = (matchOverHits / totalSimRuns) * 100;
+      const overPctSet1 = (set1OverHits / totalSimRuns) * 100;
+
+      AFDB.log('SUCCESS', 'ENGINE', `10,000 matches successfully simulated! Projected Match Points: ${projectedMatchPoints.toFixed(1)}, Set 1: ${projectedSet1Points.toFixed(1)}`);
+
+      // Populate Projections Output Table
+      renderProjectionsTable({
+        matchLine,
+        set1Line,
+        projectedMatchPoints,
+        projectedSet1Points,
+        overPctMatch,
+        overPctSet1
+      });
+    }
+
+    // Helper to render projections to UI
+    function renderProjectionsTable(data) {
+      const body = document.getElementById("resultsBody");
+      const table = document.getElementById("results");
+      if (!body || !table) return;
+
+      body.innerHTML = "";
+
+      const renderRow = (marketName, line, projection, overPct) => {
+        if (isNaN(line)) return;
+
+        const row = document.createElement("tr");
+        const edge = projection - line;
+        const edgePct = (edge / line) * 100;
+        
+        let pick = "NO PLAY";
+        let grade = "—";
+        let predClass = "pred-noplay";
+
+        // Prediction rules (Grade A/B/C/D based on probability and edge size)
+        if (edge > 0 && overPct >= 54) {
+          pick = "OVER";
+          predClass = "pred-over";
+          grade = overPct >= 62 ? "A" : overPct >= 57 ? "B" : "C";
+        } else if (edge < 0 && (100 - overPct) >= 54) {
+          pick = "UNDER";
+          predClass = "pred-under";
+          grade = (100 - overPct) >= 62 ? "A" : (100 - overPct) >= 57 ? "B" : "C";
+        }
+
+        row.innerHTML = `
+          <td>${marketName}</td>
+          <td>${line.toFixed(1)}</td>
+          <td>${projection.toFixed(1)}</td>
+          <td style="color:${edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
+            ${edge >= 0 ? '+' : ''}${edge.toFixed(1)} (${edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
+          </td>
+          <td class="${predClass}" style="font-weight:900;">${pick === "NO PLAY" ? "NO PLAY" : pick + " " + line.toFixed(1)} [${grade}]</td>
+        `;
+        body.appendChild(row);
+      };
+
+      renderRow("Match Points Total", data.matchLine, data.projectedMatchPoints, data.overPctMatch);
+      renderRow("Set 1 Points Total", data.set1Line, data.projectedSet1Points, data.overPctSet1);
+
+      table.style.display = "table";
+      table.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function onLeagueChange() {
+      const league = document.getElementById("leagueSelect").value;
+      const fetchSection = document.getElementById("fetchSection");
+      if (league) {
+        fetchSection.classList.remove("collapsed");
+        fetchSection.style.display = "block";
+        loadFixtures();
+      } else {
+        fetchSection.style.display = "none";
+      }
+    }
+
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
+      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
+      loadFixtures();
+    }
+
+    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
+    async function proxyFetch(url) {
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      
+      try {
+        // Attempt 1: Try your primary Cloudflare Worker
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url); // Rotate fallback!
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
+        return data;
+      } catch (err) {
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
+      }
+    }
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // Fetch and Filter SofaScore table tennis events
+    async function loadFixtures() {
+      const leagueFilter = document.getElementById("leagueSelect").value;
+      const select = document.getElementById("fixtureSelect");
+      if (!select || !leagueFilter) return;
+
+      select.innerHTML = "<option value=''>Loading matches...</option>";
+      
+      const dateStr = getLocalDateKey(currentDayOffset);
+      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+
+      try {
+        const data = await proxyFetch(url);
+        const events = data.events || [];
+        
+        // Filter events for "Setka Cup" or "TT Cup"
+        const filtered = events.filter(ev => {
+          const tName = ev.tournament?.name || "";
+          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
+        });
+
+        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
+
+        if (filtered.length === 0) {
+          select.innerHTML = "<option value=''>No matches found</option>";
+          return;
+        }
+
+        select.innerHTML = "<option value=''>- Select match -</option>";
+        filtered.forEach(ev => {
+          const home = ev.homeTeam?.name || "Player A";
+          const away = ev.awayTeam?.name || "Player B";
+          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+          
+          const opt = document.createElement("option");
+          opt.value = ev.id;
+          opt.textContent = `${time} — ${home} vs ${away}`;
+          opt.dataset.home = home;
+          opt.dataset.away = away;
+          opt.dataset.homeId = ev.homeTeam?.id || "";
+          opt.dataset.awayId = ev.awayTeam?.id || "";
+          select.appendChild(opt);
+        });
+
+      } catch (err) {
+        select.innerHTML = "<option value=''>Error loading matches</option>";
+        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
+      }
+    }
+
+    function onFixtureSelect() {
+      const select = document.getElementById("fixtureSelect");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        selectedFixtureData = null;
+        return;
+      }
+      
+      selectedFixtureData = {
+        eventId: opt.value,
+        homeId: opt.dataset.homeId,
+        awayId: opt.dataset.awayId,
+        homeName: opt.dataset.home,
+        awayName: opt.dataset.away
+      };
+
+      document.getElementById("playerAName").value = selectedFixtureData.homeName;
+      document.getElementById("playerBName").value = selectedFixtureData.awayName;
+      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
+    }
+
+    // Extract set-by-set stats & populate forms automatically
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) {
+        alert("Please select a match first.");
+        return;
+      }
+
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+
+        // Fetch last matches for Player A and Player B in parallel
+        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+
+        // Parse point scoring profiles
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
+
+        // Populate Player A Form (raw sets)
+        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
+        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
+
+        // Populate Player B Form (raw sets)
+        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
+        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
+
+        // Parse and populate H2H Form
+        const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
+        
+        if (h2hMatches.length >= 2) {
+          const setsA = [];
+          const setsB = [];
+          
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) {
+              setsA.push(scoreA);
+              setsB.push(scoreB);
+            }
+          });
+
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+
+        // Open up closed data segments automatically so user can review them
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+        document.getElementById("h2hSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate average points won/lost per set and extract raw lists
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [];
+      const allowedList = [];
+
+      // Scan up to 5 completed matches
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} finished matches for ${label} (ID: ${playerId})`);
+
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0;
+          let matchScored = 0;
+          let matchAllowed = 0;
+          // Loop through up to 5 sets
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            
+            if (mySet !== undefined && oppSet !== undefined) {
+              scoredList.push(mySet);
+              allowedList.push(oppSet);
+              matchScored += mySet;
+              matchAllowed += oppSet;
+              matchSets++;
+            }
+          }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Set Scores Scanned: ${matchSets}] -> Points Scored: ${matchScored}, Allowed: ${matchAllowed}`);
+        }
+      });
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Finished ${label} processing. Total Sets Scanned: ${scoredList.length}. Raw Scores: Scored=[${scoredList.join(",")}], Allowed=[${allowedList.join(",")}]`);
+
+      return { scoredList, allowedList };
+    }
+
+    // Failsafe Parser for direct SofaScore JSON paste
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      
+      if (!rawText) {
+        alert("Please paste the SofaScore JSON before clicking parse.");
+        return;
+      }
+      
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        
+        if (events.length === 0) {
+          throw new Error("No event elements found in pasted JSON.");
+        }
+
+        const sampleEvent = events[0];
+        
+        // Extract home and away names directly from raw JSON
+        const rawHomeName = sampleEvent.homeTeam?.name || "";
+        const rawAwayName = sampleEvent.awayTeam?.name || "";
+
+        // Read manual input player names for strict matching
+        const inputNameA = document.getElementById("playerAName").value.trim();
+        const inputNameB = document.getElementById("playerBName").value.trim();
+
+        let targetId = null;
+        let targetLabel = "";
+
+        // STRICT NAME MATCHING: Check which form player belongs to the pasted JSON
+        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+          // JSON belongs to Player A
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameA.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player A";
+        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
+          // JSON belongs to Player B
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameB.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player B";
+        } else {
+          // Fallback: If forms are empty, auto-initialize Player A's name
+          targetId = sampleEvent.homeTeam?.id;
+          targetLabel = "Player A";
+          document.getElementById("playerAName").value = rawHomeName;
+          document.getElementById("playerBName").value = rawAwayName;
+          
+          if (!selectedFixtureData) {
+            selectedFixtureData = {
+              eventId: sampleEvent.id || "manual_failsafe",
+              homeId: sampleEvent.homeTeam?.id || "A",
+              awayId: sampleEvent.awayTeam?.id || "B",
+              homeName: rawHomeName,
+              awayName: rawAwayName
+            };
+          }
+        }
+
+        if (!targetId) {
+          throw new Error("No matching Player Name found in forms. Please enter Player names first.");
+        }
+
+        const stats = processPlayerPoints(events, targetId, targetLabel);
+
+        if (targetLabel === "Player A") {
+          document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player A (Home) manually!`);
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player B (Away) manually!`);
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
+        document.getElementById("failsafeJsonInput").value = "";
+
+        // Open up closed data segments
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate mathematical mean of an array
+    function calculateMean(arr) {
+      if (!arr.length) return 0;
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    // Helper to calculate standard deviation (variance) of an array
+    function calculateStdDev(arr) {
+      if (arr.length < 2) return 1.5; // robust safety fallback
+      const mean = calculateMean(arr);
+      const variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    // Step 3: 10,000-Run Monte Carlo Prediction Simulator Engine (100% From Scratch)
+    function runEngine() {
+      AFDB.log('ENGINE', 'CALCULATION', "Initializing Monte Carlo Simulator...");
+
+      const league = document.getElementById("leagueSelect").value;
+      const matchLine = parseFloat(document.getElementById("matchPointsLine").value);
+      const set1Line = parseFloat(document.getElementById("set1PointsLine").value);
+
+      if (!league) {
+        alert("Please select a league first.");
+        return;
+      }
+
+      // Read raw comma-separated point series
+      const rawScoredA = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedA = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawScoredB = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedB = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+
+      if (rawScoredA.length === 0 || rawAllowedA.length === 0 || rawScoredB.length === 0 || rawAllowedB.length === 0) {
+        alert("Please ensure both Player A and Player B form inputs have valid set scores.");
+        return;
+      }
+
+      // Calculate historical averages & standard deviations dynamically
+      const meanScoredA = calculateMean(rawScoredA);
+      const meanAllowedA = calculateMean(rawAllowedA);
+      const meanScoredB = calculateMean(rawScoredB);
+      const meanAllowedB = calculateMean(rawAllowedB);
+
+      const stdDevA = calculateStdDev(rawScoredA);
+      const stdDevB = calculateStdDev(rawScoredB);
+
+      AFDB.log('ENGINE', 'MATH', `A: Mean Scored=${meanScoredA.toFixed(2)}, Mean Allowed=${meanAllowedA.toFixed(2)}, StdDev=${stdDevA.toFixed(2)}`);
+      AFDB.log('ENGINE', 'MATH', `B: Mean Scored=${meanScoredB.toFixed(2)}, Mean Allowed=${meanAllowedB.toFixed(2)}, StdDev=${stdDevB.toFixed(2)}`);
+
+      // Player rating calculations (Dean Oliver-style efficiency modeling)
+      const ratingA = (meanScoredA + meanAllowedB) / 2;
+      const ratingB = (meanScoredB + meanAllowedA) / 2;
+
+      // Probability of Player A winning a single played point
+      let probA = ratingA / (ratingA + ratingB);
+
+      // Apply H2H sets multiplier if enabled (30% weight)
+      const useH2H = document.getElementById("useFTH2H").checked;
+      const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
+
+      if (useH2H && rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const totalH2HSetsA = rawH2HA.reduce((a, b) => a + b, 0);
+        const totalH2HSetsB = rawH2HB.reduce((a, b) => a + b, 0);
+        const h2hProbA = totalH2HSetsA / (totalH2HSetsA + totalH2HSetsB);
+        
+        probA = (probA * 0.70) + (h2hProbA * 0.30);
+        AFDB.log('ENGINE', 'H2H', `H2H sets found. Blended ProbA adjusted to: ${(probA * 100).toFixed(1)}%`);
+      }
+
+      const totalSimRuns = 10000;
+      let matchOverHits = 0;
+      let set1OverHits = 0;
+      let totalMatchPointsSimulated = 0;
+      let totalSet1PointsSimulated = 0;
+
+      // 10,000 Simulated Matches Loop
+      for (let run = 0; run < totalSimRuns; run++) {
+        let setsWonA = 0;
+        let setsWonB = 0;
+        let matchPoints = 0;
+        let set1Points = 0;
+        let setNum = 1;
+
+        // Best of 5 Sets: First to win 3 sets wins the match
+        while (setsWonA < 3 && setsWonB < 3) {
+          let scoreA = 0;
+          let scoreB = 0;
+
+          // Simulate Set points (must win by 2, played to 11)
+          while ((scoreA < 11 && scoreB < 11) || Math.abs(scoreA - scoreB) < 2) {
+            // Box-Muller point execution based on blended probability
+            if (Math.random() < probA) {
+              scoreA++;
+            } else {
+              scoreB++;
+            }
+          }
+
+          const setPoints = scoreA + scoreB;
+          matchPoints += setPoints;
+          
+          if (setNum === 1) {
+            set1Points = setPoints;
+            totalSet1PointsSimulated += setPoints;
+          }
+
+          if (scoreA > scoreB) {
+            setsWonA++;
+          } else {
+            setsWonB++;
+          }
+          setNum++;
+        }
+
+        totalMatchPointsSimulated += matchPoints;
+
+        // Check if simulation went over lines
+        if (isFinite(matchLine) && matchPoints > matchLine) matchOverHits++;
+        if (isFinite(set1Line) && set1Points > set1Line) set1OverHits++;
+      }
+
+      const projectedMatchPoints = totalMatchPointsSimulated / totalSimRuns;
+      const projectedSet1Points = totalSet1PointsSimulated / totalSimRuns;
+
+      const overPctMatch = (matchOverHits / totalSimRuns) * 100;
+      const overPctSet1 = (set1OverHits / totalSimRuns) * 100;
+
+      AFDB.log('SUCCESS', 'ENGINE', `10,000 matches successfully simulated! Projected Match Points: ${projectedMatchPoints.toFixed(1)}, Set 1: ${projectedSet1Points.toFixed(1)}`);
+
+      // Populate Projections Output Table
+      renderProjectionsTable({
+        matchLine,
+        set1Line,
+        projectedMatchPoints,
+        projectedSet1Points,
+        overPctMatch,
+        overPctSet1
+      });
+    }
+
+    // Helper to render projections to UI
+    function renderProjectionsTable(data) {
+      const body = document.getElementById("resultsBody");
+      const table = document.getElementById("results");
+      if (!body || !table) return;
+
+      body.innerHTML = "";
+
+      const renderRow = (marketName, line, projection, overPct) => {
+        if (isNaN(line)) return;
+
+        const row = document.createElement("tr");
+        const edge = projection - line;
+        const edgePct = (edge / line) * 100;
+        
+        let pick = "NO PLAY";
+        let grade = "—";
+        let predClass = "pred-noplay";
+
+        // Prediction rules (Grade A/B/C/D based on probability and edge size)
+        if (edge > 0 && overPct >= 54) {
+          pick = "OVER";
+          predClass = "pred-over";
+          grade = overPct >= 62 ? "A" : overPct >= 57 ? "B" : "C";
+        } else if (edge < 0 && (100 - overPct) >= 54) {
+          pick = "UNDER";
+          predClass = "pred-under";
+          grade = (100 - overPct) >= 62 ? "A" : (100 - overPct) >= 57 ? "B" : "C";
+        }
+
+        row.innerHTML = `
+          <td>${marketName}</td>
+          <td>${line.toFixed(1)}</td>
+          <td>${projection.toFixed(1)}</td>
+          <td style="color:${edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
+            ${edge >= 0 ? '+' : ''}${edge.toFixed(1)} (${edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
+          </td>
+          <td class="${predClass}" style="font-weight:900;">${pick === "NO PLAY" ? "NO PLAY" : pick + " " + line.toFixed(1)} [${grade}]</td>
+        `;
+        body.appendChild(row);
+      };
+
+      renderRow("Match Points Total", data.matchLine, data.projectedMatchPoints, data.overPctMatch);
+      renderRow("Set 1 Points Total", data.set1Line, data.projectedSet1Points, data.overPctSet1);
+
+      table.style.display = "table";
+      table.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function onLeagueChange() {
+      const league = document.getElementById("leagueSelect").value;
+      const fetchSection = document.getElementById("fetchSection");
+      if (league) {
+        fetchSection.classList.remove("collapsed");
+        fetchSection.style.display = "block";
+        loadFixtures();
+      } else {
+        fetchSection.style.display = "none";
+      }
+    }
+
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
+      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
+      loadFixtures();
+    }
+
+    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
+    async function proxyFetch(url) {
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      
+      try {
+        // Attempt 1: Try your primary Cloudflare Worker
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url); // Rotate fallback!
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
+        return data;
+      } catch (err) {
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
+      }
+    }
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // Fetch and Filter SofaScore table tennis events
+    async function loadFixtures() {
+      const leagueFilter = document.getElementById("leagueSelect").value;
+      const select = document.getElementById("fixtureSelect");
+      if (!select || !leagueFilter) return;
+
+      select.innerHTML = "<option value=''>Loading matches...</option>";
+      
+      const dateStr = getLocalDateKey(currentDayOffset);
+      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+
+      try {
+        const data = await proxyFetch(url);
+        const events = data.events || [];
+        
+        // Filter events for "Setka Cup" or "TT Cup"
+        const filtered = events.filter(ev => {
+          const tName = ev.tournament?.name || "";
+          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
+        });
+
+        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
+
+        if (filtered.length === 0) {
+          select.innerHTML = "<option value=''>No matches found</option>";
+          return;
+        }
+
+        select.innerHTML = "<option value=''>- Select match -</option>";
+        filtered.forEach(ev => {
+          const home = ev.homeTeam?.name || "Player A";
+          const away = ev.awayTeam?.name || "Player B";
+          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+          
+          const opt = document.createElement("option");
+          opt.value = ev.id;
+          opt.textContent = `${time} — ${home} vs ${away}`;
+          opt.dataset.home = home;
+          opt.dataset.away = away;
+          opt.dataset.homeId = ev.homeTeam?.id || "";
+          opt.dataset.awayId = ev.awayTeam?.id || "";
+          select.appendChild(opt);
+        });
+
+      } catch (err) {
+        select.innerHTML = "<option value=''>Error loading matches</option>";
+        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
+      }
+    }
+
+    function onFixtureSelect() {
+      const select = document.getElementById("fixtureSelect");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        selectedFixtureData = null;
+        return;
+      }
+      
+      selectedFixtureData = {
+        eventId: opt.value,
+        homeId: opt.dataset.homeId,
+        awayId: opt.dataset.awayId,
+        homeName: opt.dataset.home,
+        awayName: opt.dataset.away
+      };
+
+      document.getElementById("playerAName").value = selectedFixtureData.homeName;
+      document.getElementById("playerBName").value = selectedFixtureData.awayName;
+      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
+    }
+
+    // Extract set-by-set stats & populate forms automatically
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) {
+        alert("Please select a match first.");
+        return;
+      }
+
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+
+        // Fetch last matches for Player A and Player B in parallel
+        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+
+        // Parse point scoring profiles
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
+
+        // Populate Player A Form (raw sets)
+        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
+        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
+
+        // Populate Player B Form (raw sets)
+        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
+        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
+
+        // Parse and populate H2H Form
+        const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
+        
+        if (h2hMatches.length >= 2) {
+          const setsA = [];
+          const setsB = [];
+          
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) {
+              setsA.push(scoreA);
+              setsB.push(scoreB);
+            }
+          });
+
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+
+        // Open up closed data segments automatically so user can review them
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+        document.getElementById("h2hSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate average points won/lost per set and extract raw lists
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [];
+      const allowedList = [];
+
+      // Scan up to 5 completed matches
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} finished matches for ${label} (ID: ${playerId})`);
+
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0;
+          let matchScored = 0;
+          let matchAllowed = 0;
+          // Loop through up to 5 sets
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            
+            if (mySet !== undefined && oppSet !== undefined) {
+              scoredList.push(mySet);
+              allowedList.push(oppSet);
+              matchScored += mySet;
+              matchAllowed += oppSet;
+              matchSets++;
+            }
+          }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Set Scores Scanned: ${matchSets}] -> Points Scored: ${matchScored}, Allowed: ${matchAllowed}`);
+        }
+      });
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Finished ${label} processing. Total Sets Scanned: ${scoredList.length}. Raw Scores: Scored=[${scoredList.join(",")}], Allowed=[${allowedList.join(",")}]`);
+
+      return { scoredList, allowedList };
+    }
+
+    // Failsafe Parser for direct SofaScore JSON paste
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      
+      if (!rawText) {
+        alert("Please paste the SofaScore JSON before clicking parse.");
+        return;
+      }
+      
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        
+        if (events.length === 0) {
+          throw new Error("No event elements found in pasted JSON.");
+        }
+
+        const sampleEvent = events[0];
+        
+        // Extract home and away names directly from raw JSON
+        const rawHomeName = sampleEvent.homeTeam?.name || "";
+        const rawAwayName = sampleEvent.awayTeam?.name || "";
+
+        // Read manual input player names for strict matching
+        const inputNameA = document.getElementById("playerAName").value.trim();
+        const inputNameB = document.getElementById("playerBName").value.trim();
+
+        let targetId = null;
+        let targetLabel = "";
+
+        // STRICT NAME MATCHING: Check which form player belongs to the pasted JSON
+        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+          // JSON belongs to Player A
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameA.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player A";
+        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
+          // JSON belongs to Player B
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameB.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player B";
+        } else {
+          // Fallback: If forms are empty, auto-initialize Player A's name
+          targetId = sampleEvent.homeTeam?.id;
+          targetLabel = "Player A";
+          document.getElementById("playerAName").value = rawHomeName;
+          document.getElementById("playerBName").value = rawAwayName;
+          
+          if (!selectedFixtureData) {
+            selectedFixtureData = {
+              eventId: sampleEvent.id || "manual_failsafe",
+              homeId: sampleEvent.homeTeam?.id || "A",
+              awayId: sampleEvent.awayTeam?.id || "B",
+              homeName: rawHomeName,
+              awayName: rawAwayName
+            };
+          }
+        }
+
+        if (!targetId) {
+          throw new Error("No matching Player Name found in forms. Please enter Player names first.");
+        }
+
+        const stats = processPlayerPoints(events, targetId, targetLabel);
+
+        if (targetLabel === "Player A") {
+          document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player A (Home) manually!`);
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player B (Away) manually!`);
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
+        document.getElementById("failsafeJsonInput").value = "";
+
+        // Open up closed data segments
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate mathematical mean of an array
+    function calculateMean(arr) {
+      if (!arr.length) return 0;
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    // Helper to calculate standard deviation (variance) of an array
+    function calculateStdDev(arr) {
+      if (arr.length < 2) return 1.5; // robust safety fallback
+      const mean = calculateMean(arr);
+      const variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    // Step 3: 10,000-Run Monte Carlo Prediction Simulator Engine (100% From Scratch)
+    function runEngine() {
+      AFDB.log('ENGINE', 'CALCULATION', "Initializing Monte Carlo Simulator...");
+
+      const league = document.getElementById("leagueSelect").value;
+      const matchLine = parseFloat(document.getElementById("matchPointsLine").value);
+      const set1Line = parseFloat(document.getElementById("set1PointsLine").value);
+
+      if (!league) {
+        alert("Please select a league first.");
+        return;
+      }
+
+      // Read raw comma-separated point series
+      const rawScoredA = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedA = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawScoredB = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedB = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+
+      if (rawScoredA.length === 0 || rawAllowedA.length === 0 || rawScoredB.length === 0 || rawAllowedB.length === 0) {
+        alert("Please ensure both Player A and Player B form inputs have valid set scores.");
+        return;
+      }
+
+      // Calculate historical averages & standard deviations dynamically
+      const meanScoredA = calculateMean(rawScoredA);
+      const meanAllowedA = calculateMean(rawAllowedA);
+      const meanScoredB = calculateMean(rawScoredB);
+      const meanAllowedB = calculateMean(rawAllowedB);
+
+      const stdDevA = calculateStdDev(rawScoredA);
+      const stdDevB = calculateStdDev(rawScoredB);
+
+      AFDB.log('ENGINE', 'MATH', `A: Mean Scored=${meanScoredA.toFixed(2)}, Mean Allowed=${meanAllowedA.toFixed(2)}, StdDev=${stdDevA.toFixed(2)}`);
+      AFDB.log('ENGINE', 'MATH', `B: Mean Scored=${meanScoredB.toFixed(2)}, Mean Allowed=${meanAllowedB.toFixed(2)}, StdDev=${stdDevB.toFixed(2)}`);
+
+      // Player rating calculations (Dean Oliver-style efficiency modeling)
+      const ratingA = (meanScoredA + meanAllowedB) / 2;
+      const ratingB = (meanScoredB + meanAllowedA) / 2;
+
+      // Probability of Player A winning a single played point
+      let probA = ratingA / (ratingA + ratingB);
+
+      // Apply H2H sets multiplier if enabled (30% weight)
+      const useH2H = document.getElementById("useFTH2H").checked;
+      const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
+
+      if (useH2H && rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const totalH2HSetsA = rawH2HA.reduce((a, b) => a + b, 0);
+        const totalH2HSetsB = rawH2HB.reduce((a, b) => a + b, 0);
+        const h2hProbA = totalH2HSetsA / (totalH2HSetsA + totalH2HSetsB);
+        
+        probA = (probA * 0.70) + (h2hProbA * 0.30);
+        AFDB.log('ENGINE', 'H2H', `H2H sets found. Blended ProbA adjusted to: ${(probA * 100).toFixed(1)}%`);
+      }
+
+      const totalSimRuns = 10000;
+      let matchOverHits = 0;
+      let set1OverHits = 0;
+      let totalMatchPointsSimulated = 0;
+      let totalSet1PointsSimulated = 0;
+
+      // 10,000 Simulated Matches Loop
+      for (let run = 0; run < totalSimRuns; run++) {
+        let setsWonA = 0;
+        let setsWonB = 0;
+        let matchPoints = 0;
+        let set1Points = 0;
+        let setNum = 1;
+
+        // Best of 5 Sets: First to win 3 sets wins the match
+        while (setsWonA < 3 && setsWonB < 3) {
+          let scoreA = 0;
+          let scoreB = 0;
+
+          // Simulate Set points (must win by 2, played to 11)
+          while ((scoreA < 11 && scoreB < 11) || Math.abs(scoreA - scoreB) < 2) {
+            // Box-Muller point execution based on blended probability
+            if (Math.random() < probA) {
+              scoreA++;
+            } else {
+              scoreB++;
+            }
+          }
+
+          const setPoints = scoreA + scoreB;
+          matchPoints += setPoints;
+          
+          if (setNum === 1) {
+            set1Points = setPoints;
+            totalSet1PointsSimulated += setPoints;
+          }
+
+          if (scoreA > scoreB) {
+            setsWonA++;
+          } else {
+            setsWonB++;
+          }
+          setNum++;
+        }
+
+        totalMatchPointsSimulated += matchPoints;
+
+        // Check if simulation went over lines
+        if (isFinite(matchLine) && matchPoints > matchLine) matchOverHits++;
+        if (isFinite(set1Line) && set1Points > set1Line) set1OverHits++;
+      }
+
+      const projectedMatchPoints = totalMatchPointsSimulated / totalSimRuns;
+      const projectedSet1Points = totalSet1PointsSimulated / totalSimRuns;
+
+      const overPctMatch = (matchOverHits / totalSimRuns) * 100;
+      const overPctSet1 = (set1OverHits / totalSimRuns) * 100;
+
+      AFDB.log('SUCCESS', 'ENGINE', `10,000 matches successfully simulated! Projected Match Points: ${projectedMatchPoints.toFixed(1)}, Set 1: ${projectedSet1Points.toFixed(1)}`);
+
+      // Populate Projections Output Table
+      renderProjectionsTable({
+        matchLine,
+        set1Line,
+        projectedMatchPoints,
+        projectedSet1Points,
+        overPctMatch,
+        overPctSet1
+      });
+    }
+
+    // Helper to render projections to UI
+    function renderProjectionsTable(data) {
+      const body = document.getElementById("resultsBody");
+      const table = document.getElementById("results");
+      if (!body || !table) return;
+
+      body.innerHTML = "";
+
+      const renderRow = (marketName, line, projection, overPct) => {
+        if (isNaN(line)) return;
+
+        const row = document.createElement("tr");
+        const edge = projection - line;
+        const edgePct = (edge / line) * 100;
+        
+        let pick = "NO PLAY";
+        let grade = "—";
+        let predClass = "pred-noplay";
+
+        // Prediction rules (Grade A/B/C/D based on probability and edge size)
+        if (edge > 0 && overPct >= 54) {
+          pick = "OVER";
+          predClass = "pred-over";
+          grade = overPct >= 62 ? "A" : overPct >= 57 ? "B" : "C";
+        } else if (edge < 0 && (100 - overPct) >= 54) {
+          pick = "UNDER";
+          predClass = "pred-under";
+          grade = (100 - overPct) >= 62 ? "A" : (100 - overPct) >= 57 ? "B" : "C";
+        }
+
+        row.innerHTML = `
+          <td>${marketName}</td>
+          <td>${line.toFixed(1)}</td>
+          <td>${projection.toFixed(1)}</td>
+          <td style="color:${edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
+            ${edge >= 0 ? '+' : ''}${edge.toFixed(1)} (${edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
+          </td>
+          <td class="${predClass}" style="font-weight:900;">${pick === "NO PLAY" ? "NO PLAY" : pick + " " + line.toFixed(1)} [${grade}]</td>
+        `;
+        body.appendChild(row);
+      };
+
+      renderRow("Match Points Total", data.matchLine, data.projectedMatchPoints, data.overPctMatch);
+      renderRow("Set 1 Points Total", data.set1Line, data.projectedSet1Points, data.overPctSet1);
+
+      table.style.display = "table";
+      table.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function onLeagueChange() {
+      const league = document.getElementById("leagueSelect").value;
+      const fetchSection = document.getElementById("fetchSection");
+      if (league) {
+        fetchSection.classList.remove("collapsed");
+        fetchSection.style.display = "block";
+        loadFixtures();
+      } else {
+        fetchSection.style.display = "none";
+      }
+    }
+
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
+      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
+      loadFixtures();
+    }
+
+    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
+    async function proxyFetch(url) {
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      
+      try {
+        // Attempt 1: Try your primary Cloudflare Worker
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url); // Rotate fallback!
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
+        return data;
+      } catch (err) {
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
+      }
+    }
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // Fetch and Filter SofaScore table tennis events
+    async function loadFixtures() {
+      const leagueFilter = document.getElementById("leagueSelect").value;
+      const select = document.getElementById("fixtureSelect");
+      if (!select || !leagueFilter) return;
+
+      select.innerHTML = "<option value=''>Loading matches...</option>";
+      
+      const dateStr = getLocalDateKey(currentDayOffset);
+      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+
+      try {
+        const data = await proxyFetch(url);
+        const events = data.events || [];
+        
+        // Filter events for "Setka Cup" or "TT Cup"
+        const filtered = events.filter(ev => {
+          const tName = ev.tournament?.name || "";
+          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
+        });
+
+        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
+
+        if (filtered.length === 0) {
+          select.innerHTML = "<option value=''>No matches found</option>";
+          return;
+        }
+
+        select.innerHTML = "<option value=''>- Select match -</option>";
+        filtered.forEach(ev => {
+          const home = ev.homeTeam?.name || "Player A";
+          const away = ev.awayTeam?.name || "Player B";
+          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+          
+          const opt = document.createElement("option");
+          opt.value = ev.id;
+          opt.textContent = `${time} — ${home} vs ${away}`;
+          opt.dataset.home = home;
+          opt.dataset.away = away;
+          opt.dataset.homeId = ev.homeTeam?.id || "";
+          opt.dataset.awayId = ev.awayTeam?.id || "";
+          select.appendChild(opt);
+        });
+
+      } catch (err) {
+        select.innerHTML = "<option value=''>Error loading matches</option>";
+        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
+      }
+    }
+
+    function onFixtureSelect() {
+      const select = document.getElementById("fixtureSelect");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        selectedFixtureData = null;
+        return;
+      }
+      
+      selectedFixtureData = {
+        eventId: opt.value,
+        homeId: opt.dataset.homeId,
+        awayId: opt.dataset.awayId,
+        homeName: opt.dataset.home,
+        awayName: opt.dataset.away
+      };
+
+      document.getElementById("playerAName").value = selectedFixtureData.homeName;
+      document.getElementById("playerBName").value = selectedFixtureData.awayName;
+      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
+    }
+
+    // Extract set-by-set stats & populate forms automatically
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) {
+        alert("Please select a match first.");
+        return;
+      }
+
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+
+        // Fetch last matches for Player A and Player B in parallel
+        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+
+        // Parse point scoring profiles
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
+
+        // Populate Player A Form (raw sets)
+        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
+        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
+
+        // Populate Player B Form (raw sets)
+        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
+        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
+
+        // Parse and populate H2H Form
+        const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
+        
+        if (h2hMatches.length >= 2) {
+          const setsA = [];
+          const setsB = [];
+          
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) {
+              setsA.push(scoreA);
+              setsB.push(scoreB);
+            }
+          });
+
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+
+        // Open up closed data segments automatically so user can review them
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+        document.getElementById("h2hSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate average points won/lost per set and extract raw lists
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [];
+      const allowedList = [];
+
+      // Scan up to 5 completed matches
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} finished matches for ${label} (ID: ${playerId})`);
+
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0;
+          let matchScored = 0;
+          let matchAllowed = 0;
+          // Loop through up to 5 sets
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            
+            if (mySet !== undefined && oppSet !== undefined) {
+              scoredList.push(mySet);
+              allowedList.push(oppSet);
+              matchScored += mySet;
+              matchAllowed += oppSet;
+              matchSets++;
+            }
+          }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Set Scores Scanned: ${matchSets}] -> Points Scored: ${matchScored}, Allowed: ${matchAllowed}`);
+        }
+      });
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Finished ${label} processing. Total Sets Scanned: ${scoredList.length}. Raw Scores: Scored=[${scoredList.join(",")}], Allowed=[${allowedList.join(",")}]`);
+
+      return { scoredList, allowedList };
+    }
+
+    // Failsafe Parser for direct SofaScore JSON paste
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      
+      if (!rawText) {
+        alert("Please paste the SofaScore JSON before clicking parse.");
+        return;
+      }
+      
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        
+        if (events.length === 0) {
+          throw new Error("No event elements found in pasted JSON.");
+        }
+
+        const sampleEvent = events[0];
+        
+        // Extract home and away names directly from raw JSON
+        const rawHomeName = sampleEvent.homeTeam?.name || "";
+        const rawAwayName = sampleEvent.awayTeam?.name || "";
+
+        // Read manual input player names for strict matching
+        const inputNameA = document.getElementById("playerAName").value.trim();
+        const inputNameB = document.getElementById("playerBName").value.trim();
+
+        let targetId = null;
+        let targetLabel = "";
+
+        // STRICT NAME MATCHING: Check which form player belongs to the pasted JSON
+        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+          // JSON belongs to Player A
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameA.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player A";
+        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
+          // JSON belongs to Player B
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameB.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player B";
+        } else {
+          // Fallback: If forms are empty, auto-initialize Player A's name
+          targetId = sampleEvent.homeTeam?.id;
+          targetLabel = "Player A";
+          document.getElementById("playerAName").value = rawHomeName;
+          document.getElementById("playerBName").value = rawAwayName;
+          
+          if (!selectedFixtureData) {
+            selectedFixtureData = {
+              eventId: sampleEvent.id || "manual_failsafe",
+              homeId: sampleEvent.homeTeam?.id || "A",
+              awayId: sampleEvent.awayTeam?.id || "B",
+              homeName: rawHomeName,
+              awayName: rawAwayName
+            };
+          }
+        }
+
+        if (!targetId) {
+          throw new Error("No matching Player Name found in forms. Please enter Player names first.");
+        }
+
+        const stats = processPlayerPoints(events, targetId, targetLabel);
+
+        if (targetLabel === "Player A") {
+          document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player A (Home) manually!`);
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player B (Away) manually!`);
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
+        document.getElementById("failsafeJsonInput").value = "";
+
+        // Open up closed data segments
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate mathematical mean of an array
+    function calculateMean(arr) {
+      if (!arr.length) return 0;
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    // Helper to calculate standard deviation (variance) of an array
+    function calculateStdDev(arr) {
+      if (arr.length < 2) return 1.5; // robust safety fallback
+      const mean = calculateMean(arr);
+      const variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    // Step 3: 10,000-Run Monte Carlo Prediction Simulator Engine (100% From Scratch)
+    function runEngine() {
+      AFDB.log('ENGINE', 'CALCULATION', "Initializing Monte Carlo Simulator...");
+
+      const league = document.getElementById("leagueSelect").value;
+      const matchLine = parseFloat(document.getElementById("matchPointsLine").value);
+      const set1Line = parseFloat(document.getElementById("set1PointsLine").value);
+
+      if (!league) {
+        alert("Please select a league first.");
+        return;
+      }
+
+      // Read raw comma-separated point series
+      const rawScoredA = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedA = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawScoredB = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedB = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+
+      if (rawScoredA.length === 0 || rawAllowedA.length === 0 || rawScoredB.length === 0 || rawAllowedB.length === 0) {
+        alert("Please ensure both Player A and Player B form inputs have valid set scores.");
+        return;
+      }
+
+      // Calculate historical averages & standard deviations dynamically
+      const meanScoredA = calculateMean(rawScoredA);
+      const meanAllowedA = calculateMean(rawAllowedA);
+      const meanScoredB = calculateMean(rawScoredB);
+      const meanAllowedB = calculateMean(rawAllowedB);
+
+      const stdDevA = calculateStdDev(rawScoredA);
+      const stdDevB = calculateStdDev(rawScoredB);
+
+      AFDB.log('ENGINE', 'MATH', `A: Mean Scored=${meanScoredA.toFixed(2)}, Mean Allowed=${meanAllowedA.toFixed(2)}, StdDev=${stdDevA.toFixed(2)}`);
+      AFDB.log('ENGINE', 'MATH', `B: Mean Scored=${meanScoredB.toFixed(2)}, Mean Allowed=${meanAllowedB.toFixed(2)}, StdDev=${stdDevB.toFixed(2)}`);
+
+      // Player rating calculations (Dean Oliver-style efficiency modeling)
+      const ratingA = (meanScoredA + meanAllowedB) / 2;
+      const ratingB = (meanScoredB + meanAllowedA) / 2;
+
+      // Probability of Player A winning a single played point
+      let probA = ratingA / (ratingA + ratingB);
+
+      // Apply H2H sets multiplier if enabled (30% weight)
+      const useH2H = document.getElementById("useFTH2H").checked;
+      const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
+
+      if (useH2H && rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const totalH2HSetsA = rawH2HA.reduce((a, b) => a + b, 0);
+        const totalH2HSetsB = rawH2HB.reduce((a, b) => a + b, 0);
+        const h2hProbA = totalH2HSetsA / (totalH2HSetsA + totalH2HSetsB);
+        
+        probA = (probA * 0.70) + (h2hProbA * 0.30);
+        AFDB.log('ENGINE', 'H2H', `H2H sets found. Blended ProbA adjusted to: ${(probA * 100).toFixed(1)}%`);
+      }
+
+      const totalSimRuns = 10000;
+      let matchOverHits = 0;
+      let set1OverHits = 0;
+      let totalMatchPointsSimulated = 0;
+      let totalSet1PointsSimulated = 0;
+
+      // 10,000 Simulated Matches Loop
+      for (let run = 0; run < totalSimRuns; run++) {
+        let setsWonA = 0;
+        let setsWonB = 0;
+        let matchPoints = 0;
+        let set1Points = 0;
+        let setNum = 1;
+
+        // Best of 5 Sets: First to win 3 sets wins the match
+        while (setsWonA < 3 && setsWonB < 3) {
+          let scoreA = 0;
+          let scoreB = 0;
+
+          // Simulate Set points (must win by 2, played to 11)
+          while ((scoreA < 11 && scoreB < 11) || Math.abs(scoreA - scoreB) < 2) {
+            // Box-Muller point execution based on blended probability
+            if (Math.random() < probA) {
+              scoreA++;
+            } else {
+              scoreB++;
+            }
+          }
+
+          const setPoints = scoreA + scoreB;
+          matchPoints += setPoints;
+          
+          if (setNum === 1) {
+            set1Points = setPoints;
+            totalSet1PointsSimulated += setPoints;
+          }
+
+          if (scoreA > scoreB) {
+            setsWonA++;
+          } else {
+            setsWonB++;
+          }
+          setNum++;
+        }
+
+        totalMatchPointsSimulated += matchPoints;
+
+        // Check if simulation went over lines
+        if (isFinite(matchLine) && matchPoints > matchLine) matchOverHits++;
+        if (isFinite(set1Line) && set1Points > set1Line) set1OverHits++;
+      }
+
+      const projectedMatchPoints = totalMatchPointsSimulated / totalSimRuns;
+      const projectedSet1Points = totalSet1PointsSimulated / totalSimRuns;
+
+      const overPctMatch = (matchOverHits / totalSimRuns) * 100;
+      const overPctSet1 = (set1OverHits / totalSimRuns) * 100;
+
+      AFDB.log('SUCCESS', 'ENGINE', `10,000 matches successfully simulated! Projected Match Points: ${projectedMatchPoints.toFixed(1)}, Set 1: ${projectedSet1Points.toFixed(1)}`);
+
+      // Populate Projections Output Table
+      renderProjectionsTable({
+        matchLine,
+        set1Line,
+        projectedMatchPoints,
+        projectedSet1Points,
+        overPctMatch,
+        overPctSet1
+      });
+    }
+
+    // Helper to render projections to UI
+    function renderProjectionsTable(data) {
+      const body = document.getElementById("resultsBody");
+      const table = document.getElementById("results");
+      if (!body || !table) return;
+
+      body.innerHTML = "";
+
+      const renderRow = (marketName, line, projection, overPct) => {
+        if (isNaN(line)) return;
+
+        const row = document.createElement("tr");
+        const edge = projection - line;
+        const edgePct = (edge / line) * 100;
+        
+        let pick = "NO PLAY";
+        let grade = "—";
+        let predClass = "pred-noplay";
+
+        // Prediction rules (Grade A/B/C/D based on probability and edge size)
+        if (edge > 0 && overPct >= 54) {
+          pick = "OVER";
+          predClass = "pred-over";
+          grade = overPct >= 62 ? "A" : overPct >= 57 ? "B" : "C";
+        } else if (edge < 0 && (100 - overPct) >= 54) {
+          pick = "UNDER";
+          predClass = "pred-under";
+          grade = (100 - overPct) >= 62 ? "A" : (100 - overPct) >= 57 ? "B" : "C";
+        }
+
+        row.innerHTML = `
+          <td>${marketName}</td>
+          <td>${line.toFixed(1)}</td>
+          <td>${projection.toFixed(1)}</td>
+          <td style="color:${edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
+            ${edge >= 0 ? '+' : ''}${edge.toFixed(1)} (${edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
+          </td>
+          <td class="${predClass}" style="font-weight:900;">${pick === "NO PLAY" ? "NO PLAY" : pick + " " + line.toFixed(1)} [${grade}]</td>
+        `;
+        body.appendChild(row);
+      };
+
+      renderRow("Match Points Total", data.matchLine, data.projectedMatchPoints, data.overPctMatch);
+      renderRow("Set 1 Points Total", data.set1Line, data.projectedSet1Points, data.overPctSet1);
+
+      table.style.display = "table";
+      table.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function onLeagueChange() {
+      const league = document.getElementById("leagueSelect").value;
+      const fetchSection = document.getElementById("fetchSection");
+      if (league) {
+        fetchSection.classList.remove("collapsed");
+        fetchSection.style.display = "block";
+        loadFixtures();
+      } else {
+        fetchSection.style.display = "none";
+      }
+    }
+
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
+      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
+      loadFixtures();
+    }
+
+    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
+    async function proxyFetch(url) {
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      
+      try {
+        // Attempt 1: Try your primary Cloudflare Worker
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url); // Rotate fallback!
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
+        return data;
+      } catch (err) {
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
+      }
+    }
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // Fetch and Filter SofaScore table tennis events
+    async function loadFixtures() {
+      const leagueFilter = document.getElementById("leagueSelect").value;
+      const select = document.getElementById("fixtureSelect");
+      if (!select || !leagueFilter) return;
+
+      select.innerHTML = "<option value=''>Loading matches...</option>";
+      
+      const dateStr = getLocalDateKey(currentDayOffset);
+      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+
+      try {
+        const data = await proxyFetch(url);
+        const events = data.events || [];
+        
+        // Filter events for "Setka Cup" or "TT Cup"
+        const filtered = events.filter(ev => {
+          const tName = ev.tournament?.name || "";
+          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
+        });
+
+        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
+
+        if (filtered.length === 0) {
+          select.innerHTML = "<option value=''>No matches found</option>";
+          return;
+        }
+
+        select.innerHTML = "<option value=''>- Select match -</option>";
+        filtered.forEach(ev => {
+          const home = ev.homeTeam?.name || "Player A";
+          const away = ev.awayTeam?.name || "Player B";
+          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+          
+          const opt = document.createElement("option");
+          opt.value = ev.id;
+          opt.textContent = `${time} — ${home} vs ${away}`;
+          opt.dataset.home = home;
+          opt.dataset.away = away;
+          opt.dataset.homeId = ev.homeTeam?.id || "";
+          opt.dataset.awayId = ev.awayTeam?.id || "";
+          select.appendChild(opt);
+        });
+
+      } catch (err) {
+        select.innerHTML = "<option value=''>Error loading matches</option>";
+        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
+      }
+    }
+
+    function onFixtureSelect() {
+      const select = document.getElementById("fixtureSelect");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        selectedFixtureData = null;
+        return;
+      }
+      
+      selectedFixtureData = {
+        eventId: opt.value,
+        homeId: opt.dataset.homeId,
+        awayId: opt.dataset.awayId,
+        homeName: opt.dataset.home,
+        awayName: opt.dataset.away
+      };
+
+      document.getElementById("playerAName").value = selectedFixtureData.homeName;
+      document.getElementById("playerBName").value = selectedFixtureData.awayName;
+      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
+    }
+
+    // Extract set-by-set stats & populate forms automatically
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) {
+        alert("Please select a match first.");
+        return;
+      }
+
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+
+        // Fetch last matches for Player A and Player B in parallel
+        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+
+        // Parse point scoring profiles
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
+
+        // Populate Player A Form (raw sets)
+        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
+        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
+
+        // Populate Player B Form (raw sets)
+        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
+        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
+
+        // Parse and populate H2H Form
+        const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
+        
+        if (h2hMatches.length >= 2) {
+          const setsA = [];
+          const setsB = [];
+          
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) {
+              setsA.push(scoreA);
+              setsB.push(scoreB);
+            }
+          });
+
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+
+        // Open up closed data segments automatically so user can review them
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+        document.getElementById("h2hSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate average points won/lost per set and extract raw lists
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [];
+      const allowedList = [];
+
+      // Scan up to 5 completed matches
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} finished matches for ${label} (ID: ${playerId})`);
+
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0;
+          let matchScored = 0;
+          let matchAllowed = 0;
+          // Loop through up to 5 sets
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            
+            if (mySet !== undefined && oppSet !== undefined) {
+              scoredList.push(mySet);
+              allowedList.push(oppSet);
+              matchScored += mySet;
+              matchAllowed += oppSet;
+              matchSets++;
+            }
+          }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Set Scores Scanned: ${matchSets}] -> Points Scored: ${matchScored}, Allowed: ${matchAllowed}`);
+        }
+      });
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Finished ${label} processing. Total Sets Scanned: ${scoredList.length}. Raw Scores: Scored=[${scoredList.join(",")}], Allowed=[${allowedList.join(",")}]`);
+
+      return { scoredList, allowedList };
+    }
+
+    // Failsafe Parser for direct SofaScore JSON paste
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      
+      if (!rawText) {
+        alert("Please paste the SofaScore JSON before clicking parse.");
+        return;
+      }
+      
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        
+        if (events.length === 0) {
+          throw new Error("No event elements found in pasted JSON.");
+        }
+
+        const sampleEvent = events[0];
+        
+        // Extract home and away names directly from raw JSON
+        const rawHomeName = sampleEvent.homeTeam?.name || "";
+        const rawAwayName = sampleEvent.awayTeam?.name || "";
+
+        // Read manual input player names for strict matching
+        const inputNameA = document.getElementById("playerAName").value.trim();
+        const inputNameB = document.getElementById("playerBName").value.trim();
+
+        let targetId = null;
+        let targetLabel = "";
+
+        // STRICT NAME MATCHING: Check which form player belongs to the pasted JSON
+        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+          // JSON belongs to Player A
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameA.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player A";
+        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
+          // JSON belongs to Player B
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameB.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player B";
+        } else {
+          // Fallback: If forms are empty, auto-initialize Player A's name
+          targetId = sampleEvent.homeTeam?.id;
+          targetLabel = "Player A";
+          document.getElementById("playerAName").value = rawHomeName;
+          document.getElementById("playerBName").value = rawAwayName;
+          
+          if (!selectedFixtureData) {
+            selectedFixtureData = {
+              eventId: sampleEvent.id || "manual_failsafe",
+              homeId: sampleEvent.homeTeam?.id || "A",
+              awayId: sampleEvent.awayTeam?.id || "B",
+              homeName: rawHomeName,
+              awayName: rawAwayName
+            };
+          }
+        }
+
+        if (!targetId) {
+          throw new Error("No matching Player Name found in forms. Please enter Player names first.");
+        }
+
+        const stats = processPlayerPoints(events, targetId, targetLabel);
+
+        if (targetLabel === "Player A") {
+          document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player A (Home) manually!`);
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player B (Away) manually!`);
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
+        document.getElementById("failsafeJsonInput").value = "";
+
+        // Open up closed data segments
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate mathematical mean of an array
+    function calculateMean(arr) {
+      if (!arr.length) return 0;
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    // Helper to calculate standard deviation (variance) of an array
+    function calculateStdDev(arr) {
+      if (arr.length < 2) return 1.5; // robust safety fallback
+      const mean = calculateMean(arr);
+      const variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    // Step 3: 10,000-Run Monte Carlo Prediction Simulator Engine (100% From Scratch)
+    function runEngine() {
+      AFDB.log('ENGINE', 'CALCULATION', "Initializing Monte Carlo Simulator...");
+
+      const league = document.getElementById("leagueSelect").value;
+      const matchLine = parseFloat(document.getElementById("matchPointsLine").value);
+      const set1Line = parseFloat(document.getElementById("set1PointsLine").value);
+
+      if (!league) {
+        alert("Please select a league first.");
+        return;
+      }
+
+      // Read raw comma-separated point series
+      const rawScoredA = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedA = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawScoredB = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedB = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+
+      if (rawScoredA.length === 0 || rawAllowedA.length === 0 || rawScoredB.length === 0 || rawAllowedB.length === 0) {
+        alert("Please ensure both Player A and Player B form inputs have valid set scores.");
+        return;
+      }
+
+      // Calculate historical averages & standard deviations dynamically
+      const meanScoredA = calculateMean(rawScoredA);
+      const meanAllowedA = calculateMean(rawAllowedA);
+      const meanScoredB = calculateMean(rawScoredB);
+      const meanAllowedB = calculateMean(rawAllowedB);
+
+      const stdDevA = calculateStdDev(rawScoredA);
+      const stdDevB = calculateStdDev(rawScoredB);
+
+      AFDB.log('ENGINE', 'MATH', `A: Mean Scored=${meanScoredA.toFixed(2)}, Mean Allowed=${meanAllowedA.toFixed(2)}, StdDev=${stdDevA.toFixed(2)}`);
+      AFDB.log('ENGINE', 'MATH', `B: Mean Scored=${meanScoredB.toFixed(2)}, Mean Allowed=${meanAllowedB.toFixed(2)}, StdDev=${stdDevB.toFixed(2)}`);
+
+      // Player rating calculations (Dean Oliver-style efficiency modeling)
+      const ratingA = (meanScoredA + meanAllowedB) / 2;
+      const ratingB = (meanScoredB + meanAllowedA) / 2;
+
+      // Probability of Player A winning a single played point
+      let probA = ratingA / (ratingA + ratingB);
+
+      // Apply H2H sets multiplier if enabled (30% weight)
+      const useH2H = document.getElementById("useFTH2H").checked;
+      const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
+
+      if (useH2H && rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const totalH2HSetsA = rawH2HA.reduce((a, b) => a + b, 0);
+        const totalH2HSetsB = rawH2HB.reduce((a, b) => a + b, 0);
+        const h2hProbA = totalH2HSetsA / (totalH2HSetsA + totalH2HSetsB);
+        
+        probA = (probA * 0.70) + (h2hProbA * 0.30);
+        AFDB.log('ENGINE', 'H2H', `H2H sets found. Blended ProbA adjusted to: ${(probA * 100).toFixed(1)}%`);
+      }
+
+      const totalSimRuns = 10000;
+      let matchOverHits = 0;
+      let set1OverHits = 0;
+      let totalMatchPointsSimulated = 0;
+      let totalSet1PointsSimulated = 0;
+
+      // 10,000 Simulated Matches Loop
+      for (let run = 0; run < totalSimRuns; run++) {
+        let setsWonA = 0;
+        let setsWonB = 0;
+        let matchPoints = 0;
+        let set1Points = 0;
+        let setNum = 1;
+
+        // Best of 5 Sets: First to win 3 sets wins the match
+        while (setsWonA < 3 && setsWonB < 3) {
+          let scoreA = 0;
+          let scoreB = 0;
+
+          // Simulate Set points (must win by 2, played to 11)
+          while ((scoreA < 11 && scoreB < 11) || Math.abs(scoreA - scoreB) < 2) {
+            // Box-Muller point execution based on blended probability
+            if (Math.random() < probA) {
+              scoreA++;
+            } else {
+              scoreB++;
+            }
+          }
+
+          const setPoints = scoreA + scoreB;
+          matchPoints += setPoints;
+          
+          if (setNum === 1) {
+            set1Points = setPoints;
+            totalSet1PointsSimulated += setPoints;
+          }
+
+          if (scoreA > scoreB) {
+            setsWonA++;
+          } else {
+            setsWonB++;
+          }
+          setNum++;
+        }
+
+        totalMatchPointsSimulated += matchPoints;
+
+        // Check if simulation went over lines
+        if (isFinite(matchLine) && matchPoints > matchLine) matchOverHits++;
+        if (isFinite(set1Line) && set1Points > set1Line) set1OverHits++;
+      }
+
+      const projectedMatchPoints = totalMatchPointsSimulated / totalSimRuns;
+      const projectedSet1Points = totalSet1PointsSimulated / totalSimRuns;
+
+      const overPctMatch = (matchOverHits / totalSimRuns) * 100;
+      const overPctSet1 = (set1OverHits / totalSimRuns) * 100;
+
+      AFDB.log('SUCCESS', 'ENGINE', `10,000 matches successfully simulated! Projected Match Points: ${projectedMatchPoints.toFixed(1)}, Set 1: ${projectedSet1Points.toFixed(1)}`);
+
+      // Populate Projections Output Table
+      renderProjectionsTable({
+        matchLine,
+        set1Line,
+        projectedMatchPoints,
+        projectedSet1Points,
+        overPctMatch,
+        overPctSet1
+      });
+    }
+
+    // Helper to render projections to UI
+    function renderProjectionsTable(data) {
+      const body = document.getElementById("resultsBody");
+      const table = document.getElementById("results");
+      if (!body || !table) return;
+
+      body.innerHTML = "";
+
+      const renderRow = (marketName, line, projection, overPct) => {
+        if (isNaN(line)) return;
+
+        const row = document.createElement("tr");
+        const edge = projection - line;
+        const edgePct = (edge / line) * 100;
+        
+        let pick = "NO PLAY";
+        let grade = "—";
+        let predClass = "pred-noplay";
+
+        // Prediction rules (Grade A/B/C/D based on probability and edge size)
+        if (edge > 0 && overPct >= 54) {
+          pick = "OVER";
+          predClass = "pred-over";
+          grade = overPct >= 62 ? "A" : overPct >= 57 ? "B" : "C";
+        } else if (edge < 0 && (100 - overPct) >= 54) {
+          pick = "UNDER";
+          predClass = "pred-under";
+          grade = (100 - overPct) >= 62 ? "A" : (100 - overPct) >= 57 ? "B" : "C";
+        }
+
+        row.innerHTML = `
+          <td>${marketName}</td>
+          <td>${line.toFixed(1)}</td>
+          <td>${projection.toFixed(1)}</td>
+          <td style="color:${edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
+            ${edge >= 0 ? '+' : ''}${edge.toFixed(1)} (${edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
+          </td>
+          <td class="${predClass}" style="font-weight:900;">${pick === "NO PLAY" ? "NO PLAY" : pick + " " + line.toFixed(1)} [${grade}]</td>
+        `;
+        body.appendChild(row);
+      };
+
+      renderRow("Match Points Total", data.matchLine, data.projectedMatchPoints, data.overPctMatch);
+      renderRow("Set 1 Points Total", data.set1Line, data.projectedSet1Points, data.overPctSet1);
+
+      table.style.display = "table";
+      table.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function onLeagueChange() {
+      const league = document.getElementById("leagueSelect").value;
+      const fetchSection = document.getElementById("fetchSection");
+      if (league) {
+        fetchSection.classList.remove("collapsed");
+        fetchSection.style.display = "block";
+        loadFixtures();
+      } else {
+        fetchSection.style.display = "none";
+      }
+    }
+
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
+      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
+      loadFixtures();
+    }
+
+    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
+    async function proxyFetch(url) {
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      
+      try {
+        // Attempt 1: Try your primary Cloudflare Worker
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url); // Rotate fallback!
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
+        return data;
+      } catch (err) {
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
+      }
+    }
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // Fetch and Filter SofaScore table tennis events
+    async function loadFixtures() {
+      const leagueFilter = document.getElementById("leagueSelect").value;
+      const select = document.getElementById("fixtureSelect");
+      if (!select || !leagueFilter) return;
+
+      select.innerHTML = "<option value=''>Loading matches...</option>";
+      
+      const dateStr = getLocalDateKey(currentDayOffset);
+      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+
+      try {
+        const data = await proxyFetch(url);
+        const events = data.events || [];
+        
+        // Filter events for "Setka Cup" or "TT Cup"
+        const filtered = events.filter(ev => {
+          const tName = ev.tournament?.name || "";
+          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
+        });
+
+        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
+
+        if (filtered.length === 0) {
+          select.innerHTML = "<option value=''>No matches found</option>";
+          return;
+        }
+
+        select.innerHTML = "<option value=''>- Select match -</option>";
+        filtered.forEach(ev => {
+          const home = ev.homeTeam?.name || "Player A";
+          const away = ev.awayTeam?.name || "Player B";
+          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+          
+          const opt = document.createElement("option");
+          opt.value = ev.id;
+          opt.textContent = `${time} — ${home} vs ${away}`;
+          opt.dataset.home = home;
+          opt.dataset.away = away;
+          opt.dataset.homeId = ev.homeTeam?.id || "";
+          opt.dataset.awayId = ev.awayTeam?.id || "";
+          select.appendChild(opt);
+        });
+
+      } catch (err) {
+        select.innerHTML = "<option value=''>Error loading matches</option>";
+        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
+      }
+    }
+
+    function onFixtureSelect() {
+      const select = document.getElementById("fixtureSelect");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        selectedFixtureData = null;
+        return;
+      }
+      
+      selectedFixtureData = {
+        eventId: opt.value,
+        homeId: opt.dataset.homeId,
+        awayId: opt.dataset.awayId,
+        homeName: opt.dataset.home,
+        awayName: opt.dataset.away
+      };
+
+      document.getElementById("playerAName").value = selectedFixtureData.homeName;
+      document.getElementById("playerBName").value = selectedFixtureData.awayName;
+      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
+    }
+
+    // Extract set-by-set stats & populate forms automatically
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) {
+        alert("Please select a match first.");
+        return;
+      }
+
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+
+        // Fetch last matches for Player A and Player B in parallel
+        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+
+        // Parse point scoring profiles
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
+
+        // Populate Player A Form (raw sets)
+        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
+        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
+
+        // Populate Player B Form (raw sets)
+        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
+        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
+
+        // Parse and populate H2H Form
+        const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
+        
+        if (h2hMatches.length >= 2) {
+          const setsA = [];
+          const setsB = [];
+          
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) {
+              setsA.push(scoreA);
+              setsB.push(scoreB);
+            }
+          });
+
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+
+        // Open up closed data segments automatically so user can review them
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+        document.getElementById("h2hSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate average points won/lost per set and extract raw lists
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [];
+      const allowedList = [];
+
+      // Scan up to 5 completed matches
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} finished matches for ${label} (ID: ${playerId})`);
+
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0;
+          let matchScored = 0;
+          let matchAllowed = 0;
+          // Loop through up to 5 sets
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            
+            if (mySet !== undefined && oppSet !== undefined) {
+              scoredList.push(mySet);
+              allowedList.push(oppSet);
+              matchScored += mySet;
+              matchAllowed += oppSet;
+              matchSets++;
+            }
+          }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Set Scores Scanned: ${matchSets}] -> Points Scored: ${matchScored}, Allowed: ${matchAllowed}`);
+        }
+      });
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Finished ${label} processing. Total Sets Scanned: ${scoredList.length}. Raw Scores: Scored=[${scoredList.join(",")}], Allowed=[${allowedList.join(",")}]`);
+
+      return { scoredList, allowedList };
+    }
+
+    // Failsafe Parser for direct SofaScore JSON paste
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      
+      if (!rawText) {
+        alert("Please paste the SofaScore JSON before clicking parse.");
+        return;
+      }
+      
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        
+        if (events.length === 0) {
+          throw new Error("No event elements found in pasted JSON.");
+        }
+
+        const sampleEvent = events[0];
+        
+        // Extract home and away names directly from raw JSON
+        const rawHomeName = sampleEvent.homeTeam?.name || "";
+        const rawAwayName = sampleEvent.awayTeam?.name || "";
+
+        // Read manual input player names for strict matching
+        const inputNameA = document.getElementById("playerAName").value.trim();
+        const inputNameB = document.getElementById("playerBName").value.trim();
+
+        let targetId = null;
+        let targetLabel = "";
+
+        // STRICT NAME MATCHING: Check which form player belongs to the pasted JSON
+        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+          // JSON belongs to Player A
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameA.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player A";
+        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
+          // JSON belongs to Player B
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameB.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player B";
+        } else {
+          // Fallback: If forms are empty, auto-initialize Player A's name
+          targetId = sampleEvent.homeTeam?.id;
+          targetLabel = "Player A";
+          document.getElementById("playerAName").value = rawHomeName;
+          document.getElementById("playerBName").value = rawAwayName;
+          
+          if (!selectedFixtureData) {
+            selectedFixtureData = {
+              eventId: sampleEvent.id || "manual_failsafe",
+              homeId: sampleEvent.homeTeam?.id || "A",
+              awayId: sampleEvent.awayTeam?.id || "B",
+              homeName: rawHomeName,
+              awayName: rawAwayName
+            };
+          }
+        }
+
+        if (!targetId) {
+          throw new Error("No matching Player Name found in forms. Please enter Player names first.");
+        }
+
+        const stats = processPlayerPoints(events, targetId, targetLabel);
+
+        if (targetLabel === "Player A") {
+          document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player A (Home) manually!`);
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player B (Away) manually!`);
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
+        document.getElementById("failsafeJsonInput").value = "";
+
+        // Open up closed data segments
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate mathematical mean of an array
+    function calculateMean(arr) {
+      if (!arr.length) return 0;
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    // Helper to calculate standard deviation (variance) of an array
+    function calculateStdDev(arr) {
+      if (arr.length < 2) return 1.5; // robust safety fallback
+      const mean = calculateMean(arr);
+      const variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    // Step 3: 10,000-Run Monte Carlo Prediction Simulator Engine (100% From Scratch)
+    function runEngine() {
+      AFDB.log('ENGINE', 'CALCULATION', "Initializing Monte Carlo Simulator...");
+
+      const league = document.getElementById("leagueSelect").value;
+      const matchLine = parseFloat(document.getElementById("matchPointsLine").value);
+      const set1Line = parseFloat(document.getElementById("set1PointsLine").value);
+
+      if (!league) {
+        alert("Please select a league first.");
+        return;
+      }
+
+      // Read raw comma-separated point series
+      const rawScoredA = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedA = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawScoredB = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedB = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+
+      if (rawScoredA.length === 0 || rawAllowedA.length === 0 || rawScoredB.length === 0 || rawAllowedB.length === 0) {
+        alert("Please ensure both Player A and Player B form inputs have valid set scores.");
+        return;
+      }
+
+      // Calculate historical averages & standard deviations dynamically
+      const meanScoredA = calculateMean(rawScoredA);
+      const meanAllowedA = calculateMean(rawAllowedA);
+      const meanScoredB = calculateMean(rawScoredB);
+      const meanAllowedB = calculateMean(rawAllowedB);
+
+      const stdDevA = calculateStdDev(rawScoredA);
+      const stdDevB = calculateStdDev(rawScoredB);
+
+      AFDB.log('ENGINE', 'MATH', `A: Mean Scored=${meanScoredA.toFixed(2)}, Mean Allowed=${meanAllowedA.toFixed(2)}, StdDev=${stdDevA.toFixed(2)}`);
+      AFDB.log('ENGINE', 'MATH', `B: Mean Scored=${meanScoredB.toFixed(2)}, Mean Allowed=${meanAllowedB.toFixed(2)}, StdDev=${stdDevB.toFixed(2)}`);
+
+      // Player rating calculations (Dean Oliver-style efficiency modeling)
+      const ratingA = (meanScoredA + meanAllowedB) / 2;
+      const ratingB = (meanScoredB + meanAllowedA) / 2;
+
+      // Probability of Player A winning a single played point
+      let probA = ratingA / (ratingA + ratingB);
+
+      // Apply H2H sets multiplier if enabled (30% weight)
+      const useH2H = document.getElementById("useFTH2H").checked;
+      const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
+
+      if (useH2H && rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const totalH2HSetsA = rawH2HA.reduce((a, b) => a + b, 0);
+        const totalH2HSetsB = rawH2HB.reduce((a, b) => a + b, 0);
+        const h2hProbA = totalH2HSetsA / (totalH2HSetsA + totalH2HSetsB);
+        
+        probA = (probA * 0.70) + (h2hProbA * 0.30);
+        AFDB.log('ENGINE', 'H2H', `H2H sets found. Blended ProbA adjusted to: ${(probA * 100).toFixed(1)}%`);
+      }
+
+      const totalSimRuns = 10000;
+      let matchOverHits = 0;
+      let set1OverHits = 0;
+      let totalMatchPointsSimulated = 0;
+      let totalSet1PointsSimulated = 0;
+
+      // 10,000 Simulated Matches Loop
+      for (let run = 0; run < totalSimRuns; run++) {
+        let setsWonA = 0;
+        let setsWonB = 0;
+        let matchPoints = 0;
+        let set1Points = 0;
+        let setNum = 1;
+
+        // Best of 5 Sets: First to win 3 sets wins the match
+        while (setsWonA < 3 && setsWonB < 3) {
+          let scoreA = 0;
+          let scoreB = 0;
+
+          // Simulate Set points (must win by 2, played to 11)
+          while ((scoreA < 11 && scoreB < 11) || Math.abs(scoreA - scoreB) < 2) {
+            // Box-Muller point execution based on blended probability
+            if (Math.random() < probA) {
+              scoreA++;
+            } else {
+              scoreB++;
+            }
+          }
+
+          const setPoints = scoreA + scoreB;
+          matchPoints += setPoints;
+          
+          if (setNum === 1) {
+            set1Points = setPoints;
+            totalSet1PointsSimulated += setPoints;
+          }
+
+          if (scoreA > scoreB) {
+            setsWonA++;
+          } else {
+            setsWonB++;
+          }
+          setNum++;
+        }
+
+        totalMatchPointsSimulated += matchPoints;
+
+        // Check if simulation went over lines
+        if (isFinite(matchLine) && matchPoints > matchLine) matchOverHits++;
+        if (isFinite(set1Line) && set1Points > set1Line) set1OverHits++;
+      }
+
+      const projectedMatchPoints = totalMatchPointsSimulated / totalSimRuns;
+      const projectedSet1Points = totalSet1PointsSimulated / totalSimRuns;
+
+      const overPctMatch = (matchOverHits / totalSimRuns) * 100;
+      const overPctSet1 = (set1OverHits / totalSimRuns) * 100;
+
+      AFDB.log('SUCCESS', 'ENGINE', `10,000 matches successfully simulated! Projected Match Points: ${projectedMatchPoints.toFixed(1)}, Set 1: ${projectedSet1Points.toFixed(1)}`);
+
+      // Populate Projections Output Table
+      renderProjectionsTable({
+        matchLine,
+        set1Line,
+        projectedMatchPoints,
+        projectedSet1Points,
+        overPctMatch,
+        overPctSet1
+      });
+    }
+
+    // Helper to render projections to UI
+    function renderProjectionsTable(data) {
+      const body = document.getElementById("resultsBody");
+      const table = document.getElementById("results");
+      if (!body || !table) return;
+
+      body.innerHTML = "";
+
+      const renderRow = (marketName, line, projection, overPct) => {
+        if (isNaN(line)) return;
+
+        const row = document.createElement("tr");
+        const edge = projection - line;
+        const edgePct = (edge / line) * 100;
+        
+        let pick = "NO PLAY";
+        let grade = "—";
+        let predClass = "pred-noplay";
+
+        // Prediction rules (Grade A/B/C/D based on probability and edge size)
+        if (edge > 0 && overPct >= 54) {
+          pick = "OVER";
+          predClass = "pred-over";
+          grade = overPct >= 62 ? "A" : overPct >= 57 ? "B" : "C";
+        } else if (edge < 0 && (100 - overPct) >= 54) {
+          pick = "UNDER";
+          predClass = "pred-under";
+          grade = (100 - overPct) >= 62 ? "A" : (100 - overPct) >= 57 ? "B" : "C";
+        }
+
+        row.innerHTML = `
+          <td>${marketName}</td>
+          <td>${line.toFixed(1)}</td>
+          <td>${projection.toFixed(1)}</td>
+          <td style="color:${edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
+            ${edge >= 0 ? '+' : ''}${edge.toFixed(1)} (${edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
+          </td>
+          <td class="${predClass}" style="font-weight:900;">${pick === "NO PLAY" ? "NO PLAY" : pick + " " + line.toFixed(1)} [${grade}]</td>
+        `;
+        body.appendChild(row);
+      };
+
+      renderRow("Match Points Total", data.matchLine, data.projectedMatchPoints, data.overPctMatch);
+      renderRow("Set 1 Points Total", data.set1Line, data.projectedSet1Points, data.overPctSet1);
+
+      table.style.display = "table";
+      table.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function onLeagueChange() {
+      const league = document.getElementById("leagueSelect").value;
+      const fetchSection = document.getElementById("fetchSection");
+      if (league) {
+        fetchSection.classList.remove("collapsed");
+        fetchSection.style.display = "block";
+        loadFixtures();
+      } else {
+        fetchSection.style.display = "none";
+      }
+    }
+
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
+      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
+      loadFixtures();
+    }
+
+    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
+    async function proxyFetch(url) {
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      
+      try {
+        // Attempt 1: Try your primary Cloudflare Worker
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url); // Rotate fallback!
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
+        return data;
+      } catch (err) {
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
+      }
+    }
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // Fetch and Filter SofaScore table tennis events
+    async function loadFixtures() {
+      const leagueFilter = document.getElementById("leagueSelect").value;
+      const select = document.getElementById("fixtureSelect");
+      if (!select || !leagueFilter) return;
+
+      select.innerHTML = "<option value=''>Loading matches...</option>";
+      
+      const dateStr = getLocalDateKey(currentDayOffset);
+      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+
+      try {
+        const data = await proxyFetch(url);
+        const events = data.events || [];
+        
+        // Filter events for "Setka Cup" or "TT Cup"
+        const filtered = events.filter(ev => {
+          const tName = ev.tournament?.name || "";
+          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
+        });
+
+        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
+
+        if (filtered.length === 0) {
+          select.innerHTML = "<option value=''>No matches found</option>";
+          return;
+        }
+
+        select.innerHTML = "<option value=''>- Select match -</option>";
+        filtered.forEach(ev => {
+          const home = ev.homeTeam?.name || "Player A";
+          const away = ev.awayTeam?.name || "Player B";
+          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+          
+          const opt = document.createElement("option");
+          opt.value = ev.id;
+          opt.textContent = `${time} — ${home} vs ${away}`;
+          opt.dataset.home = home;
+          opt.dataset.away = away;
+          opt.dataset.homeId = ev.homeTeam?.id || "";
+          opt.dataset.awayId = ev.awayTeam?.id || "";
+          select.appendChild(opt);
+        });
+
+      } catch (err) {
+        select.innerHTML = "<option value=''>Error loading matches</option>";
+        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
+      }
+    }
+
+    function onFixtureSelect() {
+      const select = document.getElementById("fixtureSelect");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        selectedFixtureData = null;
+        return;
+      }
+      
+      selectedFixtureData = {
+        eventId: opt.value,
+        homeId: opt.dataset.homeId,
+        awayId: opt.dataset.awayId,
+        homeName: opt.dataset.home,
+        awayName: opt.dataset.away
+      };
+
+      document.getElementById("playerAName").value = selectedFixtureData.homeName;
+      document.getElementById("playerBName").value = selectedFixtureData.awayName;
+      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
+    }
+
+    // Extract set-by-set stats & populate forms automatically
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) {
+        alert("Please select a match first.");
+        return;
+      }
+
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+
+        // Fetch last matches for Player A and Player B in parallel
+        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+
+        // Parse point scoring profiles
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
+
+        // Populate Player A Form (raw sets)
+        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
+        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
+
+        // Populate Player B Form (raw sets)
+        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
+        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
+
+        // Parse and populate H2H Form
+        const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
+        
+        if (h2hMatches.length >= 2) {
+          const setsA = [];
+          const setsB = [];
+          
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) {
+              setsA.push(scoreA);
+              setsB.push(scoreB);
+            }
+          });
+
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+
+        // Open up closed data segments automatically so user can review them
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+        document.getElementById("h2hSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
+      }
+    }
+
+    // Helper to calculate average points won/lost per set and extract raw lists
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [];
+      const allowedList = [];
+
+      // Scan up to 5 completed matches
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} finished matches for ${label} (ID: ${playerId})`);
+
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0;
+          let matchScored = 0;
+          let matchAllowed = 0;
+          // Loop through up to 5 sets
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            
+            if (mySet !== undefined && oppSet !== undefined) {
+              scoredList.push(mySet);
+              allowedList.push(oppSet);
+              matchScored += mySet;
+              matchAllowed += oppSet;
+              matchSets++;
+            }
+          }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Set Scores Scanned: ${matchSets}] -> Points Scored: ${matchScored}, Allowed: ${matchAllowed}`);
+        }
+      });
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Finished ${label} processing. Total Sets Scanned: ${scoredList.length}. Raw Scores: Scored=[${scoredList.join(",")}], Allowed=[${allowedList.join(",")}]`);
+
+      return { scoredList, allowedList };
+    }
+
+    // Failsafe Parser for direct SofaScore JSON paste
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      
+      if (!rawText) {
+        alert("Please paste the SofaScore JSON before clicking parse.");
+        return;
+      }
+      
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        
+        if (events.length === 0) {
+          throw new Error("No event elements found in pasted JSON.");
+        }
+
+        const sampleEvent = events[0];
+        
+        // Extract home and away names directly from raw JSON
+        const rawHomeName = sampleEvent.homeTeam?.name || "";
+        const rawAwayName = sampleEvent.awayTeam?.name || "";
+
+        // Read manual input player names for strict matching
+        const inputNameA = document.getElementById("playerAName").value.trim();
+        const inputNameB = document.getElementById("playerBName").value.trim();
+
+        let targetId = null;
+        let targetLabel = "";
+
+        // STRICT NAME MATCHING: Check which form player belongs to the pasted JSON
+        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+          // JSON belongs to Player A
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameA.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player A";
+        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
+          // JSON belongs to Player B
+          targetId = String(sampleEvent.homeTeam?.name || "").toLowerCase().includes(inputNameB.toLowerCase()) 
+            ? sampleEvent.homeTeam?.id 
+            : sampleEvent.awayTeam?.id;
+          targetLabel = "Player B";
+        } else {
+          // Fallback: If forms are empty, auto-initialize Player A's name
+          targetId = sampleEvent.homeTeam?.id;
+          targetLabel = "Player A";
+          document.getElementById("playerAName").value = rawHomeName;
+          document.getElementById("playerBName").value = rawAwayName;
+          
+          if (!selectedFixtureData) {
+            selectedFixtureData = {
+              eventId: sampleEvent.id || "manual_failsafe",
+              homeId: sampleEvent.homeTeam?.id || "A",
+              awayId: sampleEvent.awayTeam?.id || "B",
+              homeName: rawHomeName,
+              awayName: rawAwayName
+            };
+          }
+        }
+
+        if (!targetId) {
+          throw new Error("No matching Player Name found in forms. Please enter Player names first.");
+        }
+
+        const stats = processPlayerPoints(events, targetId, targetLabel);
+
+        if (targetLabel === "Player A") {
+          document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player A (Home) manually!`);
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', `Successfully processed Player B (Away) manually!`);
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
+        document.getElementById("failsafeJsonInput").value = "";
+
+        // Open up closed data segments
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
       }
     }
 
