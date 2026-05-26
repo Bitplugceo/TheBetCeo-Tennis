@@ -982,21 +982,14 @@
         iconSpan.innerHTML = "&#9662;";
         btn.appendChild(titleSpan);
         btn.appendChild(iconSpan);
-        btn.addEventListener("click", () => { section.classList.toggle("collapsed"); });
+            btn.addEventListener("click", () => { section.classList.toggle("collapsed"); });
 
-        section.innerHTML = "";
-        section.appendChild(btn);
-        section.appendChild(body);
-
-        document.getElementById("playerBSection").classList.remove("collapsed");
-        document.getElementById("h2hSection").classList.remove("collapsed");
-
-      } catch (err) {
-        statusEl.className = "status-err";
-        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
-        AFDB.log('ERROR', 'STATS', `Settle Stats Fetch Failed: ${err.message}`);
-      }
-    }
+    section.innerHTML = "";
+    section.appendChild(btn);
+    section.appendChild(body);
+    section.dataset.collapsibleReady = "1";
+  });
+}
 
     // Helper to calculate average points won/lost per set and extract raw lists
     function processPlayerPoints(events, playerId, label) {
