@@ -548,8 +548,7 @@
       const LOG_LIMIT = 600;
       let _log = [];
       let _isOpen = false;
-      let _showOnlyErrors = true; 
-      let _currentLogLevel = 'ERROR';
+      let _currentLogLevel = 'ALL'; // 'ALL', 'WARN', 'ERROR'
       let _activeView = 'logs'; // 'logs' or 'report'
 
       const LEVELS = {
@@ -611,7 +610,6 @@
       function toggleFilter() {
         const levels = ['ALL', 'WARN', 'ERROR'];
         _currentLogLevel = levels[(levels.indexOf(_currentLogLevel) + 1) % levels.length];
-        _showOnlyErrors = _currentLogLevel !== 'ALL';
         _render();
       }
 
@@ -669,38 +667,90 @@
         if (!panel) return;
 
         const headerBtns = '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📋 Copy Log</button><button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">🗑️ Clear</button><button onclick="AFDB.runTestFetch()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;box-shadow:0 0 8px rgba(217,31,38,0.4);margin-right:4px;">🚨 MILITARY RAID</button><button onclick="AFDB.toggleView()" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📊</button><button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ Close</button>';
-        const driftHtml = '<div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;"><span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📐 DRIFT TRACKER</span><span style="color:#555;font-size:12px;font-weight:900;">Rolling Mean Error (last 20): —</span><span style="color:#555;font-size:10px;">0 samples logged</span></div>';
 
         if (_activeView === 'report') {
           // --- THE REPORT VIEW: PERFECT MATCH TO BB SYSTEM REPORT ---
           panel.innerHTML = `
-            <div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;">
-              <div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">📊 ENGINE SYSTEM REPORT</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">${headerBtns}</div>
+            <div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;box-sizing:border-box;">
+              <div style="color:#ffd700;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;">Engine Report</div>
+              <div style="display:flex;gap:4px;align-items:center;">
+                <button onclick="AFDB.toggleView()" style="background:none;border:none;cursor:pointer;padding:0;margin-right:8px;"><img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18' fill='%23ccc'><path d='M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'/></svg>" style="vertical-align:middle;" title="Switch to Logs"></button>
+                <button onclick="AFDB.close()" style="background:none;border:none;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;padding:0;">✕</button>
+              </div>
             </div>
-            ${driftHtml}
-            <div style="flex:1;overflow-y:auto;background:#0a0a0a;padding:16px;color:#fff;font-size:12px;">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
-                <div style="background:#151515;border:1px solid #222;border-top:3px solid #3a9c35;padding:12px;">
-                  <div style="color:#777;font-size:9px;font-weight:900;text-transform:uppercase;">Overall Win Rate</div>
-                  <div style="font-size:22px;font-weight:900;color:#3a9c35;margin:4px 0;">0.0%</div>
-                  <div style="color:#555;font-size:9px;">0 Wins • 0 Losses • 0 Pushes</div>
+            <div style="background:#151515;border-bottom:1px solid #222;padding:12px 14px;color:#fff;">
+              <div style="font-size:10px;font-weight:900;letter-spacing:0.8px;text-transform:uppercase;color:#888;">Engine Report</div>
+              <div style="font-size:15px;font-weight:900;margin:3px 0 1px 0;">Tracked results and learning</div>
+              <div style="color:#555;font-size:10px;font-weight:700;">Pick record, feedback, and post-checkpoint suggestions live here.</div>
+            </div>
+            
+            <div style="flex:1;overflow-y:auto;background:#0a0a0a;padding:10px;box-sizing:border-box;">
+              <!-- KPI GRID -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                <div style="background:#151515;border:1px solid #222;border-top:3px solid #3a9c35;padding:10px;">
+                  <div style="color:#888;font-size:8.5px;font-weight:900;text-transform:uppercase;">Overall</div>
+                  <div style="font-size:18px;font-weight:900;color:#3a9c35;margin:3px 0 1px 0;">0W</div>
+                  <div style="color:#555;font-size:8.5px;font-weight:700;">Losses 0 • Pushes 0 • Win rate 0.0%</div>
                 </div>
-                <div style="background:#151515;border:1px solid #222;border-top:3px solid #ffa500;padding:12px;">
-                  <div style="color:#777;font-size:9px;font-weight:900;text-transform:uppercase;">Model Status</div>
-                  <div style="font-size:16px;font-weight:900;color:#ffa500;margin:6px 0;">SHADOW MODE</div>
-                  <div style="color:#555;font-size:9px;">Need 30 settled matches to verify</div>
+                <div style="background:#151515;border:1px solid #222;border-top:3px solid #ccc;padding:10px;">
+                  <div style="color:#888;font-size:8.5px;font-weight:900;text-transform:uppercase;">Active Picks</div>
+                  <div style="font-size:18px;font-weight:900;color:#fff;margin:3px 0 1px 0;">0</div>
+                  <div style="color:#555;font-size:8.5px;font-weight:700;">Current model engine_v2_final</div>
                 </div>
               </div>
-              <div style="background:#111;border:1px solid #222;padding:12px;">
-                <div style="color:#fff;font-size:11px;font-weight:900;text-transform:uppercase;border-bottom:1px solid #222;padding-bottom:6px;margin-bottom:8px;">🎯 Measurement Lab</div>
-                <div style="color:#888;font-size:10px;line-height:1.4;">
-                  This is your system's Calibration Sandbox. Once you start saving table tennis picks to the tracker, the learning engine will analyze:
-                  <ul style="margin:6px 0 0 15px;padding:0;">
-                    <li>Setka Cup vs TT Cup accuracy.</li>
-                    <li>Points Over vs Points Under efficiency.</li>
-                    <li>Player-specific streak biases.</li>
-                  </ul>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                <div style="background:#151515;border:1px solid #222;border-top:3px solid #ccc;padding:10px;">
+                  <div style="color:#888;font-size:8.5px;font-weight:900;text-transform:uppercase;">Settled Picks</div>
+                  <div style="font-size:18px;font-weight:900;color:#fff;margin:3px 0 1px 0;">0</div>
+                  <div style="color:#555;font-size:8.5px;font-weight:700;">Checkpoint target 30</div>
+                </div>
+                <div style="background:#151515;border:1px solid #222;border-top:3px solid #ccc;padding:10px;">
+                  <div style="color:#888;font-size:8.5px;font-weight:900;text-transform:uppercase;">Review Status</div>
+                  <div style="font-size:18px;font-weight:900;color:#fff;margin:3px 0 1px 0;">Building</div>
+                  <div style="color:#555;font-size:8.5px;font-weight:700;">Current version only</div>
+                </div>
+              </div>
+
+              <!-- CHECKPOINT REVIEW -->
+              <div style="background:#151515;border:1px solid #222;margin-bottom:12px;box-sizing:border-box;">
+                <div style="padding:6px 8px;border-bottom:1px solid #222;font-size:9px;font-weight:900;text-transform:uppercase;color:#888;">Checkpoint Review</div>
+                <div style="padding:10px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:11px;font-weight:900;color:#fff;">Checkpoint</span>
+                    <span style="background:#222;color:#888;border:1px solid #333;font-size:8px;padding:2px 5px;font-weight:900;">WATCHING</span>
+                  </div>
+                  <div style="font-size:10px;font-weight:800;color:#fff;margin-bottom:4px;">COLLECT MORE — 0/30 settled picks collected so far.</div>
+                  <div style="font-size:9px;color:#555;font-weight:700;">30 more settled picks are needed before the tracker can give a full review.</div>
+                </div>
+              </div>
+
+              <!-- MEASUREMENT LAB -->
+              <div style="background:#151515;border:1px solid #222;margin-bottom:12px;">
+                <div style="padding:6px 8px;border-bottom:1px solid #222;font-size:9px;font-weight:900;text-transform:uppercase;color:#888;">Measurement Lab</div>
+                <div style="padding:10px;">
+                  <div style="color:#555;font-size:9px;font-weight:700;margin-bottom:6px;">Tracked-pick evidence only</div>
+                  <table style="width:100%;font-size:8.5px;line-height:1.2;border-collapse:collapse;border:1px solid #222;">
+                    <thead>
+                      <tr style="background:#111;">
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;text-align:left;">Experiment</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Games</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Settled</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Wins</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Losses</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Win rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style="padding:4px;border:1px solid #222;text-align:left;">All tracked picks</td>
+                        <td style="padding:4px;border:1px solid #222;text-align:center;">0</td>
+                        <td style="padding:4px;border:1px solid #222;text-align:center;">0</td>
+                        <td style="padding:4px;border:1px solid #222;text-align:center;">0</td>
+                        <td style="padding:4px;border:1px solid #222;text-align:center;">0</td>
+                        <td style="padding:4px;border:1px solid #222;text-align:center;">—</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -724,7 +774,7 @@
           const emptyMsg = _showOnlyErrors ? 'No suspects arrested. The code is clean.' : 'No log entries yet. Select a league.';
           const filterLabel = `🛰️ LEVEL: ${_currentLogLevel}`;
 
-          panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div>' + driftHtml + '<div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>🛰️ FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
+          panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div><div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>🛰️ FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
         }
       }
 
