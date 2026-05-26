@@ -548,8 +548,9 @@
       const LOG_LIMIT = 600;
       let _log = [];
       let _isOpen = false;
-      let _currentLogLevel = 'ALL'; // Can be 'ALL', 'WARN', 'ERROR'
-      let _activeView = 'logs'; // Can be 'logs' or 'report'
+      let _showOnlyErrors = true; 
+      let _currentLogLevel = 'ERROR';
+      let _activeView = 'logs'; // 'logs' or 'report'
 
       const LEVELS = {
         BOOT:    { color:'#7aa6ff' }, NET:     { color:'#4ea9ff' },
@@ -610,6 +611,7 @@
       function toggleFilter() {
         const levels = ['ALL', 'WARN', 'ERROR'];
         _currentLogLevel = levels[(levels.indexOf(_currentLogLevel) + 1) % levels.length];
+        _showOnlyErrors = _currentLogLevel !== 'ALL';
         _render();
       }
 
@@ -637,7 +639,7 @@
             setTimeout(() => { if (btnEl) btnEl.innerHTML = origText; }, 1500);
           }
         } catch(e) {
-          alert('Clipboard blocked — printed to console');
+          log('WARN','AFDB','Clipboard blocked — printed to console');
         }
       }
 
@@ -705,8 +707,8 @@
           `;
         } else {
           // --- LOG VIEW (WITH FULL FILTER LOGIC WORKING) ---
-          const filtered = _getFilteredLogs();
-          const logRows = filtered.map(e => {
+          const visibleLogs = _getFilteredLogs();
+          const logRows = visibleLogs.map(e => {
             const def = LEVELS[e.level] || LEVELS.INFO;
             const icon = ICONS[e.level] || '•';
             let dataHtml = '';
