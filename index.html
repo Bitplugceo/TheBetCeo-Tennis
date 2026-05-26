@@ -712,12 +712,6 @@
             // Handle AllOrigins wrapping style
             const finalData = data.contents ? JSON.parse(data.contents) : data;
             
-            // CHECK FOR HIDDEN ERROR PAYLOADS (The primary block fix)
-            if (finalData && (finalData.error || finalData.message === "Forbidden" || (!finalData.events && url.includes("scheduled-events")))) {
-              AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy returned an error payload. Continuing rotation...`);
-              continue; // Do NOT stop here! Keep rotating!
-            }
-            
             // Log target keys to Microscope to diagnose empty responses
             const keys = Object.keys(finalData);
             AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
@@ -1519,6 +1513,12 @@
 
       const overPctMatch = (matchOverHits / totalSimRuns) * 100;
       const overPctSet1 = (set1OverHits / totalSimRuns) * 100;
+
+      const projectedTotalMatchPoints = totalMatchPointsSimulated / totalSimRuns;
+      const projectedTotalSet1Points = totalSet1PointsSimulated / totalSimRuns;
+
+      const overPctTotalMatch = (matchOverHits / totalSimRuns) * 100;
+      const overPctTotalSet1 = (set1OverHits / totalSimRuns) * 100;
 
       AFDB.log('SUCCESS', 'ENGINE', `10,000 matches successfully simulated! Projected Match Points: ${projectedMatchPoints.toFixed(1)}, Set 1: ${projectedSet1Points.toFixed(1)}`);
 
