@@ -554,7 +554,7 @@
       </select>
     </div>
 
-    <!-- Section 2: Auto-Fetch -->
+        <!-- Section 2: Auto-Fetch -->
     <div class="section" id="fetchSection" style="display:none;">
       <h3>⚡ Sofascore Auto-Fetch</h3>
       <div id="fixtureToolbar" class="fixture-toolbar">
@@ -567,11 +567,31 @@
         <option value="">- Select match -</option>
       </select>
 
-      <label>Player A Name (Home)</label>
-      <input id="playerAName" placeholder="Player A" />
+      <!-- Player A Controls -->
+      <div style="margin-bottom: 12px; border-bottom: 1px dashed var(--panel-border); padding-bottom: 10px;">
+        <label>Player A Name (Home)</label>
+        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+          <input id="playerAName" placeholder="Player A" style="margin-bottom:0;" />
+          <button type="button" onclick="searchPlayerSafari('A')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <input id="playerAId" placeholder="Enter Numerical ID" oninput="updateHelperLinks('A')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
+          <a id="playerALink" href="#" target="_blank" style="color:#4ea9ff; font-size:10px; font-weight:800; text-decoration:underline; display:none; white-space:nowrap;">🔗 Open JSON A</a>
+        </div>
+      </div>
 
-      <label>Player B Name (Away)</label>
-      <input id="playerBName" placeholder="Player B" />
+      <!-- Player B Controls -->
+      <div style="margin-bottom: 12px; border-bottom: 1px dashed var(--panel-border); padding-bottom: 10px;">
+        <label>Player B Name (Away)</label>
+        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+          <input id="playerBName" placeholder="Player B" style="margin-bottom:0;" />
+          <button type="button" onclick="searchPlayerSafari('B')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <input id="playerBId" placeholder="Enter Numerical ID" oninput="updateHelperLinks('B')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
+          <a id="playerBLink" href="#" target="_blank" style="color:#4ea9ff; font-size:10px; font-weight:800; text-decoration:underline; display:none; white-space:nowrap;">🔗 Open JSON B</a>
+        </div>
+      </div>
 
       <button class="fetch-btn" id="fetchBtn" type="button" onclick="fetchMatchStats()">📡 Fetch Stats</button>
       
@@ -967,238 +987,7 @@
         section.innerHTML = "";
         section.appendChild(btn);
         section.appendChild(body);
-        section.classList.add("collapsed");
-        section.dataset.collapsibleReady = "1";
-      });
-    }
 
-    function onLeagueChange() {
-      const league = document.getElementById("leagueSelect").value;
-      const fetchSection = document.getElementById("fetchSection");
-      if (league) {
-        fetchSection.classList.remove("collapsed");
-        fetchSection.style.display = "block";
-        loadFixtures();
-      } else {
-        fetchSection.style.display = "none";
-      }
-    }
-
-    function setFixtureDayOffset(offset) {
-      currentDayOffset = offset;
-      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
-      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
-      loadFixtures();
-    }
-
-    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
-    async function proxyFetch(url) {
-      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
-      
-      try {
-        // Attempt 1: Try your primary Cloudflare Worker
-        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
-        const response = await fetch(proxyUrl);
-        
-        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
-        
-        if (response.status === 403) {
-          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
-          return await rotateAndFetch(url); // Rotate fallback!
-        }
-        
-        if (!response.ok) {
-          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
-        return data;
-      } catch (err) {
-        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
-        return await rotateAndFetch(url);
-      }
-    }
-
-    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
-    async function rotateAndFetch(url) {
-      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
-        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
-        const rotatedUrl = baseProxy + encodeURIComponent(url);
-        
-        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
-        
-        try {
-          const response = await fetch(rotatedUrl);
-          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
-          
-          if (response.ok) {
-            const data = await response.json();
-            // Handle AllOrigins wrapping style
-            const finalData = data.contents ? JSON.parse(data.contents) : data;
-            
-            // Log target keys to Microscope to diagnose empty responses
-            const keys = Object.keys(finalData);
-            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
-            
-            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
-            return finalData;
-          }
-        } catch (err) {
-          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
-        }
-      }
-      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
-    }
-
-    function getLocalDateKey(offset = 0) {
-      const d = new Date();
-      d.setDate(d.getDate() + offset);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${day}`;
-    }
-
-    // Fetch and Filter SofaScore table tennis events
-    async function loadFixtures() {
-      const leagueFilter = document.getElementById("leagueSelect").value;
-      const select = document.getElementById("fixtureSelect");
-      if (!select || !leagueFilter) return;
-
-      select.innerHTML = "<option value=''>Loading matches...</option>";
-      
-      const dateStr = getLocalDateKey(currentDayOffset);
-      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
-
-      try {
-        const data = await proxyFetch(url);
-        const events = data.events || [];
-        
-        // Filter events for "Setka Cup" or "TT Cup"
-        const filtered = events.filter(ev => {
-          const tName = ev.tournament?.name || "";
-          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
-        });
-
-        AFDB.log('ENGINE', 'FILTER', `Found ${events.length} total TT events. Filtered down to ${filtered.length} for ${leagueFilter}.`);
-
-        if (filtered.length === 0) {
-          select.innerHTML = "<option value=''>No matches found</option>";
-          return;
-        }
-
-        select.innerHTML = "<option value=''>- Select match -</option>";
-        filtered.forEach(ev => {
-          const home = ev.homeTeam?.name || "Player A";
-          const away = ev.awayTeam?.name || "Player B";
-          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
-          
-          const opt = document.createElement("option");
-          opt.value = ev.id;
-          opt.textContent = `${time} — ${home} vs ${away}`;
-          opt.dataset.home = home;
-          opt.dataset.away = away;
-          opt.dataset.homeId = ev.homeTeam?.id || "";
-          opt.dataset.awayId = ev.awayTeam?.id || "";
-          select.appendChild(opt);
-        });
-
-      } catch (err) {
-        select.innerHTML = "<option value=''>Error loading matches</option>";
-        AFDB.log('ERROR', 'FIXTURES', `Failed to load scheduled matches: ${err.message}`);
-      }
-    }
-
-    function onFixtureSelect() {
-      const select = document.getElementById("fixtureSelect");
-      const opt = select.options[select.selectedIndex];
-      if (!opt || !opt.value) {
-        selectedFixtureData = null;
-        return;
-      }
-      
-      selectedFixtureData = {
-        eventId: opt.value,
-        homeId: opt.dataset.homeId,
-        awayId: opt.dataset.awayId,
-        homeName: opt.dataset.home,
-        awayName: opt.dataset.away
-      };
-
-      document.getElementById("playerAName").value = selectedFixtureData.homeName;
-      document.getElementById("playerBName").value = selectedFixtureData.awayName;
-      AFDB.log('ENGINE', 'FIXTURE', `Match selected: ${selectedFixtureData.homeName} vs ${selectedFixtureData.awayName}`, selectedFixtureData);
-    }
-
-    // Extract set-by-set stats & populate forms automatically
-    async function fetchMatchStats() {
-      if (!selectedFixtureData) {
-        alert("Please select a match first.");
-        return;
-      }
-
-      const statusEl = document.getElementById("fetchStatus");
-      statusEl.className = "status-loading";
-      statusEl.textContent = "📡 Fetching stats...";
-
-      try {
-        const homeId = selectedFixtureData.homeId;
-        const awayId = selectedFixtureData.awayId;
-
-        // Fetch last matches for Player A and Player B in parallel
-        AFDB.log('FETCH', 'STATS', `Starting parallel historical and H2H fetch for player IDs: A=${homeId}, B=${awayId}`);
-        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
-          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
-          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
-          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
-        ]);
-
-        // Parse point scoring profiles
-        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
-        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
-
-        // Populate Player A Form (raw sets)
-        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
-        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
-
-        // Populate Player B Form (raw sets)
-        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
-        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
-
-        // Parse and populate H2H Form
-        const h2hMatches = h2hHistory.history || [];
-        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} historical H2H matches.`);
-        
-        if (h2hMatches.length >= 2) {
-          const setsA = [];
-          const setsB = [];
-          
-          h2hMatches.slice(0, 5).forEach(m => {
-            const isAHome = String(m.homeTeam?.id) === String(homeId);
-            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
-            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
-            if (scoreA !== undefined && scoreB !== undefined) {
-              setsA.push(scoreA);
-              setsB.push(scoreB);
-            }
-          });
-
-          document.getElementById("h2hSetsA").value = setsA.join(",");
-          document.getElementById("h2hSetsB").value = setsB.join(",");
-          document.getElementById("useFTH2H").checked = true;
-        } else {
-          document.getElementById("h2hSetsA").value = "";
-          document.getElementById("h2hSetsB").value = "";
-          document.getElementById("useFTH2H").checked = false;
-        }
-
-        statusEl.className = "status-ok";
-        statusEl.textContent = "✅ Stats successfully loaded!";
-
-        // Open up closed data segments automatically so user can review them
-        document.getElementById("marketSection").classList.remove("collapsed");
-        document.getElementById("playerASection").classList.remove("collapsed");
         document.getElementById("playerBSection").classList.remove("collapsed");
         document.getElementById("h2hSection").classList.remove("collapsed");
 
@@ -5319,6 +5108,31 @@
       }
     }
     applySavedTheme();
+
+    // Helper to search player in SofaScore natively with one click
+    function searchPlayerSafari(side) {
+      const name = document.getElementById(side === "A" ? "playerAName" : "playerBName").value.trim();
+      if (!name) {
+        alert("Please enter a player name first.");
+        return;
+      }
+      const searchUrl = `https://api.sofascore.com/api/v1/search/all?q=${encodeURIComponent(name)}`;
+      window.open(searchUrl, "_blank");
+    }
+
+    // Helper to generate direct SofaScore team API links on the fly
+    function updateHelperLinks(side) {
+      const idInput = document.getElementById(side === "A" ? "playerAId" : "playerBId");
+      const linkEl = document.getElementById(side === "A" ? "playerALink" : "playerBLink");
+      const idVal = idInput.value.trim();
+
+      if (idVal && /^\d+$/.test(idVal)) {
+        linkEl.href = `https://api.sofascore.com/api/v1/team/${idVal}/events/last/0`;
+        linkEl.style.display = "inline-block";
+      } else {
+        linkEl.style.display = "none";
+      }
+    }
 
     document.addEventListener("DOMContentLoaded", () => {
       applySavedTheme();
