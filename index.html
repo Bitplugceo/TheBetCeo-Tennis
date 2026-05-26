@@ -123,7 +123,7 @@
       letter-spacing: 1.5px !important;
       color: rgba(255, 255, 255, 0.85) !important;
       text-transform: uppercase !important;
-      cursor: pointer !important;
+      cursor: pointer;
     }
 
     .wrapper {
@@ -227,6 +227,19 @@
       outline: none;
       border-color: #4aa346;
       box-shadow: 0 0 0 2px rgba(74, 163, 70, 0.12);
+    }
+
+    input[type="checkbox"] {
+      width: 12px !important;
+      height: 12px !important;
+      min-width: 12px !important;
+      min-height: 12px !important;
+      max-width: 12px !important;
+      max-height: 12px !important;
+      margin-right: 6px !important;
+      vertical-align: middle !important;
+      appearance: checkbox !important;
+      -webkit-appearance: checkbox !important;
     }
 
     button {
@@ -388,8 +401,8 @@
       <label>Select League</label>
       <select id="leagueSelect" onchange="onLeagueChange()">
         <option value="">- Select League -</option>
-        <option value="setka">Setka Cup (International)</option>
-        <option value="ttcup">TT Cup (International)</option>
+        <option value="Setka Cup">Setka Cup (International)</option>
+        <option value="TT Cup">TT Cup (International)</option>
       </select>
     </div>
 
@@ -397,8 +410,8 @@
     <div class="section" id="fetchSection" style="display:none;">
       <h3>⚡ Sofascore Auto-Fetch</h3>
       <div id="fixtureToolbar" class="fixture-toolbar">
-        <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
-        <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
+        <button type="button" class="fixture-day active" id="fixturesTodayBtn" onclick="setFixtureDayOffset(0)">Today</button>
+        <button type="button" class="fixture-day" id="fixturesTomorrowBtn" onclick="setFixtureDayOffset(1)">Tomorrow</button>
       </div>
 
       <label id="fixtureSelectLabel">Select match</label>
@@ -464,7 +477,10 @@
     <!-- Section 6: H2H Form -->
     <div class="section" id="h2hSection">
       <h3>H2H Form</h3>
-      <label><input type="checkbox" id="useFTH2H" /> Use H2H Sets History</label>
+      <label style="font-size:11px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; color:var(--section-toggle-text); margin-bottom:8px;">
+        <input type="checkbox" id="useFTH2H" />
+        Use H2H Sets History
+      </label>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <input id="h2hSetsA" placeholder="Player A Sets Won (e.g., 3,2,1)" />
         <input id="h2hSetsB" placeholder="Player B Sets Won (e.g., 1,3,3)" />
@@ -496,6 +512,11 @@
   </div>
 
   <script>
+    // Constants & Global State
+    const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+    let currentDayOffset = 0;
+    let selectedFixtureData = null;
+
     // Theme Toggle
     const themeToggleBtn = document.getElementById("themeToggleBtn");
     themeToggleBtn.addEventListener("click", () => {
@@ -545,17 +566,211 @@
       if (league) {
         fetchSection.classList.remove("collapsed");
         fetchSection.style.display = "block";
+        loadFixtures();
       } else {
         fetchSection.style.display = "none";
       }
     }
 
-    function onFixtureSelect() {
-      // Placeholder for next step
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      document.getElementById("fixturesTodayBtn").classList.toggle("active", offset === 0);
+      document.getElementById("fixturesTomorrowBtn").classList.toggle("active", offset === 1);
+      loadFixtures();
     }
 
-    function fetchMatchStats() {
-      // Placeholder for next step
+    // Proxy helper using your Worker
+    async function proxyFetch(url) {
+      const response = await fetch(WORKER_URL + "?url=" + encodeURIComponent(url));
+      if (!response.ok) throw new Error("HTTP error " + response.status);
+      return response.json();
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // Step 2: Fetch and Filter SofaScore table tennis events
+    async function loadFixtures() {
+      const leagueFilter = document.getElementById("leagueSelect").value;
+      const select = document.getElementById("fixtureSelect");
+      if (!select || !leagueFilter) return;
+
+      select.innerHTML = "<option value=''>Loading matches...</option>";
+      
+      const dateStr = getLocalDateKey(currentDayOffset);
+      const url = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+
+      try {
+        const data = await proxyFetch(url);
+        const events = data.events || [];
+        
+        // Filter events for "Setka Cup" or "TT Cup"
+        const filtered = events.filter(ev => {
+          const tName = ev.tournament?.name || "";
+          return tName.toLowerCase().includes(leagueFilter.toLowerCase());
+        });
+
+        if (filtered.length === 0) {
+          select.innerHTML = "<option value=''>No matches found</option>";
+          return;
+        }
+
+        select.innerHTML = "<option value=''>- Select match -</option>";
+        filtered.forEach(ev => {
+          const home = ev.homeTeam?.name || "Player A";
+          const away = ev.awayTeam?.name || "Player B";
+          const time = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+          
+          const opt = document.createElement("option");
+          opt.value = ev.id;
+          opt.textContent = `${time} — ${home} vs ${away}`;
+          opt.dataset.home = home;
+          opt.dataset.away = away;
+          opt.dataset.homeId = ev.homeTeam?.id || "";
+          opt.dataset.awayId = ev.awayTeam?.id || "";
+          select.appendChild(opt);
+        });
+
+      } catch (err) {
+        console.error(err);
+        select.innerHTML = "<option value=''>Error loading matches</option>";
+      }
+    }
+
+    function onFixtureSelect() {
+      const select = document.getElementById("fixtureSelect");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        selectedFixtureData = null;
+        return;
+      }
+      
+      selectedFixtureData = {
+        eventId: opt.value,
+        homeId: opt.dataset.homeId,
+        awayId: opt.dataset.awayId,
+        homeName: opt.dataset.home,
+        awayName: opt.dataset.away
+      };
+
+      document.getElementById("playerAName").value = selectedFixtureData.homeName;
+      document.getElementById("playerBName").value = selectedFixtureData.awayName;
+    }
+
+    // Step 2: Extract set-by-set stats & populate forms automatically
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) {
+        alert("Please select a match first.");
+        return;
+      }
+
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+
+        // Fetch last matches for Player A and Player B in parallel
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/player/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/player/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+
+        // Parse point scoring profiles
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId);
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId);
+
+        // Populate Player A Form
+        document.getElementById("playerAPointsScored").value = statsA.avgScored.toFixed(1);
+        document.getElementById("playerAPointsAllowed").value = statsA.avgAllowed.toFixed(1);
+
+        // Populate Player B Form
+        document.getElementById("playerBPointsScored").value = statsB.avgScored.toFixed(1);
+        document.getElementById("playerBPointsAllowed").value = statsB.avgAllowed.toFixed(1);
+
+        // Parse and populate H2H Form
+        const h2hMatches = h2hHistory.history || [];
+        if (h2hMatches.length >= 2) {
+          const setsA = [];
+          const setsB = [];
+          
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) {
+              setsA.push(scoreA);
+              setsB.push(scoreB);
+            }
+          });
+
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+
+        // Open up closed data segments automatically so user can review them
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+        document.getElementById("h2hSection").classList.remove("collapsed");
+
+      } catch (err) {
+        console.error(err);
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Try again.";
+      }
+    }
+
+    // Helper to calculate average points won/lost per set
+    function processPlayerPoints(events, playerId) {
+      let totalSets = 0;
+      let totalScored = 0;
+      let totalAllowed = 0;
+
+      // Scan up to 5 completed matches
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+
+      completed.forEach(ev => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+
+        if (myScoreObj && oppScoreObj) {
+          // Loop through up to 5 sets
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            
+            if (mySet !== undefined && oppSet !== undefined) {
+              totalScored += mySet;
+              totalAllowed += oppSet;
+              totalSets++;
+            }
+          }
+        }
+      });
+
+      return {
+        avgScored: totalSets > 0 ? (totalScored / totalSets) : 9.8,
+        avgAllowed: totalSets > 0 ? (totalAllowed / totalSets) : 9.4
+      };
     }
 
     function runEngine() {
