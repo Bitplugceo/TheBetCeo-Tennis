@@ -556,16 +556,8 @@
 
         <!-- Section 2: Auto-Fetch -->
     <div class="section" id="fetchSection" style="display:none;">
-      <h3>⚡ Sofascore Auto-Fetch</h3>
-      <div id="fixtureToolbar" class="fixture-toolbar">
-        <button type="button" class="fixture-day active" id="fixturesTodayBtn" onclick="setFixtureDayOffset(0)">Today</button>
-        <button type="button" class="fixture-day" id="fixturesTomorrowBtn" onclick="setFixtureDayOffset(1)">Tomorrow</button>
-      </div>
+      <h3>🔍 Player Lookup</h3>
 
-      <label id="fixtureSelectLabel">Select match</label>
-      <select id="fixtureSelect" onchange="onFixtureSelect()">
-        <option value="">- Select match -</option>
-      </select>
 
       <!-- Player A Controls -->
       <div style="margin-bottom: 12px; border-bottom: 1px dashed var(--panel-border); padding-bottom: 10px;">
@@ -593,7 +585,7 @@
         </div>
       </div>
 
-      <button class="fetch-btn" id="fetchBtn" type="button" onclick="fetchMatchStats()">📡 Fetch Stats</button>
+
       
       <!-- Failsafe Manual JSON Input Section -->
       <div id="failsafeSection" style="margin-top: 10px; border-top: 1px dashed var(--panel-border); padding-top: 10px;">
@@ -706,6 +698,8 @@
 
     let currentDayOffset = 0;
     let selectedFixtureData = null;
+    let _clipboardPhase = { A: null, B: null };
+    let _clipboardReady = true;
 
     // --- BB UNKILLABLE AFDB DEBUG BRAIN (COPIED EXACTLY FROM BASKETBALL ENGINE) ---
     const AFDB = (function() {
@@ -5111,7 +5105,13 @@
       }
       const searchName = rawName.split(",")[0].trim();
       const searchUrl = `https://api.sofascore.com/api/v1/search/all?q=${encodeURIComponent(searchName)}`;
+      _clipboardPhase[side] = 'search';
+      _clipboardReady = false;
+      setTimeout(() => { _clipboardReady = true; }, 2500);
       window.open(searchUrl, "_blank");
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "loading";
+      statusEl.textContent = `🔍 Search open for Player ${side} — copy all text in Safari, then return here.`;
     }
 
     // Helper to generate direct SofaScore team API links on the fly
@@ -5123,8 +5123,134 @@
       if (idVal && /^\d+$/.test(idVal)) {
         linkEl.href = `https://api.sofascore.com/api/v1/team/${idVal}/events/last/0`;
         linkEl.style.display = "inline-block";
+        linkEl.onclick = () => _openStatsForPlayer(side, idVal, document.getElementById(side === "A" ? "playerAName" : "playerBName").value.trim());
       } else {
         linkEl.style.display = "none";
+      }
+    }
+
+    function _openStatsForPlayer(side, teamId, playerName) {
+      const statsUrl = `https://api.sofascore.com/api/v1/team/${teamId}/events/last/0`;
+      _clipboardPhase[side] = 'stats';
+      _clipboardReady = false;
+      setTimeout(() => { _clipboardReady = true; }, 2500);
+      window.open(statsUrl, '_blank');
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "loading";
+      statusEl.textContent = `📡 ${playerName || 'Player ' + side} stats open — reload in Safari if forbidden, copy all, then return.`;
+      AFDB.log('ENGINE', 'AUTOFILL', `Stats URL opened for ${playerName} (ID: ${teamId})`);
+    }
+
+    function showPlayerPicker(side, candidates) {
+      const existing = document.getElementById('playerPickerOverlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'playerPickerOverlay';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:flex-end;padding-bottom:env(safe-area-inset-bottom);';
+
+      const sheet = document.createElement('div');
+      sheet.style.cssText = 'background:var(--panel);width:100%;max-height:65vh;overflow-y:auto;padding:14px;box-sizing:border-box;';
+      sheet.innerHTML = `<div style="font-size:11px;font-weight:900;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.8px;">Multiple players found — pick Player ${side}</div>`;
+
+      candidates.slice(0, 12).forEach(c => {
+        const btn = document.createElement('button');
+        btn.style.cssText = 'width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:var(--panel-soft);border:1px solid var(--panel-border);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;';
+        const flag = c.country ? ` · ${c.country}` : '';
+        btn.innerHTML = `<span>${c.name}${flag}</span><span style="color:var(--muted);font-size:10px;font-weight:800;">ID ${c.id}</span>`;
+        btn.onclick = () => {
+          overlay.remove();
+          document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = c.id;
+          document.getElementById(side === 'A' ? 'playerAName' : 'playerBName').value = c.name;
+          updateHelperLinks(side);
+          _openStatsForPlayer(side, c.id, c.name);
+        };
+        sheet.appendChild(btn);
+      });
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.style.cssText = 'width:100%;padding:10px;background:#c91920;color:#fff;border:none;font-size:12px;font-weight:800;cursor:pointer;margin-top:6px;';
+      cancelBtn.textContent = '✕  Cancel';
+      cancelBtn.onclick = () => { overlay.remove(); _clipboardPhase[side] = null; };
+      sheet.appendChild(cancelBtn);
+
+      overlay.appendChild(sheet);
+      document.body.appendChild(overlay);
+    }
+
+    async function autoClipboardParse(side) {
+      if (!_clipboardReady) return;
+      const phase = _clipboardPhase[side];
+      if (!phase) return;
+
+      const statusEl = document.getElementById("fetchStatus");
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text || text.length < 10) return;
+
+        if (phase === 'search') {
+          const parsed = JSON.parse(text);
+          const results = parsed.results || [];
+          const teamResults = results
+            .filter(r => r.type === 'team')
+            .map(r => ({
+              id: String(r.entity.id),
+              name: r.entity.name || '',
+              country: r.entity.country?.name || ''
+            }));
+
+          _clipboardPhase[side] = null;
+
+          if (teamResults.length === 0) {
+            statusEl.className = "err";
+            statusEl.textContent = `❌ No players found. Try a shorter search name.`;
+            return;
+          }
+
+          if (teamResults.length === 1) {
+            const p = teamResults[0];
+            document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = p.id;
+            document.getElementById(side === 'A' ? 'playerAName' : 'playerBName').value = p.name;
+            updateHelperLinks(side);
+            _openStatsForPlayer(side, p.id, p.name);
+          } else {
+            showPlayerPicker(side, teamResults);
+          }
+
+        } else if (phase === 'stats') {
+          if (!text.includes('"events"')) return;
+          const parsed = JSON.parse(text);
+          const events = parsed.events || [];
+          if (events.length === 0) return;
+
+          const idVal = document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value.trim();
+          if (!idVal) {
+            statusEl.className = "err";
+            statusEl.textContent = `❌ No Player ${side} ID. Run search again.`;
+            _clipboardPhase[side] = null;
+            return;
+          }
+
+          const stats = processPlayerPoints(events, idVal, `Player ${side}`);
+          if (side === 'A') {
+            document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+            document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          } else {
+            document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+            document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          }
+
+          document.getElementById("marketSection").classList.remove("collapsed");
+          document.getElementById("playerASection").classList.remove("collapsed");
+          document.getElementById("playerBSection").classList.remove("collapsed");
+
+          statusEl.className = "ok";
+          statusEl.textContent = `✅ Player ${side} stats auto-filled!`;
+          AFDB.log('SUCCESS', 'AUTOFILL', `Player ${side} form filled from stats JSON.`);
+          _clipboardPhase[side] = null;
+        }
+      } catch(e) {
+        AFDB.log('WARN', 'AUTOFILL', `Clipboard relay skipped: ${e.message}`);
       }
     }
 
@@ -5133,7 +5259,15 @@
       makeSectionsCollapsible();
       document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
       document.getElementById("leagueSection").classList.remove("collapsed");
-      
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && _clipboardReady) {
+          ['A', 'B'].forEach(side => {
+            if (_clipboardPhase[side]) autoClipboardParse(side);
+          });
+        }
+      });
+
       AFDB.log('BOOT', 'ENGINE', `Table Tennis Engine successfully initialized. Session ID: sess_${Date.now()}`);
     });
   </script>
