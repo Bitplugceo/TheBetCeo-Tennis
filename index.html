@@ -531,7 +531,15 @@
 
   <script>
     // Constants & Global State
-    const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+    const PRIMARY_WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+    
+    // Self-Healing Proxy fallback array to bypass SofaScore 403 blocks
+    const PROXY_ROTATION_FALLBACKS = [
+      "https://api.codetabs.com/v1/proxy?quest=",
+      "https://api.allorigins.win/raw?url=",
+      "https://thingproxy.freeboard.io/fetch/"
+    ];
+
     let currentDayOffset = 0;
     let selectedFixtureData = null;
 
@@ -540,8 +548,8 @@
       const LOG_LIMIT = 600;
       let _log = [];
       let _isOpen = false;
-      let _showOnlyErrors = true; 
-      let _currentLogLevel = 'ERROR';
+      let _currentLogLevel = 'ALL'; // Can be 'ALL', 'WARN', 'ERROR'
+      let _activeView = 'logs'; // Can be 'logs' or 'report'
 
       const LEVELS = {
         BOOT:    { color:'#7aa6ff' }, NET:     { color:'#4ea9ff' },
@@ -599,8 +607,19 @@
         if (ov) ov.style.display = 'none';
       }
 
+      function toggleFilter() {
+        const levels = ['ALL', 'WARN', 'ERROR'];
+        _currentLogLevel = levels[(levels.indexOf(_currentLogLevel) + 1) % levels.length];
+        _render();
+      }
+
+      function toggleView() {
+        _activeView = _activeView === 'logs' ? 'report' : 'logs';
+        _render();
+      }
+
       function copy(btnEl) {
-        const visibleLogs = _showOnlyErrors ? _log.filter(e => e.level === 'ERROR' || e.level === 'WARN' || e.level === 'VERDICT') : _log;
+        const visibleLogs = _getFilteredLogs();
         const textArr = visibleLogs.slice().reverse().map(e => {
           let line = '[' + e.ts + '] [' + e.level + '] [' + e.section + '] ' + e.msg;
           if (e.data !== null) {
@@ -618,7 +637,7 @@
             setTimeout(() => { if (btnEl) btnEl.innerHTML = origText; }, 1500);
           }
         } catch(e) {
-          log('WARN','AFDB','Clipboard blocked — printed to console');
+          alert('Clipboard blocked — printed to console');
         }
       }
 
@@ -634,39 +653,87 @@
         }
       }
 
+      function _getFilteredLogs() {
+        return _log.filter(e => {
+          if (_currentLogLevel === 'ALL') return true;
+          if (_currentLogLevel === 'WARN') return e.level === 'WARN' || e.level === 'ERROR' || e.level === 'VERDICT';
+          if (_currentLogLevel === 'ERROR') return e.level === 'ERROR' || e.level === 'VERDICT';
+          return true;
+        });
+      }
+
       function _render() {
         const panel = document.getElementById('afdbPanel');
         if (!panel) return;
 
-        const visibleLogs = _showOnlyErrors ? _log.filter(e => e.level === 'ERROR' || e.level === 'WARN' || e.level === 'VERDICT') : _log;
-        const logRows = _log.map(e => {
-          const def = LEVELS[e.level] || LEVELS.INFO;
-          const icon = ICONS[e.level] || '•';
-          let dataHtml = '';
-          if (e.data !== null) {
-            let ds;
-            try { ds = typeof e.data === 'object' ? JSON.stringify(e.data, null, 2) : String(e.data); }
-            catch(x) { ds = String(e.data); }
-            dataHtml = '<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;word-break:break-all;">' + esc(ds) + '</pre>';
-          }
-          return '<div style="padding:8px;border-bottom:1px solid #151515;"><div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;"><span style="color:#555;font-size:9px;min-width:65px;flex-shrink:0;">' + esc(e.ts) + '</span><span style="color:' + def.color + ';font-size:10px;font-weight:900;min-width:75px;flex-shrink:0;">' + icon + ' ' + esc(e.level) + '</span><span style="color:#777;font-size:9px;min-width:80px;flex-shrink:0;">[' + esc(e.section) + ']</span><span style="color:' + def.color + ';font-size:11px;font-weight:700;flex:1;white-space:pre-wrap;">' + esc(e.msg) + '</span></div>' + dataHtml + '</div>';
-        }).join('');
-
-        const headerBtns = '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;">📋 Copy Log</button><button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;">🗑️ Clear</button><button onclick="AFDB.runTestFetch()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button><button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ Close</button>';
-        const emptyMsg = _showOnlyErrors ? 'No suspects arrested. The code is clean.' : 'No log entries yet. Select a league.';
-        const filterLabel = `🛰️ LEVEL: ${_currentLogLevel}`;
+        const headerBtns = '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📋 Copy Log</button><button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">🗑️ Clear</button><button onclick="AFDB.runTestFetch()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;box-shadow:0 0 8px rgba(217,31,38,0.4);margin-right:4px;">🚨 MILITARY RAID</button><button onclick="AFDB.toggleView()" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📊</button><button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ Close</button>';
         const driftHtml = '<div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;"><span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📐 DRIFT TRACKER</span><span style="color:#555;font-size:12px;font-weight:900;">Rolling Mean Error (last 20): —</span><span style="color:#555;font-size:10px;">0 samples logged</span></div>';
 
-        panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div>' + driftHtml + '<div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>🛰️ FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
+        if (_activeView === 'report') {
+          // --- THE REPORT VIEW: PERFECT MATCH TO BB SYSTEM REPORT ---
+          panel.innerHTML = `
+            <div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;">
+              <div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">📊 ENGINE SYSTEM REPORT</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">${headerBtns}</div>
+            </div>
+            ${driftHtml}
+            <div style="flex:1;overflow-y:auto;background:#0a0a0a;padding:16px;color:#fff;font-size:12px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px;">
+                <div style="background:#151515;border:1px solid #222;border-top:3px solid #3a9c35;padding:12px;">
+                  <div style="color:#777;font-size:9px;font-weight:900;text-transform:uppercase;">Overall Win Rate</div>
+                  <div style="font-size:22px;font-weight:900;color:#3a9c35;margin:4px 0;">0.0%</div>
+                  <div style="color:#555;font-size:9px;">0 Wins • 0 Losses • 0 Pushes</div>
+                </div>
+                <div style="background:#151515;border:1px solid #222;border-top:3px solid #ffa500;padding:12px;">
+                  <div style="color:#777;font-size:9px;font-weight:900;text-transform:uppercase;">Model Status</div>
+                  <div style="font-size:16px;font-weight:900;color:#ffa500;margin:6px 0;">SHADOW MODE</div>
+                  <div style="color:#555;font-size:9px;">Need 30 settled matches to verify</div>
+                </div>
+              </div>
+              <div style="background:#111;border:1px solid #222;padding:12px;">
+                <div style="color:#fff;font-size:11px;font-weight:900;text-transform:uppercase;border-bottom:1px solid #222;padding-bottom:6px;margin-bottom:8px;">🎯 Measurement Lab</div>
+                <div style="color:#888;font-size:10px;line-height:1.4;">
+                  This is your system's Calibration Sandbox. Once you start saving table tennis picks to the tracker, the learning engine will analyze:
+                  <ul style="margin:6px 0 0 15px;padding:0;">
+                    <li>Setka Cup vs TT Cup accuracy.</li>
+                    <li>Points Over vs Points Under efficiency.</li>
+                    <li>Player-specific streak biases.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          // --- LOG VIEW (WITH FULL FILTER LOGIC WORKING) ---
+          const filtered = _getFilteredLogs();
+          const logRows = filtered.map(e => {
+            const def = LEVELS[e.level] || LEVELS.INFO;
+            const icon = ICONS[e.level] || '•';
+            let dataHtml = '';
+            if (e.data !== null) {
+              let ds;
+              try { ds = typeof e.data === 'object' ? JSON.stringify(e.data, null, 2) : String(e.data); }
+              catch(x) { ds = String(e.data); }
+              dataHtml = '<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;word-break:break-all;">' + esc(ds) + '</pre>';
+            }
+            return '<div style="padding:8px;border-bottom:1px solid #151515;"><div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;"><span style="color:#555;font-size:9px;min-width:65px;flex-shrink:0;">' + esc(e.ts) + '</span><span style="color:' + def.color + ';font-size:10px;font-weight:900;min-width:75px;flex-shrink:0;">' + icon + ' ' + esc(e.level) + '</span><span style="color:#777;font-size:9px;min-width:80px;flex-shrink:0;">[' + esc(e.section) + ']</span><span style="color:' + def.color + ';font-size:11px;font-weight:700;flex:1;white-space:pre-wrap;">' + esc(e.msg) + '</span></div>' + dataHtml + '</div>';
+          }).join('');
+
+          const emptyMsg = _showOnlyErrors ? 'No suspects arrested. The code is clean.' : 'No log entries yet. Select a league.';
+          const filterLabel = `🛰️ LEVEL: ${_currentLogLevel}`;
+
+          panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div>' + driftHtml + '<div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>🛰️ FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
+        }
       }
 
       function toggleFilter() {
-        _showOnlyErrors = !_showOnlyErrors;
-        _currentLogLevel = _showOnlyErrors ? 'ERROR' : 'ALL';
+        const levels = ['ALL', 'WARN', 'ERROR'];
+        _currentLogLevel = levels[(levels.indexOf(_currentLogLevel) + 1) % levels.length];
+        _showOnlyErrors = _currentLogLevel !== 'ALL';
         _render();
       }
 
-      return { log, clear, open, close, copy, toggleFilter, runTestFetch };
+      return { log, clear, open, close, copy, toggleFilter, toggleView, runTestFetch };
     })();
 
     // Dynamic Collapsible Sections
@@ -721,26 +788,59 @@
       loadFixtures();
     }
 
-    // CORS & Cloudflare Worker proxy helper
+    // CORS, 403, and Cloudflare Worker proxy helper with SELF-HEALING ROTATION
     async function proxyFetch(url) {
-      AFDB.log('FETCH', 'PROXY', `Calling proxy for URL: ${url}`);
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      
       try {
-        const proxyUrl = WORKER_URL + "?url=" + encodeURIComponent(url);
+        // Attempt 1: Try your primary Cloudflare Worker
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
         const response = await fetch(proxyUrl);
         
-        AFDB.log('FETCH', 'PROXY', `Proxy HTTP Status: ${response.status}`, { url: proxyUrl });
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url); // Rotate fallback!
+        }
         
         if (!response.ok) {
           throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
         }
         
         const data = await response.json();
-        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response!`);
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
         return data;
       } catch (err) {
-        AFDB.log('ERROR', 'PROXY', `Network Fetch Failed: ${err.message}`, { targetUrl: url });
-        throw err;
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
       }
+    }
+
+    // Loop through alternative open proxies if Cloudflare blocks your Worker IP
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Handle AllOrigins wrapping style
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
     }
 
     function getLocalDateKey(offset = 0) {
