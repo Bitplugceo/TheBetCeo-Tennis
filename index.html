@@ -2762,6 +2762,8 @@ body.dark-mode .tracker-analytics-section-head {
     <div class="tracker-head">
       <span id="trackerHeadTitle">Tracked Picks</span>
       <div class="tracker-head-actions">
+        <!-- [FIXED: TRACKER_INSIGHTS_BTN_MISSING] Button was referenced in setTrackerView/JS but absent from HTML — in-tracker list/report toggle was silently broken. LOCKED: do not remove. -->
+        <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn state-idle" title="Open report" aria-label="Open report">📊 Report</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
     </div>
@@ -4351,10 +4353,7 @@ let g_clearDebug = {
     latestFetchedContext = null;
     fixtureLoadToken += 1;
 
-    const form = document.querySelector(".container");
-    if (form && typeof form.reset === "function") {
-      try { form.reset(); } catch (err) {}
-    }
+    // [FIXED: DEAD_CONTAINER_RESET] .container element never exists in HTML — form.reset() was always skipped. Fields cleared manually in clearIds loop below. LOCKED: do not restore.
 
     const clearIds = [
       "teamAName", "teamBName",
@@ -5770,11 +5769,7 @@ let g_clearDebug = {
 }
 
 
-  function sleep(ms) {
-    return new Promise(function (resolve) {
-      setTimeout(resolve, ms);
-    });
-  }
+  // [FIXED: DEAD_CODE_REMOVED] sleep() removed — zero callers in codebase. LOCKED: do not restore.
 
   function normalizeName(name) {
     return String(name || "")
@@ -6880,10 +6875,19 @@ let g_clearDebug = {
       const eventLevel = (selectedFixtureRecord?.eventLevel) || classifyEventLevel(tournamentName);
       const roundName = (selectedFixtureRecord?.roundName) || "";
       const matchFormat = inferMatchFormat(league, eventLevel);
-      const fatigueA = computeFatigueProfile(recentA10);
-      const fatigueB = computeFatigueProfile(recentB10);
-      const brutalA = computeBrutalMetrics(recentA10, currentSurface);
-      const brutalB = computeBrutalMetrics(recentB10, currentSurface);
+      // [FIXED: FATIGUE_SHARED_SAMPLE_LIMIT] Fatigue and brutal metrics must use each player's
+      // independent 10-match window, NOT the shared-sample-limited recentA10/recentB10.
+      // sharedSampleSize = min(10, A.length, B.length) — if player B has 3 ESPN matches,
+      // player A's series is also truncated to 3, silently undercounting matches7 and longLoad
+      // for player A. Projection inputs still use recentA10/recentB10 (correct — they must be
+      // symmetric). Fatigue/brutal are per-player assessments and must not be cross-limited.
+      // LOCKED: intentional split. Do not merge back to recentA10.
+      const fatigueSeriesA = recentA.slice(0, 10);
+      const fatigueSeriesB = recentB.slice(0, 10);
+      const fatigueA = computeFatigueProfile(fatigueSeriesA);
+      const fatigueB = computeFatigueProfile(fatigueSeriesB);
+      const brutalA = computeBrutalMetrics(fatigueSeriesA, currentSurface);
+      const brutalB = computeBrutalMetrics(fatigueSeriesB, currentSurface);
 
       latestFetchedContext = {
         matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
@@ -6959,7 +6963,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const trackerCloseBtn = qs("trackerCloseBtn");
     if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
 
-
+    // [FIXED: TRACKER_INSIGHTS_BTN_MISSING] Wire in-tracker list/report toggle. LOCKED: do not remove.
+    const trackerInsightsBtn = qs("trackerInsightsBtn");
+    if (trackerInsightsBtn) {
+      trackerInsightsBtn.addEventListener("click", function() {
+        const panel = qs("trackerModal") && qs("trackerModal").querySelector(".tracker-panel");
+        const isAnalytics = panel && panel.classList.contains("analytics-view");
+        setTrackerView(isAnalytics ? "list" : "report");
+      });
+    }
 
     const trackerModal = qs("trackerModal");
     if (trackerModal) {
