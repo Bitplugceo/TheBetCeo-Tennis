@@ -5104,12 +5104,13 @@
 
     // Helper to search player in SofaScore natively with one click
     function searchPlayerSafari(side) {
-      const name = document.getElementById(side === "A" ? "playerAName" : "playerBName").value.trim();
-      if (!name) {
+      const rawName = document.getElementById(side === "A" ? "playerAName" : "playerBName").value.trim();
+      if (!rawName) {
         alert("Please enter a player name first.");
         return;
       }
-      const searchUrl = `https://api.sofascore.com/api/v1/search/all?q=${encodeURIComponent(name)}`;
+      const searchName = rawName.split(",")[0].trim();
+      const searchUrl = `https://api.sofascore.com/api/v1/search/all?q=${encodeURIComponent(searchName)}`;
       window.open(searchUrl, "_blank");
     }
 
