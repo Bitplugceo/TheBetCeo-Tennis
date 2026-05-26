@@ -31,6 +31,17 @@
       --section-toggle-text: #20242c;
       --section-toggle-icon: #d91f26;
       --table-border: #dfe2e7;
+      
+      /* Tracker variables copied from BB Engine */
+      --tracker-head-bg: #3a404c;
+      --tracker-head-text: #ffffff;
+      --tracker-summary-bg: #f6f7f9;
+      --tracker-chip-bg: #f6f7f9;
+      --tracker-chip-border: #dfe2e7;
+      --tracker-strong: #20242c;
+      --tracker-subtext: #5a5f6b;
+      --tracker-mini-head-bg: #eceff3;
+      --tracker-mini-head-text: #2a2f38;
     }
 
     body.dark-mode {
@@ -49,6 +60,17 @@
       --section-toggle-text: #d4af37;
       --section-toggle-icon: #d4af37;
       --table-border: #333;
+      
+      /* Tracker variables copied from BB Engine */
+      --tracker-head-bg: #111;
+      --tracker-head-text: #d4af37;
+      --tracker-summary-bg: #151515;
+      --tracker-chip-bg: #151515;
+      --tracker-chip-border: #333;
+      --tracker-strong: #d4af37;
+      --tracker-subtext: #c3aa55;
+      --tracker-mini-head-bg: #111;
+      --tracker-mini-head-text: #d4af37;
     }
 
     /* zero border-radius */
@@ -58,7 +80,8 @@
     .section,
     table,
     th,
-    td {
+    td,
+    .tracker-report-card {
       border-radius: 0;
     }
 
@@ -393,6 +416,117 @@
       color: var(--muted) !important;
       font-weight: 700 !important;
     }
+
+    /* --- COPIED BB ENGINE REPORT STYLES --- */
+    .tracker-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .tracker-kpi-card {
+      border: 1px solid var(--table-border);
+      background: var(--panel);
+      padding: 10px;
+      display: grid;
+      gap: 4px;
+    }
+    .tracker-kpi-card.featured {
+      border-left: 3px solid #3a9c35;
+    }
+    .tracker-kpi-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .tracker-kpi-value {
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--tracker-strong);
+    }
+    .tracker-kpi-sub {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--tracker-subtext);
+      line-height: 1.25;
+    }
+    .tracker-report-card {
+      border: 1px solid var(--table-border);
+      background: var(--panel);
+      padding: 12px;
+      min-width: 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    }
+    .tracker-report-label {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .tracker-report-value {
+      font-size: 16px;
+      line-height: 1.08;
+      font-weight: 900;
+      color: inherit;
+    }
+    .tracker-report-sub {
+      margin-top: 4px;
+      font-size: 10px;
+      line-height: 1.25;
+      font-weight: 700;
+      color: var(--tracker-subtext);
+    }
+    .tracker-report-section {
+      margin-top: 12px;
+      border: 1px solid var(--table-border);
+      background: var(--panel);
+    }
+    .tracker-report-section-head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--table-border);
+      background: var(--table-head);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tracker-report-section-body {
+      padding: 10px;
+    }
+    .tracker-report-subtitle {
+      margin: 0 0 12px 0;
+      color: var(--tracker-subtext);
+      font-size: 10px;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+    .tracker-report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+      line-height: 1.2;
+      background: var(--panel);
+    }
+    .tracker-report-table th,
+    .tracker-report-table td {
+      border: 1px solid var(--table-border);
+      padding: 5px 4px;
+      text-align: left;
+    }
+    .tracker-report-table th {
+      background: var(--table-head);
+      color: #fff;
+      font-weight: 800;
+    }
+    .tracker-report-table td {
+      color: var(--text);
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -692,68 +826,68 @@
             
             <div style="flex:1;overflow-y:auto;background:#0a0a0a;padding:10px;box-sizing:border-box;">
               <!-- KPI GRID -->
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-                <div style="background:#151515;border:1px solid #222;border-top:3px solid #3a9c35;padding:10px;">
-                  <div style="color:#888;font-size:8.5px;font-weight:900;text-transform:uppercase;">Overall</div>
-                  <div style="font-size:18px;font-weight:900;color:#3a9c35;margin:3px 0 1px 0;">0W</div>
-                  <div style="color:#555;font-size:8.5px;font-weight:700;">Losses 0 • Pushes 0 • Win rate 0.0%</div>
+              <div class="tracker-kpi-grid" style="margin-bottom:10px;">
+                <div class="tracker-kpi-card featured">
+                  <div class="tracker-kpi-label">Overall</div>
+                  <div class="tracker-kpi-value" style="color: #3a9c35;">0W</div>
+                  <div class="tracker-kpi-sub">Losses 0 • Pushes 0 • Win rate 0.0%</div>
                 </div>
-                <div style="background:#151515;border:1px solid #222;border-top:3px solid #ccc;padding:10px;">
-                  <div style="color:#888;font-size:8.5px;font-weight:900;text-transform:uppercase;">Active Picks</div>
-                  <div style="font-size:18px;font-weight:900;color:#fff;margin:3px 0 1px 0;">0</div>
-                  <div style="color:#555;font-size:8.5px;font-weight:700;">Current model engine_v2_final</div>
+                <div class="tracker-kpi-card">
+                  <div class="tracker-kpi-label">Active picks</div>
+                  <div class="tracker-kpi-value" style="color: #fff;">0</div>
+                  <div class="tracker-kpi-sub">Current model engine_v2_final</div>
                 </div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-                <div style="background:#151515;border:1px solid #222;border-top:3px solid #ccc;padding:10px;">
-                  <div style="color:#888;font-size:8.5px;font-weight:900;text-transform:uppercase;">Settled Picks</div>
-                  <div style="font-size:18px;font-weight:900;color:#fff;margin:3px 0 1px 0;">0</div>
-                  <div style="color:#555;font-size:8.5px;font-weight:700;">Checkpoint target 30</div>
+              <div class="tracker-kpi-grid" style="margin-bottom:12px;">
+                <div class="tracker-kpi-card">
+                  <div class="tracker-kpi-label">Settled picks</div>
+                  <div class="tracker-kpi-value" style="color: #fff;">0</div>
+                  <div class="tracker-kpi-sub">Checkpoint target 50</div>
                 </div>
-                <div style="background:#151515;border:1px solid #222;border-top:3px solid #ccc;padding:10px;">
-                  <div style="color:#888;font-size:8.5px;font-weight:900;text-transform:uppercase;">Review Status</div>
-                  <div style="font-size:18px;font-weight:900;color:#fff;margin:3px 0 1px 0;">Building</div>
-                  <div style="color:#555;font-size:8.5px;font-weight:700;">Current version only</div>
+                <div class="tracker-kpi-card">
+                  <div class="tracker-kpi-label">Review Status</div>
+                  <div class="tracker-kpi-value" style="color: #fff;">Building</div>
+                  <div class="tracker-kpi-sub">Current version only</div>
                 </div>
               </div>
 
               <!-- CHECKPOINT REVIEW -->
-              <div style="background:#151515;border:1px solid #222;margin-bottom:12px;box-sizing:border-box;">
-                <div style="padding:6px 8px;border-bottom:1px solid #222;font-size:9px;font-weight:900;text-transform:uppercase;color:#888;">Checkpoint Review</div>
-                <div style="padding:10px;">
+              <div class="tracker-report-section" style="margin-bottom:12px; border-color: #333;">
+                <div class="tracker-report-section-head">Checkpoint Review</div>
+                <div class="tracker-report-section-body">
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                     <span style="font-size:11px;font-weight:900;color:#fff;">Checkpoint</span>
                     <span style="background:#222;color:#888;border:1px solid #333;font-size:8px;padding:2px 5px;font-weight:900;">WATCHING</span>
                   </div>
-                  <div style="font-size:10px;font-weight:800;color:#fff;margin-bottom:4px;">COLLECT MORE — 0/30 settled picks collected so far.</div>
-                  <div style="font-size:9px;color:#555;font-weight:700;">30 more settled picks are needed before the tracker can give a full review.</div>
+                  <div style="font-size:10px;font-weight:800;color:#fff;margin-bottom:4px;">COLLECT MORE — 0/50 settled picks collected so far.</div>
+                  <div style="font-size:9px;color:#555;font-weight:700;">50 more settled picks are needed before the tracker can give a full review.</div>
                 </div>
               </div>
 
               <!-- MEASUREMENT LAB -->
-              <div style="background:#151515;border:1px solid #222;margin-bottom:12px;">
-                <div style="padding:6px 8px;border-bottom:1px solid #222;font-size:9px;font-weight:900;text-transform:uppercase;color:#888;">Measurement Lab</div>
-                <div style="padding:10px;">
-                  <div style="color:#555;font-size:9px;font-weight:700;margin-bottom:6px;">Tracked-pick evidence only</div>
-                  <table style="width:100%;font-size:8.5px;line-height:1.2;border-collapse:collapse;border:1px solid #222;">
+              <div class="tracker-report-section" style="margin-bottom:12px; border-color: #333;">
+                <div class="tracker-report-section-head">Measurement Lab</div>
+                <div class="tracker-report-section-body">
+                  <div class="tracker-report-subtitle">Tracked-pick evidence only</div>
+                  <table class="tracker-report-table" style="border-collapse:collapse;border:1px solid var(--table-border);">
                     <thead>
-                      <tr style="background:#111;">
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;text-align:left;">Experiment</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Games</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Settled</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Wins</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Losses</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid #222;width:12%;text-align:center;">Win rate</th>
+                      <tr style="background:var(--table-head);">
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);text-align:left;">Experiment</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Games</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Settled</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Wins</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Losses</th>
+                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Win rate</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td style="padding:4px;border:1px solid #222;text-align:left;">All tracked picks</td>
-                        <td style="padding:4px;border:1px solid #222;text-align:center;">0</td>
-                        <td style="padding:4px;border:1px solid #222;text-align:center;">0</td>
-                        <td style="padding:4px;border:1px solid #222;text-align:center;">0</td>
-                        <td style="padding:4px;border:1px solid #222;text-align:center;">0</td>
-                        <td style="padding:4px;border:1px solid #222;text-align:center;">—</td>
+                        <td style="padding:4px;border:1px solid var(--table-border);text-align:left;">All tracked picks</td>
+                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">0</td>
+                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">0</td>
+                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">0</td>
+                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">0</td>
+                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">—</td>
                       </tr>
                     </tbody>
                   </table>
@@ -891,6 +1025,11 @@
             const data = await response.json();
             // Handle AllOrigins wrapping style
             const finalData = data.contents ? JSON.parse(data.contents) : data;
+            
+            // Log target keys to Microscope to diagnose empty responses
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            
             AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
             return finalData;
           }
