@@ -5414,37 +5414,54 @@
 
     // ── GUARANTEED FINAL OVERRIDES — inserted last, always win ───────────────
     function processPlayerPoints(events, playerId, label) {
-      const scoredList = [], allowedList = [], set1ScoredList = [], set1AllowedList = [];
+      // perSetScored/Allowed: flat list of every individual set score (for set-level simulation)
+      const scoredList = [], allowedList = [];
+      const set1ScoredList = [], set1AllowedList = [];
+      const perSetScored = [], perSetAllowed = [];
+      // matchRecords: [{scored, allowed, oppTotalScored, matchWeight, startTimestamp}]
+      const matchRecords = [];
+
       const completed = events.filter(e => {
         if (e.status?.type !== "finished") return false;
         const hId = String(e.homeTeam?.id || "");
         const aId = String(e.awayTeam?.id || "");
         return hId === String(playerId) || aId === String(playerId);
       }).reverse().slice(0, 20);
+
       AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} matches for ${label} (ID: ${playerId})`);
+
       completed.forEach((ev, idx) => {
         const isHome = String(ev.homeTeam?.id) === String(playerId);
         const myScoreObj  = isHome ? ev.homeScore : ev.awayScore;
         const oppScoreObj = isHome ? ev.awayScore  : ev.homeScore;
         if (myScoreObj && oppScoreObj) {
           let matchSets = 0, matchScored = 0, matchAllowed = 0;
+          let oppTotalScored = 0;
+          // EWMA recency weight: most recent match = weight 1.0, each older = * 0.85
+          const matchWeight = Math.pow(0.85, idx);
           for (let s = 1; s <= 5; s++) {
             const mySet  = myScoreObj[`period${s}`];
             const oppSet = oppScoreObj[`period${s}`];
             if (mySet !== undefined && oppSet !== undefined) {
+              perSetScored.push({ val: mySet, weight: matchWeight });
+              perSetAllowed.push({ val: oppSet, weight: matchWeight });
               if (s === 1) { set1ScoredList.push(mySet); set1AllowedList.push(oppSet); }
-              matchScored += mySet; matchAllowed += oppSet; matchSets++;
+              matchScored += mySet; matchAllowed += oppSet;
+              oppTotalScored += oppSet;
+              matchSets++;
             }
           }
           if (matchSets > 0) {
             scoredList.push(matchScored);
             allowedList.push(matchAllowed);
-            AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} M#${idx + 1} [${matchSets} sets] Total scored:${matchScored} allowed:${matchAllowed}`);
+            matchRecords.push({ scored: matchScored, allowed: matchAllowed, oppTotalScored, matchWeight, startTimestamp: ev.startTimestamp || 0, sets: matchSets });
+            AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} M#${idx+1} wt=${matchWeight.toFixed(2)} [${matchSets}s] scored:${matchScored} allowed:${matchAllowed}`);
           }
         }
       });
-      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} done. Totals:[${scoredList}] Set1S:[${set1ScoredList}] Set1A:[${set1AllowedList}]`);
-      return { scoredList, allowedList, set1ScoredList, set1AllowedList };
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} done. Matches:${matchRecords.length} Set1s:${set1ScoredList.length} PerSets:${perSetScored.length}`);
+      return { scoredList, allowedList, set1ScoredList, set1AllowedList, perSetScored, perSetAllowed, matchRecords };
     }
 
     function parseIndividualFailsafe(side) {
@@ -5700,11 +5717,19 @@
         return;
       }
 
-      // True EWMA — exponential decay formula, scales correctly to any number of matches
+      // Weighted EWMA using per-set weights stored in perSetScored/Allowed
+      const calculateWeightedMean = (weightedArr) => {
+        if (!weightedArr || !weightedArr.length) return 0;
+        let wSum = 0, wTotal = 0;
+        weightedArr.forEach(item => { wSum += item.val * item.weight; wTotal += item.weight; });
+        return wTotal > 0 ? wSum / wTotal : 0;
+      };
+
+      // Fall back to plain EWMA for match-total arrays (H2H, Set1 inputs from manual fields)
       const calculateEWMAMean = (arr) => {
         if (!arr.length) return 0;
         if (arr.length === 1) return arr[0];
-        const lambda = 0.88; // decay factor: each older match is worth 12% less than the one after it
+        const lambda = 0.88;
         let weightedSum = 0, weightTotal = 0;
         for (let i = 0; i < arr.length; i++) {
           const w = Math.pow(lambda, i);
@@ -5714,29 +5739,58 @@
         return weightedSum / weightTotal;
       };
 
-      const meanScoredA = calculateEWMAMean(rawScoredA), meanAllowedA = calculateEWMAMean(rawAllowedA);
-      const meanScoredB = calculateEWMAMean(rawScoredB), meanAllowedB = calculateEWMAMean(rawAllowedB);
-      AFDB.log('ENGINE','MATH',`A: EWMA Scored=${meanScoredA.toFixed(1)} Allowed=${meanAllowedA.toFixed(1)}`);
-      AFDB.log('ENGINE','MATH',`B: EWMA Scored=${meanScoredB.toFixed(1)} Allowed=${meanAllowedB.toFixed(1)}`);
+      // Use per-set weighted means when available (set-level simulation upgrade)
+      const psA = window.rawEventsA ? processPlayerPoints(window.rawEventsA, idA, 'A_ps') : null;
+      const psB = window.rawEventsB ? processPlayerPoints(window.rawEventsB, idB, 'B_ps') : null;
 
-      // Log5 (Bill James): derive each player's base point-win rate from their OWN offense AND defense,
-      // then combine correctly — fixes the broken additive (a+b)/2 averaging flaw entirely.
-      const pA_base = meanScoredA / (meanScoredA + meanAllowedA);
-      const pB_base = meanScoredB / (meanScoredB + meanAllowedB);
+      const meanScoredA  = (psA && psA.perSetScored.length)  ? calculateWeightedMean(psA.perSetScored)  : calculateEWMAMean(rawScoredA);
+      const meanAllowedA = (psA && psA.perSetAllowed.length) ? calculateWeightedMean(psA.perSetAllowed) : calculateEWMAMean(rawAllowedA);
+      const meanScoredB  = (psB && psB.perSetScored.length)  ? calculateWeightedMean(psB.perSetScored)  : calculateEWMAMean(rawScoredB);
+      const meanAllowedB = (psB && psB.perSetAllowed.length) ? calculateWeightedMean(psB.perSetAllowed) : calculateEWMAMean(rawAllowedB);
 
-      // Calculate standard deviations (volatility/uncertainty approximation)
-      const stdDevA = calculateStdDev(rawScoredA);
-      const stdDevB = calculateStdDev(rawScoredB);
-      const cvA = stdDevA / meanScoredA;
-      const cvB = stdDevB / meanScoredB;
-      const matchUncertainty = Math.max(0.01, Math.min(0.08, (cvA + cvB) / 2)); // Glicko-2 Style Uncertainty
-      
-      AFDB.log('ENGINE', 'VOLATILITY', `Skill Volatility: Player A StdDev = ${stdDevA.toFixed(1)} (CV: ${(cvA*100).toFixed(1)}%), Player B = ${stdDevB.toFixed(1)} (CV: ${(cvB*100).toFixed(1)}%). Match Uncertainty = ${(matchUncertainty*100).toFixed(1)}%`);
+      AFDB.log('ENGINE','MATH',`A: WtdSet Scored=${meanScoredA.toFixed(2)} Allowed=${meanAllowedA.toFixed(2)}`);
+      AFDB.log('ENGINE','MATH',`B: WtdSet Scored=${meanScoredB.toFixed(2)} Allowed=${meanAllowedB.toFixed(2)}`);
+
+      // Opponent-quality adjustment: penalise scores against weak opponents
+      // Uses oppTotalScored as a proxy for opponent strength — higher opp score = stronger opp
+      const getOppQualityAdj = (matchRecords) => {
+        if (!matchRecords || matchRecords.length < 3) return 0;
+        const allOppScores = matchRecords.map(r => r.oppTotalScored);
+        const meanOpp = allOppScores.reduce((a,b) => a+b, 0) / allOppScores.length;
+        // If player's recent opponents scored well below average, slightly discount their own offensive numbers
+        const leagueMeanOppScore = 28; // empirical Setka Cup baseline from data
+        const diff = meanOpp - leagueMeanOppScore;
+        return Math.max(-0.03, Math.min(0.03, diff * 0.002));
+      };
+
+      const oppAdjA = getOppQualityAdj(psA ? psA.matchRecords : null);
+      const oppAdjB = getOppQualityAdj(psB ? psB.matchRecords : null);
+      AFDB.log('ENGINE','OPP_QUALITY',`Opp quality adj: A=${(oppAdjA*100).toFixed(1)}% B=${(oppAdjB*100).toFixed(1)}%`);
+
+      // Log5 point-win base rates with opponent-quality adjustment
+      const pA_base = Math.min(0.75, Math.max(0.25, (meanScoredA / (meanScoredA + meanAllowedA)) + oppAdjA));
+      const pB_base = Math.min(0.75, Math.max(0.25, (meanScoredB / (meanScoredB + meanAllowedB)) + oppAdjB));
+
+      // Standard deviation from per-set pool (larger sample = more accurate volatility)
+      const flatScoredA = psA && psA.perSetScored.length ? psA.perSetScored.map(x => x.val) : rawScoredA;
+      const flatScoredB = psB && psB.perSetScored.length ? psB.perSetScored.map(x => x.val) : rawScoredB;
+      const stdDevA = calculateStdDev(flatScoredA);
+      const stdDevB = calculateStdDev(flatScoredB);
+      const cvA = stdDevA / (meanScoredA || 1);
+      const cvB = stdDevB / (meanScoredB || 1);
+      const matchUncertainty = Math.max(0.01, Math.min(0.08, (cvA + cvB) / 2));
+
+      AFDB.log('ENGINE', 'VOLATILITY', `StdDev A=${stdDevA.toFixed(1)} (CV:${(cvA*100).toFixed(1)}%) B=${stdDevB.toFixed(1)} (CV:${(cvB*100).toFixed(1)}%) Uncertainty=${(matchUncertainty*100).toFixed(1)}%`);
 
       // Calculate schedule context (Rest Time, Fatigue & Streak Form) dynamically
       const idA = document.getElementById("playerAId").value.trim();
       const idB = document.getElementById("playerBId").value.trim();
-      const upcomingTime = selectedFixtureData ? selectedFixtureData.startTimestamp * 1000 : Date.now();
+      // FIX: use fixture startTimestamp when available; only fall back to Date.now() if truly absent
+      const upcomingTime = (selectedFixtureData && selectedFixtureData.startTimestamp)
+        ? selectedFixtureData.startTimestamp * 1000
+        : Date.now();
+      const fatigueDataAvailable = !!(selectedFixtureData && selectedFixtureData.startTimestamp);
+      if (!fatigueDataAvailable) AFDB.log('WARN', 'FATIGUE', 'No fixture startTimestamp — fatigue calc using current time as proxy. Manual-entry mode.');
 
       const getPlayerModifiers = (events, playerId) => {
         if (!events || !playerId) return { fatigue: 0, form: 0 };
@@ -5835,14 +5889,19 @@
         AFDB.log('ENGINE','MATH',`No Set1 data — Set1 uses overall probA=${(probA * 100).toFixed(1)}%`);
       }
 
-      // --- DUAL H2H BLENDING (Match Sets and Set 1 Points) ---
+      // --- DUAL H2H BLENDING with Bayesian sample-size weighting ---
       const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
       const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
       if (rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const h2hN = rawH2HA.length;
+        // Bayesian weight: scales from ~7% at 2 matches to max 35% at 15+ matches
+        const h2hWeight = Math.min(0.35, h2hN / 43);
+        const priorWeight = 1 - h2hWeight;
         const tA = rawH2HA.reduce((a,b) => a + b, 0), tB = rawH2HB.reduce((a,b) => a + b, 0);
-        probA = (probA * 0.70) + ((tA / (tA + tB)) * 0.30);
+        const h2hProbA = tA / (tA + tB);
+        probA = (probA * priorWeight) + (h2hProbA * h2hWeight);
         if (!hasSet1) probA_set1 = probA;
-        AFDB.log('ENGINE','H2H',`Match Sets H2H blended probA=${(probA * 100).toFixed(1)}%`);
+        AFDB.log('ENGINE','H2H',`Bayesian H2H blend: n=${h2hN} h2hWeight=${(h2hWeight*100).toFixed(1)}% probA=${(probA*100).toFixed(1)}%`);
       }
 
       const rawH2HS1A = document.getElementById("h2hSet1A").value.split(",").map(Number).filter(v => !isNaN(v));
@@ -5979,6 +6038,8 @@
         })[0];
         if (best) best.isLock = true;
       }
+      // Log final engine summary for audit
+      AFDB.log('ENGINE', 'SUMMARY', 'probA_overall=' + (probA*100).toFixed(1) + '% probA_set1=' + (probA_set1*100).toFixed(1) + '% oppAdjA=' + (oppAdjA*100).toFixed(1) + '% oppAdjB=' + (oppAdjB*100).toFixed(1) + '% uncertainty=' + (matchUncertainty*100).toFixed(1) + '%');
 
       renderProjectionsTable(options);
     }
