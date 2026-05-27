@@ -5291,7 +5291,8 @@
         btn.style.cssText = 'width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:var(--panel-soft);border:1px solid var(--panel-border);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;';
         const flag = c.country ? ` · ${c.country}` : '';
         const pop = c.userCount ? ` · ${c.userCount} matches` : '';
-        btn.innerHTML = `<span>${c.name}${flag}${pop}</span><span style="color:var(--muted);font-size:10px;font-weight:800;">ID ${c.id}</span>`;
+        const sport = c.sport ? ` [${c.sport}]` : '';
+        btn.innerHTML = `<span>${c.name}${flag}${pop}<span style="color:#d98a00;font-size:10px;font-weight:800;">${sport}</span></span><span style="color:var(--muted);font-size:10px;font-weight:800;">ID ${c.id}</span>`;
         btn.onclick = () => {
           overlay.remove();
           document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = c.id;
@@ -5325,28 +5326,41 @@
         if (phase === 'search') {
           const parsed = JSON.parse(text);
           const results = parsed.results || [];
-          const teamResults = results
+          const mapResult = r => ({
+            id: String(r.entity.id),
+            name: r.entity.name || '',
+            country: r.entity.country?.name || '',
+            userCount: r.entity.userCount || 0,
+            sport: r.entity.sport?.name || ''
+          });
+
+          const ttResults = results
             .filter(r => r.type === 'team' && r.entity?.sport?.slug === 'table-tennis')
-            .map(r => ({
-              id: String(r.entity.id),
-              name: r.entity.name || '',
-              country: r.entity.country?.name || '',
-              userCount: r.entity.userCount || 0
-            }));
+            .map(mapResult);
+
+          const teamResults = ttResults.length > 0
+            ? ttResults
+            : results.filter(r => r.type === 'team').map(mapResult);
 
           _clipboardPhase[side] = null;
 
           if (teamResults.length === 0) {
             statusEl.className = "err";
-            statusEl.textContent = `❌ No players found. Try a shorter search name.`;
+            statusEl.textContent = `❌ No players found. Try a shorter surname only.`;
             return;
           }
 
-          const p = teamResults[0];
-          document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = p.id;
-          document.getElementById(side === 'A' ? 'playerAName' : 'playerBName').value = p.name;
-          updateHelperLinks(side);
-          _openStatsForPlayer(side, p.id, p.name);
+          if (ttResults.length > 0) {
+            const p = ttResults[0];
+            document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = p.id;
+            document.getElementById(side === 'A' ? 'playerAName' : 'playerBName').value = p.name;
+            updateHelperLinks(side);
+            _openStatsForPlayer(side, p.id, p.name);
+          } else {
+            statusEl.className = "err";
+            statusEl.textContent = `⚠️ No TT player found for Player ${side} — showing all results. Pick manually.`;
+            showPlayerPicker(side, teamResults);
+          }
 
         } else if (phase === 'stats') {
           if (!text.includes('"events"')) return;
