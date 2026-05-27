@@ -5652,10 +5652,25 @@ B
         alert("Please ensure both Player A and Player B have valid match scores.");
         return;
       }
-      const meanScoredA = calculateMean(rawScoredA), meanAllowedA = calculateMean(rawAllowedA);
-      const meanScoredB = calculateMean(rawScoredB), meanAllowedB = calculateMean(rawAllowedB);
-      AFDB.log('ENGINE','MATH',`A: MatchAvg Scored=${meanScoredA.toFixed(1)} Allowed=${meanAllowedA.toFixed(1)}`);
-      AFDB.log('ENGINE','MATH',`B: MatchAvg Scored=${meanScoredB.toFixed(1)} Allowed=${meanAllowedB.toFixed(1)}`);
+
+      // Time-Decay Exponentially Weighted Moving Average (EWMA) calculation
+      const calculateEWMAMean = (arr) => {
+        if (!arr.length) return 0;
+        if (arr.length === 1) return arr[0];
+        const weights = [0.35, 0.25, 0.18, 0.12, 0.10]; // Time-decay multipliers
+        let weightedSum = 0, weightTotal = 0;
+        for (let i = 0; i < arr.length; i++) {
+          const w = weights[i] || 0.05;
+          weightedSum += arr[i] * w;
+          weightTotal += w;
+        }
+        return weightedSum / weightTotal;
+      };
+
+      const meanScoredA = calculateEWMAMean(rawScoredA), meanAllowedA = calculateEWMAMean(rawAllowedA);
+      const meanScoredB = calculateEWMAMean(rawScoredB), meanAllowedB = calculateEWMAMean(rawAllowedB);
+      AFDB.log('ENGINE','MATH',`A: EWMA Scored=${meanScoredA.toFixed(1)} Allowed=${meanAllowedA.toFixed(1)}`);
+      AFDB.log('ENGINE','MATH',`B: EWMA Scored=${meanScoredB.toFixed(1)} Allowed=${meanAllowedB.toFixed(1)}`);
       
       const ratingA = (meanScoredA + meanAllowedB) / 2;
       const ratingB = (meanScoredB + meanAllowedA) / 2;
@@ -5722,8 +5737,8 @@ B
       let probA_set1 = probA;
       const hasSet1 = rawS1ScoredA.length > 0 && rawS1AllowA.length > 0 && rawS1ScoredB.length > 0 && rawS1AllowB.length > 0;
       if (hasSet1) {
-        const rS1A = (calculateMean(rawS1ScoredA) + calculateMean(rawS1AllowB)) / 2;
-        const rS1B = (calculateMean(rawS1ScoredB) + calculateMean(rawS1AllowA)) / 2;
+        const rS1A = (calculateEWMAMean(rawS1ScoredA) + calculateEWMAMean(rawS1AllowB)) / 2;
+        const rS1B = (calculateEWMAMean(rawS1ScoredB) + calculateEWMAMean(rawS1AllowA)) / 2;
         probA_set1 = rS1A / (rS1A + rS1B);
         probA_set1 += contextA.fatigue + contextA.form;
         probA_set1 -= (contextB.fatigue + contextB.form);
@@ -5744,10 +5759,46 @@ B
       let matchOverHits = 0, set1OverHits = 0, totalMatchPts = 0, totalSet1Pts = 0;
       for (let run = 0; run < 10000; run++) {
         let sWA = 0, sWB = 0, matchPts = 0, s1Pts = 0, setNum = 1;
+        
+        // Randomly choose first-set server
+        let server = Math.random() < 0.5 ? 'A' : 'B';
+        let firstSetServer = server;
+
         while (sWA < 3 && sWB < 3) {
           let sA = 0, sB = 0;
-          const p = setNum === 1 ? probA_set1 : probA;
-          while ((sA < 11 && sB < 11) || Math.abs(sA - sB) < 2) { if (Math.random() < p) sA++; else sB++; }
+          let setPointsPlayed = 0;
+
+          // Alternate set-opening server
+          if (setNum > 1) {
+            server = (setNum % 2 === 1) ? (firstSetServer === 'A' ? 'A' : 'B') : (firstSetServer === 'A' ? 'B' : 'A');
+          }
+
+          // Apply Set-level momentum confidence modifier (-2% to +2%)
+          let momentum = (sWA - sWB) * 0.01;
+
+          while ((sA < 11 && sB < 11) || Math.abs(sA - sB) < 2) {
+            let p = setNum === 1 ? probA_set1 : probA;
+            
+            // Apply serve advantage (+3% for server) and momentum
+            p += momentum;
+            if (server === 'A') {
+              p += 0.03;
+            } else {
+              p -= 0.03;
+            }
+            p = Math.max(0.35, Math.min(0.65, p));
+
+            if (Math.random() < p) sA++; else sB++;
+            setPointsPlayed++;
+
+            // Alternate serve every 2 points, or every 1 point in deuce (>= 10-10)
+            if (sA >= 10 && sB >= 10) {
+              server = server === 'A' ? 'B' : 'A';
+            } else if (setPointsPlayed % 2 === 0) {
+              server = server === 'A' ? 'B' : 'A';
+            }
+          }
+
           const sp = sA + sB;
           matchPts += sp;
           if (setNum === 1) { s1Pts = sp; totalSet1Pts += sp; }
