@@ -700,6 +700,10 @@
                 <!-- Section 6: H2H Form -->
     <div class="section" id="h2hSection">
       <h3>H2H Form</h3>
+      <label style="font-size:11px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; color:var(--section-toggle-text); margin-bottom:8px;">
+        <input type="checkbox" id="useFTH2H" checked />
+        Use H2H History
+      </label>
       <div style="margin-bottom:8px;">
         <label style="font-size:11px; font-weight:800; color:var(--section-toggle-text); margin-bottom:4px;">H2H Sets History (Full Match)</label>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
@@ -5533,6 +5537,7 @@
             document.getElementById("h2hSet1B").value = set1B.join(",");
           }
           if (setsA.length > 0 || set1A.length > 0) {
+            document.getElementById("useFTH2H").checked = true;
             AFDB.log('SUCCESS', 'H2H', `Automatically extracted H2H match scores and Set 1 points directly from player history feeds!`);
           }
         }
@@ -6043,6 +6048,7 @@
        "playerAName","playerBName","playerAId","playerBId","pasteA","pasteB"].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = "";
       });
+      const cb = document.getElementById("useFTH2H"); if (cb) cb.checked = false;
       const tbl = document.getElementById("results"); if (tbl) tbl.style.display = "none";
       const tb  = document.getElementById("resultsBody"); if (tb) tb.innerHTML = "";
       const st  = document.getElementById("fetchStatus"); if (st) st.textContent = "";
