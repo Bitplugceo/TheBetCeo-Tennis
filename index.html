@@ -1,3 +1,4 @@
+B
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -415,6 +416,39 @@
       background: var(--panel-soft-2) !important;
       color: var(--muted) !important;
       font-weight: 700 !important;
+    }
+
+    .conf-a {
+      background: #2f8f4a !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .conf-b {
+      background: #4aa346 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .conf-c {
+      background: #d98a00 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .conf-none {
+      background: var(--panel-soft-2) !important;
+      color: var(--muted) !important;
+      font-weight: 700 !important;
+    }
+
+    .lock {
+      font-size: 10px !important;
+      display: inline-block;
+      vertical-align: middle;
+      transform: translateY(-1px);
+      margin-left: 4px;
+      margin-right: 0;
     }
 
     /* --- COPIED BB ENGINE REPORT STYLES --- */
@@ -887,121 +921,27 @@
         const panel = document.getElementById('afdbPanel');
         if (!panel) return;
 
-        const headerBtns = '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📋 Copy Log</button><button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">🗑️ Clear</button><button onclick="AFDB.runTestFetch()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;box-shadow:0 0 8px rgba(217,31,38,0.4);margin-right:4px;">🚨 MILITARY RAID</button><button onclick="AFDB.toggleView()" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📊</button><button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ Close</button>';
-        const driftHtml = '<div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;"><span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📐 DRIFT TRACKER</span><span style="color:#555;font-size:12px;font-weight:900;">Rolling Mean Error (last 20): —</span><span style="color:#555;font-size:10px;">0 samples logged</span></div>';
+        const headerBtns = '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📋 Copy Log</button><button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">🗑️ Clear</button><button onclick="AFDB.runTestFetch()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;box-shadow:0 0 8px rgba(217,31,38,0.4);margin-right:4px;">🚨 MILITARY RAID</button><button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ Close</button>';
 
-        if (_activeView === 'report') {
-          // --- THE REPORT VIEW: PERFECT MATCH TO BB SYSTEM REPORT (Inline SVG fixed to prevent crashes) ---
-          panel.innerHTML = `
-            <div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;box-sizing:border-box;">
-              <div style="color:#ffd700;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;">Engine Report</div>
-              <div style="display:flex;gap:4px;align-items:center;">
-                <button onclick="AFDB.toggleView()" style="background:none;border:none;cursor:pointer;padding:0;margin-right:8px;vertical-align:middle;" title="Switch to Logs">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#ccc" style="vertical-align:middle;">
-                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                  </svg>
-                </button>
-                <button onclick="AFDB.close()" style="background:none;border:none;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;padding:0;">✕</button>
-              </div>
-            </div>
-            <div style="background:#151515;border-bottom:1px solid #222;padding:12px 14px;color:#fff;">
-              <div style="font-size:10px;font-weight:900;letter-spacing:0.8px;text-transform:uppercase;color:#888;">Engine Report</div>
-              <div style="font-size:15px;font-weight:900;margin:3px 0 1px 0;">Tracked results and learning</div>
-              <div style="color:#555;font-size:10px;font-weight:700;">Pick record, feedback, and post-checkpoint suggestions live here.</div>
-            </div>
-            
-            <div style="flex:1;overflow-y:auto;background:#0a0a0a;padding:10px;box-sizing:border-box;">
-              <!-- KPI GRID -->
-              <div class="tracker-kpi-grid" style="margin-bottom:10px;">
-                <div class="tracker-kpi-card featured">
-                  <div class="tracker-kpi-label">Overall</div>
-                  <div class="tracker-kpi-value" style="color: #3a9c35;">0W</div>
-                  <div class="tracker-kpi-sub">Losses 0 • Pushes 0 • Win rate 0.0%</div>
-                </div>
-                <div class="tracker-kpi-card">
-                  <div class="tracker-kpi-label">Active picks</div>
-                  <div class="tracker-kpi-value" style="color: #fff;">0</div>
-                  <div class="tracker-kpi-sub">Current model engine_v2_final</div>
-                </div>
-              </div>
-              <div class="tracker-kpi-grid" style="margin-bottom:12px;">
-                <div class="tracker-kpi-card">
-                  <div class="tracker-kpi-label">Settled picks</div>
-                  <div class="tracker-kpi-value" style="color: #fff;">0</div>
-                  <div class="tracker-kpi-sub">Checkpoint target 50</div>
-                </div>
-                <div class="tracker-kpi-card">
-                  <div class="tracker-kpi-label">Review Status</div>
-                  <div class="tracker-kpi-value" style="color: #fff;">Building</div>
-                  <div class="tracker-kpi-sub">Current version only</div>
-                </div>
-              </div>
+        // --- LOG VIEW ONLY (Report view completely removed) ---
+        const visibleLogs = _getFilteredLogs();
+        const logRows = visibleLogs.map(e => {
+          const def = LEVELS[e.level] || LEVELS.INFO;
+          const icon = ICONS[e.level] || '•';
+          let dataHtml = '';
+          if (e.data !== null) {
+            let ds;
+            try { ds = typeof e.data === 'object' ? JSON.stringify(e.data, null, 2) : String(e.data); }
+            catch(x) { ds = String(e.data); }
+            dataHtml = '<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;word-break:break-all;">' + esc(ds) + '</pre>';
+          }
+          return '<div style="padding:8px;border-bottom:1px solid #151515;"><div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;"><span style="color:#555;font-size:9px;min-width:65px;flex-shrink:0;">' + esc(e.ts) + '</span><span style="color:' + def.color + ';font-size:10px;font-weight:900;min-width:75px;flex-shrink:0;">' + icon + ' ' + esc(e.level) + '</span><span style="color:#777;font-size:9px;min-width:80px;flex-shrink:0;">[' + esc(e.section) + ']</span><span style="color:' + def.color + ';font-size:11px;font-weight:700;flex:1;white-space:pre-wrap;">' + esc(e.msg) + '</span></div>' + dataHtml + '</div>';
+        }).join('');
 
-              <!-- CHECKPOINT REVIEW -->
-              <div class="tracker-report-section" style="margin-bottom:12px; border-color: #333;">
-                <div class="tracker-report-section-head">Checkpoint Review</div>
-                <div class="tracker-report-section-body">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <span style="font-size:11px;font-weight:900;color:#fff;">Checkpoint</span>
-                    <span style="background:#222;color:#888;border:1px solid #333;font-size:8px;padding:2px 5px;font-weight:900;">WATCHING</span>
-                  </div>
-                  <div style="font-size:10px;font-weight:800;color:#fff;margin-bottom:4px;">COLLECT MORE — 0/50 settled picks collected so far.</div>
-                  <div style="font-size:9px;color:#555;font-weight:700;">50 more settled picks are needed before the tracker can give a full review.</div>
-                </div>
-              </div>
+        const emptyMsg = _showOnlyErrors ? 'No suspects arrested. The code is clean.' : 'No log entries yet. Select a league.';
+        const filterLabel = `🛰️ LEVEL: ${_currentLogLevel}`;
 
-              <!-- MEASUREMENT LAB -->
-              <div class="tracker-report-section" style="margin-bottom:12px; border-color: #333;">
-                <div class="tracker-report-section-head">Measurement Lab</div>
-                <div class="tracker-report-section-body">
-                  <div class="tracker-report-subtitle">Tracked-pick evidence only</div>
-                  <table class="tracker-report-table" style="border-collapse:collapse;border:1px solid var(--table-border);">
-                    <thead>
-                      <tr style="background:var(--table-head);">
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);text-align:left;">Experiment</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Games</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Settled</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Wins</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Losses</th>
-                        <th style="padding:4px;color:#fff;font-weight:800;border:1px solid var(--table-border);width:12%;text-align:center;">Win rate</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td style="padding:4px;border:1px solid var(--table-border);text-align:left;">All tracked picks</td>
-                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">0</td>
-                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">0</td>
-                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">0</td>
-                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">0</td>
-                        <td style="padding:4px;border:1px solid var(--table-border);text-align:center;">—</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          `;
-        } else {
-          // --- LOG VIEW (WITH FULL FILTER LOGIC WORKING) ---
-          const visibleLogs = _getFilteredLogs();
-          const logRows = visibleLogs.map(e => {
-            const def = LEVELS[e.level] || LEVELS.INFO;
-            const icon = ICONS[e.level] || '•';
-            let dataHtml = '';
-            if (e.data !== null) {
-              let ds;
-              try { ds = typeof e.data === 'object' ? JSON.stringify(e.data, null, 2) : String(e.data); }
-              catch(x) { ds = String(e.data); }
-              dataHtml = '<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;word-break:break-all;">' + esc(ds) + '</pre>';
-            }
-            return '<div style="padding:8px;border-bottom:1px solid #151515;"><div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;"><span style="color:#555;font-size:9px;min-width:65px;flex-shrink:0;">' + esc(e.ts) + '</span><span style="color:' + def.color + ';font-size:10px;font-weight:900;min-width:75px;flex-shrink:0;">' + icon + ' ' + esc(e.level) + '</span><span style="color:#777;font-size:9px;min-width:80px;flex-shrink:0;">[' + esc(e.section) + ']</span><span style="color:' + def.color + ';font-size:11px;font-weight:700;flex:1;white-space:pre-wrap;">' + esc(e.msg) + '</span></div>' + dataHtml + '</div>';
-          }).join('');
-
-          const emptyMsg = _showOnlyErrors ? 'No suspects arrested. The code is clean.' : 'No log entries yet. Select a league.';
-          const filterLabel = `🛰️ LEVEL: ${_currentLogLevel}`;
-
-          panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div><div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>🛰️ FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
-        }
+        panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div><div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>📡 FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
       }
 
       function toggleFilter() {
@@ -5672,11 +5612,57 @@
       }
     }
 
+    function normalizeDashes(str) {
+      return String(str ?? "").replace(/[–—−]/g, "-");
+    }
+
+    function parseMarketLine(val) {
+      const meta = parseMarketRangeMeta(val);
+      return meta ? meta.mid : null;
+    }
+
+    function parseMarketRangeMeta(val) {
+      if (!val || !String(val).trim()) return null;
+      const raw = normalizeDashes(String(val).trim());
+      const normalizeLine = num => Math.round(num * 2) / 2;
+
+      const rangeMatch = raw.match(/^(\d{1,3}(?:\.\d+)?)\s*-\s*(\d{1,3}(?:\.\d+)?)$/);
+      if (rangeMatch) {
+        const a = parseFloat(rangeMatch[1]);
+        const b = parseFloat(rangeMatch[2]);
+        if (!isFinite(a) || !isFinite(b) || a <= 0 || b <= 0 || b < a) return null;
+        return {
+          raw,
+          low: normalizeLine(a),
+          high: normalizeLine(b),
+          mid: normalizeLine((a + b) / 2),
+          isRange: true
+        };
+      }
+
+      const singleMatch = raw.match(/^(\d{1,3}(?:\.\d+)?)$/);
+      if (singleMatch) {
+        const x = parseFloat(singleMatch[1]);
+        if (!isFinite(x) || x <= 0) return null;
+        const line = normalizeLine(x);
+        return {
+          raw,
+          low: line,
+          high: line,
+          mid: line,
+          isRange: false
+        };
+      }
+      return null;
+    }
+
     function runEngine() {
       AFDB.log('ENGINE', 'CALCULATION', "Monte Carlo FINAL v11 starting...");
       const league    = document.getElementById("leagueSelect").value;
-      const matchLine = parseFloat(document.getElementById("matchPointsLine").value);
-      const set1Line  = parseFloat(document.getElementById("set1PointsLine").value);
+      const matchLineInput = document.getElementById("matchPointsLine").value.trim();
+      const set1LineInput = document.getElementById("set1PointsLine").value.trim();
+      const matchLine = parseMarketLine(matchLineInput);
+      const set1Line  = parseMarketLine(set1LineInput);
       if (!league) { alert("Please select a league first."); return; }
       const rawScoredA   = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
       const rawAllowedA  = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
@@ -5891,7 +5877,52 @@
       const projMatch = totalMatchPts / 10000, projSet1 = totalSet1Pts / 10000;
       const pctMatch  = (matchOverHits / 10000) * 100, pctSet1 = (set1OverHits / 10000) * 100;
       AFDB.log('SUCCESS','ENGINE',`Done! Match:${projMatch.toFixed(1)} Set1:${projSet1.toFixed(1)}`);
-      renderProjectionsTable({ matchLine, set1Line, projectedMatchPoints: projMatch, projectedSet1Points: projSet1, overPctMatch: pctMatch, overPctSet1: pctSet1 });
+
+      // Resolve options array to feed results table and determine the lock
+      const options = [];
+      if (isFinite(matchLine) && matchLine > 0) {
+        const edge = projMatch - matchLine;
+        const pct = Math.abs(edge / matchLine) * 100;
+        let pick = "NO PLAY";
+        let grade = "—";
+        if (edge > 0 && pctMatch >= 54) {
+          pick = "OVER " + matchLine.toFixed(1);
+          grade = pctMatch >= 62 ? "A" : pctMatch >= 57 ? "B" : "C";
+        } else if (edge < 0 && (100 - pctMatch) >= 54) {
+          pick = "UNDER " + matchLine.toFixed(1);
+          grade = (100 - pctMatch) >= 62 ? "A" : (100 - pctMatch) >= 57 ? "B" : "C";
+        }
+        options.push({ name: "Match Points Total", line: matchLine, proj: projMatch, edge, grade, pick, edgePct: pct, isLock: false });
+      }
+
+      if (isFinite(set1Line) && set1Line > 0) {
+        const edge = projSet1 - set1Line;
+        const pct = Math.abs(edge / set1Line) * 100;
+        let pick = "NO PLAY";
+        let grade = "—";
+        if (edge > 0 && pctSet1 >= 54) {
+          pick = "OVER " + set1Line.toFixed(1);
+          grade = pctSet1 >= 62 ? "A" : pctSet1 >= 57 ? "B" : "C";
+        } else if (edge < 0 && (100 - pctSet1) >= 54) {
+          pick = "UNDER " + set1Line.toFixed(1);
+          grade = (100 - pctSet1) >= 62 ? "A" : (100 - pctSet1) >= 57 ? "B" : "C";
+        }
+        options.push({ name: "Set 1 Points Total", line: set1Line, proj: projSet1, edge, grade, pick, edgePct: pct, isLock: false });
+      }
+
+      const validPlays = options.filter(o => o.pick !== "NO PLAY" && o.grade !== "—");
+      if (validPlays.length > 0) {
+        const best = [...validPlays].sort((a, b) => {
+          const gradeRank = { A: 3, B: 2, C: 1 };
+          const rankA = gradeRank[a.grade] || 0;
+          const rankB = gradeRank[b.grade] || 0;
+          if (rankB !== rankA) return rankB - rankA;
+          return b.edgePct - a.edgePct;
+        })[0];
+        if (best) best.isLock = true;
+      }
+
+      renderProjectionsTable(options);
     }
 
     function clearAll() {
@@ -5911,10 +5942,94 @@
       selectedFixtureData = null;
       AFDB.log('ENGINE','CLEAR','All fields cleared.');
     }
+
+    function normalizeDashes(str) {
+      return String(str ?? "").replace(/[–—−]/g, "-");
+    }
+
+    function parseMarketLine(val) {
+      const meta = parseMarketRangeMeta(val);
+      return meta ? meta.mid : null;
+    }
+
+    function parseMarketRangeMeta(val) {
+      if (!val || !String(val).trim()) return null;
+      const raw = normalizeDashes(String(val).trim());
+      const normalizeLine = num => Math.round(num * 2) / 2;
+
+      const rangeMatch = raw.match(/^(\d{1,3}(?:\.\d+)?)\s*-\s*(\d{1,3}(?:\.\d+)?)$/);
+      if (rangeMatch) {
+        const a = parseFloat(rangeMatch[1]);
+        const b = parseFloat(rangeMatch[2]);
+        if (!isFinite(a) || !isFinite(b) || a <= 0 || b <= 0 || b < a) return null;
+        return {
+          raw,
+          low: normalizeLine(a),
+          high: normalizeLine(b),
+          mid: normalizeLine((a + b) / 2),
+          isRange: true
+        };
+      }
+
+      const singleMatch = raw.match(/^(\d{1,3}(?:\.\d+)?)$/);
+      if (singleMatch) {
+        const x = parseFloat(singleMatch[1]);
+        if (!isFinite(x) || x <= 0) return null;
+        const line = normalizeLine(x);
+        return {
+          raw,
+          low: line,
+          high: line,
+          mid: line,
+          isRange: false
+        };
+      }
+      return null;
+    }
+
+    function renderProjectionsTable(options) {
+      const body = document.getElementById("resultsBody");
+      const table = document.getElementById("results");
+      if (!body || !table) return;
+
+      body.innerHTML = "";
+
+      options.forEach(p => {
+        const row = document.createElement("tr");
+        const edgePct = p.line > 0 ? (p.edge / p.line) * 100 : 0;
+        const gradeClass = p.pick === "NO PLAY" ? "conf-none" : (p.grade === "A" ? "conf-a" : (p.grade === "B" ? "conf-b" : "conf-c"));
+        const predClass = p.pick === "NO PLAY" ? "pred-noplay" : (p.pick.startsWith("UNDER") ? "pred-under" : "pred-over");
+
+        row.innerHTML = `
+          <td style="font-weight:900;text-transform:uppercase;">${p.name}</td>
+          <td>${p.proj.toFixed(1)}</td>
+          <td style="color:${p.edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
+            ${p.edge >= 0 ? '+' : ''}${p.edge.toFixed(1)} (${p.edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
+          </td>
+          <td class="${gradeClass}">${p.grade}</td>
+          <td class="${predClass}" style="font-weight:900;white-space:nowrap;">
+            ${p.pick}${p.isLock ? ' <span class="lock">🔒</span>' : ''}
+          </td>
+        `;
+        body.appendChild(row);
+      });
+
+      table.style.display = "table";
+      table.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     // ── END GUARANTEED FINAL OVERRIDES ─────────────────────────────────────
+
+    function toggleTheme() {
+      const isDark = document.body.classList.toggle("dark-mode");
+      localStorage.setItem("theme", isDark ? "dark" : "light");
+    }
 
     document.addEventListener("DOMContentLoaded", () => {
       applySavedTheme();
+
+      const themeToggleBtn = document.getElementById("themeToggleBtn");
+      if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
+
       makeSectionsCollapsible();
       document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
       document.getElementById("leagueSection").classList.remove("collapsed");
