@@ -5230,6 +5230,15 @@
     applySavedTheme();
 
     // Helper to search player in SofaScore natively with one click
+    function copyRawJson(side) {
+      const json = side === 'A' ? window._rawJsonA : window._rawJsonB;
+      if (!json) { alert('No JSON stored for Player ' + side + ' yet.'); return; }
+      navigator.clipboard.writeText(json).then(function() {
+        const st = document.getElementById('fetchStatus');
+        if (st) { const prev = st.textContent; st.textContent = 'Copied Player ' + side + ' JSON!'; setTimeout(function(){ st.textContent = prev; }, 1500); }
+      }).catch(function() { alert('Clipboard blocked. Try again.'); });
+    }
+
     function searchPlayerSafari(side) {
       const rawName = document.getElementById(side === "A" ? "playerAName" : "playerBName").value.trim();
       if (!rawName) {
@@ -5485,8 +5494,9 @@
         analyzeFatigueAndH2H();
 
         AFDB.log('SUCCESS', 'FAILSAFE', `Player ${side} done. Match totals:${stats.scoredList.length} Set1:${stats.set1ScoredList.length}`);
+        if (side === 'A') { window._rawJsonA = rawText; } else { window._rawJsonB = rawText; }
         statusEl.className = "status-ok";
-        statusEl.innerHTML = `✅ Successfully parsed Player ${side} raw set scores! <button onclick="copyRawJson('${side}')" style="background:#3a404c;color:#fff;border:none;padding:3px 8px;font-size:10px;font-weight:800;cursor:pointer;margin-left:6px;">📋 Copy JSON ${side}</button>`;
+        statusEl.textContent = "✅ Player " + side + " loaded! Tap 📋 to copy raw JSON.";
         inputEl.value = "";
         ["marketSection","playerASection","playerBSection"].forEach(id => document.getElementById(id).classList.remove("collapsed"));
       } catch (err) {
@@ -5555,30 +5565,25 @@
             document.getElementById("useFTH2H").checked = true;
             AFDB.log('SUCCESS', 'H2H', `Automatically extracted H2H match scores and Set 1 points directly from player history feeds!`);
           } else {
-            AFDB.log('INFO', 'H2H', `No H2H matches found in recent history between these two players.`);
-            document.getElementById("fetchStatus").innerHTML += ` <span style="color:#d98a00;font-size:10px;font-weight:800;">· H2H: none found in recent history</span>`;
+            AFDB.log('INFO', 'H2H', `No H2H found in recent history between these players.`);
+            const _st1 = document.getElementById("fetchStatus");
+            if (_st1) _st1.textContent += " · H2H: none found";
           }
         } else {
-          AFDB.log('INFO', 'H2H', `No H2H matches found — players may not have faced each other recently.`);
-          document.getElementById("fetchStatus").innerHTML += ` <span style="color:#d98a00;font-size:10px;font-weight:800;">· H2H: none found in recent history</span>`;
+          AFDB.log('INFO', 'H2H', `No H2H found — may not have faced each other recently.`);
+          const _st2 = document.getElementById("fetchStatus");
+          if (_st2) _st2.textContent += " · H2H: none found";
         }
       }
     }
 
     function copyRawJson(side) {
       const json = side === 'A' ? window._rawJsonA : window._rawJsonB;
-      if (!json) { alert(`No raw JSON stored for Player ${side} yet.`); return; }
-      navigator.clipboard.writeText(json).then(() => {
-        const statusEl = document.getElementById("fetchStatus");
-        const orig = statusEl.innerHTML;
-        statusEl.innerHTML = `📋 Player ${side} JSON copied to clipboard!`;
-        setTimeout(() => { statusEl.innerHTML = orig; }, 1500);
-      }).catch(() => alert('Clipboard write blocked. Try again.'));
-    } else {
-          AFDB.log('INFO', 'H2H', `No H2H matches found — players may not have faced each other recently.`);
-          document.getElementById("fetchStatus").innerHTML += ` <span style="color:#d98a00;font-size:10px;font-weight:800;">· H2H: none found in recent history</span>`;
-        }
-      }
+      if (!json) { alert('No raw JSON stored for Player ' + side + ' yet.'); return; }
+      navigator.clipboard.writeText(json).then(function() {
+        const st = document.getElementById('fetchStatus');
+        if (st) { const prev = st.textContent; st.textContent = 'Copied Player ' + side + ' JSON!'; setTimeout(function(){ st.textContent = prev; }, 1500); }
+      }).catch(function() { alert('Clipboard write blocked. Try again.'); });
     }
 
     async function fetchMatchStats() {
