@@ -5342,15 +5342,11 @@
             return;
           }
 
-          if (teamResults.length === 1) {
-            const p = teamResults[0];
-            document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = p.id;
-            document.getElementById(side === 'A' ? 'playerAName' : 'playerBName').value = p.name;
-            updateHelperLinks(side);
-            _openStatsForPlayer(side, p.id, p.name);
-          } else {
-            showPlayerPicker(side, teamResults);
-          }
+          const p = teamResults[0];
+          document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = p.id;
+          document.getElementById(side === 'A' ? 'playerAName' : 'playerBName').value = p.name;
+          updateHelperLinks(side);
+          _openStatsForPlayer(side, p.id, p.name);
 
         } else if (phase === 'stats') {
           if (!text.includes('"events"')) return;
