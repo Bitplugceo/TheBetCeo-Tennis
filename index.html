@@ -1,4 +1,5 @@
-A
+B
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -559,31 +560,33 @@ A
       <h3>🔍 Player Lookup</h3>
 
 
-      <!-- Player A Controls -->
-      <div style="margin-bottom: 12px; border-bottom: 1px dashed var(--panel-border); padding-bottom: 10px;">
-        <label>Player A Name (Home)</label>
-        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-          <input id="playerAName" placeholder="Player A" style="margin-bottom:0;" />
-          <button type="button" onclick="searchPlayerSafari('A')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
-        </div>
-        <div style="display: flex; gap: 6px; align-items: center;">
-          <input id="playerAId" placeholder="Enter Numerical ID" oninput="updateHelperLinks('A')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
-          <a id="playerALink" href="#" target="_blank" style="color:#4ea9ff; font-size:10px; font-weight:800; text-decoration:underline; display:none; white-space:nowrap;">🔗 Open JSON A</a>
-        </div>
-      </div>
+                <!-- Player A Controls -->
+          <div style="margin-bottom: 12px; border-bottom: 1px dashed var(--panel-border); padding-bottom: 10px;">
+            <label>Player A Name (Home)</label>
+            <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+              <input id="playerAName" placeholder="Player A" style="margin-bottom:0;" />
+              <button type="button" onclick="searchPlayerSafari('A')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
+              <input id="pasteA" placeholder="Paste JSON A" oninput="parseIndividualFailsafe('A')" style="margin:0; padding:6px 8px; font-size:10px; width:100px; flex-shrink:0; background:var(--input-bg); color:var(--text); border:1px solid var(--input-border);" />
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <input id="playerAId" placeholder="Enter Numerical ID" oninput="updateHelperLinks('A')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
+              <a id="playerALink" href="#" target="_blank" style="color:#4ea9ff; font-size:10px; font-weight:800; text-decoration:underline; display:none; white-space:nowrap;">🔗 Open JSON A</a>
+            </div>
+          </div>
 
-      <!-- Player B Controls -->
-      <div style="margin-bottom: 12px; border-bottom: 1px dashed var(--panel-border); padding-bottom: 10px;">
-        <label>Player B Name (Away)</label>
-        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-          <input id="playerBName" placeholder="Player B" style="margin-bottom:0;" />
-          <button type="button" onclick="searchPlayerSafari('B')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
-        </div>
-        <div style="display: flex; gap: 6px; align-items: center;">
-          <input id="playerBId" placeholder="Enter Numerical ID" oninput="updateHelperLinks('B')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
-          <a id="playerBLink" href="#" target="_blank" style="color:#4ea9ff; font-size:10px; font-weight:800; text-decoration:underline; display:none; white-space:nowrap;">🔗 Open JSON B</a>
-        </div>
-      </div>
+                <!-- Player B Controls -->
+          <div style="margin-bottom: 12px; border-bottom: 1px dashed var(--panel-border); padding-bottom: 10px;">
+            <label>Player B Name (Away)</label>
+            <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+              <input id="playerBName" placeholder="Player B" style="margin-bottom:0;" />
+              <button type="button" onclick="searchPlayerSafari('B')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
+              <input id="pasteB" placeholder="Paste JSON B" oninput="parseIndividualFailsafe('B')" style="margin:0; padding:6px 8px; font-size:10px; width:100px; flex-shrink:0; background:var(--input-bg); color:var(--text); border:1px solid var(--input-border);" />
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <input id="playerBId" placeholder="Enter Numerical ID" oninput="updateHelperLinks('B')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
+              <a id="playerBLink" href="#" target="_blank" style="color:#4ea9ff; font-size:10px; font-weight:800; text-decoration:underline; display:none; white-space:nowrap;">🔗 Open JSON B</a>
+            </div>
+          </div>
 
 
       
@@ -5468,68 +5471,50 @@ A
       return { scoredList, allowedList, set1ScoredList, set1AllowedList };
     }
 
-    function parseFailsafeJson() {
-      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+    function parseIndividualFailsafe(side) {
+      const inputEl = document.getElementById(side === 'A' ? 'pasteA' : 'pasteB');
+      const rawText = inputEl.value.trim();
       const statusEl = document.getElementById("fetchStatus");
-      if (!rawText) { alert("Please paste the SofaScore JSON before clicking parse."); return; }
+      if (!rawText) return;
       statusEl.className = "status-loading";
-      statusEl.textContent = "⚙️ Parsing pasted JSON...";
-      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+      statusEl.textContent = `⚙️ Parsing Player ${side} pasted JSON...`;
+      AFDB.log('ENGINE', 'FAILSAFE', `Initializing manual JSON parser for Player ${side}...`);
       try {
         const parsedData = JSON.parse(rawText);
         const events = parsedData.events || [];
         if (events.length === 0) throw new Error("No event elements found in pasted JSON.");
-        const sampleEvent = events[0];
-        const rawHomeName = sampleEvent.homeTeam?.name || "";
-        const rawAwayName = sampleEvent.awayTeam?.name || "";
-        const inputNameA = document.getElementById("playerAName").value.trim();
-        const inputNameB = document.getElementById("playerBName").value.trim();
-        let targetId = null, targetLabel = "";
-        const enteredIdA = document.getElementById("playerAId").value.trim();
-        const enteredIdB = document.getElementById("playerBId").value.trim();
-
-        // ID-FIRST: scan all events to find which player this JSON belongs to
-        const allIds = new Set();
-        events.forEach(ev => {
-          if (ev.homeTeam?.id) allIds.add(String(ev.homeTeam.id));
-          if (ev.awayTeam?.id) allIds.add(String(ev.awayTeam.id));
-        });
-
-        if (enteredIdA && allIds.has(String(enteredIdA))) {
-          targetId = enteredIdA;
-          targetLabel = "Player A";
-        } else if (enteredIdB && allIds.has(String(enteredIdB))) {
-          targetId = enteredIdB;
-          targetLabel = "Player B";
-        } else if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
-          targetId = rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) ? sampleEvent.homeTeam?.id : sampleEvent.awayTeam?.id;
-          targetLabel = "Player A";
-        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
-          targetId = rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) ? sampleEvent.homeTeam?.id : sampleEvent.awayTeam?.id;
-          targetLabel = "Player B";
-        } else {
-          targetId = sampleEvent.homeTeam?.id;
-          targetLabel = "Player A";
-          document.getElementById("playerAName").value = rawHomeName;
-          if (!selectedFixtureData) {
-            selectedFixtureData = { eventId: sampleEvent.id || "manual_failsafe", homeId: sampleEvent.homeTeam?.id || "A", awayId: sampleEvent.awayTeam?.id || "B", homeName: rawHomeName, awayName: rawAwayName };
+        let targetId = document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value.trim();
+        if (!targetId) {
+          const idCounts = {};
+          events.forEach(ev => {
+            if (ev.homeTeam?.id) idCounts[ev.homeTeam.id] = (idCounts[ev.homeTeam.id] || 0) + 1;
+            if (ev.awayTeam?.id) idCounts[ev.awayTeam.id] = (idCounts[ev.awayTeam.id] || 0) + 1;
+          });
+          let maxCount = 0, bestId = null;
+          for (const id in idCounts) {
+            if (idCounts[id] > maxCount) { maxCount = idCounts[id]; bestId = id; }
+          }
+          if (bestId) {
+            targetId = bestId;
+            document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = bestId;
+            updateHelperLinks(side);
           }
         }
-        if (!targetId) throw new Error("No matching Player ID or Name found. Enter player names or IDs first.");
-        const stats = processPlayerPoints(events, targetId, targetLabel);
-        const isA = targetLabel === "Player A";
+        if (!targetId) throw new Error(`Could not find a valid player ID for Player ${side}.`);
+        const stats = processPlayerPoints(events, targetId, `Player ${side}`);
+        const isA = side === 'A';
         document.getElementById(isA ? "playerAPointsScored"  : "playerBPointsScored").value  = stats.scoredList.join(",");
         document.getElementById(isA ? "playerAPointsAllowed" : "playerBPointsAllowed").value = stats.allowedList.join(",");
         document.getElementById(isA ? "playerASet1Scored"    : "playerBSet1Scored").value    = stats.set1ScoredList.join(",");
         document.getElementById(isA ? "playerASet1Allowed"   : "playerBSet1Allowed").value   = stats.set1AllowedList.join(",");
-        AFDB.log('SUCCESS', 'FAILSAFE', `${targetLabel} done. Match totals:${stats.scoredList.length} Set1:${stats.set1ScoredList.length}`);
+        AFDB.log('SUCCESS', 'FAILSAFE', `Player ${side} done. Match totals:${stats.scoredList.length} Set1:${stats.set1ScoredList.length}`);
         statusEl.className = "status-ok";
-        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
-        document.getElementById("failsafeJsonInput").value = "";
+        statusEl.textContent = `✅ Successfully parsed Player ${side} raw set scores!`;
+        inputEl.value = "";
         ["marketSection","playerASection","playerBSection"].forEach(id => document.getElementById(id).classList.remove("collapsed"));
       } catch (err) {
         statusEl.className = "status-err";
-        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        statusEl.textContent = `❌ Failed to parse Player ${side} JSON. Check format.`;
         AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
       }
     }
@@ -5654,7 +5639,7 @@ A
       ["playerAPointsScored","playerAPointsAllowed","playerASet1Scored","playerASet1Allowed",
        "playerBPointsScored","playerBPointsAllowed","playerBSet1Scored","playerBSet1Allowed",
        "matchPointsLine","set1PointsLine","h2hSetsA","h2hSetsB",
-       "playerAName","playerBName","playerAId","playerBId","failsafeJsonInput"].forEach(id => {
+       "playerAName","playerBName","playerAId","playerBId","pasteA","pasteB"].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = "";
       });
       const cb = document.getElementById("useFTH2H"); if (cb) cb.checked = false;
