@@ -5714,9 +5714,17 @@
       const rawS1AllowA  = document.getElementById("playerASet1Allowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
       const rawS1ScoredB = document.getElementById("playerBSet1Scored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
       const rawS1AllowB  = document.getElementById("playerBSet1Allowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const _vStatus = document.getElementById("fetchStatus");
       if (!rawScoredA.length || !rawAllowedA.length || !rawScoredB.length || !rawAllowedB.length) {
-        alert("Please ensure both Player A and Player B have valid match scores.");
+        if (_vStatus) { _vStatus.className = "status-err"; _vStatus.textContent = "❌ Missing or invalid scores — check that scored/allowed fields contain comma-separated numbers."; }
+        AFDB.log('ERROR', 'VALIDATION', 'Aborting engine run: missing player data.');
         return;
+      }
+      const _minSets = Math.min(rawScoredA.length, rawAllowedA.length, rawScoredB.length, rawAllowedB.length);
+      if (_minSets < 5 && _vStatus) {
+        _vStatus.className = "status-loading";
+        _vStatus.textContent = `⚠️ Low sample (${_minSets} valid set score(s)) — add more match data for better accuracy.`;
+        AFDB.log('WARN', 'VALIDATION', `Low sample size: ${_minSets} set(s). Results may be less reliable.`);
       }
 
       // Weighted EWMA using per-set weights stored in perSetScored/Allowed
@@ -5793,7 +5801,7 @@
         const allOppScores = matchRecords.map(r => r.oppTotalScored);
         const meanOpp = allOppScores.reduce((a,b) => a+b, 0) / allOppScores.length;
         // If player's recent opponents scored well below average, slightly discount their own offensive numbers
-        const leagueMeanOppScore = 28; // empirical Setka Cup baseline from data
+        const leagueMeanOppScore = league === 'TT Cup' ? 24 : 28; // Setka Cup ≈28, TT Cup ≈24
         const diff = meanOpp - leagueMeanOppScore;
         return Math.max(-0.03, Math.min(0.03, diff * 0.002));
       };
@@ -5867,8 +5875,8 @@
         return { fatigue, form };
       };
 
-      const contextA = getPlayerModifiers(window.rawEventsA, idA);
-      const contextB = getPlayerModifiers(window.rawEventsB, idB);
+      const contextA = fatigueDataAvailable ? getPlayerModifiers(window.rawEventsA, idA) : { fatigue: 0, form: 0 };
+      const contextB = fatigueDataAvailable ? getPlayerModifiers(window.rawEventsB, idB) : { fatigue: 0, form: 0 };
 
       AFDB.log('ENGINE', 'FATIGUE', `Player A Fatigue: ${(contextA.fatigue*100).toFixed(1)}%, Form: ${(contextA.form*100).toFixed(1)}%`);
       AFDB.log('ENGINE', 'FATIGUE', `Player B Fatigue: ${(contextB.fatigue*100).toFixed(1)}%, Form: ${(contextB.form*100).toFixed(1)}%`);
@@ -6173,7 +6181,16 @@
       table.style.display = "table";
       table.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-    // ── END GUARANTEED FINAL OVERRIDES ─────────────────────────────────────
+    // ── END GUARANTEED FINAL OVERRIDES ─────────────────────────────────────────
+
+    function setFixtureDayOffset(offset) {
+      currentDayOffset = offset;
+      const _todayBtn = document.getElementById("fixturesTodayBtn");
+      const _tomBtn   = document.getElementById("fixturesTomorrowBtn");
+      if (_todayBtn) _todayBtn.classList.toggle("active", offset === 0);
+      if (_tomBtn)   _tomBtn.classList.toggle("active", offset === 1);
+      if (document.getElementById("fixtureSelect")) loadFixtures();
+    }
 
     function toggleTheme() {
       const isDark = document.body.classList.toggle("dark-mode");
