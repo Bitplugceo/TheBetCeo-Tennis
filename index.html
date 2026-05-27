@@ -733,12 +733,13 @@
       <table id="results" style="display:none;">
         <thead>
           <tr>
-            <th>Pick</th>
+            <th>Market</th>
+            <th>Line</th>
             <th>Proj</th>
             <th>Range (10–90%)</th>
             <th>Edge</th>
             <th>Grade</th>
-            <th>Prediction</th>
+            <th>Pick</th>
           </tr>
         </thead>
         <tbody id="resultsBody"></tbody>
@@ -5454,8 +5455,9 @@
           if (matchSets > 0) {
             scoredList.push(matchScored);
             allowedList.push(matchAllowed);
-            matchRecords.push({ scored: matchScored, allowed: matchAllowed, oppTotalScored, matchWeight, startTimestamp: ev.startTimestamp || 0, sets: matchSets });
-            AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} M#${idx+1} wt=${matchWeight.toFixed(2)} [${matchSets}s] scored:${matchScored} allowed:${matchAllowed}`);
+            const opponentId = isHome ? String(ev.awayTeam?.id || '') : String(ev.homeTeam?.id || '');
+            matchRecords.push({ scored: matchScored, allowed: matchAllowed, oppTotalScored, matchWeight, startTimestamp: ev.startTimestamp || 0, sets: matchSets, opponentId });
+            AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} M#${idx+1} wt=${matchWeight.toFixed(2)} [${matchSets}s] scored:${matchScored} allowed:${matchAllowed} oppId:${opponentId}`);
           }
         }
       });
@@ -5739,17 +5741,50 @@
         return weightedSum / weightTotal;
       };
 
+      // Resolve IDs first — required before any per-set or opponent-specific processing
+      const idA = document.getElementById("playerAId").value.trim();
+      const idB = document.getElementById("playerBId").value.trim();
+
       // Use per-set weighted means when available (set-level simulation upgrade)
       const psA = window.rawEventsA ? processPlayerPoints(window.rawEventsA, idA, 'A_ps') : null;
       const psB = window.rawEventsB ? processPlayerPoints(window.rawEventsB, idB, 'B_ps') : null;
 
-      const meanScoredA  = (psA && psA.perSetScored.length)  ? calculateWeightedMean(psA.perSetScored)  : calculateEWMAMean(rawScoredA);
-      const meanAllowedA = (psA && psA.perSetAllowed.length) ? calculateWeightedMean(psA.perSetAllowed) : calculateEWMAMean(rawAllowedA);
-      const meanScoredB  = (psB && psB.perSetScored.length)  ? calculateWeightedMean(psB.perSetScored)  : calculateEWMAMean(rawScoredB);
-      const meanAllowedB = (psB && psB.perSetAllowed.length) ? calculateWeightedMean(psB.perSetAllowed) : calculateEWMAMean(rawAllowedB);
+      let meanScoredA  = (psA && psA.perSetScored.length)  ? calculateWeightedMean(psA.perSetScored)  : calculateEWMAMean(rawScoredA);
+      let meanAllowedA = (psA && psA.perSetAllowed.length) ? calculateWeightedMean(psA.perSetAllowed) : calculateEWMAMean(rawAllowedA);
+      let meanScoredB  = (psB && psB.perSetScored.length)  ? calculateWeightedMean(psB.perSetScored)  : calculateEWMAMean(rawScoredB);
+      let meanAllowedB = (psB && psB.perSetAllowed.length) ? calculateWeightedMean(psB.perSetAllowed) : calculateEWMAMean(rawAllowedB);
 
       AFDB.log('ENGINE','MATH',`A: WtdSet Scored=${meanScoredA.toFixed(2)} Allowed=${meanAllowedA.toFixed(2)}`);
       AFDB.log('ENGINE','MATH',`B: WtdSet Scored=${meanScoredB.toFixed(2)} Allowed=${meanAllowedB.toFixed(2)}`);
+
+      // ── OPPONENT-SPECIFIC CALIBRATION ──────────────────────────────────────
+      // If player A has ≥2 matches vs this exact opponent in their history,
+      // blend in that targeted per-set scoring average (Bayesian-weighted by sample size).
+      const getVsOpponentStats = (matchRecords, opponentId) => {
+        if (!matchRecords || !opponentId) return null;
+        const vs = matchRecords.filter(r => r.opponentId === String(opponentId));
+        if (vs.length < 2) return null;
+        const wTot = vs.reduce((s, r) => s + r.matchWeight, 0);
+        if (!wTot) return null;
+        const meanScoredPerSet  = vs.reduce((s, r) => s + (r.scored  / r.sets) * r.matchWeight, 0) / wTot;
+        const meanAllowedPerSet = vs.reduce((s, r) => s + (r.allowed / r.sets) * r.matchWeight, 0) / wTot;
+        return { meanScoredPerSet, meanAllowedPerSet, n: vs.length };
+      };
+      const vsOppA = (psA && psA.matchRecords) ? getVsOpponentStats(psA.matchRecords, idB) : null;
+      const vsOppB = (psB && psB.matchRecords) ? getVsOpponentStats(psB.matchRecords, idA) : null;
+      if (vsOppA) {
+        const w = Math.min(0.45, vsOppA.n / 9);
+        meanScoredA  = meanScoredA  * (1 - w) + vsOppA.meanScoredPerSet  * w;
+        meanAllowedA = meanAllowedA * (1 - w) + vsOppA.meanAllowedPerSet * w;
+        AFDB.log('ENGINE', 'OPP_CAL', `A vs B specific: n=${vsOppA.n} w=${(w*100).toFixed(0)}% → scored=${meanScoredA.toFixed(2)} allowed=${meanAllowedA.toFixed(2)}`);
+      }
+      if (vsOppB) {
+        const w = Math.min(0.45, vsOppB.n / 9);
+        meanScoredB  = meanScoredB  * (1 - w) + vsOppB.meanScoredPerSet  * w;
+        meanAllowedB = meanAllowedB * (1 - w) + vsOppB.meanAllowedPerSet * w;
+        AFDB.log('ENGINE', 'OPP_CAL', `B vs A specific: n=${vsOppB.n} w=${(w*100).toFixed(0)}% → scored=${meanScoredB.toFixed(2)} allowed=${meanAllowedB.toFixed(2)}`);
+      }
+      // ── END OPPONENT-SPECIFIC CALIBRATION ──────────────────────────────────
 
       // Opponent-quality adjustment: penalise scores against weak opponents
       // Uses oppTotalScored as a proxy for opponent strength — higher opp score = stronger opp
@@ -5783,8 +5818,7 @@
       AFDB.log('ENGINE', 'VOLATILITY', `StdDev A=${stdDevA.toFixed(1)} (CV:${(cvA*100).toFixed(1)}%) B=${stdDevB.toFixed(1)} (CV:${(cvB*100).toFixed(1)}%) Uncertainty=${(matchUncertainty*100).toFixed(1)}%`);
 
       // Calculate schedule context (Rest Time, Fatigue & Streak Form) dynamically
-      const idA = document.getElementById("playerAId").value.trim();
-      const idB = document.getElementById("playerBId").value.trim();
+      // idA and idB are already resolved above before per-set processing
       // FIX: use fixture startTimestamp when available; only fall back to Date.now() if truly absent
       const upcomingTime = (selectedFixtureData && selectedFixtureData.startTimestamp)
         ? selectedFixtureData.startTimestamp * 1000
@@ -6122,6 +6156,7 @@
 
         row.innerHTML = `
           <td style="font-weight:900;text-transform:uppercase;">${p.name}</td>
+          <td style="font-weight:800;">${p.line.toFixed(1)}</td>
           <td>${p.proj.toFixed(1)}</td>
           <td style="font-weight:700;color:var(--muted);font-size:11px;">${rangeStr}</td>
           <td style="color:${p.edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
