@@ -1,3 +1,4 @@
+A
 
 <!DOCTYPE html>
 <html lang="en">
@@ -31,6 +32,16 @@
       --section-toggle-text: #20242c;
       --section-toggle-icon: #d91f26;
       --table-border: #dfe2e7;
+      
+      --tracker-head-bg: #3a404c;
+      --tracker-head-text: #ffffff;
+      --tracker-summary-bg: #f6f7f9;
+      --tracker-chip-bg: #f6f7f9;
+      --tracker-chip-border: #dfe2e7;
+      --tracker-strong: #20242c;
+      --tracker-subtext: #5a5f6b;
+      --tracker-mini-head-bg: #eceff3;
+      --tracker-mini-head-text: #2a2f38;
     }
 
     body.dark-mode {
@@ -49,15 +60,27 @@
       --section-toggle-text: #d4af37;
       --section-toggle-icon: #d4af37;
       --table-border: #333;
+      
+      --tracker-head-bg: #111;
+      --tracker-head-text: #d4af37;
+      --tracker-summary-bg: #151515;
+      --tracker-chip-bg: #151515;
+      --tracker-chip-border: #333;
+      --tracker-strong: #d4af37;
+      --tracker-subtext: #c3aa55;
+      --tracker-mini-head-bg: #111;
+      --tracker-mini-head-text: #d4af37;
     }
 
+    /* zero border-radius */
     button,
     input,
     select,
     textarea,
     table,
     th,
-    td {
+    td,
+    .tracker-report-card {
       border-radius: 0;
     }
 
@@ -271,10 +294,9 @@
     }
 
     #fetchStatus {
-      font-size: 11px;
+      font-size: 10px;
       margin-top: 6px;
       min-height: 16px;
-      font-weight: 700;
     }
 
     #fetchStatus.ok { color: #2f8f4a; }
@@ -288,24 +310,20 @@
 
     #runBtn,
     #clearBtn {
+      opacity: 1 !important;
       border: none !important;
       cursor: pointer !important;
-      padding: 8px 20px !important;
+      padding: 5px 14px !important;
       font-size: 12px !important;
       font-weight: 700 !important;
-      display: inline-block;
+      min-width: 0 !important;
+      width: auto !important;
     }
 
     #runBtn {
       background: #3a9c35 !important;
       color: #fff !important;
       box-shadow: 0 2px 8px rgba(58, 156, 53, 0.35) !important;
-    }
-
-    #runBtn:disabled {
-      background: #666 !important;
-      cursor: not-allowed !important;
-      box-shadow: none !important;
     }
 
     #clearBtn {
@@ -394,6 +412,7 @@
       vertical-align: middle;
       transform: translateY(-1px);
       margin-left: 4px;
+      margin-right: 0;
     }
   </style>
 </head>
@@ -430,11 +449,11 @@
         <label>Player A Name (Home)</label>
         <div style="display: flex; gap: 6px; margin-bottom: 6px;">
           <input id="playerAName" placeholder="Player A" style="margin-bottom:0;" />
-          <input id="pasteA" placeholder="Paste JSON A" oninput="DataLayer.parseIndividualFailsafe('A')" style="margin:0; padding:6px 8px; font-size:10px; width:100px; flex-shrink:0; background:var(--input-bg); color:var(--text); border:1px solid var(--input-border);" />
-          <button type="button" onclick="UI.searchPlayerSafari('A')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
+          <input id="pasteA" placeholder="Paste JSON A" oninput="parseIndividualFailsafe('A')" style="margin:0; padding:6px 8px; font-size:10px; width:100px; flex-shrink:0; background:var(--input-bg); color:var(--text); border:1px solid var(--input-border);" />
+          <button type="button" onclick="searchPlayerSafari('A')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
         </div>
         <div style="display: flex; gap: 6px; align-items: center;">
-          <input id="playerAId" placeholder="Enter Numerical ID" oninput="UI.updateHelperLinks('A')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
+          <input id="playerAId" placeholder="Enter Numerical ID" oninput="updateHelperLinks('A')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
           <a id="playerALink" href="#" target="_blank" style="color:#4ea9ff; font-size:10px; font-weight:800; text-decoration:underline; display:none; white-space:nowrap;">🔗 Open JSON A</a>
         </div>
       </div>
@@ -444,11 +463,11 @@
         <label>Player B Name (Away)</label>
         <div style="display: flex; gap: 6px; margin-bottom: 6px;">
           <input id="playerBName" placeholder="Player B" style="margin-bottom:0;" />
-          <input id="pasteB" placeholder="Paste JSON B" oninput="DataLayer.parseIndividualFailsafe('B')" style="margin:0; padding:6px 8px; font-size:10px; width:100px; flex-shrink:0; background:var(--input-bg); color:var(--text); border:1px solid var(--input-border);" />
-          <button type="button" onclick="UI.searchPlayerSafari('B')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
+          <input id="pasteB" placeholder="Paste JSON B" oninput="parseIndividualFailsafe('B')" style="margin:0; padding:6px 8px; font-size:10px; width:100px; flex-shrink:0; background:var(--input-bg); color:var(--text); border:1px solid var(--input-border);" />
+          <button type="button" onclick="searchPlayerSafari('B')" style="background:#3a404c; margin:0; padding:6px 10px; font-size:10px; width:auto; flex-shrink:0;">🔍 Search</button>
         </div>
         <div style="display: flex; gap: 6px; align-items: center;">
-          <input id="playerBId" placeholder="Enter Numerical ID" oninput="UI.updateHelperLinks('B')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
+          <input id="playerBId" placeholder="Enter Numerical ID" oninput="updateHelperLinks('B')" style="margin-bottom:0; font-size:11px; padding:4px 6px;" />
           <a id="playerBLink" href="#" target="_blank" style="color:#4ea9ff; font-size:10px; font-weight:800; text-decoration:underline; display:none; white-space:nowrap;">🔗 Open JSON B</a>
         </div>
       </div>
@@ -485,7 +504,7 @@
         </div>
       </div>
       <div style="margin-top:8px; border-top:1px dashed var(--panel-border); padding-top:8px;">
-        <label style="font-size:10px; font-weight:900; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px;">Set 1 Specific <span style="font-weight:700; text-transform:none;">(optional)</span></label>
+        <label style="font-size:10px; font-weight:900; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px;">Set 1 Specific <span>(optional)</span></label>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top:4px;">
           <div>
             <label>Set 1 Scored</label>
@@ -513,7 +532,7 @@
         </div>
       </div>
       <div style="margin-top:8px; border-top:1px dashed var(--panel-border); padding-top:8px;">
-        <label style="font-size:10px; font-weight:900; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px;">Set 1 Specific <span style="font-weight:700; text-transform:none;">(optional)</span></label>
+        <label style="font-size:10px; font-weight:900; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px;">Set 1 Specific <span>(optional)</span></label>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top:4px;">
           <div>
             <label>Set 1 Scored</label>
@@ -552,8 +571,8 @@
 
     <!-- Actions -->
     <div class="actions">
-      <button id="runBtn" type="button" onclick="Engine.run()">Run</button>
-      <button id="clearBtn" type="button" onclick="UI.clearAll()">Clear</button>
+      <button id="runBtn" type="button" onclick="runEngine()">Run</button>
+      <button id="clearBtn" type="button" onclick="clearAll()">Clear</button>
     </div>
 
     <!-- Projections Output -->
@@ -572,9 +591,6 @@
         </thead>
         <tbody id="resultsBody"></tbody>
       </table>
-      <div style="text-align: center; margin-top: 10px;">
-        <button id="copyResultsBtn" style="display: none; background: #3a404c;" onclick="UI.copyResultsToClipboard()">📋 Copy Results to Clipboard</button>
-      </div>
     </div>
 
   </div>
@@ -585,45 +601,56 @@
   </div>
 
   <script>
-    // --- Global Configuration & Application State ---
+    // ── GLOBAL CONFIG ──────────────────────────────────────────────────────────
     const CONFIG = {
-      SIM_RUNS: 50000,
-      MAX_MATCHES: 20,
-      H2H_MAX_WEIGHT: 0.35,
-      GRADE_A_THRESHOLD: 65,
-      GRADE_B_THRESHOLD: 60,
-      GRADE_C_THRESHOLD: 55,
-      LEAGUE_MEAN_OPP: { "Setka Cup": 28, "TT Cup": 24 }
+      SIM_RUNS:          50000,
+      MAX_MATCHES:       20,
+      H2H_MAX_WEIGHT:    0.35,
+      GRADE_A_THRESHOLD: 0.65,
+      GRADE_B_THRESHOLD: 0.60,
+      GRADE_C_THRESHOLD: 0.55,
+      LEAGUE_MEAN_OPP:   { "Setka Cup": 28, "TT Cup": 24 }
     };
+    
+    const PRIMARY_WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+    
+    const PROXY_ROTATION_FALLBACKS = [
+      "https://corsproxy.io/?",
+      "https://api.codetabs.com/v1/proxy?quest=",
+      "https://api.allorigins.win/raw?url=",
+      "https://thingproxy.freeboard.io/fetch/"
+    ];
 
-    const State = {
-      selectedFixtureData: null,
-      rawEvents: { A: null, B: null },
-      _clipboardPhase: { A: null, B: null },
-      _clipboardReady: true,
-      lastSimResults: null
-    };
+    let _clipboardPhase = { A: null, B: null };
+    let _clipboardReady = true;
 
-    // --- Microscope Logging Framework ---
+    // ── Microscope Debug Brain (AFDB IIFE) ───────────────────────────────────
     const AFDB = (function() {
-      const LOG_LIMIT = 300;
+      const LOG_LIMIT = 600;
       let _log = [];
       let _isOpen = false;
-      let _currentLogLevel = 'ALL';
+      let _currentLogLevel = 'ERROR';
+      let _showOnlyErrors = true; 
 
       const LEVELS = {
-        BOOT:    { color:'#7aa6ff', icon:'⚙️' },
-        NET:     { color:'#4ea9ff', icon:'🌐' },
-        FETCH:   { color:'#49d45f', icon:'📡' },
-        SUCCESS: { color:'#49d45f', icon:'✅' },
-        WARN:    { color:'#ffcf73', icon:'⚠️' },
-        ERROR:   { color:'#ff5c61', icon:'❌' },
-        INFO:    { color:'#aaa',    icon:'ℹ️' },
-        ENGINE:  { color:'#d4af37', icon:'⚙️' },
-        H2H:     { color:'#c678dd', icon:'🔄' },
-        FATIGUE: { color:'#ff87a0', icon:'🔋' },
-        STYLE:   { color:'#00e5ff', icon:'🏓' }
+        BOOT:    { color:'#7aa6ff' }, NET:     { color:'#4ea9ff' },
+        FETCH:   { color:'#49d45f' }, FILL:    { color:'#2aff9e' },
+        PICK:    { color:'#d4af37' }, H2H:     { color:'#c678dd' },
+        SUCCESS: { color:'#49d45f' }, WARN:    { color:'#ffcf73' },
+        ERROR:   { color:'#ff5c61' }, INFO:    { color:'#aaa'    },
+        ENGINE:  { color:'#d4af37' }, TRACKER: { color:'#4ea9ff' },
+        VERDICT: { color:'#49d45f' } 
       };
+
+      const ICONS = {
+        BOOT:'⚙️', NET:'🌐', FETCH:'📡', FILL:'✏️',
+        PICK:'📌', H2H:'🔄', SUCCESS:'✅', WARN:'⚠️', ERROR:'❌', INFO:'ℹ️',
+        ENGINE:'⚙️', TRACKER:'📊', VERDICT:'🏅'
+      };
+
+      function esc(s) {
+        return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
 
       function log(level, section, msg, data = null) {
         const entry = {
@@ -636,9 +663,10 @@
         _log.unshift(entry);
         if (_log.length > LOG_LIMIT) _log = _log.slice(0, LOG_LIMIT);
         
-        if (level === 'ERROR' && document.body) {
-          document.body.classList.add("engine-alert");
+        if (level === 'ERROR') {
+          if (document.body) document.body.classList.add("engine-alert");
         }
+        
         if (_isOpen) _render();
       }
 
@@ -663,22 +691,51 @@
       function toggleFilter() {
         const levels = ['ALL', 'WARN', 'ERROR'];
         _currentLogLevel = levels[(levels.indexOf(_currentLogLevel) + 1) % levels.length];
+        _showOnlyErrors = _currentLogLevel !== 'ALL';
         _render();
       }
 
       function copy(btnEl) {
-        const text = _log.slice().reverse().map(e => 
-          `[${e.ts}] [${e.level}] [${e.section}] ${e.msg}` + (e.data ? ` | ${JSON.stringify(e.data)}` : '')
-        ).join('\n');
-        
-        navigator.clipboard.writeText(text).then(() => {
-          if (btnEl) {
-            const orig = btnEl.innerHTML;
-            btnEl.innerHTML = "✅ COPIED!";
-            setTimeout(() => { btnEl.innerHTML = orig; }, 1500);
+        const visibleLogs = _getFilteredLogs();
+        const textArr = visibleLogs.slice().reverse().map(e => {
+          let line = '[' + e.ts + '] [' + e.level + '] [' + e.section + '] ' + e.msg;
+          if (e.data !== null) {
+            try { line += ' | ' + JSON.stringify(e.data); }
+            catch(x) { line += ' | ' + String(e.data); }
           }
-        }).catch(() => {
-          log('WARN', 'AFDB', 'Clipboard query blocked.');
+          return line;
+        });
+        const text = textArr.join(String.fromCharCode(10, 10));
+        try {
+          navigator.clipboard.writeText(text);
+          if (btnEl) {
+            const origText = btnEl.innerHTML;
+            btnEl.innerHTML = "✅ COPIED!";
+            setTimeout(() => { if (btnEl) btnEl.innerHTML = origText; }, 1500);
+          }
+        } catch(e) {
+          log('WARN','AFDB','Clipboard blocked — printed to console');
+        }
+      }
+
+      async function runTestFetch() {
+        log('INFO', 'POLICE RAID', 'Initiating diagnostic test fetch for today...');
+        const dateStr = getLocalDateKey(0);
+        const testUrl = `https://api.sofascore.com/api/v1/sport/table-tennis/scheduled-events/${dateStr}`;
+        try {
+          const res = await proxyFetch(testUrl);
+          log('SUCCESS', 'POLICE RAID', `SofaScore ping OK. Recieved ${res?.events?.length || 0} event objects.`);
+        } catch(err) {
+          log('ERROR', 'POLICE RAID', `Test Fetch Failed: ${err.message}`);
+        }
+      }
+
+      function _getFilteredLogs() {
+        return _log.filter(e => {
+          if (_currentLogLevel === 'ALL') return true;
+          if (_currentLogLevel === 'WARN') return e.level === 'WARN' || e.level === 'ERROR' || e.level === 'VERDICT';
+          if (_currentLogLevel === 'ERROR') return e.level === 'ERROR' || e.level === 'VERDICT';
+          return true;
         });
       }
 
@@ -686,1038 +743,55 @@
         const panel = document.getElementById('afdbPanel');
         if (!panel) return;
 
-        const filtered = _log.filter(e => {
-          if (_currentLogLevel === 'ALL') return true;
-          if (_currentLogLevel === 'WARN') return e.level === 'WARN' || e.level === 'ERROR';
-          if (_currentLogLevel === 'ERROR') return e.level === 'ERROR';
-          return true;
-        });
+        const headerBtns = '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">📋 Copy Log</button><button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;margin-right:4px;">🗑️ Clear</button><button onclick="AFDB.runTestFetch()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;box-shadow:0 0 8px rgba(217,31,38,0.4);margin-right:4px;">🚨 MILITARY RAID</button><button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ Close</button>';
 
-        const logRows = filtered.map(e => {
-          const cfg = LEVELS[e.level] || LEVELS.INFO;
+        const visibleLogs = _getFilteredLogs();
+        const logRows = visibleLogs.map(e => {
+          const def = LEVELS[e.level] || LEVELS.INFO;
+          const icon = ICONS[e.level] || '•';
           let dataHtml = '';
-          if (e.data) {
-            dataHtml = `<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;word-break:break-all;">${JSON.stringify(e.data, null, 2)}</pre>`;
+          if (e.data !== null) {
+            let ds;
+            try { ds = typeof e.data === 'object' ? JSON.stringify(e.data, null, 2) : String(e.data); }
+            catch(x) { ds = String(e.data); }
+            dataHtml = '<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;word-break:break-all;">' + esc(ds) + '</pre>';
           }
-          return `
-            <div style="padding:8px;border-bottom:1px solid #151515;">
-              <div style="display:flex;gap:8px;align-items:flex-start;">
-                <span style="color:#555;font-size:9px;min-width:65px;">${e.ts}</span>
-                <span style="color:${cfg.color};font-size:10px;font-weight:900;min-width:75px;">${cfg.icon} ${e.level}</span>
-                <span style="color:#777;font-size:9px;min-width:80px;">[${e.section}]</span>
-                <span style="color:${cfg.color};font-size:11px;font-weight:700;flex:1;white-space:pre-wrap;">${e.msg}</span>
-              </div>
-              ${dataHtml}
-            </div>`;
+          return '<div style="padding:8px;border-bottom:1px solid #151515;"><div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;"><span style="color:#555;font-size:9px;min-width:65px;flex-shrink:0;">' + esc(e.ts) + '</span><span style="color:' + def.color + ';font-size:10px;font-weight:900;min-width:75px;flex-shrink:0;">' + icon + ' ' + esc(e.level) + '</span><span style="color:#777;font-size:9px;min-width:80px;flex-shrink:0;">[' + esc(e.section) + ']</span><span style="color:' + def.color + ';font-size:11px;font-weight:700;flex:1;white-space:pre-wrap;">' + esc(e.msg) + '</span></div>' + dataHtml + '</div>';
         }).join('');
 
-        panel.innerHTML = `
-          <div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-            <div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DIAGNOSTIC MICROSCOPE</div>
-            <div>
-              <button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">📋 Copy Log</button>
-              <button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ Clear</button>
-              <button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;">
-            <div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;">
-              <span>📡 ACTIVE LOGS</span>
-              <button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:11px;font-weight:bold;cursor:pointer;">🛰️ LEVEL: ${_currentLogLevel}</button>
-            </div>
-            <div style="padding-bottom:15px;">${logRows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;">Clear pipeline logs.</div>'}</div>
-          </div>`;
+        const emptyMsg = _showOnlyErrors ? 'No suspects arrested. The code is clean.' : 'No log entries yet. Select a league.';
+        const filterLabel = `🛰️ LEVEL: ${_currentLogLevel}`;
+
+        panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div><div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>📡 FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows || '<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
       }
 
-      return { log, clear, open, close, copy, toggleFilter };
+      return { log, clear, open, close, copy, toggleFilter, runTestFetch };
     })();
 
-    // --- IIFE DATA LAYER (Failsafe parses, correlations, calculations) ---
-    const DataLayer = (() => {
-
-      function calculateMean(arr) {
-        if (!arr.length) return 0;
-        return arr.reduce((a, b) => a + b, 0) / arr.length;
-      }
-
-      function calculateStdDev(arr) {
-        if (arr.length < 2) return 1.5;
-        const mean = calculateMean(arr);
-        const variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);
-        return Math.sqrt(variance);
-      }
-
-      function validateSofaEvent(ev) {
-        return !!(ev?.homeTeam?.id && ev?.awayTeam?.id && ev?.status?.type === "finished");
-      }
-
-      function processPlayerPoints(events, playerId, label) {
-        const scoredList = [], allowedList = [], set1ScoredList = [], set1AllowedList = [];
-        const perSetScored = [], perSetAllowed = [];
-        const matchRecords = [];
-
-        const completed = events.filter(e => {
-          if (!validateSofaEvent(e)) return false;
-          const hId = String(e.homeTeam.id);
-          const aId = String(e.awayTeam.id);
-          return hId === String(playerId) || aId === String(playerId);
-        }).reverse().slice(0, CONFIG.MAX_MATCHES);
-
-        AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} valid matches for ${label} (ID: ${playerId})`);
-
-        completed.forEach((ev, idx) => {
-          const isHome = String(ev.homeTeam.id) === String(playerId);
-          const myScoreObj  = isHome ? ev.homeScore : ev.awayScore;
-          const oppScoreObj = isHome ? ev.awayScore  : ev.homeScore;
-          if (myScoreObj && oppScoreObj) {
-            let matchSets = 0, matchScored = 0, matchAllowed = 0;
-            let oppTotalScored = 0;
-            const matchWeight = Math.pow(0.85, idx);
-
-            for (let s = 1; s <= 5; s++) {
-              const mySet  = myScoreObj[`period${s}`];
-              const oppSet = oppScoreObj[`period${s}`];
-              if (mySet !== undefined && oppSet !== undefined) {
-                perSetScored.push({ val: mySet, weight: matchWeight });
-                perSetAllowed.push({ val: oppSet, weight: matchWeight });
-                if (s === 1) { 
-                  set1ScoredList.push(mySet); 
-                  set1AllowedList.push(oppSet); 
-                }
-                matchScored += mySet; 
-                matchAllowed += oppSet;
-                oppTotalScored += oppSet;
-                matchSets++;
-              }
-            }
-            if (matchSets > 0) {
-              scoredList.push(matchScored);
-              allowedList.push(matchAllowed);
-              const opponentId = isHome ? String(ev.awayTeam?.id || '') : String(ev.homeTeam?.id || '');
-              matchRecords.push({ 
-                scored: matchScored, 
-                allowed: matchAllowed, 
-                oppTotalScored, 
-                matchWeight, 
-                startTimestamp: ev.startTimestamp || 0, 
-                sets: matchSets, 
-                opponentId 
-              });
-              AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [Weight: ${matchWeight.toFixed(2)}] sets=${matchSets} scored=${matchScored} allowed=${matchAllowed}`);
-            }
-          }
-        });
-
-        AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} processing complete. Scanned Sets: ${perSetScored.length}`);
-        return { scoredList, allowedList, set1ScoredList, set1AllowedList, perSetScored, perSetAllowed, matchRecords };
-      }
-
-      function parseIndividualFailsafe(side) {
-        const inputEl = document.getElementById(side === 'A' ? 'pasteA' : 'pasteB');
-        const rawText = inputEl.value.trim();
-        const statusEl = document.getElementById("fetchStatus");
-        if (!rawText) return;
-
-        statusEl.className = "status-loading";
-        statusEl.textContent = `⚙️ Parsing pasted JSON for Player ${side}...`;
-
-        try {
-          const parsedData = JSON.parse(rawText);
-          const events = parsedData.events || [];
-          if (events.length === 0) throw new Error("Parsed JSON lacks an events collection array.");
-
-          let targetId = document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value.trim();
-          if (!targetId) {
-            const idCounts = {};
-            events.forEach(ev => {
-              if (ev.homeTeam?.id) idCounts[ev.homeTeam.id] = (idCounts[ev.homeTeam.id] || 0) + 1;
-              if (ev.awayTeam?.id) idCounts[ev.awayTeam.id] = (idCounts[ev.awayTeam.id] || 0) + 1;
-            });
-            let maxCount = 0, bestId = null;
-            for (const id in idCounts) {
-              if (idCounts[id] > maxCount) { maxCount = idCounts[id]; bestId = id; }
-            }
-            if (bestId) {
-              targetId = bestId;
-              document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = bestId;
-              UI.updateHelperLinks(side);
-            }
-          }
-
-          if (!targetId) throw new Error("A standard numerical Player ID is missing from UI inputs.");
-
-          const stats = processPlayerPoints(events, targetId, `Player ${side}`);
-          const isA = (side === 'A');
-
-          document.getElementById(isA ? "playerAPointsScored"  : "playerBPointsScored").value  = stats.scoredList.join(",");
-          document.getElementById(isA ? "playerAPointsAllowed" : "playerBPointsAllowed").value = stats.allowedList.join(",");
-          document.getElementById(isA ? "playerASet1Scored"    : "playerBSet1Scored").value    = stats.set1ScoredList.join(",");
-          document.getElementById(isA ? "playerASet1Allowed"   : "playerBSet1Allowed").value   = stats.set1AllowedList.join(",");
-
-          State.rawEvents[side] = events;
-          try {
-            sessionStorage.setItem(`tt_cache_${side}_${targetId}`, JSON.stringify(events));
-            AFDB.log('SUCCESS', 'CACHE', `Cached events list in local sessionStorage for Player ${side}.`);
-          } catch(e) {
-            AFDB.log('WARN', 'CACHE', `Could not serialize events to sessionStorage: ${e.message}`);
-          }
-
-          analyzeFatigueAndH2H();
-
-          statusEl.className = "status-ok";
-          statusEl.textContent = `✅ Player ${side} data loaded successfully!`;
-          inputEl.value = "";
-          ["marketSection","playerASection","playerBSection"].forEach(id => document.getElementById(id).classList.remove("collapsed"));
-
-        } catch (err) {
-          statusEl.className = "status-err";
-          statusEl.textContent = `❌ Error parsing pasted JSON for Player ${side}.`;
-          AFDB.log('ERROR', 'FAILSAFE', `Parsing Failed: ${err.message}`);
-        }
-      }
-
-      function analyzeFatigueAndH2H() {
-        const idA = document.getElementById("playerAId").value.trim();
-        const idB = document.getElementById("playerBId").value.trim();
-
-        ['A', 'B'].forEach(side => {
-          const events = State.rawEvents[side];
-          const playerId = side === 'A' ? idA : idB;
-          if (!events || !playerId) return;
-
-          const completed = events.filter(e => {
-            if (!validateSofaEvent(e)) return false;
-            const hId = String(e.homeTeam.id);
-            const aId = String(e.awayTeam.id);
-            return hId === String(playerId) || aId === String(playerId);
-          }).reverse();
-
-          if (completed.length < 2) return;
-          let sameDayCount = 1, b2bCount = 0, totalRestHours = 0, intervalsCount = 0;
-
-          for (let i = 0; i < Math.min(completed.length - 1, 4); i++) {
-            const m1Time = completed[i].startTimestamp * 1000;
-            const m2Time = completed[i+1].startTimestamp * 1000;
-            const diffHours = (m1Time - m2Time) / (1000 * 60 * 60);
-            if (diffHours > 0) {
-              totalRestHours += diffHours;
-              intervalsCount++;
-              if (diffHours <= 4) sameDayCount++;
-              else if (diffHours <= 24) b2bCount++;
-            }
-          }
-          const avgRest = intervalsCount > 0 ? (totalRestHours / intervalsCount).toFixed(1) : "—";
-          AFDB.log('FATIGUE', 'SCHEDULING', `Player ${side}: Avg Rest: ${avgRest} hrs. Same-day games: ${sameDayCount - 1}, B2B matches: ${b2bCount}`);
-        });
-
-        if (idA && idB && State.rawEvents.A) {
-          const h2hMatches = State.rawEvents.A.filter(e => {
-            if (!validateSofaEvent(e)) return false;
-            const hId = String(e.homeTeam.id);
-            const aId = String(e.awayTeam.id);
-            return (hId === String(idA) && aId === String(idB)) || (hId === String(idB) && aId === String(idA));
-          });
-
-          if (h2hMatches.length > 0) {
-            const setsA = [], setsB = [], set1A = [], set1B = [];
-            h2hMatches.slice(0, 5).forEach(m => {
-              const isHomeA = String(m.homeTeam.id) === String(idA);
-              const scoreA = isHomeA ? m.homeScore?.display : m.awayScore?.display;
-              const scoreB = isHomeA ? m.awayScore?.display : m.homeScore?.display;
-              const s1A = isHomeA ? m.homeScore?.period1 : m.awayScore?.period1;
-              const s1B = isHomeA ? m.awayScore?.period1 : m.homeScore?.period1;
-              if (scoreA !== undefined && scoreB !== undefined) { setsA.push(scoreA); setsB.push(scoreB); }
-              if (s1A !== undefined && s1B !== undefined) { set1A.push(s1A); set1B.push(s1B); }
-            });
-            if (setsA.length > 0) {
-              document.getElementById("h2hSetsA").value = setsA.join(",");
-              document.getElementById("h2hSetsB").value = setsB.join(",");
-            }
-            if (set1A.length > 0) {
-              document.getElementById("h2hSet1A").value = set1A.join(",");
-              document.getElementById("h2hSet1B").value = set1B.join(",");
-            }
-            document.getElementById("useFTH2H").checked = true;
-            AFDB.log('H2H', 'AUTOFILL', `Parsed ${setsA.length} H2H head-to-head match lines from Player histories.`);
-          }
-        }
-      }
-
-      async function autoClipboardParse(side) {
-        if (!State._clipboardReady) return;
-        const phase = State._clipboardPhase[side];
-        if (!phase) return;
-
-        const statusEl = document.getElementById("fetchStatus");
-        try {
-          const state = await navigator.permissions.query({ name: "clipboard-read" }).catch(() => ({ state: "prompt" }));
-          if (state.state === "denied") {
-            State._clipboardPhase[side] = null;
-            return;
-          }
-
-          const text = await navigator.clipboard.readText();
-          if (!text || text.length < 10) return;
-
-          if (phase === 'search') {
-            const parsed = JSON.parse(text);
-            const results = parsed.results || [];
-            const ttResults = results.filter(r => r.type === 'team' && r.entity?.sport?.slug === 'table-tennis').map(r => ({
-              id: String(r.entity.id),
-              name: r.entity.name || '',
-              country: r.entity.country?.name || '',
-              userCount: r.entity.userCount || 0,
-              sport: r.entity.sport?.name || ''
-            }));
-
-            State._clipboardPhase[side] = null;
-
-            if (ttResults.length > 0) {
-              const p = ttResults[0];
-              document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = p.id;
-              document.getElementById(side === 'A' ? 'playerAName' : 'playerBName').value = p.name;
-              UI.updateHelperLinks(side);
-              UI._openStatsForPlayer(side, p.id, p.name);
-            } else if (results.length > 0) {
-              statusEl.className = "status-err";
-              statusEl.textContent = `⚠️ No TT player resolved — check name and search again.`;
-            }
-          } else if (phase === 'stats') {
-            if (!text.includes('"events"')) return;
-            const parsed = JSON.parse(text);
-            const events = parsed.events || [];
-            if (events.length === 0) return;
-
-            const idVal = document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value.trim();
-            if (!idVal) return;
-
-            const stats = processPlayerPoints(events, idVal, `Player ${side}`);
-            const isA = (side === 'A');
-            document.getElementById(isA ? "playerAPointsScored"  : "playerBPointsScored").value  = stats.scoredList.join(",");
-            document.getElementById(isA ? "playerAPointsAllowed" : "playerBPointsAllowed").value = stats.allowedList.join(",");
-            document.getElementById(isA ? "playerASet1Scored"    : "playerBSet1Scored").value    = stats.set1ScoredList.join(",");
-            document.getElementById(isA ? "playerASet1Allowed"   : "playerBSet1Allowed").value   = stats.set1AllowedList.join(",");
-
-            State.rawEvents[side] = events;
-            try {
-              sessionStorage.setItem(`tt_cache_${side}_${idVal}`, JSON.stringify(events));
-              AFDB.log('SUCCESS', 'CACHE', `Cached events list in local sessionStorage for Player ${side}.`);
-            } catch(e) {
-              AFDB.log('WARN', 'CACHE', `Could not serialize events to sessionStorage: ${e.message}`);
-            }
-
-            analyzeFatigueAndH2H();
-
-            ["marketSection","playerASection","playerBSection"].forEach(id => document.getElementById(id).classList.remove("collapsed"));
-            statusEl.className = "status-ok";
-            statusEl.textContent = `✅ Player ${side} data auto-filled!`;
-            State._clipboardPhase[side] = null;
-          }
-        } catch (err) {
-          AFDB.log('WARN', 'CLIPBOARD', `Bypassed automated clipboard query: ${err.message}`);
-        }
-      }
-
-      return {
-        calculateMean,
-        calculateStdDev,
-        processPlayerPoints,
-        parseIndividualFailsafe,
-        analyzeFatigueAndH2H,
-        validateSofaEvent,
-        autoClipboardParse
-      };
-    })();
-
-    // --- IIFE HIGH PERFORMANCE WEB WORKER MANAGER (Defensive Fallback Design) ---
-    const WorkerManager = (function() {
-      const simulationWorkerCode = `
-        self.onmessage = function(e) {
-          const { probA, probA_set1, matchUncertainty, matchLine, set1Line, SIM_RUNS } = e.data;
-
-          const randomNormal = () => {
-            let u = 0, v = 0;
-            while (u === 0) u = Math.random();
-            while (v === 0) v = Math.random();
-            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-          };
-
-          let matchOverHits = 0, set1OverHits = 0, totalMatchPts = 0, totalSet1Pts = 0;
-          const allMatchPts = [];
-          const allSet1Pts = [];
-
-          for (let run = 0; run < SIM_RUNS; run++) {
-            let sWA = 0, sWB = 0, matchPts = 0, s1Pts = 0, setNum = 1;
-            let server = Math.random() < 0.5 ? 'A' : 'B';
-            let firstSetServer = server;
-            let runSkillShift = randomNormal() * matchUncertainty * 0.15;
-
-            while (sWA < 3 && sWB < 3) {
-              let sA = 0, sB = 0;
-              let setPointsPlayed = 0;
-
-              if (setNum > 1) {
-                server = (setNum % 2 === 1) ? (firstSetServer === 'A' ? 'A' : 'B') : (firstSetServer === 'A' ? 'B' : 'A');
-              }
-
-              let momentum = (sWA - sWB) * 0.01;
-
-              while ((sA < 11 && sB < 11) || Math.abs(sA - sB) < 2) {
-                let p = (setNum === 1) ? probA_set1 : probA;
-                p += momentum + runSkillShift;
-                
-                if (server === 'A') {
-                  p += 0.03;
-                } else {
-                  p -= 0.03;
-                }
-                p = Math.max(0.25, Math.min(0.75, p));
-
-                if (Math.random() < p) sA++; else sB++;
-                setPointsPlayed++;
-
-                if (sA >= 10 && sB >= 10) {
-                  server = (server === 'A') ? 'B' : 'A';
-                } else if (setPointsPlayed % 2 === 0) {
-                  server = (server === 'A') ? 'B' : 'A';
-                }
-              }
-
-              const sp = sA + sB;
-              matchPts += sp;
-              if (setNum === 1) { s1Pts = sp; totalSet1Pts += sp; }
-              if (sA > sB) sWA++; else sWB++;
-              setNum++;
-            }
-
-            totalMatchPts += matchPts;
-            allMatchPts.push(matchPts);
-            allSet1Pts.push(s1Pts);
-
-            if (isFinite(matchLine) && matchPts > matchLine) matchOverHits++;
-            if (isFinite(set1Line)  && s1Pts  > set1Line)  set1OverHits++;
-          }
-
-          allMatchPts.sort((a, b) => a - b);
-          allSet1Pts.sort((a, b) => a - b);
-
-          const projMatch = totalMatchPts / SIM_RUNS;
-          const projSet1  = totalSet1Pts / SIM_RUNS;
-          const pctMatch  = (matchOverHits / SIM_RUNS) * 100;
-          const pctSet1   = (set1OverHits / SIM_RUNS) * 100;
-
-          const p10Match = allMatchPts[Math.floor(SIM_RUNS * 0.10)];
-          const p90Match = allMatchPts[Math.floor(SIM_RUNS * 0.90)];
-          const p10Set1  = allSet1Pts[Math.floor(SIM_RUNS * 0.10)];
-          const p90Set1  = allSet1Pts[Math.floor(SIM_RUNS * 0.90)];
-
-          self.postMessage({
-            projMatch, projSet1, pctMatch, pctSet1, p10Match, p90Match, p10Set1, p90Set1
-          });
-        };
-      `;
-
-      let _workerInstance = null;
-
-      function getWorker() {
-        if (_workerInstance) return _workerInstance;
-        try {
-          const blob = new Blob([simulationWorkerCode], { type: "application/javascript" });
-          _workerInstance = new Worker(URL.createObjectURL(blob));
-          return _workerInstance;
-        } catch (err) {
-          AFDB.log('WARN', 'ENGINE', `Web Worker initialization blocked: ${err.message}. Activating main-thread fallback.`);
-          return null;
-        }
-      }
-
-      function runSimulationSync(data) {
-        const { probA, probA_set1, matchUncertainty, matchLine, set1Line, SIM_RUNS } = data;
-
-        const randomNormal = () => {
-          let u = 0, v = 0;
-          while (u === 0) u = Math.random();
-          while (v === 0) v = Math.random();
-          return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-        };
-
-        let matchOverHits = 0, set1OverHits = 0, totalMatchPts = 0, totalSet1Pts = 0;
-        const allMatchPts = [];
-        const allSet1Pts = [];
-        const RUNS = Math.min(10000, SIM_RUNS); // Fast fallback runs
-
-        for (let run = 0; run < RUNS; run++) {
-          let sWA = 0, sWB = 0, matchPts = 0, s1Pts = 0, setNum = 1;
-          let server = Math.random() < 0.5 ? 'A' : 'B';
-          let firstSetServer = server;
-          let runSkillShift = randomNormal() * matchUncertainty * 0.15;
-
-          while (sWA < 3 && sWB < 3) {
-            let sA = 0, sB = 0;
-            let setPointsPlayed = 0;
-
-            if (setNum > 1) {
-              server = (setNum % 2 === 1) ? (firstSetServer === 'A' ? 'A' : 'B') : (firstSetServer === 'A' ? 'B' : 'A');
-            }
-
-            let momentum = (sWA - sWB) * 0.01;
-
-            while ((sA < 11 && sB < 11) || Math.abs(sA - sB) < 2) {
-              let p = (setNum === 1) ? probA_set1 : probA;
-              p += momentum + runSkillShift;
-              
-              if (server === 'A') {
-                p += 0.03;
-              } else {
-                p -= 0.03;
-              }
-              p = Math.max(0.25, Math.min(0.75, p));
-
-              if (Math.random() < p) sA++; else sB++;
-              setPointsPlayed++;
-
-              if (sA >= 10 && sB >= 10) {
-                server = (server === 'A') ? 'B' : 'A';
-              } else if (setPointsPlayed % 2 === 0) {
-                server = (server === 'A') ? 'B' : 'A';
-              }
-            }
-
-            const sp = sA + sB;
-            matchPts += sp;
-            if (setNum === 1) { s1Pts = sp; totalSet1Pts += sp; }
-            if (sA > sB) sWA++; else sWB++;
-            setNum++;
-          }
-
-          totalMatchPts += matchPts;
-          allMatchPts.push(matchPts);
-          allSet1Pts.push(s1Pts);
-
-          if (isFinite(matchLine) && matchPts > matchLine) matchOverHits++;
-          if (isFinite(set1Line)  && s1Pts  > set1Line)  set1OverHits++;
-        }
-
-        allMatchPts.sort((a, b) => a - b);
-        allSet1Pts.sort((a, b) => a - b);
-
-        const projMatch = totalMatchPts / RUNS;
-        const projSet1  = totalSet1Pts / RUNS;
-        const pctMatch  = (matchOverHits / RUNS) * 100;
-        const pctSet1   = (set1OverHits / RUNS) * 100;
-
-        const p10Match = allMatchPts[Math.floor(RUNS * 0.10)];
-        const p90Match = allMatchPts[Math.floor(RUNS * 0.90)];
-        const p10Set1  = allSet1Pts[Math.floor(RUNS * 0.10)];
-        const p90Set1  = allSet1Pts[Math.floor(RUNS * 0.90)];
-
-        return {
-          projMatch, projSet1, pctMatch, pctSet1, p10Match, p90Match, p10Set1, p90Set1
-        };
-      }
-
-      return { getWorker, runSimulationSync };
-    })();
-
-    // --- IIFE PREDICTIVE ENGINE ---
-    const Engine = (() => {
-
-      function normalizeDashes(str) {
-        return String(str ?? "").replace(/[–—−]/g, "-");
-      }
-
-      function parseMarketLine(val) {
-        if (!val || !String(val).trim()) return null;
-        const raw = normalizeDashes(String(val).trim());
-        const normalizeLine = num => Math.round(num * 2) / 2;
-
-        const rangeMatch = raw.match(/^(\d{1,3}(?:\.\d+)?)\s*-\s*(\d{1,3}(?:\.\d+)?)$/);
-        if (rangeMatch) {
-          const a = parseFloat(rangeMatch[1]);
-          const b = parseFloat(rangeMatch[2]);
-          if (isNaN(a) || isNaN(b) || a <= 0 || b <= 0 || b < a) return null;
-          return normalizeLine((a + b) / 2);
-        }
-
-        const singleMatch = raw.match(/^(\d{1,3}(?:\.\d+)?)$/);
-        if (singleMatch) {
-          const x = parseFloat(singleMatch[1]);
-          if (isNaN(x) || x <= 0) return null;
-          return normalizeLine(x);
-        }
-        return null;
-      }
-
-      function run() {
-        const runBtn = document.getElementById("runBtn");
-        runBtn.disabled = true;
-        runBtn.textContent = "Calculating... ⚙️";
-
-        AFDB.log('ENGINE', 'CALCULATION', "Starting simulation processor...");
-
-        const league = document.getElementById("leagueSelect").value;
-        const matchLineInput = document.getElementById("matchPointsLine").value.trim();
-        const set1LineInput = document.getElementById("set1PointsLine").value.trim();
-
-        const matchLine = parseMarketLine(matchLineInput);
-        const set1Line  = parseMarketLine(set1LineInput);
-
-        if (!league) { 
-          alert("Please select a league first."); 
-          runBtn.disabled = false;
-          runBtn.textContent = "Run";
-          return; 
-        }
-
-        const rawScoredA   = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
-        const rawAllowedA  = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
-        const rawScoredB   = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
-        const rawAllowedB  = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
-        const rawS1ScoredA = document.getElementById("playerASet1Scored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
-        const rawS1AllowA  = document.getElementById("playerASet1Allowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
-        const rawS1ScoredB = document.getElementById("playerBSet1Scored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
-        const rawS1AllowB  = document.getElementById("playerBSet1Allowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
-
-        const statusEl = document.getElementById("fetchStatus");
-        if (!rawScoredA.length || !rawAllowedA.length || !rawScoredB.length || !rawAllowedB.length) {
-          if (statusEl) {
-            statusEl.className = "status-err";
-            statusEl.textContent = "❌ Input values are incomplete or empty.";
-          }
-          AFDB.log('ERROR', 'VALIDATION', 'Aborted calculation: missing player history arrays.');
-          runBtn.disabled = false;
-          runBtn.textContent = "Run";
-          return;
-        }
-
-        const calculateWeightedMean = (weightedArr) => {
-          if (!weightedArr || !weightedArr.length) return 0;
-          let wSum = 0, wTotal = 0;
-          weightedArr.forEach(item => { wSum += item.val * item.weight; wTotal += item.weight; });
-          return wTotal > 0 ? wSum / wTotal : 0;
-        };
-
-        const calculateEWMAMean = (arr) => {
-          if (!arr.length) return 0;
-          if (arr.length === 1) return arr[0];
-          const lambda = 0.88;
-          let weightedSum = 0, weightTotal = 0;
-          for (let i = 0; i < arr.length; i++) {
-            const w = Math.pow(lambda, i);
-            weightedSum += arr[i] * w;
-            weightTotal += w;
-          }
-          return weightedSum / weightTotal;
-        };
-
-        const idA = document.getElementById("playerAId").value.trim();
-        const idB = document.getElementById("playerBId").value.trim();
-
-        const psA = State.rawEvents.A ? DataLayer.processPlayerPoints(State.rawEvents.A, idA, 'A_ps') : null;
-        const psB = State.rawEvents.B ? DataLayer.processPlayerPoints(State.rawEvents.B, idB, 'B_ps') : null;
-
-        let meanScoredA  = (psA && psA.perSetScored.length)  ? calculateWeightedMean(psA.perSetScored)  : calculateEWMAMean(rawScoredA);
-        let meanAllowedA = (psA && psA.perSetAllowed.length) ? calculateWeightedMean(psA.perSetAllowed) : calculateEWMAMean(rawAllowedA);
-        let meanScoredB  = (psB && psB.perSetScored.length)  ? calculateWeightedMean(psB.perSetScored)  : calculateEWMAMean(rawScoredB);
-        let meanAllowedB = (psB && psB.perSetAllowed.length) ? calculateWeightedMean(psB.perSetAllowed) : calculateEWMAMean(rawAllowedB);
-
-        const getVsOpponentStats = (matchRecords, opponentId) => {
-          if (!matchRecords || !opponentId) return null;
-          const vs = matchRecords.filter(r => r.opponentId === String(opponentId));
-          if (vs.length < 2) return null;
-          const wTot = vs.reduce((s, r) => s + r.matchWeight, 0);
-          if (!wTot) return null;
-          const meanScoredPerSet  = vs.reduce((s, r) => s + (r.scored  / r.sets) * r.matchWeight, 0) / wTot;
-          const meanAllowedPerSet = vs.reduce((s, r) => s + (r.allowed / r.sets) * r.matchWeight, 0) / wTot;
-          return { meanScoredPerSet, meanAllowedPerSet, n: vs.length };
-        };
-
-        const vsOppA = (psA && psA.matchRecords) ? getVsOpponentStats(psA.matchRecords, idB) : null;
-        const vsOppB = (psB && psB.matchRecords) ? getVsOpponentStats(psB.matchRecords, idA) : null;
-
-        if (vsOppA) {
-          const w = Math.min(0.45, vsOppA.n / 9);
-          meanScoredA  = meanScoredA  * (1 - w) + vsOppA.meanScoredPerSet  * w;
-          meanAllowedA = meanAllowedA * (1 - w) + vsOppA.meanAllowedPerSet * w;
-        }
-        if (vsOppB) {
-          const w = Math.min(0.45, vsOppB.n / 9);
-          meanScoredB  = meanScoredB  * (1 - w) + vsOppB.meanScoredPerSet  * w;
-          meanAllowedB = meanAllowedB * (1 - w) + vsOppB.meanAllowedPerSet * w;
-        }
-
-        const getOppQualityAdj = (matchRecords) => {
-          if (!matchRecords || matchRecords.length < 3) return 0;
-          const allOppScores = matchRecords.map(r => r.oppTotalScored);
-          const meanOpp = allOppScores.reduce((a,b) => a+b, 0) / allOppScores.length;
-          const leagueMeanOppScore = CONFIG.LEAGUE_MEAN_OPP[league] || 26;
-          const diff = meanOpp - leagueMeanOppScore;
-          return Math.max(-0.03, Math.min(0.03, diff * 0.002));
-        };
-
-        const oppAdjA = getOppQualityAdj(psA ? psA.matchRecords : null);
-        const oppAdjB = getOppQualityAdj(psB ? psB.matchRecords : null);
-
-        const pA_base = Math.min(0.75, Math.max(0.25, (meanScoredA / (meanScoredA + meanAllowedA)) + oppAdjA));
-        const pB_base = Math.min(0.75, Math.max(0.25, (meanScoredB / (meanScoredB + meanAllowedB)) + oppAdjB));
-
-        const flatScoredA = psA && psA.perSetScored.length ? psA.perSetScored.map(x => x.val) : rawScoredA;
-        const flatScoredB = psB && psB.perSetScored.length ? psB.perSetScored.map(x => x.val) : rawScoredB;
-        const stdDevA = DataLayer.calculateStdDev(flatScoredA);
-        const stdDevB = DataLayer.calculateStdDev(flatScoredB);
-        const cvA = stdDevA / (meanScoredA || 1);
-        const cvB = stdDevB / (meanScoredB || 1);
-        const matchUncertainty = Math.max(0.01, Math.min(0.08, (cvA + cvB) / 2));
-
-        const upcomingTime = (State.selectedFixtureData && State.selectedFixtureData.startTimestamp) ? State.selectedFixtureData.startTimestamp * 1000 : Date.now();
-        const fatigueDataAvailable = !!(State.selectedFixtureData && State.selectedFixtureData.startTimestamp);
-
-        const getPlayerModifiers = (events, playerId) => {
-          if (!events || !playerId) return { fatigue: 0, form: 0 };
-          const completed = events.filter(e => {
-            if (!DataLayer.validateSofaEvent(e)) return false;
-            const hId = String(e.homeTeam.id);
-            const aId = String(e.awayTeam.id);
-            return hId === String(playerId) || aId === String(playerId);
-          }).reverse();
-          if (completed.length === 0) return { fatigue: 0, form: 0 };
-
-          const lastMatchTime = completed[0].startTimestamp * 1000;
-          const elapsedHours = (upcomingTime - lastMatchTime) / (1000 * 60 * 60);
-          let fatigue = 0;
-          if (elapsedHours > 0) {
-            if (elapsedHours < 1.2) fatigue = -0.035;
-            else if (elapsedHours < 2.5) fatigue = -0.015;
-            else if (elapsedHours < 5.0) fatigue = -0.005;
-          }
-
-          const lastDateStr = new Date(lastMatchTime).toDateString();
-          let matchesToday = 0;
-          completed.forEach(m => {
-            if (new Date(m.startTimestamp * 1000).toDateString() === lastDateStr) matchesToday++;
-          });
-          if (matchesToday >= 3) fatigue -= (matchesToday * 0.005);
-
-          let wins = 0;
-          const sample = completed.slice(0, 5);
-          sample.forEach(m => {
-            const isHome = String(m.homeTeam.id) === String(playerId);
-            if ((isHome && m.winnerCode === 1) || (!isHome && m.winnerCode === 2)) wins++;
-          });
-          const winRate = sample.length > 0 ? wins / sample.length : 0.5;
-          const form = (winRate - 0.5) * 0.03;
-
-          return { fatigue, form };
-        };
-
-        const contextA = fatigueDataAvailable ? getPlayerModifiers(State.rawEvents.A, idA) : { fatigue: 0, form: 0 };
-        const contextB = fatigueDataAvailable ? getPlayerModifiers(State.rawEvents.B, idB) : { fatigue: 0, form: 0 };
-
-        const hasEnoughDataA = rawAllowedA.length >= 10;
-        const hasEnoughDataB = rawAllowedB.length >= 10;
-        const isChopperA = hasEnoughDataA && meanAllowedA < 7.5;
-        const isChopperB = hasEnoughDataB && meanAllowedB < 7.5;
-        const usesPipsA = isChopperA && stdDevA > 2.5;
-        const usesPipsB = isChopperB && stdDevB > 2.5;
-
-        let styleAdjA = 0, styleAdjB = 0;
-        if (isChopperA && usesPipsA && !isChopperB) styleAdjA += 0.01;
-        if (isChopperB && usesPipsB && !isChopperA) styleAdjB += 0.01;
-
-        let probA = (pA_base * (1 - pB_base)) / ((pA_base * (1 - pB_base)) + (pB_base * (1 - pA_base)));
-        probA += contextA.fatigue + contextA.form + styleAdjA;
-        probA -= (contextB.fatigue + contextB.form + styleAdjB);
-        probA = Math.max(0.25, Math.min(0.75, probA));
-
-        let probA_set1 = probA;
-        const hasSet1 = rawS1ScoredA.length > 0 && rawS1AllowA.length > 0 && rawS1ScoredB.length > 0 && rawS1AllowB.length > 0;
-        if (hasSet1) {
-          const s1MeanScoredA = calculateEWMAMean(rawS1ScoredA), s1MeanAllowA = calculateEWMAMean(rawS1AllowA);
-          const s1MeanScoredB = calculateEWMAMean(rawS1ScoredB), s1MeanAllowB = calculateEWMAMean(rawS1AllowB);
-          const pS1A = s1MeanScoredA / (s1MeanScoredA + s1MeanAllowA);
-          const pS1B = s1MeanScoredB / (s1MeanScoredB + s1MeanAllowB);
-          probA_set1 = (pS1A * (1 - pS1B)) / ((pS1A * (1 - pS1B)) + (pS1B * (1 - pS1A)));
-          probA_set1 += contextA.fatigue + contextA.form + styleAdjA;
-          probA_set1 -= (contextB.fatigue + contextB.form + styleAdjB);
-          probA_set1 = Math.max(0.25, Math.min(0.75, probA_set1));
-        }
-
-        const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
-        const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
-        if (rawH2HA.length >= 2 && rawH2HB.length >= 2) {
-          const h2hN = rawH2HA.length;
-          const h2hWeight = Math.min(CONFIG.H2H_MAX_WEIGHT, h2hN / 43);
-          const priorWeight = 1 - h2hWeight;
-          const tA = rawH2HA.reduce((a,b) => a + b, 0), tB = rawH2HB.reduce((a,b) => a + b, 0);
-          const h2hProbA = tA / (tA + tB);
-          probA = (probA * priorWeight) + (h2hProbA * h2hWeight);
-          if (!hasSet1) probA_set1 = probA;
-        }
-
-        const rawH2HS1A = document.getElementById("h2hSet1A").value.split(",").map(Number).filter(v => !isNaN(v));
-        const rawH2HS1B = document.getElementById("h2hSet1B").value.split(",").map(Number).filter(v => !isNaN(v));
-        if (rawH2HS1A.length >= 2 && rawH2HS1B.length >= 2) {
-          const meanH2HS1A = calculateEWMAMean(rawH2HS1A);
-          const meanH2HS1B = calculateEWMAMean(rawH2HS1B);
-          const h2hS1ProbA = meanH2HS1A / (meanH2HS1A + meanH2HS1B);
-          probA_set1 = (probA_set1 * 0.70) + (h2hS1ProbA * 0.30);
-        }
-
-        const payload = {
-          probA,
-          probA_set1,
-          matchUncertainty,
-          matchLine,
-          set1Line,
-          SIM_RUNS: CONFIG.SIM_RUNS
-        };
-
-        const handleOutputs = (data) => {
-          const { projMatch, projSet1, pctMatch, pctSet1, p10Match, p90Match, p10Set1, p90Set1 } = data;
-
-          const options = [];
-          if (isFinite(matchLine) && matchLine > 0) {
-            const edge = projMatch - matchLine;
-            const pct = Math.abs(edge / matchLine) * 100;
-            let pick = "NO PLAY", grade = "—", prob = 0;
-            if (edge > 0 && pctMatch >= 55) {
-              pick = "OVER " + matchLine.toFixed(1);
-              prob = pctMatch;
-              grade = pctMatch >= CONFIG.GRADE_A_THRESHOLD ? "A" : pctMatch >= CONFIG.GRADE_B_THRESHOLD ? "B" : "C";
-            } else if (edge < 0 && (100 - pctMatch) >= 55) {
-              pick = "UNDER " + matchLine.toFixed(1);
-              prob = 100 - pctMatch;
-              grade = (100 - pctMatch) >= CONFIG.GRADE_A_THRESHOLD ? "A" : (100 - pctMatch) >= CONFIG.GRADE_B_THRESHOLD ? "B" : "C";
-            }
-            options.push({ name: "Match Points Total", line: matchLine, proj: projMatch, edge, grade, pick, prob, edgePct: pct, p10: p10Match, p90: p90Match, isLock: false });
-          }
-
-          if (isFinite(set1Line) && set1Line > 0) {
-            const edge = projSet1 - set1Line;
-            const pct = Math.abs(edge / set1Line) * 100;
-            let pick = "NO PLAY", grade = "—", prob = 0;
-            if (edge > 0 && pctSet1 >= 55) {
-              pick = "OVER " + set1Line.toFixed(1);
-              prob = pctSet1;
-              grade = pctSet1 >= CONFIG.GRADE_A_THRESHOLD ? "A" : pctSet1 >= CONFIG.GRADE_B_THRESHOLD ? "B" : "C";
-            } else if (edge < 0 && (100 - pctSet1) >= 55) {
-              pick = "UNDER " + set1Line.toFixed(1);
-              prob = 100 - pctSet1;
-              grade = (100 - pctSet1) >= CONFIG.GRADE_A_THRESHOLD ? "A" : (100 - pctSet1) >= CONFIG.GRADE_B_THRESHOLD ? "B" : "C";
-            }
-            options.push({ name: "Set 1 Points Total", line: set1Line, proj: projSet1, edge, grade, pick, prob, edgePct: pct, p10: p10Set1, p90: p90Set1, isLock: false });
-          }
-
-          const validPlays = options.filter(o => o.pick !== "NO PLAY" && o.grade !== "—");
-          if (validPlays.length > 0) {
-            const best = [...validPlays].sort((a, b) => {
-              const gradeRank = { A: 3, B: 2, C: 1 };
-              const rA = gradeRank[a.grade] || 0;
-              const rB = gradeRank[b.grade] || 0;
-              if (rB !== rA) return rB - rA;
-              return b.edgePct - a.edgePct;
-            })[0];
-            if (best) best.isLock = true;
-          }
-
-          State.lastSimResults = options;
-          UI.renderProjectionsTable(options);
-
-          runBtn.disabled = false;
-          runBtn.textContent = "Run";
-        };
-
-        const worker = WorkerManager.getWorker();
-        if (worker) {
-          worker.onmessage = function(event) {
-            handleOutputs(event.data);
-          };
-          worker.postMessage(payload);
-        } else {
-          // Robust Synchronous Math Fallback
-          setTimeout(() => {
-            try {
-              const res = WorkerManager.runSimulationSync(payload);
-              handleOutputs(res);
-            } catch(e) {
-              AFDB.log('ERROR', 'ENGINE', `Main-thread math calculation failed: ${e.message}`);
-              runBtn.disabled = false;
-              runBtn.textContent = "Run";
-            }
-          }, 50);
-        }
-      }
-
-      return { run };
-    })();
-
-    // --- IIFE UI LAYER (Renders, collapse structures, clipboard copy, clearing) ---
-    const UI = (() => {
-
-      function searchPlayerSafari(side) {
-        const rawName = document.getElementById(side === "A" ? "playerAName" : "playerBName").value.trim();
-        if (!rawName) { alert("Please enter a player name first."); return; }
-        const searchName = rawName.split(",")[0].trim();
-        const searchUrl = `https://api.sofascore.com/api/v1/search/all?q=${encodeURIComponent(searchName)}`;
-        State._clipboardPhase[side] = 'search';
-        State._clipboardReady = false;
-        setTimeout(() => { State._clipboardReady = true; }, 2500);
-        window.open(searchUrl, "_blank");
-        
-        const statusEl = document.getElementById("fetchStatus");
-        statusEl.className = "status-loading";
-        statusEl.textContent = `🔍 Search open for Player ${side} — copy all raw API text, then return here.`;
-      }
-
-      function updateHelperLinks(side) {
-        const idInput = document.getElementById(side === "A" ? "playerAId" : "playerBId");
-        const linkEl = document.getElementById(side === "A" ? "playerALink" : "playerBLink");
-        const idVal = idInput.value.trim();
-
-        if (idVal && /^\d+$/.test(idVal)) {
-          linkEl.href = `https://api.sofascore.com/api/v1/team/${idVal}/events/last/0`;
-          linkEl.style.display = "inline-block";
-          linkEl.onclick = (e) => {
-            e.preventDefault();
-            _openStatsForPlayer(side, idVal, document.getElementById(side === "A" ? "playerAName" : "playerBName").value.trim());
-          };
-        } else {
-          linkEl.style.display = "none";
-        }
-      }
-
-      function _openStatsForPlayer(side, teamId, playerName) {
-        const statsUrl = `https://api.sofascore.com/api/v1/team/${teamId}/events/last/0`;
-        State._clipboardPhase[side] = 'stats';
-        State._clipboardReady = false;
-        setTimeout(() => { State._clipboardReady = true; }, 2500);
-        window.open(statsUrl, '_blank');
-        
-        const statusEl = document.getElementById("fetchStatus");
-        statusEl.className = "status-loading";
-        statusEl.textContent = `📡 ${playerName || 'Player ' + side} stats load open — copy all raw JSON, then return.`;
-      }
-
-      function renderProjectionsTable(options) {
-        const body = document.getElementById("resultsBody");
-        const table = document.getElementById("results");
-        const copyBtn = document.getElementById("copyResultsBtn");
-        if (!body || !table) return;
-
-        body.innerHTML = "";
-
-        options.forEach(p => {
-          const row = document.createElement("tr");
-          const edgePct = p.line > 0 ? (p.edge / p.line) * 100 : 0;
-          const gradeClass = p.pick === "NO PLAY" ? "conf-none" : (p.grade === "A" ? "conf-a" : (p.grade === "B" ? "conf-b" : "conf-c"));
-          const predClass = p.pick === "NO PLAY" ? "pred-noplay" : (p.pick.startsWith("UNDER") ? "pred-under" : "pred-over");
-          const rangeStr = (p.p10 !== undefined && p.p90 !== undefined) ? `${p.p10}–${p.p90}` : '—';
-          
-          const pickDisplay = p.pick === "NO PLAY" ? "NO PLAY" : `${p.pick} [${p.prob.toFixed(1)}%]`;
-
-          row.innerHTML = `
-            <td style="font-weight:900;text-transform:uppercase;">${p.name}</td>
-            <td style="font-weight:800;">${p.line.toFixed(1)}</td>
-            <td>${p.proj.toFixed(1)}</td>
-            <td style="font-weight:700;color:var(--muted);font-size:11px;">${rangeStr}</td>
-            <td style="color:${p.edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
-              ${p.edge >= 0 ? '+' : ''}${p.edge.toFixed(1)} (${p.edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
-            </td>
-            <td class="${gradeClass}">${p.grade}</td>
-            <td class="${predClass}" style="font-weight:900;white-space:nowrap;">
-              ${pickDisplay}${p.isLock ? ' <span class="lock">🔒</span>' : ''}
-            </td>
-          `;
-          body.appendChild(row);
-        });
-
-        table.style.display = "table";
-        if (copyBtn) copyBtn.style.display = "inline-block";
-        table.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-
-      function copyResultsToClipboard() {
-        if (!State.lastSimResults) return;
-        const items = State.lastSimResults.map(p => {
-          if (p.pick === "NO PLAY") return `${p.name}: No viable edge detected.`;
-          return `${p.name}: Line ${p.line.toFixed(1)} | Proj: ${p.proj.toFixed(1)} | Pick: ${p.pick} [${p.prob.toFixed(1)}%] (Grade ${p.grade})`;
-        }).join('\n');
-
-        const label = `⚡ TheBetCeo Table Tennis Projections ⚡\n${items}`;
-        navigator.clipboard.writeText(label).then(() => {
-          alert("Calculated results copied to clipboard!");
-        }).catch(err => {
-          AFDB.log('WARN', 'UI', `Could not write table projections to clipboard: ${err.message}`);
-        });
-      }
-
-      function clearAll() {
-        ["playerAPointsScored","playerAPointsAllowed","playerASet1Scored","playerASet1Allowed",
-         "playerBPointsScored","playerBPointsAllowed","playerBSet1Scored","playerBSet1Allowed",
-         "matchPointsLine","set1PointsLine","h2hSetsA","h2hSetsB","h2hSet1A","h2hSet1B",
-         "playerAName","playerBName","playerAId","playerBId","pasteA","pasteB"].forEach(id => {
-          const el = document.getElementById(id); if (el) el.value = "";
-        });
-        
-        const ls = document.getElementById("leagueSelect");
-        if (ls) ls.value = "";
-
-        const cb = document.getElementById("useFTH2H"); if (cb) cb.checked = false;
-        const tbl = document.getElementById("results"); if (tbl) tbl.style.display = "none";
-        const tb  = document.getElementById("resultsBody"); if (tb) tb.innerHTML = "";
-        const st  = document.getElementById("fetchStatus"); if (st) st.textContent = "";
-        const copyBtn = document.getElementById("copyResultsBtn"); if (copyBtn) copyBtn.style.display = "none";
-        
-        State.selectedFixtureData = null;
-        State.rawEvents.A = null;
-        State.rawEvents.B = null;
-
-        const fs = document.getElementById("fetchSection");
-        if (fs) fs.style.display = "none";
-
-        document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
-        const lsSec = document.getElementById("leagueSection");
-        if (lsSec) lsSec.classList.remove("collapsed");
-
-        AFDB.log('ENGINE','CLEAR','Form state and UI caches cleared.');
-      }
-
-      function toggleTheme() {
-        const isDark = document.body.classList.toggle("dark-mode");
-        localStorage.setItem("theme", isDark ? "dark" : "light");
-      }
-
-      return {
-        searchPlayerSafari,
-        updateHelperLinks,
-        _openStatsForPlayer,
-        renderProjectionsTable,
-        copyResultsToClipboard,
-        clearAll,
-        toggleTheme
-      };
-    })();
-
-    // --- Global Application Lifecycle Helpers ---
+    // ── UI Collapsible Sections Helper ────────────────────────────────────────
     function makeSectionsCollapsible() {
       document.querySelectorAll(".section").forEach(section => {
         if (section.dataset.collapsibleReady === "1") return;
         const heading = section.querySelector("h3");
         if (!heading) return;
-        
         const titleHTML = heading.innerHTML;
         const body = document.createElement("div");
         body.className = "section-body";
-        
-        [...section.childNodes].forEach(node => {
-          if (node !== heading) body.appendChild(node);
-        });
+        const children = [...section.childNodes];
+        children.forEach(node => { if (node !== heading) body.appendChild(node); });
 
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "section-toggle";
-        btn.innerHTML = `<span class="toggle-title">${titleHTML}</span><span class="toggle-icon">&#9662;</span>`;
-        btn.addEventListener("click", () => section.classList.toggle("collapsed"));
+        const titleSpan = document.createElement("span");
+        titleSpan.className = "toggle-title";
+        titleSpan.innerHTML = titleHTML;
+        const iconSpan = document.createElement("span");
+        iconSpan.className = "toggle-icon";
+        iconSpan.innerHTML = "&#9662;";
+        btn.appendChild(titleSpan);
+        btn.appendChild(iconSpan);
+        btn.addEventListener("click", () => { section.classList.toggle("collapsed"); });
 
         section.innerHTML = "";
         section.appendChild(btn);
@@ -1726,6 +800,698 @@
       });
     }
 
+    // ── Core Point Win and Match Processing v11 ──────────────────────────────
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [], allowedList = [];
+      const set1ScoredList = [], set1AllowedList = [];
+      const perSetScored = [], perSetAllowed = [];
+      const matchRecords = [];
+
+      const completed = events.filter(e => {
+        if (e.status?.type !== "finished") return false;
+        const hId = String(e.homeTeam?.id || "");
+        const aId = String(e.awayTeam?.id || "");
+        return hId === String(playerId) || aId === String(playerId);
+      }).reverse().slice(0, 20);
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} matches for ${label} (ID: ${playerId})`);
+
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj  = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore  : ev.homeScore;
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0, matchScored = 0, matchAllowed = 0;
+          let oppTotalScored = 0;
+          const matchWeight = Math.pow(0.85, idx);
+          for (let s = 1; s <= 5; s++) {
+            const mySet  = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            if (mySet !== undefined && oppSet !== undefined) {
+              perSetScored.push({ val: mySet, weight: matchWeight });
+              perSetAllowed.push({ val: oppSet, weight: matchWeight });
+              if (s === 1) { set1ScoredList.push(mySet); set1AllowedList.push(oppSet); }
+              matchScored += mySet; matchAllowed += oppSet;
+              oppTotalScored += oppSet;
+              matchSets++;
+            }
+          }
+          if (matchSets > 0) {
+            scoredList.push(matchScored);
+            allowedList.push(matchAllowed);
+            const opponentId = isHome ? String(ev.awayTeam?.id || '') : String(ev.homeTeam?.id || '');
+            matchRecords.push({ scored: matchScored, allowed: matchAllowed, oppTotalScored, matchWeight, startTimestamp: ev.startTimestamp || 0, sets: matchSets, opponentId });
+            AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} M#${idx+1} wt=${matchWeight.toFixed(2)} [${matchSets}s] scored:${matchScored} allowed:${matchAllowed} oppId:${opponentId}`);
+          }
+        }
+      });
+
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} done. Matches:${matchRecords.length} Set1s:${set1ScoredList.length} PerSets:${perSetScored.length}`);
+      return { scoredList, allowedList, set1ScoredList, set1AllowedList, perSetScored, perSetAllowed, matchRecords };
+    }
+
+    // ── Individual JSON Paste Fallback Parser ────────────────────────────────
+    function parseIndividualFailsafe(side) {
+      const inputEl = document.getElementById(side === 'A' ? 'pasteA' : 'pasteB');
+      const rawText = inputEl.value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      if (!rawText) return;
+      statusEl.className = "status-loading";
+      statusEl.textContent = `⚙️ Parsing Player ${side} pasted JSON...`;
+      AFDB.log('ENGINE', 'FAILSAFE', `Initializing manual JSON parser for Player ${side}...`);
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        if (events.length === 0) throw new Error("No event elements found in pasted JSON.");
+        let targetId = document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value.trim();
+        if (!targetId) {
+          const idCounts = {};
+          events.forEach(ev => {
+            if (ev.homeTeam?.id) idCounts[ev.homeTeam.id] = (idCounts[ev.homeTeam.id] || 0) + 1;
+            if (ev.awayTeam?.id) idCounts[ev.awayTeam.id] = (idCounts[ev.awayTeam.id] || 0) + 1;
+          });
+          let maxCount = 0, bestId = null;
+          for (const id in idCounts) {
+            if (idCounts[id] > maxCount) { maxCount = idCounts[id]; bestId = id; }
+          }
+          if (bestId) {
+            targetId = bestId;
+            document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = bestId;
+            updateHelperLinks(side);
+          }
+        }
+        if (!targetId) throw new Error(`Could not find a valid player ID for Player ${side}.`);
+        const stats = processPlayerPoints(events, targetId, `Player ${side}`);
+        const isA = side === 'A';
+        document.getElementById(isA ? "playerAPointsScored"  : "playerBPointsScored").value  = stats.scoredList.join(",");
+        document.getElementById(isA ? "playerAPointsAllowed" : "playerBPointsAllowed").value = stats.allowedList.join(",");
+        document.getElementById(isA ? "playerASet1Scored"    : "playerBSet1Scored").value    = stats.set1ScoredList.join(",");
+        document.getElementById(isA ? "playerASet1Allowed"   : "playerBSet1Allowed").value   = stats.set1AllowedList.join(",");
+        
+        if (side === 'A') {
+          window.rawEventsA = events;
+          window._rawJsonA = rawText;
+        } else {
+          window.rawEventsB = events;
+          window._rawJsonB = rawText;
+        }
+        analyzeFatigueAndH2H();
+
+        AFDB.log('SUCCESS', 'FAILSAFE', `Player ${side} parsed successfully.`);
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Player " + side + " loaded! Tap 📋 to copy raw JSON.";
+        inputEl.value = "";
+        ["marketSection","playerASection","playerBSection"].forEach(id => document.getElementById(id).classList.remove("collapsed"));
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = `❌ Failed to parse Player ${side} JSON. Check format.`;
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
+    // ── Fatigue Schedule Metrics and Auto-H2H Form Mapper ────────────────────
+    function analyzeFatigueAndH2H() {
+      const idA = document.getElementById("playerAId").value.trim();
+      const idB = document.getElementById("playerBId").value.trim();
+      ['A', 'B'].forEach(side => {
+        const events = side === 'A' ? window.rawEventsA : window.rawEventsB;
+        const playerId = side === 'A' ? idA : idB;
+        if (!events || !playerId) return;
+        const completed = events.filter(e => {
+          if (e.status?.type !== "finished") return false;
+          const hId = String(e.homeTeam?.id || "");
+          const aId = String(e.awayTeam?.id || "");
+          return hId === String(playerId) || aId === String(playerId);
+        }).reverse();
+        if (completed.length < 2) return;
+        let sameDayCount = 1, b2bCount = 0, totalRestHours = 0, intervalsCount = 0;
+        for (let i = 0; i < Math.min(completed.length - 1, 4); i++) {
+          const m1Time = completed[i].startTimestamp * 1000;
+          const m2Time = completed[i+1].startTimestamp * 1000;
+          const diffHours = (m1Time - m2Time) / (1000 * 60 * 60);
+          if (diffHours > 0) {
+            totalRestHours += diffHours;
+            intervalsCount++;
+            if (diffHours <= 4) sameDayCount++;
+            else if (diffHours <= 24) b2bCount++;
+          }
+        }
+        const avgRest = intervalsCount > 0 ? (totalRestHours / intervalsCount).toFixed(1) : "—";
+        AFDB.log('ENGINE', 'FATIGUE', `Player ${side} Schedule: Avg Rest between recent games = ${avgRest} hrs. Same-day doubleheader matches = ${sameDayCount - 1}, Back-to-back days = ${b2bCount}`);
+      });
+      if (idA && idB && window.rawEventsA) {
+        const h2hMatches = window.rawEventsA.filter(e => {
+          if (e.status?.type !== "finished") return false;
+          const hId = String(e.homeTeam?.id || "");
+          const aId = String(e.awayTeam?.id || "");
+          return (hId === String(idA) && aId === String(idB)) || (hId === String(idB) && aId === String(idA));
+        });
+        if (h2hMatches.length > 0) {
+          const setsA = [], setsB = [], set1A = [], set1B = [];
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isHomeA = String(m.homeTeam?.id) === String(idA);
+            const scoreA = isHomeA ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isHomeA ? m.awayScore?.display : m.homeScore?.display;
+            const s1A = isHomeA ? m.homeScore?.period1 : m.awayScore?.period1;
+            const s1B = isHomeA ? m.awayScore?.period1 : m.homeScore?.period1;
+            if (scoreA !== undefined && scoreB !== undefined) { setsA.push(scoreA); setsB.push(scoreB); }
+            if (s1A !== undefined && s1B !== undefined) { set1A.push(s1A); set1B.push(s1B); }
+          });
+          if (setsA.length > 0) {
+            document.getElementById("h2hSetsA").value = setsA.join(",");
+            document.getElementById("h2hSetsB").value = setsB.join(",");
+          }
+          if (set1A.length > 0) {
+            document.getElementById("h2hSet1A").value = set1A.join(",");
+            document.getElementById("h2hSet1B").value = set1B.join(",");
+          }
+          if (setsA.length > 0 || set1A.length > 0) {
+            document.getElementById("useFTH2H").checked = true;
+            AFDB.log('SUCCESS', 'H2H', `Automatically extracted H2H match scores and Set 1 points directly from player history feeds!`);
+          } else {
+            AFDB.log('INFO', 'H2H', `No H2H found in recent history between these players.`);
+            const _st1 = document.getElementById("fetchStatus");
+            if (_st1) _st1.textContent += " · H2H: none found";
+          }
+        } else {
+          AFDB.log('INFO', 'H2H', `No H2H found — may not have faced each other recently.`);
+          const _st2 = document.getElementById("fetchStatus");
+          if (_st2) _st2.textContent += " · H2H: none found";
+        }
+      }
+    }
+
+    function copyRawJson(side) {
+      const json = side === 'A' ? window._rawJsonA : window._rawJsonB;
+      if (!json) { alert('No raw JSON stored for Player ' + side + ' yet.'); return; }
+      navigator.clipboard.writeText(json).then(function() {
+        const st = document.getElementById('fetchStatus');
+        if (st) { const prev = st.textContent; st.textContent = 'Copied Player ' + side + ' JSON!'; setTimeout(function(){ st.textContent = prev; }, 1500); }
+      }).catch(function() { alert('Clipboard write blocked. Try again.'); });
+    }
+
+    // ── Dedicated Normalizers and Line Resolvers ─────────────────────────────
+    function normalizeDashes(str) {
+      return String(str ?? "").replace(/[–—−]/g, "-");
+    }
+
+    function parseMarketLine(val) {
+      const meta = parseMarketRangeMeta(val);
+      return meta ? meta.mid : null;
+    }
+
+    function parseMarketRangeMeta(val) {
+      if (!val || !String(val).trim()) return null;
+      const raw = normalizeDashes(String(val).trim());
+      const normalizeLine = num => Math.round(num * 2) / 2;
+
+      const rangeMatch = raw.match(/^(\d{1,3}(?:\.\d+)?)\s*-\s*(\d{1,3}(?:\.\d+)?)$/);
+      if (rangeMatch) {
+        const a = parseFloat(rangeMatch[1]);
+        const b = parseFloat(rangeMatch[2]);
+        if (!isFinite(a) || !isFinite(b) || a <= 0 || b <= 0 || b < a) return null;
+        return {
+          raw,
+          low: normalizeLine(a),
+          high: normalizeLine(b),
+          mid: normalizeLine((a + b) / 2),
+          isRange: true
+        };
+      }
+
+      const singleMatch = raw.match(/^(\d{1,3}(?:\.\d+)?)$/);
+      if (singleMatch) {
+        const x = parseFloat(singleMatch[1]);
+        if (!isFinite(x) || x <= 0) return null;
+        const line = normalizeLine(x);
+        return {
+          raw,
+          low: line,
+          high: line,
+          mid: line,
+          isRange: false
+        };
+      }
+      return null;
+    }
+
+    // ── Deduplicated Math Statistics Resolvers ───────────────────────────────
+    function calculateMean(arr) {
+      if (!arr.length) return 0;
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    function calculateStdDev(arr) {
+      if (arr.length < 2) return 1.5;
+      const mean = calculateMean(arr);
+      const variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);
+      return Math.sqrt(variance);
+    }
+
+    // ── Active 50,000-Run Monte Carlo Simulation Engine ──────────────────────
+    function runEngine() {
+      AFDB.log('ENGINE', 'CALCULATION', "Monte Carlo FINAL v11 starting...");
+      const league    = document.getElementById("leagueSelect").value;
+      const matchLineInput = document.getElementById("matchPointsLine").value.trim();
+      const set1LineInput  = document.getElementById("set1PointsLine").value.trim();
+      const matchLine  = parseMarketLine(matchLineInput);
+      const set1Line   = parseMarketLine(set1LineInput);
+      if (!league) { alert("Please select a league first."); return; }
+      const rawScoredA   = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedA  = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawScoredB   = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedB  = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawS1ScoredA = document.getElementById("playerASet1Scored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawS1AllowA  = document.getElementById("playerASet1Allowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawS1ScoredB = document.getElementById("playerBSet1Scored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawS1AllowB  = document.getElementById("playerBSet1Allowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const _vStatus = document.getElementById("fetchStatus");
+      if (!rawScoredA.length || !rawAllowedA.length || !rawScoredB.length || !rawAllowedB.length) {
+        if (_vStatus) { _vStatus.className = "status-err"; _vStatus.textContent = "❌ Missing or invalid scores — check that scored/allowed fields contain comma-separated numbers."; }
+        AFDB.log('ERROR', 'VALIDATION', 'Aborting engine run: missing player data.');
+        return;
+      }
+      const _minSets = Math.min(rawScoredA.length, rawAllowedA.length, rawScoredB.length, rawAllowedB.length);
+      if (_minSets < 5 && _vStatus) {
+        _vStatus.className = "status-loading";
+        _vStatus.textContent = `⚠️ Low sample (${_minSets} valid set score(s)) — add more match data for better accuracy.`;
+        AFDB.log('WARN', 'VALIDATION', `Low sample size: ${_minSets} set(s). Results may be less reliable.`);
+      }
+
+      // Weighted EWMA using per-set weights
+      const calculateWeightedMean = (weightedArr) => {
+        if (!weightedArr || !weightedArr.length) return 0;
+        let wSum = 0, wTotal = 0;
+        weightedArr.forEach(item => { wSum += item.val * item.weight; wTotal += item.weight; });
+        return wTotal > 0 ? wSum / wTotal : 0;
+      };
+
+      // Recency-weighted decay multiplier fallback
+      const calculateEWMAMean = (arr) => {
+        if (!arr.length) return 0;
+        if (arr.length === 1) return arr[0];
+        const lambda = 0.88;
+        let weightedSum = 0, weightTotal = 0;
+        for (let i = 0; i < arr.length; i++) {
+          const w = Math.pow(lambda, i);
+          weightedSum += arr[i] * w;
+          weightTotal += w;
+        }
+        return weightedSum / weightTotal;
+      };
+
+      const idA = document.getElementById("playerAId").value.trim();
+      const idB = document.getElementById("playerBId").value.trim();
+
+      const psA = window.rawEventsA ? processPlayerPoints(window.rawEventsA, idA, 'A_ps') : null;
+      const psB = window.rawEventsB ? processPlayerPoints(window.rawEventsB, idB, 'B_ps') : null;
+
+      let meanScoredA  = (psA && psA.perSetScored.length)  ? calculateWeightedMean(psA.perSetScored)  : calculateEWMAMean(rawScoredA);
+      let meanAllowedA = (psA && psA.perSetAllowed.length) ? calculateWeightedMean(psA.perSetAllowed) : calculateEWMAMean(rawAllowedA);
+      let meanScoredB  = (psB && psB.perSetScored.length)  ? calculateWeightedMean(psB.perSetScored)  : calculateEWMAMean(rawScoredB);
+      let meanAllowedB = (psB && psB.perSetAllowed.length) ? calculateWeightedMean(psB.perSetAllowed) : calculateEWMAMean(rawAllowedB);
+
+      AFDB.log('ENGINE','MATH',`A: WtdSet Scored=${meanScoredA.toFixed(2)} Allowed=${meanAllowedA.toFixed(2)}`);
+      AFDB.log('ENGINE','MATH',`B: WtdSet Scored=${meanScoredB.toFixed(2)} Allowed=${meanAllowedB.toFixed(2)}`);
+
+      // Targeted Matchup Specific Calibrations
+      const getVsOpponentStats = (matchRecords, opponentId) => {
+        if (!matchRecords || !opponentId) return null;
+        const vs = matchRecords.filter(r => r.opponentId === String(opponentId));
+        if (vs.length < 2) return null;
+        const wTot = vs.reduce((s, r) => s + r.matchWeight, 0);
+        if (!wTot) return null;
+        const meanScoredPerSet  = vs.reduce((s, r) => s + (r.scored  / r.sets) * r.matchWeight, 0) / wTot;
+        const meanAllowedPerSet = vs.reduce((s, r) => s + (r.allowed / r.sets) * r.matchWeight, 0) / wTot;
+        return { meanScoredPerSet, meanAllowedPerSet, n: vs.length };
+      };
+      
+      const vsOppA = (psA && psA.matchRecords) ? getVsOpponentStats(psA.matchRecords, idB) : null;
+      const vsOppB = (psB && psB.matchRecords) ? getVsOpponentStats(psB.matchRecords, idA) : null;
+      if (vsOppA) {
+        const w = Math.min(0.45, vsOppA.n / 9);
+        meanScoredA  = meanScoredA  * (1 - w) + vsOppA.meanScoredPerSet  * w;
+        meanAllowedA = meanAllowedA * (1 - w) + vsOppA.meanAllowedPerSet * w;
+        AFDB.log('ENGINE', 'OPP_CAL', `A vs B specific: n=${vsOppA.n} w=${(w*100).toFixed(0)}% → scored=${meanScoredA.toFixed(2)} allowed=${meanAllowedA.toFixed(2)}`);
+      }
+      if (vsOppB) {
+        const w = Math.min(0.45, vsOppB.n / 9);
+        meanScoredB  = meanScoredB  * (1 - w) + vsOppB.meanScoredPerSet  * w;
+        meanAllowedB = meanAllowedB * (1 - w) + vsOppB.meanAllowedPerSet * w;
+        AFDB.log('ENGINE', 'OPP_CAL', `B vs A specific: n=${vsOppB.n} w=${(w*100).toFixed(0)}% → scored=${meanScoredB.toFixed(2)} allowed=${meanAllowedB.toFixed(2)}`);
+      }
+
+      // Context quality normalization adjustments
+      const getOppQualityAdj = (matchRecords) => {
+        if (!matchRecords || matchRecords.length < 3) return 0;
+        const allOppScores = matchRecords.map(r => r.oppTotalScored);
+        const meanOpp = allOppScores.reduce((a,b) => a+b, 0) / allOppScores.length;
+        const leagueMeanOppScore = league === 'TT Cup' ? 24 : 28;
+        const diff = meanOpp - leagueMeanOppScore;
+        return Math.max(-0.03, Math.min(0.03, diff * 0.002));
+      };
+
+      const oppAdjA = getOppQualityAdj(psA ? psA.matchRecords : null);
+      const oppAdjB = getOppQualityAdj(psB ? psB.matchRecords : null);
+      AFDB.log('ENGINE','OPP_QUALITY',`Opp quality adj: A=${(oppAdjA*100).toFixed(1)}% B=${(oppAdjB*100).toFixed(1)}%`);
+
+      const pA_base = Math.min(0.75, Math.max(0.25, (meanScoredA / (meanScoredA + meanAllowedA)) + oppAdjA));
+      const pB_base = Math.min(0.75, Math.max(0.25, (meanScoredB / (meanScoredB + meanAllowedB)) + oppAdjB));
+
+      const flatScoredA = psA && psA.perSetScored.length ? psA.perSetScored.map(x => x.val) : rawScoredA;
+      const flatScoredB = psB && psB.perSetScored.length ? psB.perSetScored.map(x => x.val) : rawScoredB;
+      const stdDevA = calculateStdDev(flatScoredA);
+      const stdDevB = calculateStdDev(flatScoredB);
+      const cvA = stdDevA / (meanScoredA || 1);
+      const cvB = stdDevB / (meanScoredB || 1);
+      const matchUncertainty = Math.max(0.01, Math.min(0.08, (cvA + cvB) / 2));
+
+      AFDB.log('ENGINE', 'VOLATILITY', `StdDev A=${stdDevA.toFixed(1)} (CV:${(cvA*100).toFixed(1)}%) B=${stdDevB.toFixed(1)} (CV:${(cvB*100).toFixed(1)}%) Uncertainty=${(matchUncertainty*100).toFixed(1)}%`);
+
+      const upcomingTime = Date.now();
+      const fatigueDataAvailable = !!(window.rawEventsA || window.rawEventsB);
+
+      const getPlayerModifiers = (events, playerId) => {
+        if (!events || !playerId) return { fatigue: 0, form: 0 };
+        const completed = events.filter(e => {
+          if (e.status?.type !== "finished") return false;
+          const hId = String(e.homeTeam?.id || "");
+          const aId = String(e.awayTeam?.id || "");
+          return hId === String(playerId) || aId === String(playerId);
+        }).reverse();
+        if (completed.length === 0) return { fatigue: 0, form: 0 };
+
+        const lastMatchTime = completed[0].startTimestamp * 1000;
+        const elapsedHours = (upcomingTime - lastMatchTime) / (1000 * 60 * 60);
+        let fatigue = 0;
+        if (elapsedHours > 0) {
+          if (elapsedHours < 1.2) fatigue = -0.035;
+          else if (elapsedHours < 2.5) fatigue = -0.015;
+          else if (elapsedHours < 5.0) fatigue = -0.005;
+        }
+
+        const lastDateStr = new Date(lastMatchTime).toDateString();
+        let matchesToday = 0;
+        completed.forEach(m => {
+          if (new Date(m.startTimestamp * 1000).toDateString() === lastDateStr) matchesToday++;
+        });
+        if (matchesToday >= 3) fatigue -= (matchesToday * 0.005);
+
+        let wins = 0;
+        const sample = completed.slice(0, 5);
+        sample.forEach(m => {
+          const isHome = String(m.homeTeam?.id) === String(playerId);
+          if ((isHome && m.winnerCode === 1) || (!isHome && m.winnerCode === 2)) wins++;
+        });
+        const winRate = sample.length > 0 ? wins / sample.length : 0.5;
+        const form = (winRate - 0.5) * 0.03;
+
+        return { fatigue, form };
+      };
+
+      const contextA = fatigueDataAvailable ? getPlayerModifiers(window.rawEventsA, idA) : { fatigue: 0, form: 0 };
+      const contextB = fatigueDataAvailable ? getPlayerModifiers(window.rawEventsB, idB) : { fatigue: 0, form: 0 };
+
+      AFDB.log('ENGINE', 'FATIGUE', `Player A Fatigue: ${(contextA.fatigue*100).toFixed(1)}%, Form: ${(contextA.form*100).toFixed(1)}%`);
+      AFDB.log('ENGINE', 'FATIGUE', `Player B Fatigue: ${(contextB.fatigue*100).toFixed(1)}%, Form: ${(contextB.form*100).toFixed(1)}%`);
+
+      const avgScoredA = meanScoredA;
+      const avgAllowedA = meanAllowedA;
+      const avgScoredB = meanScoredB;
+      const avgAllowedB = meanAllowedB;
+
+      const hasEnoughDataA = rawAllowedA.length >= 10;
+      const hasEnoughDataB = rawAllowedB.length >= 10;
+      const isChopperA = hasEnoughDataA && avgAllowedA < 7.5;
+      const isChopperB = hasEnoughDataB && avgAllowedB < 7.5;
+
+      const usesPipsA = isChopperA && stdDevA > 2.5;
+      const usesPipsB = isChopperB && stdDevB > 2.5;
+
+      let styleAdjA = 0;
+      let styleAdjB = 0;
+
+      if (isChopperA && usesPipsA && !isChopperB) styleAdjA += 0.01;
+      if (isChopperB && usesPipsB && !isChopperA) styleAdjB += 0.01;
+
+      AFDB.log('ENGINE', 'STYLE', `Auto-Style: Player A=${isChopperA ? 'Chopper' : 'Attacker'} (Pips=${usesPipsA}), Player B=${isChopperB ? 'Chopper' : 'Attacker'} (Pips=${usesPipsB}). Adjustments: A=+${(styleAdjA*100).toFixed(1)}%, B=+${(styleAdjB*100).toFixed(1)}%`);
+
+      let probA = (pA_base * (1 - pB_base)) / ((pA_base * (1 - pB_base)) + (pB_base * (1 - pA_base)));
+
+      probA += contextA.fatigue + contextA.form + styleAdjA;
+      probA -= (contextB.fatigue + contextB.form + styleAdjB);
+      probA = Math.max(0.25, Math.min(0.75, probA));
+
+      let probA_set1 = probA;
+      const hasSet1 = rawS1ScoredA.length > 0 && rawS1AllowA.length > 0 && rawS1ScoredB.length > 0 && rawS1AllowB.length > 0;
+      if (hasSet1) {
+        const s1MeanScoredA = calculateEWMAMean(rawS1ScoredA), s1MeanAllowA = calculateEWMAMean(rawS1AllowA);
+        const s1MeanScoredB = calculateEWMAMean(rawS1ScoredB), s1MeanAllowB = calculateEWMAMean(rawS1AllowB);
+        const pS1A = s1MeanScoredA / (s1MeanScoredA + s1MeanAllowA);
+        const pS1B = s1MeanScoredB / (s1MeanScoredB + s1MeanAllowB);
+        probA_set1 = (pS1A * (1 - pS1B)) / ((pS1A * (1 - pS1B)) + (pS1B * (1 - pS1A)));
+        probA_set1 += contextA.fatigue + contextA.form + styleAdjA;
+        probA_set1 -= (contextB.fatigue + contextB.form + styleAdjB);
+        probA_set1 = Math.max(0.25, Math.min(0.75, probA_set1));
+        AFDB.log('ENGINE','MATH',`Set1 dedicated probA_set1=${(probA_set1 * 100).toFixed(1)}%`);
+      } else {
+        AFDB.log('ENGINE','MATH',`No Set1 data — Set1 uses overall probA=${(probA * 100).toFixed(1)}%`);
+      }
+
+      const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
+      if (rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const h2hN = rawH2HA.length;
+        const h2hWeight = Math.min(0.35, h2hN / 43);
+        const priorWeight = 1 - h2hWeight;
+        const tA = rawH2HA.reduce((a,b) => a + b, 0), tB = rawH2HB.reduce((a,b) => a + b, 0);
+        const h2hProbA = tA / (tA + tB);
+        probA = (probA * priorWeight) + (h2hProbA * h2hWeight);
+        if (!hasSet1) probA_set1 = probA;
+        AFDB.log('ENGINE','H2H',`Bayesian H2H blend: n=${h2hN} h2hWeight=${(h2hWeight*100).toFixed(1)}% probA=${(probA*100).toFixed(1)}%`);
+      }
+
+      const rawH2HS1A = document.getElementById("h2hSet1A").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HS1B = document.getElementById("h2hSet1B").value.split(",").map(Number).filter(v => !isNaN(v));
+      if (rawH2HS1A.length >= 2 && rawH2HS1B.length >= 2) {
+        const meanH2HS1A = calculateEWMAMean(rawH2HS1A);
+        const meanH2HS1B = calculateEWMAMean(rawH2HS1B);
+        const h2hS1ProbA = meanH2HS1A / (meanH2HS1A + meanH2HS1B);
+        probA_set1 = (probA_set1 * 0.70) + (h2hS1ProbA * 0.30);
+        AFDB.log('ENGINE','H2H',`Set 1 Points H2H blended probA_set1=${(probA_set1 * 100).toFixed(1)}%`);
+      }
+
+      const randomNormal = () => {
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      };
+
+      const SIM_RUNS = 50000;
+      let matchOverHits = 0, set1OverHits = 0, totalMatchPts = 0, totalSet1Pts = 0;
+      const allMatchPts = [], allSet1Pts = [];
+      for (let run = 0; run < SIM_RUNS; run++) {
+        let sWA = 0, sWB = 0, matchPts = 0, s1Pts = 0, setNum = 1;
+
+        let server = Math.random() < 0.5 ? 'A' : 'B';
+        let firstSetServer = server;
+
+        let runSkillShift = randomNormal() * matchUncertainty * 0.15;
+
+        while (sWA < 3 && sWB < 3) {
+          let sA = 0, sB = 0;
+          let setPointsPlayed = 0;
+
+          if (setNum > 1) {
+            server = (setNum % 2 === 1) ? (firstSetServer === 'A' ? 'A' : 'B') : (firstSetServer === 'A' ? 'B' : 'A');
+          }
+
+          let momentum = (sWA - sWB) * 0.01;
+
+          while ((sA < 11 && sB < 11) || Math.abs(sA - sB) < 2) {
+            let p = setNum === 1 ? probA_set1 : probA;
+            
+            p += momentum + runSkillShift;
+            if (server === 'A') {
+              p += 0.03;
+            } else {
+              p -= 0.03;
+            }
+            p = Math.max(0.25, Math.min(0.75, p));
+
+            if (Math.random() < p) sA++; else sB++;
+            setPointsPlayed++;
+
+            if (sA >= 10 && sB >= 10) {
+              server = server === 'A' ? 'B' : 'A';
+            } else if (setPointsPlayed % 2 === 0) {
+              server = server === 'A' ? 'B' : 'A';
+            }
+          }
+
+          const sp = sA + sB;
+          matchPts += sp;
+          if (setNum === 1) { s1Pts = sp; totalSet1Pts += sp; }
+          if (sA > sB) sWA++; else sWB++;
+          setNum++;
+        }
+        totalMatchPts += matchPts;
+        allMatchPts.push(matchPts);
+        allSet1Pts.push(s1Pts);
+        if (isFinite(matchLine) && matchPts > matchLine) matchOverHits++;
+        if (isFinite(set1Line)  && s1Pts  > set1Line)  set1OverHits++;
+      }
+
+      const projMatch = totalMatchPts / SIM_RUNS, projSet1 = totalSet1Pts / SIM_RUNS;
+      const pctMatch  = (matchOverHits / SIM_RUNS) * 100, pctSet1 = (set1OverHits / SIM_RUNS) * 100;
+
+      allMatchPts.sort((a, b) => a - b);
+      allSet1Pts.sort((a, b) => a - b);
+      const p10Match = allMatchPts[Math.floor(SIM_RUNS * 0.10)];
+      const p90Match = allMatchPts[Math.floor(SIM_RUNS * 0.90)];
+      const p10Set1  = allSet1Pts[Math.floor(SIM_RUNS * 0.10)];
+      const p90Set1  = allSet1Pts[Math.floor(SIM_RUNS * 0.90)];
+      AFDB.log('SUCCESS','ENGINE',`Done! Match:${projMatch.toFixed(1)} [${p10Match}–${p90Match}] Set1:${projSet1.toFixed(1)} [${p10Set1}–${p90Set1}]`);
+
+      const options = [];
+      if (isFinite(matchLine) && matchLine > 0) {
+        const edge = projMatch - matchLine;
+        const pct = Math.abs(edge / matchLine) * 100;
+        let pick = "NO PLAY";
+        let grade = "—";
+        if (edge > 0 && pctMatch >= 55) {
+          pick = "OVER " + matchLine.toFixed(1);
+          grade = pctMatch >= 65 ? "A" : pctMatch >= 60 ? "B" : "C";
+        } else if (edge < 0 && (100 - pctMatch) >= 55) {
+          pick = "UNDER " + matchLine.toFixed(1);
+          grade = (100 - pctMatch) >= 65 ? "A" : (100 - pctMatch) >= 60 ? "B" : "C";
+        }
+        options.push({ name: "Match Points Total", line: matchLine, proj: projMatch, edge, grade, pick, edgePct: pct, p10: p10Match, p90: p90Match, isLock: false });
+      }
+
+      if (isFinite(set1Line) && set1Line > 0) {
+        const edge = projSet1 - set1Line;
+        const pct = Math.abs(edge / set1Line) * 100;
+        let pick = "NO PLAY";
+        let grade = "—";
+        if (edge > 0 && pctSet1 >= 55) {
+          pick = "OVER " + set1Line.toFixed(1);
+          grade = pctSet1 >= 65 ? "A" : pctSet1 >= 60 ? "B" : "C";
+        } else if (edge < 0 && (100 - pctSet1) >= 55) {
+          pick = "UNDER " + set1Line.toFixed(1);
+          grade = (100 - pctSet1) >= 65 ? "A" : (100 - pctSet1) >= 60 ? "B" : "C";
+        }
+        options.push({ name: "Set 1 Points Total", line: set1Line, proj: projSet1, edge, grade, pick, edgePct: pct, p10: p10Set1, p90: p90Set1, isLock: false });
+      }
+
+      const validPlays = options.filter(o => o.pick !== "NO PLAY" && o.grade !== "—");
+      if (validPlays.length > 0) {
+        const best = [...validPlays].sort((a, b) => {
+          const gradeRank = { A: 3, B: 2, C: 1 };
+          const rankA = gradeRank[a.grade] || 0;
+          const rankB = gradeRank[b.grade] || 0;
+          if (rankB !== rankA) return rankB - rankA;
+          return b.edgePct - a.edgePct;
+        })[0];
+        if (best) best.isLock = true;
+      }
+      AFDB.log('ENGINE', 'SUMMARY', 'probA_overall=' + (probA*100).toFixed(1) + '% probA_set1=' + (probA_set1*100).toFixed(1) + '% oppAdjA=' + (oppAdjA*100).toFixed(1) + '% oppAdjB=' + (oppAdjB*100).toFixed(1) + '% uncertainty=' + (matchUncertainty*100).toFixed(1) + '%');
+
+      renderProjectionsTable(options);
+    }
+
+    // ── Render Projections Output Element ────────────────────────────────────
+    function renderProjectionsTable(options) {
+      const body = document.getElementById("resultsBody");
+      const table = document.getElementById("results");
+      if (!body || !table) return;
+
+      body.innerHTML = "";
+
+      options.forEach(p => {
+        const row = document.createElement("tr");
+        const edgePct = p.line > 0 ? (p.edge / p.line) * 100 : 0;
+        const gradeClass = p.pick === "NO PLAY" ? "conf-none" : (p.grade === "A" ? "conf-a" : (p.grade === "B" ? "conf-b" : "conf-c"));
+        const predClass = p.pick === "NO PLAY" ? "pred-noplay" : (p.pick.startsWith("UNDER") ? "pred-under" : "pred-over");
+        const rangeStr = (p.p10 !== undefined && p.p90 !== undefined) ? `${p.p10}–${p.p90}` : '—';
+
+        row.innerHTML = `
+          <td style="font-weight:900;text-transform:uppercase;">${p.name}</td>
+          <td style="font-weight:800;">${p.line.toFixed(1)}</td>
+          <td>${p.proj.toFixed(1)}</td>
+          <td style="font-weight:700;color:var(--muted);font-size:11px;">${rangeStr}</td>
+          <td style="color:${p.edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
+            ${p.edge >= 0 ? '+' : ''}${p.edge.toFixed(1)} (${p.edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
+          </td>
+          <td class="${gradeClass}">${p.grade}</td>
+          <td class="${predClass}" style="font-weight:900;white-space:nowrap;">
+            ${p.pick}${p.isLock ? ' <span class="lock">🔒</span>' : ''}
+          </td>
+        `;
+        body.appendChild(row);
+      });
+
+      table.style.display = "table";
+      table.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    // ── Self-Healing CORS Proxy Client ───────────────────────────────────────
+    async function proxyFetch(url) {
+      AFDB.log('FETCH', 'PROXY', `Calling primary worker for URL: ${url}`);
+      try {
+        const proxyUrl = PRIMARY_WORKER_URL + "?url=" + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
+        AFDB.log('FETCH', 'PROXY', `Primary Worker HTTP Status: ${response.status}`);
+        if (response.status === 403) {
+          AFDB.log('WARN', 'PROXY', "Primary worker blocked by Cloudflare (403). Initiating self-healing proxy rotation...");
+          return await rotateAndFetch(url);
+        }
+        if (!response.ok) {
+          throw new Error(`Worker returned HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        AFDB.log('SUCCESS', 'PROXY', `Successfully parsed JSON response via Primary Worker!`);
+        return data;
+      } catch (err) {
+        AFDB.log('WARN', 'PROXY', `Primary Worker Failed: ${err.message}. Routing to proxy rotation...`);
+        return await rotateAndFetch(url);
+      }
+    }
+
+    async function rotateAndFetch(url) {
+      for (let i = 0; i < PROXY_ROTATION_FALLBACKS.length; i++) {
+        const baseProxy = PROXY_ROTATION_FALLBACKS[i];
+        const rotatedUrl = baseProxy + encodeURIComponent(url);
+        AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Trying alternative proxy: ${baseProxy}`);
+        try {
+          const response = await fetch(rotatedUrl);
+          AFDB.log('FETCH', 'ROTATION', `[Attempt #${i+1}] Response Status: ${response.status}`);
+          if (response.ok) {
+            const data = await response.json();
+            const finalData = data.contents ? JSON.parse(data.contents) : data;
+            const keys = Object.keys(finalData);
+            AFDB.log('ENGINE', 'PARSING', `Proxy returned keys: ${keys.join(', ')}`);
+            AFDB.log('SUCCESS', 'ROTATION', `✅ Rotated Proxy #${i+1} successfully bypassed Cloudflare! Data loaded.`);
+            return finalData;
+          }
+        } catch (err) {
+          AFDB.log('WARN', 'ROTATION', `[Attempt #${i+1}] Proxy failed: ${err.message}`);
+        }
+      }
+      throw new Error("All rotated proxies were blocked by Sofascore's shield.");
+    }
+
+    function getLocalDateKey(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    // ── Interface Actions ────────────────────────────────────────────────────
     function onLeagueChange() {
       const league = document.getElementById("leagueSelect").value;
       const fetchSection = document.getElementById("fetchSection");
@@ -1737,6 +1503,11 @@
       }
     }
 
+    function toggleTheme() {
+      const isDark = document.body.classList.toggle("dark-mode");
+      localStorage.setItem("theme", isDark ? "dark" : "light");
+    }
+
     function applySavedTheme() {
       if (!document.body) return;
       if (localStorage.getItem("theme") === "dark") {
@@ -1746,26 +1517,233 @@
       }
     }
 
-    // Apply dark theme immediately on parse to prevent layout flashing
-    applySavedTheme();
+    function searchPlayerSafari(side) {
+      const rawName = document.getElementById(side === "A" ? "playerAName" : "playerBName").value.trim();
+      if (!rawName) {
+        alert("Please enter a player name first.");
+        return;
+      }
+      const searchName = rawName.split(",")[0].trim();
+      const searchUrl = `https://api.sofascore.com/api/v1/search/all?q=${encodeURIComponent(searchName)}`;
+      _clipboardPhase[side] = 'search';
+      _clipboardReady = false;
+      setTimeout(() => { _clipboardReady = true; }, 2500);
+      window.open(searchUrl, "_blank");
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "loading";
+      statusEl.textContent = `🔍 Search open for Player ${side} — copy all text in Safari, then return here.`;
+    }
 
+    function updateHelperLinks(side) {
+      const idInput = document.getElementById(side === "A" ? "playerAId" : "playerBId");
+      const linkEl = document.getElementById(side === "A" ? "playerALink" : "playerBLink");
+      const idVal = idInput.value.trim();
+
+      if (idVal && /^\d+$/.test(idVal)) {
+        linkEl.href = `https://api.sofascore.com/api/v1/team/${idVal}/events/last/0`;
+        linkEl.style.display = "inline-block";
+        linkEl.onclick = () => _openStatsForPlayer(side, idVal, document.getElementById(side === "A" ? "playerAName" : "playerBName").value.trim());
+      } else {
+        linkEl.style.display = "none";
+      }
+    }
+
+    function _openStatsForPlayer(side, teamId, playerName) {
+      const statsUrl = `https://api.sofascore.com/api/v1/team/${teamId}/events/last/0`;
+      _clipboardPhase[side] = 'stats';
+      _clipboardReady = false;
+      setTimeout(() => { _clipboardReady = true; }, 2500);
+      window.open(statsUrl, '_blank');
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "loading";
+      statusEl.textContent = `📡 ${playerName || 'Player ' + side} stats open — reload in Safari if forbidden, copy all, then return.`;
+      AFDB.log('ENGINE', 'AUTOFILL', `Stats URL opened for ${playerName} (ID: ${teamId})`);
+    }
+
+    function showPlayerPicker(side, candidates) {
+      const existing = document.getElementById('playerPickerOverlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'playerPickerOverlay';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:flex-end;padding-bottom:env(safe-area-inset-bottom);';
+
+      const sheet = document.createElement('div');
+      sheet.style.cssText = 'background:var(--panel);width:100%;max-height:65vh;overflow-y:auto;padding:14px;box-sizing:border-box;';
+      sheet.innerHTML = `<div style="font-size:11px;font-weight:900;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.8px;">Multiple players found — pick Player ${side}</div>`;
+
+      candidates.slice(0, 12).forEach(c => {
+        const btn = document.createElement('button');
+        btn.style.cssText = 'width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:var(--panel-soft);border:1px solid var(--panel-border);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;';
+        const flag = c.country ? ` · ${c.country}` : '';
+        const pop = c.userCount ? ` · ${c.userCount} matches` : '';
+        const sport = c.sport ? ` [${c.sport}]` : '';
+        btn.innerHTML = `<span>${c.name}${flag}${pop}<span style="color:#d98a00;font-size:10px;font-weight:800;">${sport}</span></span><span style="color:var(--muted);font-size:10px;font-weight:800;">ID ${c.id}</span>`;
+        btn.onclick = () => {
+          overlay.remove();
+          document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = c.id;
+          document.getElementById(side === 'A' ? 'playerAName' : 'playerBName').value = c.name;
+          updateHelperLinks(side);
+          _openStatsForPlayer(side, c.id, c.name);
+        };
+        sheet.appendChild(btn);
+      });
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.style.cssText = 'width:100%;padding:10px;background:#c91920;color:#fff;border:none;font-size:12px;font-weight:800;cursor:pointer;margin-top:6px;';
+      cancelBtn.textContent = '✕  Cancel';
+      cancelBtn.onclick = () => { overlay.remove(); _clipboardPhase[side] = null; };
+      sheet.appendChild(cancelBtn);
+
+      overlay.appendChild(sheet);
+      document.body.appendChild(overlay);
+    }
+
+    async function autoClipboardParse(side) {
+      if (!_clipboardReady) return;
+      const phase = _clipboardPhase[side];
+      if (!phase) return;
+
+      const statusEl = document.getElementById("fetchStatus");
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text || text.length < 10) return;
+
+        if (phase === 'search') {
+          const parsed = JSON.parse(text);
+          const results = parsed.results || [];
+          const mapResult = r => ({
+            id: String(r.entity.id),
+            name: r.entity.name || '',
+            country: r.entity.country?.name || '',
+            userCount: r.entity.userCount || 0,
+            sport: r.entity.sport?.name || ''
+          });
+
+          const ttResults = results
+            .filter(r => r.type === 'team' && r.entity?.sport?.slug === 'table-tennis')
+            .map(mapResult);
+
+          const teamResults = ttResults.length > 0
+            ? ttResults
+            : results.filter(r => r.type === 'team').map(mapResult);
+
+          _clipboardPhase[side] = null;
+
+          if (teamResults.length === 0) {
+            statusEl.className = "err";
+            statusEl.textContent = `❌ No players found. Sportybet may have a typo — check correct spelling at sofascore.com, search again.`;
+            return;
+          }
+
+          if (ttResults.length > 0) {
+            const p = ttResults[0];
+            document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = p.id;
+            document.getElementById(side === 'A' ? 'playerAName' : 'playerBName').value = p.name;
+            updateHelperLinks(side);
+            _openStatsForPlayer(side, p.id, p.name);
+          } else {
+            statusEl.className = "err";
+            statusEl.textContent = `⚠️ No TT player found for Player ${side} — showing all results. Pick manually.`;
+            showPlayerPicker(side, teamResults);
+          }
+
+        } else if (phase === 'stats') {
+          if (!text.includes('"events"')) return;
+          const parsed = JSON.parse(text);
+          const events = parsed.events || [];
+          if (events.length === 0) return;
+
+          const idVal = document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value.trim();
+          if (!idVal) {
+            statusEl.className = "err";
+            statusEl.textContent = `❌ No Player ${side} ID. Run search again.`;
+            _clipboardPhase[side] = null;
+            return;
+          }
+
+          const stats = processPlayerPoints(events, idVal, `Player ${side}`);
+          if (side === 'A') {
+            document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+            document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+            document.getElementById("playerASet1Scored").value = stats.set1ScoredList.join(",");
+            document.getElementById("playerASet1Allowed").value = stats.set1AllowedList.join(",");
+            window.rawEventsA = events;
+            window._rawJsonA = text;
+          } else {
+            document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+            document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+            document.getElementById("playerBSet1Scored").value = stats.set1ScoredList.join(",");
+            document.getElementById("playerBSet1Allowed").value = stats.set1AllowedList.join(",");
+            window.rawEventsB = events;
+            window._rawJsonB = text;
+          }
+
+          analyzeFatigueAndH2H();
+
+          document.getElementById("marketSection").classList.remove("collapsed");
+          document.getElementById("playerASection").classList.remove("collapsed");
+          document.getElementById("playerBSection").classList.remove("collapsed");
+
+          statusEl.className = "ok";
+          statusEl.textContent = `✅ Player ${side} stats auto-filled!`;
+          AFDB.log('SUCCESS', 'AUTOFILL', `Player ${side} form filled from stats JSON.`);
+          _clipboardPhase[side] = null;
+        }
+      } catch(e) {
+        AFDB.log('WARN', 'AUTOFILL', `Clipboard relay skipped: ${e.message}`);
+      }
+    }
+
+    function clearAll() {
+      ["playerAPointsScored","playerAPointsAllowed","playerASet1Scored","playerASet1Allowed",
+       "playerBPointsScored","playerBPointsAllowed","playerBSet1Scored","playerBSet1Allowed",
+       "matchPointsLine","set1PointsLine","h2hSetsA","h2hSetsB","h2hSet1A","h2hSet1B",
+       "playerAName","playerBName","playerAId","playerBId","pasteA","pasteB"].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = "";
+      });
+      
+      const ls = document.getElementById("leagueSelect");
+      if (ls) ls.value = "";
+
+      const cb = document.getElementById("useFTH2H"); if (cb) cb.checked = false;
+      const tbl = document.getElementById("results"); if (tbl) tbl.style.display = "none";
+      const tb  = document.getElementById("resultsBody"); if (tb) tb.innerHTML = "";
+      const st  = document.getElementById("fetchStatus"); if (st) st.textContent = "";
+
+      const fs = document.getElementById("fetchSection");
+      if (fs) fs.style.display = "none";
+
+      document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
+      const lsSec = document.getElementById("leagueSection");
+      if (lsSec) lsSec.classList.remove("collapsed");
+
+      window.rawEventsA = null;
+      window.rawEventsB = null;
+
+      AFDB.log('ENGINE','CLEAR','All fields cleared, sections collapsed, page started afresh.');
+    }
+
+    // ── Dom Initialization and Clipboard Listeners ──────────────────────────
     document.addEventListener("DOMContentLoaded", () => {
+      applySavedTheme();
+
       const themeToggleBtn = document.getElementById("themeToggleBtn");
-      if (themeToggleBtn) themeToggleBtn.addEventListener("click", UI.toggleTheme);
+      if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
 
       makeSectionsCollapsible();
       document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
       document.getElementById("leagueSection").classList.remove("collapsed");
 
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && State._clipboardReady) {
+        if (document.visibilityState === 'visible' && _clipboardReady) {
           ['A', 'B'].forEach(side => {
-            if (State._clipboardPhase[side]) DataLayer.autoClipboardParse(side);
+            if (_clipboardPhase[side]) autoClipboardParse(side);
           });
         }
       });
 
-      AFDB.log('BOOT', 'ENGINE', "Table Tennis Prediction Engine compiled with defensive fallback layers.");
+      AFDB.log('BOOT', 'ENGINE', `Table Tennis Engine successfully initialized. Session ID: sess_${Date.now()}`);
     });
   </script>
 </body>
