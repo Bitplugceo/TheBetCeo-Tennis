@@ -614,30 +614,56 @@
 
     <!-- Section 4: Player A Form -->
     <div class="section" id="playerASection">
-      <h3>Player A - Last 5 Overall</h3>
+      <h3>Player A — Set Score History</h3>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <div>
-          <label>Points Scored (Commas)</label>
-          <input id="playerAPointsScored" placeholder="e.g. 11,8,11,11,9" />
+          <label>All Sets Scored (Commas)</label>
+          <input id="playerAPointsScored" placeholder="e.g. 11,8,11,9,11,7..." />
         </div>
         <div>
-          <label>Points Allowed (Commas)</label>
-          <input id="playerAPointsAllowed" placeholder="e.g. 7,11,6,8,11" />
+          <label>All Sets Allowed (Commas)</label>
+          <input id="playerAPointsAllowed" placeholder="e.g. 7,11,6,11,8,11..." />
+        </div>
+      </div>
+      <div style="margin-top:8px; border-top:1px dashed var(--panel-border); padding-top:8px;">
+        <label style="font-size:10px; font-weight:900; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px;">Set 1 Specific <span style="font-weight:700; text-transform:none;">(optional — improves Set 1 projection)</span></label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top:4px;">
+          <div>
+            <label>Set 1 Scored (Commas)</label>
+            <input id="playerASet1Scored" placeholder="e.g. 11,9,11,8" />
+          </div>
+          <div>
+            <label>Set 1 Allowed (Commas)</label>
+            <input id="playerASet1Allowed" placeholder="e.g. 7,11,6,11" />
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Section 5: Player B Form -->
     <div class="section" id="playerBSection">
-      <h3>Player B - Last 5 Overall</h3>
+      <h3>Player B — Set Score History</h3>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <div>
-          <label>Points Scored (Commas)</label>
-          <input id="playerBPointsScored" placeholder="e.g. 11,9,11,8,11" />
+          <label>All Sets Scored (Commas)</label>
+          <input id="playerBPointsScored" placeholder="e.g. 11,9,11,8,11..." />
         </div>
         <div>
-          <label>Points Allowed (Commas)</label>
-          <input id="playerBPointsAllowed" placeholder="e.g. 9,11,7,11,6" />
+          <label>All Sets Allowed (Commas)</label>
+          <input id="playerBPointsAllowed" placeholder="e.g. 9,11,7,11,6..." />
+        </div>
+      </div>
+      <div style="margin-top:8px; border-top:1px dashed var(--panel-border); padding-top:8px;">
+        <label style="font-size:10px; font-weight:900; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px;">Set 1 Specific <span style="font-weight:700; text-transform:none;">(optional — improves Set 1 projection)</span></label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top:4px;">
+          <div>
+            <label>Set 1 Scored (Commas)</label>
+            <input id="playerBSet1Scored" placeholder="e.g. 11,9,8,11" />
+          </div>
+          <div>
+            <label>Set 1 Allowed (Commas)</label>
+            <input id="playerBSet1Allowed" placeholder="e.g. 9,11,11,7" />
+          </div>
         </div>
       </div>
     </div>
@@ -4642,6 +4668,229 @@
       table.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
+    // ── PATCHED OVERRIDES v11 ──────────────────────────────────────────────
+    function processPlayerPoints(events, playerId, label) {
+      const scoredList = [], allowedList = [], set1ScoredList = [], set1AllowedList = [];
+      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} matches for ${label} (ID: ${playerId})`);
+      completed.forEach((ev, idx) => {
+        const isHome = String(ev.homeTeam?.id) === String(playerId);
+        const myScoreObj = isHome ? ev.homeScore : ev.awayScore;
+        const oppScoreObj = isHome ? ev.awayScore : ev.homeScore;
+        if (myScoreObj && oppScoreObj) {
+          let matchSets = 0, matchScored = 0, matchAllowed = 0;
+          for (let s = 1; s <= 5; s++) {
+            const mySet = myScoreObj[`period${s}`];
+            const oppSet = oppScoreObj[`period${s}`];
+            if (mySet !== undefined && oppSet !== undefined) {
+              scoredList.push(mySet); allowedList.push(oppSet);
+              if (s === 1) { set1ScoredList.push(mySet); set1AllowedList.push(oppSet); }
+              matchScored += mySet; matchAllowed += oppSet; matchSets++;
+            }
+          }
+          AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} Match #${idx+1} [${matchSets} sets] Scored:${matchScored} Allowed:${matchAllowed}`);
+        }
+      });
+      AFDB.log('ENGINE', 'PLAYER_PROCESSING', `${label} done. AllSets:${scoredList.length} Set1s:${set1ScoredList.length}`);
+      return { scoredList, allowedList, set1ScoredList, set1AllowedList };
+    }
+
+    function parseFailsafeJson() {
+      const rawText = document.getElementById("failsafeJsonInput").value.trim();
+      const statusEl = document.getElementById("fetchStatus");
+      if (!rawText) { alert("Please paste the SofaScore JSON before clicking parse."); return; }
+      statusEl.className = "status-loading";
+      statusEl.textContent = "⚙️ Parsing pasted JSON...";
+      AFDB.log('ENGINE', 'FAILSAFE', "Initializing manual JSON parser...");
+      try {
+        const parsedData = JSON.parse(rawText);
+        const events = parsedData.events || [];
+        if (events.length === 0) throw new Error("No event elements found in pasted JSON.");
+        const sampleEvent = events[0];
+        const rawHomeName = sampleEvent.homeTeam?.name || "";
+        const rawAwayName = sampleEvent.awayTeam?.name || "";
+        const inputNameA = document.getElementById("playerAName").value.trim();
+        const inputNameB = document.getElementById("playerBName").value.trim();
+        let targetId = null, targetLabel = "";
+        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+          targetId = rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) ? sampleEvent.homeTeam?.id : sampleEvent.awayTeam?.id;
+          targetLabel = "Player A";
+        } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
+          targetId = rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) ? sampleEvent.homeTeam?.id : sampleEvent.awayTeam?.id;
+          targetLabel = "Player B";
+        } else {
+          targetId = sampleEvent.homeTeam?.id;
+          targetLabel = "Player A";
+          document.getElementById("playerAName").value = rawHomeName;
+          // FIX: Player B name is NOT auto-filled from fallback JSON paste
+          if (!selectedFixtureData) {
+            selectedFixtureData = { eventId: sampleEvent.id || "manual_failsafe", homeId: sampleEvent.homeTeam?.id || "A", awayId: sampleEvent.awayTeam?.id || "B", homeName: rawHomeName, awayName: rawAwayName };
+          }
+        }
+        if (!targetId) throw new Error("No matching Player Name found in forms. Please enter Player names first.");
+        const stats = processPlayerPoints(events, targetId, targetLabel);
+        if (targetLabel === "Player A") {
+          document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+          document.getElementById("playerASet1Scored").value = stats.set1ScoredList.join(",");
+          document.getElementById("playerASet1Allowed").value = stats.set1AllowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', 'Player A processed successfully.');
+        } else {
+          document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
+          document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+          document.getElementById("playerBSet1Scored").value = stats.set1ScoredList.join(",");
+          document.getElementById("playerBSet1Allowed").value = stats.set1AllowedList.join(",");
+          AFDB.log('SUCCESS', 'FAILSAFE', 'Player B processed successfully.');
+        }
+        statusEl.className = "status-ok";
+        statusEl.textContent = `✅ Successfully parsed ${targetLabel} raw set scores!`;
+        document.getElementById("failsafeJsonInput").value = "";
+        document.getElementById("marketSection").classList.remove("collapsed");
+        document.getElementById("playerASection").classList.remove("collapsed");
+        document.getElementById("playerBSection").classList.remove("collapsed");
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Failed to parse pasted JSON. Check format.";
+        AFDB.log('ERROR', 'FAILSAFE', `Manual JSON Parsing Failed: ${err.message}`);
+      }
+    }
+
+    async function fetchMatchStats() {
+      if (!selectedFixtureData) { alert("Please select a match first."); return; }
+      const statusEl = document.getElementById("fetchStatus");
+      statusEl.className = "status-loading";
+      statusEl.textContent = "📡 Fetching stats...";
+      try {
+        const homeId = selectedFixtureData.homeId;
+        const awayId = selectedFixtureData.awayId;
+        AFDB.log('FETCH', 'STATS', `Parallel fetch for A=${homeId}, B=${awayId}`);
+        const [homeHistory, awayHistory, h2hHistory] = await Promise.all([
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${homeId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/team/${awayId}/events/last/0`),
+          proxyFetch(`https://api.sofascore.com/api/v1/event/${selectedFixtureData.eventId}/h2h`)
+        ]);
+        const statsA = processPlayerPoints(homeHistory.events || [], homeId, 'Player A');
+        const statsB = processPlayerPoints(awayHistory.events || [], awayId, 'Player B');
+        document.getElementById("playerAPointsScored").value = statsA.scoredList.join(",");
+        document.getElementById("playerAPointsAllowed").value = statsA.allowedList.join(",");
+        document.getElementById("playerASet1Scored").value = statsA.set1ScoredList.join(",");
+        document.getElementById("playerASet1Allowed").value = statsA.set1AllowedList.join(",");
+        document.getElementById("playerBPointsScored").value = statsB.scoredList.join(",");
+        document.getElementById("playerBPointsAllowed").value = statsB.allowedList.join(",");
+        document.getElementById("playerBSet1Scored").value = statsB.set1ScoredList.join(",");
+        document.getElementById("playerBSet1Allowed").value = statsB.set1AllowedList.join(",");
+        const h2hMatches = h2hHistory.history || [];
+        AFDB.log('ENGINE', 'H2H', `Retrieved ${h2hMatches.length} H2H matches.`);
+        if (h2hMatches.length >= 2) {
+          const setsA = [], setsB = [];
+          h2hMatches.slice(0, 5).forEach(m => {
+            const isAHome = String(m.homeTeam?.id) === String(homeId);
+            const scoreA = isAHome ? m.homeScore?.display : m.awayScore?.display;
+            const scoreB = isAHome ? m.awayScore?.display : m.homeScore?.display;
+            if (scoreA !== undefined && scoreB !== undefined) { setsA.push(scoreA); setsB.push(scoreB); }
+          });
+          document.getElementById("h2hSetsA").value = setsA.join(",");
+          document.getElementById("h2hSetsB").value = setsB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+        } else {
+          document.getElementById("h2hSetsA").value = "";
+          document.getElementById("h2hSetsB").value = "";
+          document.getElementById("useFTH2H").checked = false;
+        }
+        statusEl.className = "status-ok";
+        statusEl.textContent = "✅ Stats successfully loaded!";
+        ["marketSection","playerASection","playerBSection","h2hSection"].forEach(id => document.getElementById(id).classList.remove("collapsed"));
+      } catch (err) {
+        statusEl.className = "status-err";
+        statusEl.textContent = "❌ Error fetching stats. Open Microscope to trace.";
+        AFDB.log('ERROR', 'STATS', `Stats Fetch Failed: ${err.message}`);
+      }
+    }
+
+    function runEngine() {
+      AFDB.log('ENGINE', 'CALCULATION', "Monte Carlo Simulator v11 starting...");
+      const league = document.getElementById("leagueSelect").value;
+      const matchLine = parseFloat(document.getElementById("matchPointsLine").value);
+      const set1Line  = parseFloat(document.getElementById("set1PointsLine").value);
+      if (!league) { alert("Please select a league first."); return; }
+      const rawScoredA   = document.getElementById("playerAPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedA  = document.getElementById("playerAPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawScoredB   = document.getElementById("playerBPointsScored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawAllowedB  = document.getElementById("playerBPointsAllowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawS1ScoredA = document.getElementById("playerASet1Scored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawS1AllowA  = document.getElementById("playerASet1Allowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawS1ScoredB = document.getElementById("playerBSet1Scored").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      const rawS1AllowB  = document.getElementById("playerBSet1Allowed").value.split(",").map(Number).filter(v => !isNaN(v) && v > 0);
+      if (!rawScoredA.length || !rawAllowedA.length || !rawScoredB.length || !rawAllowedB.length) {
+        alert("Please ensure both Player A and Player B form inputs have valid set scores.");
+        return;
+      }
+      const meanScoredA = calculateMean(rawScoredA), meanAllowedA = calculateMean(rawAllowedA);
+      const meanScoredB = calculateMean(rawScoredB), meanAllowedB = calculateMean(rawAllowedB);
+      AFDB.log('ENGINE','MATH',`A: Scored=${meanScoredA.toFixed(2)} Allowed=${meanAllowedA.toFixed(2)}`);
+      AFDB.log('ENGINE','MATH',`B: Scored=${meanScoredB.toFixed(2)} Allowed=${meanAllowedB.toFixed(2)}`);
+      const ratingA = (meanScoredA + meanAllowedB) / 2;
+      const ratingB = (meanScoredB + meanAllowedA) / 2;
+      let probA = ratingA / (ratingA + ratingB);
+      let probA_set1 = probA;
+      const hasSet1 = rawS1ScoredA.length > 0 && rawS1AllowA.length > 0 && rawS1ScoredB.length > 0 && rawS1AllowB.length > 0;
+      if (hasSet1) {
+        const rS1A = (calculateMean(rawS1ScoredA) + calculateMean(rawS1AllowB)) / 2;
+        const rS1B = (calculateMean(rawS1ScoredB) + calculateMean(rawS1AllowA)) / 2;
+        probA_set1 = rS1A / (rS1A + rS1B);
+        AFDB.log('ENGINE','MATH',`Set1 dedicated probA_set1=${(probA_set1*100).toFixed(1)}%`);
+      } else {
+        AFDB.log('ENGINE','MATH',`No Set1 data — Set1 uses overall probA=${(probA*100).toFixed(1)}%`);
+      }
+      const useH2H = document.getElementById("useFTH2H").checked;
+      const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
+      if (useH2H && rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+        const totalA = rawH2HA.reduce((a,b)=>a+b,0), totalB = rawH2HB.reduce((a,b)=>a+b,0);
+        const h2hProbA = totalA / (totalA + totalB);
+        probA = (probA * 0.70) + (h2hProbA * 0.30);
+        if (!hasSet1) probA_set1 = probA;
+        AFDB.log('ENGINE','H2H',`H2H blended probA=${(probA*100).toFixed(1)}%`);
+      }
+      let matchOverHits = 0, set1OverHits = 0, totalMatchPts = 0, totalSet1Pts = 0;
+      for (let run = 0; run < 10000; run++) {
+        let sWA = 0, sWB = 0, matchPts = 0, s1Pts = 0, setNum = 1;
+        while (sWA < 3 && sWB < 3) {
+          let sA = 0, sB = 0;
+          const p = setNum === 1 ? probA_set1 : probA;
+          while ((sA < 11 && sB < 11) || Math.abs(sA - sB) < 2) { if (Math.random() < p) sA++; else sB++; }
+          const sp = sA + sB;
+          matchPts += sp;
+          if (setNum === 1) { s1Pts = sp; totalSet1Pts += sp; }
+          if (sA > sB) sWA++; else sWB++;
+          setNum++;
+        }
+        totalMatchPts += matchPts;
+        if (isFinite(matchLine) && matchPts > matchLine) matchOverHits++;
+        if (isFinite(set1Line)  && s1Pts  > set1Line)  set1OverHits++;
+      }
+      const projMatch = totalMatchPts / 10000, projSet1 = totalSet1Pts / 10000;
+      const pctMatch  = (matchOverHits / 10000) * 100, pctSet1 = (set1OverHits / 10000) * 100;
+      AFDB.log('SUCCESS','ENGINE',`Done! Match:${projMatch.toFixed(1)} Set1:${projSet1.toFixed(1)}`);
+      renderProjectionsTable({ matchLine, set1Line, projectedMatchPoints: projMatch, projectedSet1Points: projSet1, overPctMatch: pctMatch, overPctSet1: pctSet1 });
+    }
+
+    function clearAll() {
+      ["playerAPointsScored","playerAPointsAllowed","playerASet1Scored","playerASet1Allowed",
+       "playerBPointsScored","playerBPointsAllowed","playerBSet1Scored","playerBSet1Allowed",
+       "matchPointsLine","set1PointsLine","h2hSetsA","h2hSetsB",
+       "playerAName","playerBName","playerAId","playerBId","failsafeJsonInput"].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = "";
+      });
+      const h2hCb = document.getElementById("useFTH2H"); if (h2hCb) h2hCb.checked = false;
+      const tbl = document.getElementById("results"); if (tbl) tbl.style.display = "none";
+      const tbody = document.getElementById("resultsBody"); if (tbody) tbody.innerHTML = "";
+      const st = document.getElementById("fetchStatus"); if (st) st.textContent = "";
+      selectedFixtureData = null;
+      AFDB.log('ENGINE','CLEAR','All fields cleared.');
+    }
+    // ── END PATCHED OVERRIDES v11 ───────────────────────────────────────────
+
     function onLeagueChange() {
       const league = document.getElementById("leagueSelect").value;
       const fetchSection = document.getElementById("fetchSection");
@@ -5166,9 +5415,13 @@
           if (side === 'A') {
             document.getElementById("playerAPointsScored").value = stats.scoredList.join(",");
             document.getElementById("playerAPointsAllowed").value = stats.allowedList.join(",");
+            document.getElementById("playerASet1Scored").value = stats.set1ScoredList.join(",");
+            document.getElementById("playerASet1Allowed").value = stats.set1AllowedList.join(",");
           } else {
             document.getElementById("playerBPointsScored").value = stats.scoredList.join(",");
             document.getElementById("playerBPointsAllowed").value = stats.allowedList.join(",");
+            document.getElementById("playerBSet1Scored").value = stats.set1ScoredList.join(",");
+            document.getElementById("playerBSet1Allowed").value = stats.set1AllowedList.join(",");
           }
 
           document.getElementById("marketSection").classList.remove("collapsed");
