@@ -643,7 +643,7 @@
 
     <!-- Section 4: Player A Form -->
     <div class="section" id="playerASection">
-      <h3>Player A — Match History (Last 5)</h3>
+      <h3>Player A — Match History</h3>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <div>
           <label>Match Pts Scored</label>
@@ -671,7 +671,7 @@
 
     <!-- Section 5: Player B Form -->
     <div class="section" id="playerBSection">
-      <h3>Player B — Match History (Last 5)</h3>
+      <h3>Player B — Match History</h3>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <div>
           <label>Match Pts Scored</label>
@@ -5290,7 +5290,8 @@
         const btn = document.createElement('button');
         btn.style.cssText = 'width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:var(--panel-soft);border:1px solid var(--panel-border);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;';
         const flag = c.country ? ` · ${c.country}` : '';
-        btn.innerHTML = `<span>${c.name}${flag}</span><span style="color:var(--muted);font-size:10px;font-weight:800;">ID ${c.id}</span>`;
+        const pop = c.userCount ? ` · ${c.userCount} matches` : '';
+        btn.innerHTML = `<span>${c.name}${flag}${pop}</span><span style="color:var(--muted);font-size:10px;font-weight:800;">ID ${c.id}</span>`;
         btn.onclick = () => {
           overlay.remove();
           document.getElementById(side === 'A' ? 'playerAId' : 'playerBId').value = c.id;
@@ -5325,11 +5326,12 @@
           const parsed = JSON.parse(text);
           const results = parsed.results || [];
           const teamResults = results
-            .filter(r => r.type === 'team')
+            .filter(r => r.type === 'team' && r.entity?.sport?.slug === 'table-tennis')
             .map(r => ({
               id: String(r.entity.id),
               name: r.entity.name || '',
-              country: r.entity.country?.name || ''
+              country: r.entity.country?.name || '',
+              userCount: r.entity.userCount || 0
             }));
 
           _clipboardPhase[side] = null;
