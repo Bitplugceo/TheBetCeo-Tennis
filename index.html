@@ -581,8 +581,8 @@
       <label>Select League</label>
       <select id="leagueSelect" onchange="onLeagueChange()">
         <option value="">- Select League -</option>
-        <option value="Setka Cup">Setka Cup (International)</option>
-        <option value="TT Cup">TT Cup (International)</option>
+        <option value="Setka Cup">Setka Cup</option>
+        <option value="TT Cup">TT Cup</option>
       </select>
     </div>
 
@@ -632,11 +632,11 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
         <div>
           <label>Match Points O/U</label>
-          <input id="matchPointsLine" placeholder="e.g. 74.5" />
+          <input id="matchPointsLine" placeholder="70.5 - 77.5 or 74.5" />
         </div>
         <div>
           <label>Set 1 Points O/U</label>
-          <input id="set1PointsLine" placeholder="e.g. 18.5" />
+          <input id="set1PointsLine" placeholder="17.5 - 19.5 or 18.5" />
         </div>
       </div>
     </div>
@@ -647,11 +647,11 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <div>
           <label>Match Pts Scored</label>
-          <input id="playerAPointsScored" placeholder="e.g. 33,28,31,37,25" />
+          <input id="playerAPointsScored" placeholder="32,28,32,37,25" />
         </div>
         <div>
           <label>Match Pts Allowed</label>
-          <input id="playerAPointsAllowed" placeholder="e.g. 25,31,28,29,33" />
+          <input id="playerAPointsAllowed" placeholder="32,28,32,37,25" />
         </div>
       </div>
       <div style="margin-top:8px; border-top:1px dashed var(--panel-border); padding-top:8px;">
@@ -659,11 +659,11 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top:4px;">
           <div>
             <label>Set 1 Scored</label>
-            <input id="playerASet1Scored" placeholder="e.g. 11,9,11,8,9" />
+            <input id="playerASet1Scored" placeholder="11,9,11,8,9" />
           </div>
           <div>
             <label>Set 1 Allowed</label>
-            <input id="playerASet1Allowed" placeholder="e.g. 7,11,6,11,11" />
+            <input id="playerASet1Allowed" placeholder="11,9,11,8,9" />
           </div>
         </div>
       </div>
@@ -675,11 +675,11 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
         <div>
           <label>Match Pts Scored</label>
-          <input id="playerBPointsScored" placeholder="e.g. 33,28,31,37,25" />
+          <input id="playerBPointsScored" placeholder="32,28,32,37,25" />
         </div>
         <div>
           <label>Match Pts Allowed</label>
-          <input id="playerBPointsAllowed" placeholder="e.g. 25,31,28,29,33" />
+          <input id="playerBPointsAllowed" placeholder="32,28,32,37,25" />
         </div>
       </div>
       <div style="margin-top:8px; border-top:1px dashed var(--panel-border); padding-top:8px;">
@@ -687,67 +687,36 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top:4px;">
           <div>
             <label>Set 1 Scored</label>
-            <input id="playerBSet1Scored" placeholder="e.g. 11,9,8,11,9" />
+            <input id="playerBSet1Scored" placeholder="11,9,8,11,9" />
           </div>
           <div>
             <label>Set 1 Allowed</label>
-            <input id="playerBSet1Allowed" placeholder="e.g. 9,11,11,7,11" />
+            <input id="playerBSet1Allowed" placeholder="11,9,8,11,9" />
           </div>
         </div>
       </div>
     </div>
 
-            <!-- Section 6: H2H Form -->
-        <div class="section" id="h2hSection">
-          <h3>H2H Form</h3>
-          <label style="font-size:11px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; color:var(--section-toggle-text); margin-bottom:8px;">
-            <input type="checkbox" id="useFTH2H" />
-            Use H2H Sets History
-          </label>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <input id="h2hSetsA" placeholder="Player A Sets Won (e.g., 3,2,1)" />
-            <input id="h2hSetsB" placeholder="Player B Sets Won (e.g., 1,3,3)" />
-          </div>
+                <!-- Section 6: H2H Form -->
+    <div class="section" id="h2hSection">
+      <h3>H2H Form</h3>
+      <div style="margin-bottom:8px;">
+        <label style="font-size:11px; font-weight:800; color:var(--section-toggle-text); margin-bottom:4px;">H2H Sets History (Full Match)</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+          <input id="h2hSetsA" placeholder="Player A Sets (3,2,1)" />
+          <input id="h2hSetsB" placeholder="Player B Sets (1,3,3)" />
         </div>
+      </div>
+      <div>
+        <label style="font-size:11px; font-weight:800; color:var(--section-toggle-text); margin-bottom:4px;">H2H Set 1 History (Points)</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+          <input id="h2hSet1A" placeholder="Player A Set 1 (11,9,11)" />
+          <input id="h2hSet1B" placeholder="Player B Set 1 (7,11,8)" />
+        </div>
+      </div>
+    </div>
 
-        <!-- Section 7: Stylistic Matchups -->
-        <div class="section" id="styleSection">
-          <h3>Stylistic Matchups & Equipment</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <div>
-              <label>Player A Style</label>
-              <select id="styleHandA" style="margin-bottom:4px;">
-                <option value="right">Right-Handed</option>
-                <option value="left">Left-Handed</option>
-              </select>
-              <select id="styleRubberA" style="margin-bottom:4px;">
-                <option value="inverted">Inverted (Smooth)</option>
-                <option value="pips">Long/Short Pips</option>
-                <option value="anti">Anti-Spin</option>
-              </select>
-              <select id="stylePlayA">
-                <option value="attacker">Attacker</option>
-                <option value="chopper">Chopper / Defender</option>
-              </select>
-            </div>
-            <div>
-              <label>Player B Style</label>
-              <select id="styleHandB" style="margin-bottom:4px;">
-                <option value="right">Right-Handed</option>
-                <option value="left">Left-Handed</option>
-              </select>
-              <select id="styleRubberB" style="margin-bottom:4px;">
-                <option value="inverted">Inverted (Smooth)</option>
-                <option value="pips">Long/Short Pips</option>
-                <option value="anti">Anti-Spin</option>
-              </select>
-              <select id="stylePlayB">
-                <option value="attacker">Attacker</option>
-                <option value="chopper">Chopper / Defender</option>
-              </select>
-            </div>
-          </div>
-        </div>
+    <!-- Stylistic Matchups fully automated inside engine -->
 
         <!-- Actions -->
         <div class="actions">
@@ -5545,18 +5514,26 @@
           return (hId === String(idA) && aId === String(idB)) || (hId === String(idB) && aId === String(idA));
         });
         if (h2hMatches.length > 0) {
-          const setsA = [], setsB = [];
+          const setsA = [], setsB = [], set1A = [], set1B = [];
           h2hMatches.slice(0, 5).forEach(m => {
             const isHomeA = String(m.homeTeam?.id) === String(idA);
             const scoreA = isHomeA ? m.homeScore?.display : m.awayScore?.display;
             const scoreB = isHomeA ? m.awayScore?.display : m.homeScore?.display;
+            const s1A = isHomeA ? m.homeScore?.period1 : m.awayScore?.period1;
+            const s1B = isHomeA ? m.awayScore?.period1 : m.homeScore?.period1;
             if (scoreA !== undefined && scoreB !== undefined) { setsA.push(scoreA); setsB.push(scoreB); }
+            if (s1A !== undefined && s1B !== undefined) { set1A.push(s1A); set1B.push(s1B); }
           });
           if (setsA.length > 0) {
             document.getElementById("h2hSetsA").value = setsA.join(",");
             document.getElementById("h2hSetsB").value = setsB.join(",");
-            document.getElementById("useFTH2H").checked = true;
-            AFDB.log('SUCCESS', 'H2H', `Automatically extracted ${setsA.length} H2H matches directly from player history feeds!`);
+          }
+          if (set1A.length > 0) {
+            document.getElementById("h2hSet1A").value = set1A.join(",");
+            document.getElementById("h2hSet1B").value = set1B.join(",");
+          }
+          if (setsA.length > 0 || set1A.length > 0) {
+            AFDB.log('SUCCESS', 'H2H', `Automatically extracted H2H match scores and Set 1 points directly from player history feeds!`);
           }
         }
       }
@@ -5655,7 +5632,7 @@
       return null;
     }
 
-    function runEngine() {
+        function runEngine() {
       AFDB.log('ENGINE', 'CALCULATION', "Monte Carlo FINAL v11 starting...");
       const league    = document.getElementById("leagueSelect").value;
       const matchLineInput = document.getElementById("matchPointsLine").value.trim();
@@ -5759,25 +5736,28 @@
       AFDB.log('ENGINE', 'FATIGUE', `Player A Fatigue: ${(contextA.fatigue*100).toFixed(1)}%, Form: ${(contextA.form*100).toFixed(1)}%`);
       AFDB.log('ENGINE', 'FATIGUE', `Player B Fatigue: ${(contextB.fatigue*100).toFixed(1)}%, Form: ${(contextB.form*100).toFixed(1)}%`);
 
-      // Stylistic Matchup adjustments
+      // --- AUTOMATIC STYLE & EQUIPMENT CLASSIFIER (100% Data-Driven) ---
+      const avgScoredA = meanScoredA;
+      const avgAllowedA = meanAllowedA;
+      const avgScoredB = meanScoredB;
+      const avgAllowedB = meanAllowedB;
+
+      // Style Inference: Allowed points < 8.2 per set indicates a defensive Chopper/Defender
+      const isChopperA = avgAllowedA < 8.2;
+      const isChopperB = avgAllowedB < 8.2;
+
+      // Rubber Inference: Choppers with high score variance (stdDev > 2.0) are assumed to use Pips/Anti-spin
+      const usesPipsA = isChopperA && stdDevA > 2.0;
+      const usesPipsB = isChopperB && stdDevB > 2.0;
+
       let styleAdjA = 0;
       let styleAdjB = 0;
-      const handA = document.getElementById("styleHandA").value;
-      const handB = document.getElementById("styleHandB").value;
-      const rubberA = document.getElementById("styleRubberA").value;
-      const rubberB = document.getElementById("styleRubberB").value;
-      const playA = document.getElementById("stylePlayA").value;
-      const playB = document.getElementById("stylePlayB").value;
 
-      // Lefty vs Righty advantage (+1.5% edge)
-      if (handA === "left" && handB === "right") styleAdjA += 0.015;
-      if (handB === "left" && handA === "right") styleAdjB += 0.015;
+      // Pips Chopper vs standard smooth Attacker (+2.0% disruption edge)
+      if (isChopperA && usesPipsA && !isChopperB) styleAdjA += 0.02;
+      if (isChopperB && usesPipsB && !isChopperA) styleAdjB += 0.02;
 
-      // Pips/Anti-Spin Chopper vs smooth attacker (+2.0% disruption edge)
-      if (playA === "chopper" && rubberA !== "inverted" && playB === "attacker" && rubberB === "inverted") styleAdjA += 0.02;
-      if (playB === "chopper" && rubberB !== "inverted" && playA === "attacker" && rubberA === "inverted") styleAdjB += 0.02;
-
-      AFDB.log('ENGINE', 'STYLE', `Style Adjustments: Player A = +${(styleAdjA*100).toFixed(1)}%, Player B = +${(styleAdjB*100).toFixed(1)}%`);
+      AFDB.log('ENGINE', 'STYLE', `Auto-Style: Player A=${isChopperA ? 'Chopper' : 'Attacker'} (Pips=${usesPipsA}), Player B=${isChopperB ? 'Chopper' : 'Attacker'} (Pips=${usesPipsB}). Adjustments: A=+${(styleAdjA*100).toFixed(1)}%, B=+${(styleAdjB*100).toFixed(1)}%`);
 
       let probA = ratingA / (ratingA + ratingB);
       
@@ -5799,14 +5779,25 @@
       } else {
         AFDB.log('ENGINE','MATH',`No Set1 data — Set1 uses overall probA=${(probA * 100).toFixed(1)}%`);
       }
-      const useH2H  = document.getElementById("useFTH2H").checked;
+
+      // --- DUAL H2H BLENDING (Match Sets and Set 1 Points) ---
       const rawH2HA = document.getElementById("h2hSetsA").value.split(",").map(Number).filter(v => !isNaN(v));
       const rawH2HB = document.getElementById("h2hSetsB").value.split(",").map(Number).filter(v => !isNaN(v));
-      if (useH2H && rawH2HA.length >= 2 && rawH2HB.length >= 2) {
+      if (rawH2HA.length >= 2 && rawH2HB.length >= 2) {
         const tA = rawH2HA.reduce((a,b) => a + b, 0), tB = rawH2HB.reduce((a,b) => a + b, 0);
         probA = (probA * 0.70) + ((tA / (tA + tB)) * 0.30);
         if (!hasSet1) probA_set1 = probA;
-        AFDB.log('ENGINE','H2H',`H2H blended probA=${(probA * 100).toFixed(1)}%`);
+        AFDB.log('ENGINE','H2H',`Match Sets H2H blended probA=${(probA * 100).toFixed(1)}%`);
+      }
+
+      const rawH2HS1A = document.getElementById("h2hSet1A").value.split(",").map(Number).filter(v => !isNaN(v));
+      const rawH2HS1B = document.getElementById("h2hSet1B").value.split(",").map(Number).filter(v => !isNaN(v));
+      if (rawH2HS1A.length >= 2 && rawH2HS1B.length >= 2) {
+        const meanH2HS1A = calculateEWMAMean(rawH2HS1A);
+        const meanH2HS1B = calculateEWMAMean(rawH2HS1B);
+        const h2hS1ProbA = meanH2HS1A / (meanH2HS1A + meanH2HS1B);
+        probA_set1 = (probA_set1 * 0.70) + (h2hS1ProbA * 0.30);
+        AFDB.log('ENGINE','H2H',`Set 1 Points H2H blended probA_set1=${(probA_set1 * 100).toFixed(1)}%`);
       }
 
       // Box-Muller transform to generate standard normal random variable (mean=0, std=1)
@@ -5873,6 +5864,7 @@
         if (isFinite(matchLine) && matchPts > matchLine) matchOverHits++;
         if (isFinite(set1Line)  && s1Pts  > set1Line)  set1OverHits++;
       }
+
       const projMatch = totalMatchPts / 10000, projSet1 = totalSet1Pts / 10000;
       const pctMatch  = (matchOverHits / 10000) * 100, pctSet1 = (set1OverHits / 10000) * 100;
       AFDB.log('SUCCESS','ENGINE',`Done! Match:${projMatch.toFixed(1)} Set1:${projSet1.toFixed(1)}`);
@@ -6043,6 +6035,20 @@
 
       AFDB.log('BOOT', 'ENGINE', `Table Tennis Engine successfully initialized. Session ID: sess_${Date.now()}`);
     });
+
+    function clearAll() {
+      ["playerAPointsScored","playerAPointsAllowed","playerASet1Scored","playerASet1Allowed",
+       "playerBPointsScored","playerBPointsAllowed","playerBSet1Scored","playerBSet1Allowed",
+       "matchPointsLine","set1PointsLine","h2hSetsA","h2hSetsB","h2hSet1A","h2hSet1B",
+       "playerAName","playerBName","playerAId","playerBId","pasteA","pasteB"].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = "";
+      });
+      const tbl = document.getElementById("results"); if (tbl) tbl.style.display = "none";
+      const tb  = document.getElementById("resultsBody"); if (tb) tb.innerHTML = "";
+      const st  = document.getElementById("fetchStatus"); if (st) st.textContent = "";
+      selectedFixtureData = null;
+      AFDB.log('ENGINE','CLEAR','All fields cleared.');
+    }
   </script>
 </body>
 </html>
