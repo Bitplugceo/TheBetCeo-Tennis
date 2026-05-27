@@ -6048,12 +6048,27 @@
        "playerAName","playerBName","playerAId","playerBId","pasteA","pasteB"].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = "";
       });
+      
+      const ls = document.getElementById("leagueSelect");
+      if (ls) ls.value = "";
+
       const cb = document.getElementById("useFTH2H"); if (cb) cb.checked = false;
       const tbl = document.getElementById("results"); if (tbl) tbl.style.display = "none";
       const tb  = document.getElementById("resultsBody"); if (tb) tb.innerHTML = "";
       const st  = document.getElementById("fetchStatus"); if (st) st.textContent = "";
       selectedFixtureData = null;
-      AFDB.log('ENGINE','CLEAR','All fields cleared.');
+
+      const fs = document.getElementById("fetchSection");
+      if (fs) fs.style.display = "none";
+
+      document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
+      const lsSec = document.getElementById("leagueSection");
+      if (lsSec) lsSec.classList.remove("collapsed");
+
+      window.rawEventsA = null;
+      window.rawEventsB = null;
+
+      AFDB.log('ENGINE','CLEAR','All fields cleared, sections collapsed, page started afresh.');
     }
   </script>
 </body>
