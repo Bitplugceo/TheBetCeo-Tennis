@@ -734,9 +734,10 @@
         <thead>
           <tr>
             <th>Pick</th>
-            <th>Projection</th>
+            <th>Proj</th>
+            <th>Range (10–90%)</th>
             <th>Edge</th>
-            <th>Model Grade</th>
+            <th>Grade</th>
             <th>Prediction</th>
           </tr>
         </thead>
@@ -5398,7 +5399,7 @@
         const hId = String(e.homeTeam?.id || "");
         const aId = String(e.awayTeam?.id || "");
         return hId === String(playerId) || aId === String(playerId);
-      }).reverse().slice(0, 5);
+      }).reverse().slice(0, 20);
       AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} matches for ${label} (ID: ${playerId})`);
       completed.forEach((ev, idx) => {
         const isHome = String(ev.homeTeam?.id) === String(playerId);
@@ -5658,14 +5659,14 @@
         return;
       }
 
-      // Time-Decay Exponentially Weighted Moving Average (EWMA) calculation
+      // True EWMA — exponential decay formula, scales correctly to any number of matches
       const calculateEWMAMean = (arr) => {
         if (!arr.length) return 0;
         if (arr.length === 1) return arr[0];
-        const weights = [0.35, 0.25, 0.18, 0.12, 0.10]; // Time-decay multipliers
+        const lambda = 0.88; // decay factor: each older match is worth 12% less than the one after it
         let weightedSum = 0, weightTotal = 0;
         for (let i = 0; i < arr.length; i++) {
-          const w = weights[i] || 0.05;
+          const w = Math.pow(lambda, i);
           weightedSum += arr[i] * w;
           weightTotal += w;
         }
@@ -5676,10 +5677,12 @@
       const meanScoredB = calculateEWMAMean(rawScoredB), meanAllowedB = calculateEWMAMean(rawAllowedB);
       AFDB.log('ENGINE','MATH',`A: EWMA Scored=${meanScoredA.toFixed(1)} Allowed=${meanAllowedA.toFixed(1)}`);
       AFDB.log('ENGINE','MATH',`B: EWMA Scored=${meanScoredB.toFixed(1)} Allowed=${meanAllowedB.toFixed(1)}`);
-      
-      const ratingA = (meanScoredA + meanAllowedB) / 2;
-      const ratingB = (meanScoredB + meanAllowedA) / 2;
-      
+
+      // Log5 (Bill James): derive each player's base point-win rate from their OWN offense AND defense,
+      // then combine correctly — fixes the broken additive (a+b)/2 averaging flaw entirely.
+      const pA_base = meanScoredA / (meanScoredA + meanAllowedA);
+      const pB_base = meanScoredB / (meanScoredB + meanAllowedB);
+
       // Calculate standard deviations (volatility/uncertainty approximation)
       const stdDevA = calculateStdDev(rawScoredA);
       const stdDevB = calculateStdDev(rawScoredB);
@@ -5747,39 +5750,45 @@
       const avgScoredB = meanScoredB;
       const avgAllowedB = meanAllowedB;
 
-      // Style Inference: Allowed points < 8.2 per set indicates a defensive Chopper/Defender
-      const isChopperA = avgAllowedA < 8.2;
-      const isChopperB = avgAllowedB < 8.2;
+      // Style Inference: requires ≥10 data points AND tighter allowed avg threshold (< 7.5 per set)
+      const hasEnoughDataA = rawAllowedA.length >= 10;
+      const hasEnoughDataB = rawAllowedB.length >= 10;
+      const isChopperA = hasEnoughDataA && avgAllowedA < 7.5;
+      const isChopperB = hasEnoughDataB && avgAllowedB < 7.5;
 
-      // Rubber Inference: Choppers with high score variance (stdDev > 2.0) are assumed to use Pips/Anti-spin
-      const usesPipsA = isChopperA && stdDevA > 2.0;
-      const usesPipsB = isChopperB && stdDevB > 2.0;
+      // Rubber Inference: tightened variance threshold (stdDev > 2.5)
+      const usesPipsA = isChopperA && stdDevA > 2.5;
+      const usesPipsB = isChopperB && stdDevB > 2.5;
 
       let styleAdjA = 0;
       let styleAdjB = 0;
 
-      // Pips Chopper vs standard smooth Attacker (+2.0% disruption edge)
-      if (isChopperA && usesPipsA && !isChopperB) styleAdjA += 0.02;
-      if (isChopperB && usesPipsB && !isChopperA) styleAdjB += 0.02;
+      // Pips Chopper vs Attacker (+1.0% disruption edge — halved, more conservative)
+      if (isChopperA && usesPipsA && !isChopperB) styleAdjA += 0.01;
+      if (isChopperB && usesPipsB && !isChopperA) styleAdjB += 0.01;
 
       AFDB.log('ENGINE', 'STYLE', `Auto-Style: Player A=${isChopperA ? 'Chopper' : 'Attacker'} (Pips=${usesPipsA}), Player B=${isChopperB ? 'Chopper' : 'Attacker'} (Pips=${usesPipsB}). Adjustments: A=+${(styleAdjA*100).toFixed(1)}%, B=+${(styleAdjB*100).toFixed(1)}%`);
 
-      let probA = ratingA / (ratingA + ratingB);
-      
+      // Log5 point-win probability: P(A wins any given point vs B)
+      // Formula: pA*(1-pB) / (pA*(1-pB) + pB*(1-pA))
+      let probA = (pA_base * (1 - pB_base)) / ((pA_base * (1 - pB_base)) + (pB_base * (1 - pA_base)));
+
       // Apply Fatigue, Form, and Style context variables directly to point probabilities
       probA += contextA.fatigue + contextA.form + styleAdjA;
       probA -= (contextB.fatigue + contextB.form + styleAdjB);
-      probA = Math.max(0.35, Math.min(0.65, probA));
+      probA = Math.max(0.25, Math.min(0.75, probA));
 
       let probA_set1 = probA;
       const hasSet1 = rawS1ScoredA.length > 0 && rawS1AllowA.length > 0 && rawS1ScoredB.length > 0 && rawS1AllowB.length > 0;
       if (hasSet1) {
-        const rS1A = (calculateEWMAMean(rawS1ScoredA) + calculateEWMAMean(rawS1AllowB)) / 2;
-        const rS1B = (calculateEWMAMean(rawS1ScoredB) + calculateEWMAMean(rawS1AllowA)) / 2;
-        probA_set1 = rS1A / (rS1A + rS1B);
+        const s1MeanScoredA = calculateEWMAMean(rawS1ScoredA), s1MeanAllowA = calculateEWMAMean(rawS1AllowA);
+        const s1MeanScoredB = calculateEWMAMean(rawS1ScoredB), s1MeanAllowB = calculateEWMAMean(rawS1AllowB);
+        const pS1A = s1MeanScoredA / (s1MeanScoredA + s1MeanAllowA);
+        const pS1B = s1MeanScoredB / (s1MeanScoredB + s1MeanAllowB);
+        probA_set1 = (pS1A * (1 - pS1B)) / ((pS1A * (1 - pS1B)) + (pS1B * (1 - pS1A)));
         probA_set1 += contextA.fatigue + contextA.form + styleAdjA;
         probA_set1 -= (contextB.fatigue + contextB.form + styleAdjB);
-        probA_set1 = Math.max(0.35, Math.min(0.65, probA_set1));
+        probA_set1 = Math.max(0.25, Math.min(0.75, probA_set1));
         AFDB.log('ENGINE','MATH',`Set1 dedicated probA_set1=${(probA_set1 * 100).toFixed(1)}%`);
       } else {
         AFDB.log('ENGINE','MATH',`No Set1 data — Set1 uses overall probA=${(probA * 100).toFixed(1)}%`);
@@ -5813,8 +5822,10 @@
         return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
       };
 
+      const SIM_RUNS = 50000;
       let matchOverHits = 0, set1OverHits = 0, totalMatchPts = 0, totalSet1Pts = 0;
-      for (let run = 0; run < 10000; run++) {
+      const allMatchPts = [], allSet1Pts = [];
+      for (let run = 0; run < SIM_RUNS; run++) {
         let sWA = 0, sWB = 0, matchPts = 0, s1Pts = 0, setNum = 1;
         
         // Randomly choose first-set server
@@ -5846,7 +5857,7 @@
             } else {
               p -= 0.03;
             }
-            p = Math.max(0.35, Math.min(0.65, p));
+            p = Math.max(0.25, Math.min(0.75, p));
 
             if (Math.random() < p) sA++; else sB++;
             setPointsPlayed++;
@@ -5866,13 +5877,23 @@
           setNum++;
         }
         totalMatchPts += matchPts;
+        allMatchPts.push(matchPts);
+        allSet1Pts.push(s1Pts);
         if (isFinite(matchLine) && matchPts > matchLine) matchOverHits++;
         if (isFinite(set1Line)  && s1Pts  > set1Line)  set1OverHits++;
       }
 
-      const projMatch = totalMatchPts / 10000, projSet1 = totalSet1Pts / 10000;
-      const pctMatch  = (matchOverHits / 10000) * 100, pctSet1 = (set1OverHits / 10000) * 100;
-      AFDB.log('SUCCESS','ENGINE',`Done! Match:${projMatch.toFixed(1)} Set1:${projSet1.toFixed(1)}`);
+      const projMatch = totalMatchPts / SIM_RUNS, projSet1 = totalSet1Pts / SIM_RUNS;
+      const pctMatch  = (matchOverHits / SIM_RUNS) * 100, pctSet1 = (set1OverHits / SIM_RUNS) * 100;
+
+      // Percentile confidence intervals (10th–90th) from full simulation distribution
+      allMatchPts.sort((a, b) => a - b);
+      allSet1Pts.sort((a, b) => a - b);
+      const p10Match = allMatchPts[Math.floor(SIM_RUNS * 0.10)];
+      const p90Match = allMatchPts[Math.floor(SIM_RUNS * 0.90)];
+      const p10Set1  = allSet1Pts[Math.floor(SIM_RUNS * 0.10)];
+      const p90Set1  = allSet1Pts[Math.floor(SIM_RUNS * 0.90)];
+      AFDB.log('SUCCESS','ENGINE',`Done! Match:${projMatch.toFixed(1)} [${p10Match}–${p90Match}] Set1:${projSet1.toFixed(1)} [${p10Set1}–${p90Set1}]`);
 
       // Resolve options array to feed results table and determine the lock
       const options = [];
@@ -5881,14 +5902,14 @@
         const pct = Math.abs(edge / matchLine) * 100;
         let pick = "NO PLAY";
         let grade = "—";
-        if (edge > 0 && pctMatch >= 54) {
+        if (edge > 0 && pctMatch >= 55) {
           pick = "OVER " + matchLine.toFixed(1);
-          grade = pctMatch >= 62 ? "A" : pctMatch >= 57 ? "B" : "C";
-        } else if (edge < 0 && (100 - pctMatch) >= 54) {
+          grade = pctMatch >= 65 ? "A" : pctMatch >= 60 ? "B" : "C";
+        } else if (edge < 0 && (100 - pctMatch) >= 55) {
           pick = "UNDER " + matchLine.toFixed(1);
-          grade = (100 - pctMatch) >= 62 ? "A" : (100 - pctMatch) >= 57 ? "B" : "C";
+          grade = (100 - pctMatch) >= 65 ? "A" : (100 - pctMatch) >= 60 ? "B" : "C";
         }
-        options.push({ name: "Match Points Total", line: matchLine, proj: projMatch, edge, grade, pick, edgePct: pct, isLock: false });
+        options.push({ name: "Match Points Total", line: matchLine, proj: projMatch, edge, grade, pick, edgePct: pct, p10: p10Match, p90: p90Match, isLock: false });
       }
 
       if (isFinite(set1Line) && set1Line > 0) {
@@ -5896,14 +5917,14 @@
         const pct = Math.abs(edge / set1Line) * 100;
         let pick = "NO PLAY";
         let grade = "—";
-        if (edge > 0 && pctSet1 >= 54) {
+        if (edge > 0 && pctSet1 >= 55) {
           pick = "OVER " + set1Line.toFixed(1);
-          grade = pctSet1 >= 62 ? "A" : pctSet1 >= 57 ? "B" : "C";
-        } else if (edge < 0 && (100 - pctSet1) >= 54) {
+          grade = pctSet1 >= 65 ? "A" : pctSet1 >= 60 ? "B" : "C";
+        } else if (edge < 0 && (100 - pctSet1) >= 55) {
           pick = "UNDER " + set1Line.toFixed(1);
-          grade = (100 - pctSet1) >= 62 ? "A" : (100 - pctSet1) >= 57 ? "B" : "C";
+          grade = (100 - pctSet1) >= 65 ? "A" : (100 - pctSet1) >= 60 ? "B" : "C";
         }
-        options.push({ name: "Set 1 Points Total", line: set1Line, proj: projSet1, edge, grade, pick, edgePct: pct, isLock: false });
+        options.push({ name: "Set 1 Points Total", line: set1Line, proj: projSet1, edge, grade, pick, edgePct: pct, p10: p10Set1, p90: p90Set1, isLock: false });
       }
 
       const validPlays = options.filter(o => o.pick !== "NO PLAY" && o.grade !== "—");
@@ -5995,10 +6016,12 @@
         const edgePct = p.line > 0 ? (p.edge / p.line) * 100 : 0;
         const gradeClass = p.pick === "NO PLAY" ? "conf-none" : (p.grade === "A" ? "conf-a" : (p.grade === "B" ? "conf-b" : "conf-c"));
         const predClass = p.pick === "NO PLAY" ? "pred-noplay" : (p.pick.startsWith("UNDER") ? "pred-under" : "pred-over");
+        const rangeStr = (p.p10 !== undefined && p.p90 !== undefined) ? `${p.p10}–${p.p90}` : '—';
 
         row.innerHTML = `
           <td style="font-weight:900;text-transform:uppercase;">${p.name}</td>
           <td>${p.proj.toFixed(1)}</td>
+          <td style="font-weight:700;color:var(--muted);font-size:11px;">${rangeStr}</td>
           <td style="color:${p.edge >= 0 ? '#49d45f' : '#ff5c61'};font-weight:800;">
             ${p.edge >= 0 ? '+' : ''}${p.edge.toFixed(1)} (${p.edge >= 0 ? '+' : ''}${edgePct.toFixed(1)}%)
           </td>
