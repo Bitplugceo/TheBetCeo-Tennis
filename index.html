@@ -1,4 +1,4 @@
-
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4671,7 +4671,7 @@
     // ── PATCHED OVERRIDES v11 ──────────────────────────────────────────────
     function processPlayerPoints(events, playerId, label) {
       const scoredList = [], allowedList = [], set1ScoredList = [], set1AllowedList = [];
-      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      const completed = events.filter(e => e.status?.type === "finished").reverse().slice(0, 5);
       AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} matches for ${label} (ID: ${playerId})`);
       completed.forEach((ev, idx) => {
         const isHome = String(ev.homeTeam?.id) === String(playerId);
@@ -5441,7 +5441,7 @@
     // ── GUARANTEED FINAL OVERRIDES — inserted last, always win ───────────────
     function processPlayerPoints(events, playerId, label) {
       const scoredList = [], allowedList = [], set1ScoredList = [], set1AllowedList = [];
-      const completed = events.filter(e => e.status?.type === "finished").slice(0, 5);
+      const completed = events.filter(e => e.status?.type === "finished").reverse().slice(0, 5);
       AFDB.log('ENGINE', 'PLAYER_PROCESSING', `Processing ${completed.length} matches for ${label} (ID: ${playerId})`);
       completed.forEach((ev, idx) => {
         const isHome = String(ev.homeTeam?.id) === String(playerId);
