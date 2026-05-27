@@ -5485,7 +5485,23 @@
         const inputNameA = document.getElementById("playerAName").value.trim();
         const inputNameB = document.getElementById("playerBName").value.trim();
         let targetId = null, targetLabel = "";
-        if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
+        const enteredIdA = document.getElementById("playerAId").value.trim();
+        const enteredIdB = document.getElementById("playerBId").value.trim();
+
+        // ID-FIRST: scan all events to find which player this JSON belongs to
+        const allIds = new Set();
+        events.forEach(ev => {
+          if (ev.homeTeam?.id) allIds.add(String(ev.homeTeam.id));
+          if (ev.awayTeam?.id) allIds.add(String(ev.awayTeam.id));
+        });
+
+        if (enteredIdA && allIds.has(String(enteredIdA))) {
+          targetId = enteredIdA;
+          targetLabel = "Player A";
+        } else if (enteredIdB && allIds.has(String(enteredIdB))) {
+          targetId = enteredIdB;
+          targetLabel = "Player B";
+        } else if (inputNameA && (rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameA.toLowerCase()))) {
           targetId = rawHomeName.toLowerCase().includes(inputNameA.toLowerCase()) ? sampleEvent.homeTeam?.id : sampleEvent.awayTeam?.id;
           targetLabel = "Player A";
         } else if (inputNameB && (rawHomeName.toLowerCase().includes(inputNameB.toLowerCase()) || rawAwayName.toLowerCase().includes(inputNameB.toLowerCase()))) {
@@ -5495,12 +5511,11 @@
           targetId = sampleEvent.homeTeam?.id;
           targetLabel = "Player A";
           document.getElementById("playerAName").value = rawHomeName;
-          // FIX: Player B name is never auto-filled from fallback JSON
           if (!selectedFixtureData) {
             selectedFixtureData = { eventId: sampleEvent.id || "manual_failsafe", homeId: sampleEvent.homeTeam?.id || "A", awayId: sampleEvent.awayTeam?.id || "B", homeName: rawHomeName, awayName: rawAwayName };
           }
         }
-        if (!targetId) throw new Error("No matching Player Name found. Enter player names first.");
+        if (!targetId) throw new Error("No matching Player ID or Name found. Enter player names or IDs first.");
         const stats = processPlayerPoints(events, targetId, targetLabel);
         const isA = targetLabel === "Player A";
         document.getElementById(isA ? "playerAPointsScored"  : "playerBPointsScored").value  = stats.scoredList.join(",");
