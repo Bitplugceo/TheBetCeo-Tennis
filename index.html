@@ -7971,15 +7971,25 @@ const AFDB = (function() {
   }
 
 
+      log('WARN', 'PHASE2', `Only ${settled.length} settled picks — need 50 to calibrate.`);
       return;
     }
+    // Wilson lower bound for 95% confidence
+    const wilsonLower = (wins, total, z = 1.96) => {
+      if (total === 0) return 0;
+      const p = wins / total;
+      const denominator = 1 + z * z / total;
+      const center = p + z * z / (2 * total);
+      const variance = Math.sqrt(p * (1 - p) / total + z * z / (4 * total * total));
+      return (center - z * variance) / denominator;
+    };
     const candidates = [
       { label: "standard", decay: 0.75, clayMult: 0.965, grassMult: 1.035, hardMult: 1.0 },
       { label: "aggressive_recency", decay: 0.85, clayMult: 0.96, grassMult: 1.04, hardMult: 1.0 },
       { label: "heavy_recent", decay: 0.9, clayMult: 0.97, grassMult: 1.03, hardMult: 1.0 },
       { label: "flat", decay: 0.5, clayMult: 0.96, grassMult: 1.04, hardMult: 1.0 },
     ];
-    let best = null, bestScore = -Infinity;
+    let best = null, bestLower = -Infinity;
     for (const cfg of candidates) {
       let wins = 0, total = 0;
       for (const pick of settled) {
@@ -7992,22 +8002,22 @@ const AFDB = (function() {
         if (correct) wins++;
         total++;
       }
-      const score = total ? wins / total : 0;
-      if (score > bestScore) {
-        bestScore = score;
+      const lower = wilsonLower(wins, total);
+      if (lower > bestLower) {
+        bestLower = lower;
         best = cfg;
       }
     }
-    if (best) {
+    if (best && bestLower > 0.50) {
       localStorage.setItem("tennis_phase2_config", JSON.stringify(best));
-      log('SUCCESS', 'PHASE2', `Best config: ${best.label} with win rate ${(bestScore*100).toFixed(1)}%`);
+      log('SUCCESS', 'PHASE2', `Best config: ${best.label} with Wilson lower bound ${(bestLower*100).toFixed(1)}%`);
     } else {
-      log('WARN', 'PHASE2', 'No config found');
+      log('WARN', 'PHASE2', 'No config with >50% Wilson lower bound');
     }
   }
   function runTestSweep() {
     log('INFO', 'SWEEP', 'Starting Military Raid diagnostic sweep...');
-    runPhase2Simulator();
+    if (typeof runPhase2Simulator === 'function') runPhase2Simulator();
     var suspects = 0;
     var tour = (document.getElementById('leagueSelect') || {}).value || '';
     var pA = ((document.getElementById('teamAName') || {}).value || '').trim();
