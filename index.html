@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4334,6 +4333,9 @@ let g_clearDebug = {
   }
 
   function getConfidenceCellClass(confidence) {
+    if (confidence === "A") return "conf-a";
+    if (confidence === "B") return "conf-b";
+    if (confidence === "C") return "conf-c";
     return "conf-none";
   }
 
@@ -5746,7 +5748,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         }
         items[i] = settledItem;
       } else {
-        window.engineDebug("SETTLE P2 FAIL: " + item.match, {
+        window.engineDebug("SETTLE PENDING UNRESOLVED: " + item.match, {
           market: item.market,
           reason: probe && probe.debug ? probe.debug.reason : "no probe returned",
           playerAId: item.playerAId || "MISSING",
@@ -7296,27 +7298,39 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
-    // Fire ALL date windows simultaneously instead of sequentially
-    const extraRanges = getChunkedHistoryRanges(730, 90);
+    // Extended window to 1095 days (3 years) to cover older H2H meetings.
+    // Runs scoreboard chunks + both player athlete-history APIs fully in parallel.
+    const extraRanges = getChunkedHistoryRanges(1095, 90);
     const all = existingRecords.slice();
 
-    const allResults = await Promise.all(extraRanges.map(async function(datesQuery) {
-      try {
-        const payload = await fetchTennisScoreboard(league, datesQuery);
-        return extractCompetitionRecords(payload).filter(function(record) {
-          return record.status.completed &&
-            !record.retired &&
-            Number.isFinite(record.totalGames) &&
-            Number.isFinite(record.set1Total) &&
-            Number.isFinite(record.playerAGames) &&
-            Number.isFinite(record.playerBGames) &&
-            Number.isFinite(record.playerASet1Games) &&
-            Number.isFinite(record.playerBSet1Games);
-        });
-      } catch(e) { return []; }
-    }));
+    const [scoreboardBatch, histA, histB] = await Promise.all([
+      Promise.all(extraRanges.map(async function(datesQuery) {
+        try {
+          const payload = await fetchTennisScoreboard(league, datesQuery);
+          return extractCompetitionRecords(payload).filter(function(record) {
+            return record.status.completed &&
+              !record.retired &&
+              Number.isFinite(record.totalGames) &&
+              Number.isFinite(record.set1Total) &&
+              Number.isFinite(record.playerAGames) &&
+              Number.isFinite(record.playerBGames) &&
+              Number.isFinite(record.playerASet1Games) &&
+              Number.isFinite(record.playerBSet1Games);
+          });
+        } catch(e) { return []; }
+      })),
+      playerAId
+        ? fetchPlayerHistorySettlementRecords(league, playerAId, null).catch(function() { return { records: [] }; })
+        : Promise.resolve({ records: [] }),
+      playerBId
+        ? fetchPlayerHistorySettlementRecords(league, playerBId, null).catch(function() { return { records: [] }; })
+        : Promise.resolve({ records: [] })
+    ]);
 
-    allResults.forEach(function(records) { all.push.apply(all, records); });
+    scoreboardBatch.forEach(function(records) { all.push.apply(all, records); });
+    if (histA && Array.isArray(histA.records)) all.push.apply(all, histA.records);
+    if (histB && Array.isArray(histB.records)) all.push.apply(all, histB.records);
+
     const deduped = dedupeRecords(all);
     return {
       records: deduped,
@@ -7461,7 +7475,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const recentB = buildRecentSeries(workingRecords, playerBId);
       let h2h = buildH2HSeries(workingRecords, playerAId, playerBId, qs("teamAName").value, qs("teamBName").value);
 
-      if (h2h.length < 3) {
+      if (h2h.length < 5) {
         setFetchStatus("Recent stats found. Searching older windows for more H2H...", "loading");
         const extraBundle = await fetchExtraH2HRecords(
           league,
@@ -7860,7 +7874,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (leagueSelect.value) {
           openSection("espnSection");
           loadFixtures(currentFixtureOffset);
-          // fetchHistoryPool is called lazily inside fetchESPNTennis — no eager double-fetch needed
+          fetchHistoryPool(leagueSelect.value); // Pre-warm cache immediately for instant H2H resolution
         } else {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
           setFetchStatus("Select ATP or WTA first.", "");
