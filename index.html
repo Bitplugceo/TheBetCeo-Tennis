@@ -1,4 +1,4 @@
-A
+F
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2872,13 +2872,14 @@ body.dark-mode .tracker-analytics-section-head {
         <th>Fair Line</th>
         <th>Edge %</th>
         <th>Win Prob</th>
-<th>Pick</th>
+        <th>Grade</th>
+        <th>Pick</th>
       </tr>
     </thead>
 
-    <tbody id="resultsBody">
+          <tbody id="resultsBody">
       <tr>
-        <td colspan="5" class="results-empty-cell">Run the engine to populate results.</td>
+        <td colspan="6" class="results-empty-cell">Run the engine to populate results.</td>
       </tr>
     </tbody>
   </table>
@@ -3391,7 +3392,7 @@ let g_clearDebug = {
   }
 
   function updateSectionLocks() {
-  ["leagueSection", "espnSection", "marketSection", "playersSection", "h2hSection", "intelSection"].forEach(function (id) {
+  ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"].forEach(function (id) {
     unlockSection(id);
   });
 }
@@ -4544,7 +4545,7 @@ let g_clearDebug = {
     showResults();
     const body = qs("resultsBody");
     if (body) {
-      body.innerHTML = '<tr><td colspan="5" class="results-empty-cell" style="color:#d92d2a !important;text-align:left;">' + htmlEscape(message) + '</td></tr>';
+      body.innerHTML = '<tr><td colspan="6" class="results-empty-cell" style="color:#d92d2a !important;text-align:left;">' + htmlEscape(message) + '</td></tr>';
       scrollResultsIntoView();
     }
   }
@@ -4597,7 +4598,7 @@ let g_clearDebug = {
       if (value) nonEmpty += 1;
     });
 
-const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSection", "h2hSection", "intelSection"];
+const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"];
     const collapsedMap = sectionIds.map(function (id) {
       const el = qs(id);
       if (!el) return id + ":missing";
@@ -4676,7 +4677,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     setRunStatus("", "");
     const body = qs("resultsBody");
     if (body) {
-      body.innerHTML = '<tr><td colspan="5" class="results-empty-cell">Run the engine to populate results.</td></tr>';
+      body.innerHTML = '<tr><td colspan="6" class="results-empty-cell">Run the engine to populate results.</td></tr>';
     }
   }
 
@@ -4761,18 +4762,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     const _surfSel = qs("surfaceSelect");
     if (_surfSel) { _surfSel.selectedIndex = 0; _surfSel.value = ""; }
 
-    // ── NUCLEAR CLEAR: wipe every remaining input back to factory default ──
-    const _extraClearIds = ["teamAMarket", "teamBMarket", "aSet1AllowedOpp", "bSet1AllowedOpp"];
-    _extraClearIds.forEach(function (id) {
-      const el = qs(id);
-      if (el) { el.value = ""; el.defaultValue = ""; el.setAttribute("value", ""); }
-    });
-    const _surfSel = qs("surfaceSelect");
-    if (_surfSel) { _surfSel.selectedIndex = 0; _surfSel.value = ""; }
-
     const resultsBody = qs("resultsBody");
     if (resultsBody) {
-      resultsBody.innerHTML = '<tr><td colspan="5" class="results-empty-cell">Run the engine to populate results.</td></tr>';
+      resultsBody.innerHTML = '<tr><td colspan="6" class="results-empty-cell">Run the engine to populate results.</td></tr>';
     }
 
     collapseAll();
@@ -6376,7 +6368,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
   setRunStatus("Running engine...", "loading");
   const body = qs("resultsBody");
   if (body) {
-    body.innerHTML = '<tr><td colspan="5" class="results-empty-cell">Calculating...</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="results-empty-cell">Calculating...</td></tr>';
   }
 
   try {
@@ -7624,7 +7616,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
 
       clearHeaderError();
       setFetchStatus(statusParts.join(" • "), "ok");
-      openSection("playersSection");
+      openSection("teamASection");
+      openSection("teamBSection");
       openSection("h2hSection");
     } catch (err) {
       if (myToken !== espnFetchToken) return; // stale
@@ -7939,6 +7932,24 @@ document.addEventListener("DOMContentLoaded", function () {
         // Tab-Wake Auto-Sync: Hard sync whenever you switch back to this tab
     window.addEventListener("focus", () => {
        if (typeof forceTrackerSaveNow === "function") forceTrackerSaveNow();
+    });
+
+    // Exit Keepalive: Push tracker state to cloud when tab/window closes (mirrors BB engine)
+    window.addEventListener("beforeunload", function() {
+      if (g_trackerState && Array.isArray(g_trackerState.items) && g_trackerState.items.length > 0) {
+        try {
+          const payload = JSON.stringify({
+            key: TRACKER_STORAGE_KEY,
+            state: normalizeTrackerState(g_trackerState)
+          });
+          fetch(TRACKER_API_URL, {
+            method: "POST",
+            headers: getTrackerHeaders(true),
+            body: payload,
+            keepalive: true
+          });
+        } catch(e) {}
+      }
     });
 
     // Autocomplete — wired inside IIFE for direct closure access to historyPoolCache and selectedPlayerIds.
