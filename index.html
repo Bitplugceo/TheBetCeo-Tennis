@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2415,9 +2414,32 @@ body.dark-mode .tracker-analytics-section-head {
   display: none !important;
 }
 
-#trackedPicksTable {
+  #trackedPicksTable {
+  width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse;
   margin-top: 0;
 }
+#trackedPicksTable th,
+#trackedPicksTable td {
+  border: 1px solid var(--table-border);
+  padding: 8px 2px !important;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.25;
+  font-size: 10px !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+}
+#trackedPicksTable td:nth-child(1) { width: 12%; }
+#trackedPicksTable td:nth-child(2) { width: 21%; font-weight: 900; text-transform: uppercase; padding: 8px 1px !important; }
+#trackedPicksTable td:nth-child(3) { width: 13%; font-weight: 800; }
+#trackedPicksTable td:nth-child(4) { width: 7%; }
+#trackedPicksTable td:nth-child(5) { width: 12%; font-weight: 900; }
+#trackedPicksTable td:nth-child(6) { width: 7%; font-weight: 800; }
+#trackedPicksTable td:nth-child(7) { width: 10%; font-weight: 800; opacity: 0.8; }
+#trackedPicksTable td:nth-child(8) { width: 18%; font-weight: 900; }
 
 /* Removed forced grid layout for player sections */
 
@@ -2625,30 +2647,39 @@ body.dark-mode .tracker-analytics-section-head {
       <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
           </div>
 
-       <label id="fixtureSelectLabel" style="font-size:12px;">Select Match</label>
-    <select id="fixtureSelect" class="league-box">
-      <option value="">- Select match -</option>
-    </select>
-
-    <label id="surfaceLabel" style="font-size:12px;margin-top:6px;">Court Surface</label>
-    <select id="surfaceSelect" class="league-box">
-      <option value="">- Auto / Unknown -</option>
-      <option value="Hard">Hard Court</option>
-      <option value="Clay">Clay Court</option>
-      <option value="Grass">Grass Court</option>
-    </select>
-
-    <label id="teamALabel" style="font-size:12px;margin-top:6px;">Player A Name</label>
-
-    <div class="autocomplete-wrap">
-      <input id="teamAName" placeholder="e.g. Novak Djokovic" autocomplete="off" />
-      <div class="autocomplete-list" id="dropA"></div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
+      <div>
+        <label id="fixtureSelectLabel" style="font-size:12px;">Select Match</label>
+        <select id="fixtureSelect" class="league-box" style="max-width:100%;">
+          <option value="">- Select match -</option>
+        </select>
+      </div>
+      <div>
+        <label id="surfaceLabel" style="font-size:12px;">Surface</label>
+        <select id="surfaceSelect" class="league-box" style="max-width:100%;">
+          <option value="">- Auto -</option>
+          <option value="Hard">Hard</option>
+          <option value="Clay">Clay</option>
+          <option value="Grass">Grass</option>
+        </select>
+      </div>
     </div>
 
-    <label id="teamBLabel" style="font-size:12px;margin-top:6px;">Player B Name</label>
-    <div class="autocomplete-wrap">
-      <input id="teamBName" placeholder="e.g. Carlos Alcaraz" autocomplete="off" />
-      <div class="autocomplete-list" id="dropB"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+      <div>
+        <label id="teamALabel" style="font-size:12px;">Player A</label>
+        <div class="autocomplete-wrap" style="max-width:100%;">
+          <input id="teamAName" placeholder="e.g. Djokovic" autocomplete="off" />
+          <div class="autocomplete-list" id="dropA"></div>
+        </div>
+      </div>
+      <div>
+        <label id="teamBLabel" style="font-size:12px;">Player B</label>
+        <div class="autocomplete-wrap" style="max-width:100%;">
+          <input id="teamBName" placeholder="e.g. Alcaraz" autocomplete="off" />
+          <div class="autocomplete-list" id="dropB"></div>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -2881,6 +2912,7 @@ body.dark-mode .tracker-analytics-section-head {
               <th>Market</th>
               <th>Line</th>
               <th>Pick</th>
+              <th>Grade</th>
               <th>Edge</th>
               <th>Status</th>
             </tr>
@@ -5009,10 +5041,15 @@ let g_clearDebug = {
 
 
   function formatTrackerDate(iso) {
-    if (!iso) return "-";
+    if (!iso) return "—";
     const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "-";
-    return d.toLocaleDateString();
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    });
   }
 
   function ageHoursSince(iso) {
@@ -5923,40 +5960,44 @@ let g_clearDebug = {
     if (tableWrap) tableWrap.style.display = "block";
     if (archiveWrap) archiveWrap.style.display = "none"; // Hide archive table permanently
 
-      function statusBadge(item) {
-    const status = String(item.status || "PENDING").toUpperCase();
-    if (status !== "PENDING") {
-      return '<div class="tracker-status-stack"><div style="cursor:pointer; text-decoration:underline;" onclick="settleTrackedPick(\'' + item.id + '\', \'' + status + '\')">' + htmlEscape(status) + '</div></div>';
-    }
-    return '<div class="tracker-status-stack">' +
-      '<div style="cursor:pointer; text-decoration:underline;" onclick="settleTrackedPick(\'' + item.id + '\', \'WIN\')">Settle</div>' +
-      '<div class="tracker-manual-settle" style="display:flex; gap:3px; margin-top:3px;">' +
-        '<button class="tracker-manual-btn" onclick="event.stopPropagation(); settleTrackedPick(\'' + item.id + '\', \'WIN\')">W</button>' +
-        '<button class="tracker-manual-btn" onclick="event.stopPropagation(); settleTrackedPick(\'' + item.id + '\', \'LOSS\')">L</button>' +
-        '<button class="tracker-manual-btn" onclick="event.stopPropagation(); settleTrackedPick(\'' + item.id + '\', \'PUSH\')">P</button>' +
-      '</div>' +
-    '</div>';
-  }
-
       function rowHtml(item) {
-    const edgeText = (Number(item.edge) > 0 ? "+" : "") + fmt(item.edge);
-    const statusClass = "track-" + String(item.status || "PENDING").toLowerCase();
+    const status = String(item.status || "PENDING").toUpperCase();
+    const edgeText = isFinite(Number(item.edge)) ? ((Number(item.edge) > 0 ? "+" : "") + fmt(item.edge)) : "—";
+    const grade = String(item.confidence || "—").toUpperCase();
+    const gradeClass = getConfidenceCellClass(grade);
+    const statusClass = "track-" + status.toLowerCase();
+    const pId = String(item.id || "").replace(/[^a-z0-9]/gi, "_");
+    const encId = htmlEscape(item.id || "");
+
+    let statusHtml = "";
+    if (status !== "PENDING") {
+      statusHtml =
+        '<div class="tracker-settled-edit-btn" data-id="' + encId + '" style="cursor:pointer;" title="Click to edit or revert">' +
+          status +
+          (isFinite(Number(item.actualTotal)) ? '<br><span style="font-size:8px;opacity:0.85;">Total: ' + item.actualTotal + '</span>' : '') +
+        '</div>';
+    } else {
+      statusHtml =
+        '<div class="tracker-disp-toggle" data-pid="' + pId + '" style="font-weight:900;font-size:10px;cursor:pointer;text-decoration:underline dotted #ccc;" title="Click to settle">PENDING</div>' +
+        '<div id="act-' + pId + '" style="display:none;flex-direction:column;align-items:center;gap:2px;margin-top:-2px;">' +
+          '<div style="font-size:8px;font-weight:900;opacity:0.6;margin-bottom:1px;color:var(--text);">SETTLE</div>' +
+          '<button class="tracker-manual-btn tracker-settle-btn" data-manual-settle="WIN" data-id="' + encId + '" style="padding:0!important;width:28px!important;min-width:28px!important;height:16px!important;min-height:16px!important;font-size:9px!important;line-height:16px!important;">W</button>' +
+          '<button class="tracker-manual-btn tracker-settle-btn" data-manual-settle="LOSS" data-id="' + encId + '" style="padding:0!important;width:28px!important;min-width:28px!important;height:16px!important;min-height:16px!important;font-size:9px!important;line-height:16px!important;">L</button>' +
+          '<button class="tracker-manual-btn tracker-settle-btn" data-manual-settle="PUSH" data-id="' + encId + '" style="padding:0!important;width:28px!important;min-width:28px!important;height:16px!important;min-height:16px!important;font-size:9px!important;line-height:16px!important;">P</button>' +
+          '<div class="tracker-custom-settle-btn" data-id="' + encId + '" style="font-size:8px;text-decoration:underline;cursor:pointer;margin-top:2px;font-weight:800;opacity:0.7;">CUSTOM</div>' +
+        '</div>';
+    }
 
     return (
-      '<tr data-id="' + htmlEscape(item.id) + '">' +
+      '<tr>' +
         '<td>' + htmlEscape(formatTrackerDate(item.fixtureDate || item.savedAt)) + '</td>' +
-        '<td>' + htmlEscape(item.match) + '</td>' +
-        '<td>' + htmlEscape(item.market) + '</td>' +
-        '<td>' + htmlEscape(item.line || "—") + '</td>' +
-'<td>' +
-  '<div style="display: flex; align-items: center; justify-content: center; gap: 4px;">' +
-    '<span>' + htmlEscape(item.pick) + '</span>' +
-    (item.isLock ? '<span style="font-size: 4px; transform: translateY(0.5px);">🔒</span>' : '') +
-  '</div>' +
-'</td>' +
-
+        '<td style="font-weight:900;text-transform:uppercase;">' + htmlEscape(item.match) + '</td>' +
+        '<td style="font-weight:800;">' + htmlEscape(item.market) + '</td>' +
+        '<td>' + htmlEscape(String(item.line || "—")) + '</td>' +
+        '<td style="white-space:nowrap;font-size:11px;">' + htmlEscape(item.pick) + (item.isLock ? ' <span style="font-size:4px;transform:translateY(0.5px);">🔒</span>' : '') + '</td>' +
+        '<td class="' + gradeClass + '">' + htmlEscape(grade) + '</td>' +
         '<td>' + htmlEscape(edgeText) + '</td>' +
-        '<td class="' + statusClass + '">' + statusBadge(item) + '</td>' +
+        '<td class="' + statusClass + '"><div class="tracker-status-stack">' + statusHtml + '</div></td>' +
       '</tr>'
     );
   }
@@ -7311,6 +7352,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const trackerCloseBtn = qs("trackerCloseBtn");
     if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
 
+    const trackedPicksBody = qs("trackedPicksBody");
+    if (trackedPicksBody) trackedPicksBody.addEventListener("click", handleTrackedPicksActionClick);
+
 
 
     const trackerModal = qs("trackerModal");
@@ -7341,42 +7385,104 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
-    function settleTrackedPick(id, result) {
+    async function settleTrackedPick(id, result) {
       const items = getTrackerItems();
       const index = items.findIndex(i => i.id === id);
       if (index === -1) return;
       const item = items[index];
       if (!item) return;
-      const matchName = item.match;
-      const actualTotal = prompt(`Enter actual ${item.market === "Match Total Games" ? "match total games" : "set 1 total games"} for ${matchName}:`, item.actualTotal || "");
-      if (actualTotal === null) return;
-      const parsedTotal = parseFloat(actualTotal);
-      if (isNaN(parsedTotal)) return alert("Invalid number");
-      let closingLine = null;
-      const closingLineRaw = prompt(`Optional: Enter closing line for CLV tracking (current line: ${item.line}):`, item.closingLine || "");
-      if (closingLineRaw !== null && closingLineRaw.trim() !== "") {
-        closingLine = parseFloat(closingLineRaw);
-        if (!isNaN(closingLine)) item.closingLine = closingLine;
-      }
-      let finalStatus = result.toUpperCase();
-      if (finalStatus === "WIN" || finalStatus === "LOSS" || finalStatus === "PUSH") {
-        item.status = finalStatus;
-        item.settledAt = new Date().toISOString();
-        item.actualTotal = parsedTotal;
-        if (closingLine && !isNaN(closingLine)) {
-          const lineAtPick = parseFloat(item.line);
-          const side = item.rawPick && item.rawPick.includes("OVER") ? "over" : "under";
-          item.clv = side === "over" ? (closingLine - lineAtPick).toFixed(2) : (lineAtPick - closingLine).toFixed(2);
-        }
-        updateBucketPerformance(item, finalStatus, parsedTotal, closingLine);
-        saveTrackerItems(items);
-        updateTrackerUI();
-        refreshTrackerNow(true);
-      } else {
-        alert("Invalid status");
-      }
+      const finalStatus = String(result || "").toUpperCase();
+      if (!["WIN", "LOSS", "PUSH", "PENDING"].includes(finalStatus)) return;
+      item.status = finalStatus;
+      item.settledAt = finalStatus !== "PENDING" ? new Date().toISOString() : null;
+      updateBucketPerformance(item, finalStatus, item.actualTotal || null, null);
+      saveTrackerItems(items);
+      updateTrackerUI();
+      refreshTrackerNow(true);
     }
+
+    function settleTrackedPickManualFull(id) {
+      const items = getTrackerItems();
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      const matchName = item.match;
+      const score = prompt(
+        "Enter actual total games for " + matchName + "\n(e.g. 24 — or leave blank to skip):",
+        isFinite(item.actualTotal) ? String(item.actualTotal) : ""
+      );
+      if (score === null) return;
+      const closingLineInput = prompt(
+        "Optional — Closing line for CLV tracking (leave blank to skip).\nPick line was: " + item.line,
+        item.closingLine || ""
+      );
+      if (closingLineInput !== null && closingLineInput.trim() !== "") {
+        const cl = parseFloat(closingLineInput.trim());
+        if (isFinite(cl) && cl > 0) {
+          item.closingLine = cl;
+          const lp = Number(item.line);
+          const side = String(item.rawPick || "").toUpperCase().includes("OVER") ? "over" : "under";
+          if (isFinite(lp) && lp > 0) {
+            item.clv = side === "under"
+              ? Math.round((lp - cl) * 100) / 100
+              : Math.round((cl - lp) * 100) / 100;
+          }
+        }
+      }
+      const rawResult = prompt(
+        "Type 'W' for Win, 'L' for Loss, 'P' for Push, or 'PENDING' to revert a mistake:",
+        item.status || "PENDING"
+      );
+      if (rawResult === null) return;
+      const result = rawResult.trim().toLowerCase();
+      if (!result) return;
+      const map = { w: "WIN", l: "LOSS", p: "PUSH", win: "WIN", loss: "LOSS", push: "PUSH", pending: "PENDING" };
+      const finalStatus = map[result];
+      if (!finalStatus) { alert("Invalid status."); return; }
+      if (score && score.trim()) {
+        const parsedTotal = parseFloat(score.trim());
+        if (isFinite(parsedTotal)) item.actualTotal = parsedTotal;
+      }
+      settleTrackedPick(id, finalStatus);
+    }
+
+    function handleTrackedPicksActionClick(event) {
+      const target = event && event.target;
+      if (!target) return;
+      const dispToggle = target.closest && target.closest(".tracker-disp-toggle");
+      if (dispToggle) {
+        const pid = dispToggle.dataset.pid;
+        if (pid) {
+          dispToggle.style.display = "none";
+          const actEl = document.getElementById("act-" + pid);
+          if (actEl) actEl.style.display = "flex";
+        }
+        return;
+      }
+      const customBtn = target.closest && target.closest(".tracker-custom-settle-btn");
+      if (customBtn) {
+        const id = customBtn.getAttribute("data-id") || "";
+        if (id) settleTrackedPickManualFull(id);
+        return;
+      }
+      const settledEdit = target.closest && target.closest(".tracker-settled-edit-btn");
+      if (settledEdit) {
+        const id = settledEdit.getAttribute("data-id") || "";
+        if (id) settleTrackedPickManualFull(id);
+        return;
+      }
+      const btn = target.closest && target.closest(".tracker-settle-btn");
+      if (!btn) return;
+      const resultStatus = String(btn.getAttribute("data-manual-settle") || "").toUpperCase();
+      const itemId = String(btn.getAttribute("data-id") || "");
+      if (!itemId || !["WIN", "LOSS", "PUSH"].includes(resultStatus)) return;
+      btn.disabled = true;
+      Promise.resolve(settleTrackedPick(itemId, resultStatus))
+        .catch(function(err) { console.error("[Tennis Engine] settle failed", err); })
+        .finally(function() { btn.disabled = false; });
+    }
+
     window.settleTrackedPick = settleTrackedPick;
+    window.settleTrackedPickManualFull = settleTrackedPickManualFull;
 
     const headerErrorBtn = qs("headerErrorBtn");
     if (headerErrorBtn) {
