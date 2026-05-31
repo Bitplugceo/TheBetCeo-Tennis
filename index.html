@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2627,17 +2628,17 @@ body.dark-mode .tracker-analytics-section-head {
     <div id="fixtureToolbar" class="fixture-toolbar">
       <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
       <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
-          </div>
+    </div>
 
     <div style="display:grid;grid-template-columns:1fr;gap:8px;">
       <div>
-        <label id="fixtureSelectLabel" style="font-size:12px;">Select Match</label>
+        <label id="fixtureSelectLabel">Select Match</label>
         <select id="fixtureSelect" class="league-box" style="max-width:100%;">
           <option value="">- Select match -</option>
         </select>
       </div>
       <div>
-        <label id="surfaceLabel" style="font-size:12px;">Surface</label>
+        <label id="surfaceLabel">Surface</label>
         <select id="surfaceSelect" class="league-box" style="max-width:100%;">
           <option value="">- Auto -</option>
           <option value="Hard">Hard</option>
@@ -2645,18 +2646,15 @@ body.dark-mode .tracker-analytics-section-head {
           <option value="Grass">Grass</option>
         </select>
       </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
       <div>
-        <label id="teamALabel" style="font-size:12px;">Player A</label>
+        <label id="teamALabel">Player A</label>
         <div class="autocomplete-wrap" style="max-width:100%;">
           <input id="teamAName" placeholder="e.g. Djokovic" autocomplete="off" />
           <div class="autocomplete-list" id="dropA"></div>
         </div>
       </div>
       <div>
-        <label id="teamBLabel" style="font-size:12px;">Player B</label>
+        <label id="teamBLabel">Player B</label>
         <div class="autocomplete-wrap" style="max-width:100%;">
           <input id="teamBName" placeholder="e.g. Alcaraz" autocomplete="off" />
           <div class="autocomplete-list" id="dropB"></div>
@@ -2740,16 +2738,6 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
 
     <div id="fetchStatus">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
-
-    <div class="fetch-note-box" id="fetchNoteBoxA">
-      <div class="fetch-note-title">Player A Fetch Notes</div>
-      <div id="fetchNoteContentA">No fetch notes yet.</div>
-    </div>
-
-    <div class="fetch-note-box" id="fetchNoteBoxB">
-      <div class="fetch-note-title">Player B Fetch Notes</div>
-      <div id="fetchNoteContentB">No fetch notes yet.</div>
-    </div>
   </div>
 
       <div class="section" id="marketSection">
@@ -2776,21 +2764,19 @@ body.dark-mode .tracker-analytics-section-head {
   <h3>Player Stats <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span> <span class="autofill-indicator" id="bAutoTag" style="margin-left:8px;">✅ Auto-filled</span></h3>
 
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-    <!-- Player A column -->
     <div>
-      <label>Player A – Recent Games Won <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+      <label>Games Won (A)</label>
       <input id="aFTScored" placeholder="12,10,14,9,11" style="width:100%;" />
 
-      <label style="margin-top:8px; display:block;">Player A – Recent Set 1 Games Won</label>
+      <label style="margin-top:8px; display:block;">Set 1 Games (A)</label>
       <input id="aFTAllowed" placeholder="6,4,7,5,6" style="width:100%;" />
     </div>
 
-    <!-- Player B column -->
     <div>
-      <label>Player B – Recent Games Won <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+      <label>Games Won (B)</label>
       <input id="bFTScored" placeholder="11,12,9,13,10" style="width:100%;" />
 
-      <label style="margin-top:8px; display:block;">Player B – Recent Set 1 Games Won</label>
+      <label style="margin-top:8px; display:block;">Set 1 Games (B)</label>
       <input id="bFTAllowed" placeholder="4,6,5,7,5" style="width:100%;" />
     </div>
   </div>
@@ -2896,8 +2882,6 @@ body.dark-mode .tracker-analytics-section-head {
               <th>Market</th>
               <th>Line</th>
               <th>Pick</th>
-              <th>Grade</th>
-              <th>Edge</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -5945,11 +5929,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     if (tableWrap) tableWrap.style.display = "block";
     if (archiveWrap) archiveWrap.style.display = "none"; // Hide archive table permanently
 
-      function rowHtml(item) {
+            function rowHtml(item) {
     const status = String(item.status || "PENDING").toUpperCase();
-    const edgeText = isFinite(Number(item.edge)) ? ((Number(item.edge) > 0 ? "+" : "") + fmt(item.edge)) : "—";
-    const grade = String(item.confidence || "—").toUpperCase();
-    const gradeClass = getConfidenceCellClass(grade);
     const statusClass = "track-" + status.toLowerCase();
     const pId = String(item.id || "").replace(/[^a-z0-9]/gi, "_");
     const encId = htmlEscape(item.id || "");
@@ -5980,7 +5961,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
         '<td style="font-weight:800;">' + htmlEscape(item.market) + '</td>' +
         '<td>' + htmlEscape(String(item.line || "—")) + '</td>' +
         '<td style="white-space:nowrap;font-size:11px;">' + htmlEscape(item.pick) + (item.isLock ? ' <span style="font-size:4px;transform:translateY(0.5px);">🔒</span>' : '') + '</td>' +
-        '<td>' + htmlEscape(edgeText) + '</td>' +
         '<td class="' + statusClass + '"><div class="tracker-status-stack">' + statusHtml + '</div></td>' +
       '</tr>'
     );
