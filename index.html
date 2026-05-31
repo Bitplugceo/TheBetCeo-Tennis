@@ -2587,6 +2587,64 @@ body.dark-mode .tracker-analytics-section-head {
     }
   }
 
+  /* ── Compact 2-col input grid (matches basketball engine layout) ── */
+  .input-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+    margin-bottom: 6px;
+  }
+
+  .input-row-2 label {
+    margin-bottom: 2px;
+  }
+
+  .input-row-2 input {
+    margin-bottom: 0;
+    font-size: 11px;
+    padding: 5px 7px;
+  }
+
+  .input-col {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .input-col label {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+
+  .input-col input {
+    font-size: 11px;
+    padding: 5px 7px;
+    margin-bottom: 0;
+  }
+
+  /* Compact section boxes */
+  .section-body {
+    padding: 0 8px 8px;
+  }
+
+  /* Compact league/ESPN selects */
+  .league-box {
+    font-size: 12px;
+    padding: 5px 8px;
+    margin-bottom: 5px;
+  }
+
+  /* Fixture toolbar compact */
+  .fixture-toolbar {
+    gap: 5px;
+    margin: 6px 0 5px;
+  }
+
+  .fixture-day {
+    padding: 5px 8px !important;
+    font-size: 11px !important;
+    min-width: 70px !important;
+  }
+
   </style>
 </head>
 <body>
@@ -2613,12 +2671,25 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="wrapper">
   <div class="section" id="leagueSection">
     <h3>Tour</h3>
-    <label>Select Tour</label>
-    <select id="leagueSelect" class="league-box">
-      <option value="">- Select Tour -</option>
-      <option value="ATP">ATP</option>
-      <option value="WTA">WTA</option>
-    </select>
+    <div class="input-row-2">
+      <div class="input-col">
+        <label>Select Tour</label>
+        <select id="leagueSelect" class="league-box" style="margin-bottom:0;">
+          <option value="">- Select Tour -</option>
+          <option value="ATP">ATP</option>
+          <option value="WTA">WTA</option>
+        </select>
+      </div>
+      <div class="input-col">
+        <label>Court Surface</label>
+        <select id="surfaceSelectTop" class="league-box" style="margin-bottom:0;" onchange="document.getElementById('surfaceSelect').value=this.value;">
+          <option value="">- Auto / Unknown -</option>
+          <option value="Hard">Hard Court</option>
+          <option value="Clay">Clay Court</option>
+          <option value="Grass">Grass Court</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div class="section" id="espnSection">
@@ -2627,32 +2698,28 @@ body.dark-mode .tracker-analytics-section-head {
     <div id="fixtureToolbar" class="fixture-toolbar">
       <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
       <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
-          </div>
+    </div>
 
-       <label id="fixtureSelectLabel" style="font-size:12px;">Select Match</label>
+    <label id="fixtureSelectLabel" style="font-size:11px;margin-bottom:2px;">Select Match</label>
     <select id="fixtureSelect" class="league-box">
       <option value="">- Select match -</option>
     </select>
 
-    <label id="surfaceLabel" style="font-size:12px;margin-top:6px;">Court Surface</label>
-    <select id="surfaceSelect" class="league-box">
-      <option value="">- Auto / Unknown -</option>
-      <option value="Hard">Hard Court</option>
-      <option value="Clay">Clay Court</option>
-      <option value="Grass">Grass Court</option>
-    </select>
-
-    <label id="teamALabel" style="font-size:12px;margin-top:6px;">Player A Name</label>
-
-    <div class="autocomplete-wrap">
-      <input id="teamAName" placeholder="e.g. Novak Djokovic" autocomplete="off" />
-      <div class="autocomplete-list" id="dropA"></div>
-    </div>
-
-    <label id="teamBLabel" style="font-size:12px;margin-top:6px;">Player B Name</label>
-    <div class="autocomplete-wrap">
-      <input id="teamBName" placeholder="e.g. Carlos Alcaraz" autocomplete="off" />
-      <div class="autocomplete-list" id="dropB"></div>
+    <div class="input-row-2" style="margin-top:4px;">
+      <div class="input-col">
+        <label id="teamALabel" style="font-size:11px;">Player A</label>
+        <div class="autocomplete-wrap" style="margin-bottom:0;">
+          <input id="teamAName" placeholder="e.g. Djokovic" autocomplete="off" style="font-size:11px;padding:5px 7px;" />
+          <div class="autocomplete-list" id="dropA"></div>
+        </div>
+      </div>
+      <div class="input-col">
+        <label id="teamBLabel" style="font-size:11px;">Player B</label>
+        <div class="autocomplete-wrap" style="margin-bottom:0;">
+          <input id="teamBName" placeholder="e.g. Alcaraz" autocomplete="off" style="font-size:11px;padding:5px 7px;" />
+          <div class="autocomplete-list" id="dropB"></div>
+        </div>
+      </div>
     </div>
 
     <div id="surfaceWrap" style="display:none;">
@@ -2662,7 +2729,15 @@ body.dark-mode .tracker-analytics-section-head {
       <input id="roundDisplay" type="hidden" />
     </div>
 
-    <div id="fetchStatus">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
+    <!-- Hidden surface select kept for engine compatibility; top section drives it -->
+    <select id="surfaceSelect" style="display:none;">
+      <option value="">- Auto / Unknown -</option>
+      <option value="Hard">Hard Court</option>
+      <option value="Clay">Clay Court</option>
+      <option value="Grass">Grass Court</option>
+    </select>
+
+    <div id="fetchStatus" style="font-size:10px;margin-top:5px;">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
 
     <div class="fetch-note-box" id="fetchNoteBoxA">
       <div class="fetch-note-title">Player A Fetch Notes</div>
@@ -2678,61 +2753,96 @@ body.dark-mode .tracker-analytics-section-head {
   <div class="section" id="marketSection">
     <h3>Market Lines</h3>
 
-    <label id="ftMarketLabel">Match Total Games</label>
-    <input id="ftMarket" placeholder="e.g. 18.5 - 22.5" />
+    <div class="input-row-2">
+      <div class="input-col">
+        <label id="ftMarketLabel">Match Total</label>
+        <input id="ftMarket" placeholder="e.g. 38.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+      <div class="input-col">
+        <label id="h1MarketLabel">Set 1 Total</label>
+        <input id="h1Market" placeholder="e.g. 9.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+    </div>
 
-    <label id="h1MarketLabel">Set 1 Total Games</label>
-    <input id="h1Market" placeholder="e.g. 8.5 - 10.5" />
-
-    <label id="teamAMarketLabel">Player A Total Games</label>
-    <input id="teamAMarket" placeholder="e.g. 18.5 - 24.5" />
-
-    <label id="teamBMarketLabel">Player B Total Games</label>
-    <input id="teamBMarket" placeholder="e.g. 18.5 - 24.5" />
+    <div class="input-row-2" style="margin-top:4px;">
+      <div class="input-col">
+        <label id="teamAMarketLabel">Player A Total</label>
+        <input id="teamAMarket" placeholder="e.g. 20.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+      <div class="input-col">
+        <label id="teamBMarketLabel">Player B Total</label>
+        <input id="teamBMarket" placeholder="e.g. 19.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+    </div>
   </div>
 
   <div class="section" id="teamASection">
     <h3>Player A - Last 5 / 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
 
-    <label id="aFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player A only • recent → oldest)</span></label>
-    <input id="aFTScored" placeholder="12,10,14,9,11" />
+    <div class="input-row-2">
+      <div class="input-col">
+        <label id="aFTScoredLabel">Games Won <span style="font-size:9px;color:#888;">recent→old</span></label>
+        <input id="aFTScored" placeholder="12,10,14,9,11" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+      <div class="input-col">
+        <label id="aFTAllowedOppLabel">Games Allowed (Opp)</label>
+        <input id="aFTAllowedOpp" placeholder="10,8,12,7,9" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+    </div>
 
-    <label id="aFTAllowedOppLabel">Recent Games Allowed (Opponent)</label>
-    <input id="aFTAllowedOpp" placeholder="10,8,12,7,9" />
-
-    <label id="aFTAllowedLabel">Recent Set 1 Games Won</label>
-    <input id="aFTAllowed" placeholder="6,4,7,5,6" />
-
-    <label id="aSet1AllowedOppLabel">Recent Set 1 Games Allowed</label>
-    <input id="aSet1AllowedOpp" placeholder="5,7,4,6,5" />
+    <div class="input-row-2" style="margin-top:4px;">
+      <div class="input-col">
+        <label id="aFTAllowedLabel">Set 1 Games Won</label>
+        <input id="aFTAllowed" placeholder="6,4,7,5,6" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+      <div class="input-col">
+        <label id="aSet1AllowedOppLabel">Set 1 Allowed (Opp)</label>
+        <input id="aSet1AllowedOpp" placeholder="5,7,4,6,5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+    </div>
   </div>
 
   <div class="section" id="teamBSection">
     <h3>Player B - Last 5 / 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
 
-    <label id="bFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player B only • recent → oldest)</span></label>
-    <input id="bFTScored" placeholder="11,12,9,13,10" />
+    <div class="input-row-2">
+      <div class="input-col">
+        <label id="bFTScoredLabel">Games Won <span style="font-size:9px;color:#888;">recent→old</span></label>
+        <input id="bFTScored" placeholder="11,12,9,13,10" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+      <div class="input-col">
+        <label id="bFTAllowedOppLabel">Games Allowed (Opp)</label>
+        <input id="bFTAllowedOpp" placeholder="9,11,8,12,10" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+    </div>
 
-    <label id="bFTAllowedOppLabel">Recent Games Allowed (Opponent)</label>
-    <input id="bFTAllowedOpp" placeholder="9,11,8,12,10" />
-
-    <label id="bFTAllowedLabel">Recent Set 1 Games Won</label>
-    <input id="bFTAllowed" placeholder="4,6,5,7,5" />
-
-    <label id="bSet1AllowedOppLabel">Recent Set 1 Games Allowed</label>
-    <input id="bSet1AllowedOpp" placeholder="6,4,7,5,6" />
+    <div class="input-row-2" style="margin-top:4px;">
+      <div class="input-col">
+        <label id="bFTAllowedLabel">Set 1 Games Won</label>
+        <input id="bFTAllowed" placeholder="4,6,5,7,5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+      <div class="input-col">
+        <label id="bSet1AllowedOppLabel">Set 1 Allowed (Opp)</label>
+        <input id="bSet1AllowedOpp" placeholder="6,4,7,5,6" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+    </div>
   </div>
 
   <div class="section" id="h2hSection">
     <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled / manual-ready</span></h3>
 
-    <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" checked /> Use Match H2H Totals</label>
-    <input id="aFTH2H" placeholder="22,24,19,27" />
+    <div class="input-row-2">
+      <div class="input-col">
+        <label id="useFTH2HLabel" style="margin-bottom:3px;"><input type="checkbox" id="useFTH2H" checked /> Match H2H Totals</label>
+        <input id="aFTH2H" placeholder="22,24,19,27" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+      <div class="input-col">
+        <label id="use1HH2HLabel" style="margin-bottom:3px;"><input type="checkbox" id="use1HH2H" checked /> Set 1 H2H Totals</label>
+        <input id="a1HH2H" placeholder="10,9,12" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
+      </div>
+    </div>
 
-    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" checked /> Use Set 1 H2H Totals</label>
-    <input id="a1HH2H" placeholder="10,9,12" />
-
-    <div class="section-note">
+    <div class="section-note" style="margin-top:5px;">
       H2H remains shared totals. Player A and Player B recent fields are player-only games won.
     </div>
   </div>
@@ -5614,11 +5724,18 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
       g_trackerDebug.lastGeneratedPicks = [];
       return [];
     }
-    const results = [bundle.matchResult, bundle.set1Result];
-    const lockIdx = selectLockIndex(results);
+
+    // Include ALL four markets, not just match + set1
+    const allResults = [
+      bundle.matchResult,
+      bundle.set1Result,
+      bundle.teamAResult,
+      bundle.teamBResult
+    ];
+    const lockIdx = selectLockIndex(allResults);
     const createdAt = new Date().toISOString();
 
-    const built = results
+    const built = allResults
       .map(function (result, idx) {
         if (!result || result.pick === "PASS" || result.confidence === "PASS") return null;
 
@@ -5645,13 +5762,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
           pick: getPredictionText(result),
           rawPick: result.pick,
           confidence: result.confidence,
-                    status: "PENDING",
+          status: "PENDING",
           isLock: idx === lockIdx,
           notes: Array.isArray(result.notes) ? result.notes.join(" | ") : "",
           simPct: result.simPct
         };
       })
-
       .filter(Boolean);
 
     g_trackerDebug.lastGeneratedEntries = built.length;
@@ -6714,6 +6830,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
       else if (surfTxt.includes("grass") || surfTxt.includes("lawn")) surfaceSelect.value = "Grass";
       else if (surfTxt.includes("hard") || surfTxt.includes("carpet") || surfTxt.includes("indoor")) surfaceSelect.value = "Hard";
     }
+    // Mirror detected surface to the visible top dropdown
+    const surfaceSelectTopSync = qs("surfaceSelectTop");
+    if (surfaceSelectTopSync && surfaceSelect) {
+      surfaceSelectTopSync.value = surfaceSelect.value;
+    }
 
     accordionToggle("marketSection");
     fetchESPNTennis();
@@ -6980,7 +7101,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
   function setFieldValue(id, values) {
     const el = qs(id);
     if (!el) return;
-    el.value = values.join(",");
+    el.value = Array.isArray(values) ? values.join(",") : String(values || "");
   }
 
   function setFieldPlaceholder(id, text) {
