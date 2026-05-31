@@ -6399,10 +6399,8 @@ let g_clearDebug = {
 
     const aSets = extractLinescores(a), bSets = extractLinescores(b);
     const setCount = Math.min(aSets.length, bSets.length);
-    const tournamentName = String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim();
     const eventLevel = classifyEventLevel(tournamentName);
     
-    let surface = extractSurfaceText(comp, parentEvent);
     if (!surface && tournamentName) {
       const nameLow = tournamentName.toLowerCase();
       if (nameLow.includes('clay') || nameLow.includes('roland') || nameLow.includes('garros')) surface = "Clay";
