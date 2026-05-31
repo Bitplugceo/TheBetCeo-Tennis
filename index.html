@@ -1,3 +1,4 @@
+L
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2671,25 +2672,12 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="wrapper">
   <div class="section" id="leagueSection">
     <h3>Tour</h3>
-    <div class="input-row-2">
-      <div class="input-col">
-        <label>Select Tour</label>
-        <select id="leagueSelect" class="league-box" style="margin-bottom:0;">
-          <option value="">- Select Tour -</option>
-          <option value="ATP">ATP</option>
-          <option value="WTA">WTA</option>
-        </select>
-      </div>
-      <div class="input-col">
-        <label>Court Surface</label>
-        <select id="surfaceSelectTop" class="league-box" style="margin-bottom:0;" onchange="document.getElementById('surfaceSelect').value=this.value;">
-          <option value="">- Auto / Unknown -</option>
-          <option value="Hard">Hard Court</option>
-          <option value="Clay">Clay Court</option>
-          <option value="Grass">Grass Court</option>
-        </select>
-      </div>
-    </div>
+    <label>Select Tour</label>
+    <select id="leagueSelect" class="league-box">
+      <option value="">- Select Tour -</option>
+      <option value="ATP">ATP</option>
+      <option value="WTA">WTA</option>
+    </select>
   </div>
 
   <div class="section" id="espnSection">
@@ -2700,26 +2688,29 @@ body.dark-mode .tracker-analytics-section-head {
       <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
     </div>
 
-    <label id="fixtureSelectLabel" style="font-size:11px;margin-bottom:2px;">Select Match</label>
-    <select id="fixtureSelect" class="league-box">
+    <label id="fixtureSelectLabel" style="font-size:12px;">Select Match</label>
+    <select id="fixtureSelect" class="league-box" style="max-width:260px;">
       <option value="">- Select match -</option>
     </select>
 
-    <div class="input-row-2" style="margin-top:4px;">
-      <div class="input-col">
-        <label id="teamALabel" style="font-size:11px;">Player A</label>
-        <div class="autocomplete-wrap" style="margin-bottom:0;">
-          <input id="teamAName" placeholder="e.g. Djokovic" autocomplete="off" style="font-size:11px;padding:5px 7px;" />
-          <div class="autocomplete-list" id="dropA"></div>
-        </div>
-      </div>
-      <div class="input-col">
-        <label id="teamBLabel" style="font-size:11px;">Player B</label>
-        <div class="autocomplete-wrap" style="margin-bottom:0;">
-          <input id="teamBName" placeholder="e.g. Alcaraz" autocomplete="off" style="font-size:11px;padding:5px 7px;" />
-          <div class="autocomplete-list" id="dropB"></div>
-        </div>
-      </div>
+    <label id="surfaceLabel" style="font-size:12px;margin-top:6px;">Court Surface</label>
+    <select id="surfaceSelect" class="league-box" style="max-width:260px;">
+      <option value="">- Auto / Unknown -</option>
+      <option value="Hard">Hard Court</option>
+      <option value="Clay">Clay Court</option>
+      <option value="Grass">Grass Court</option>
+    </select>
+
+    <label id="teamALabel" style="font-size:12px;margin-top:6px;">Player A Name</label>
+    <div class="autocomplete-wrap" style="max-width:260px;">
+      <input id="teamAName" placeholder="e.g. Novak Djokovic" autocomplete="off" />
+      <div class="autocomplete-list" id="dropA"></div>
+    </div>
+
+    <label id="teamBLabel" style="font-size:12px;margin-top:6px;">Player B Name</label>
+    <div class="autocomplete-wrap" style="max-width:260px;">
+      <input id="teamBName" placeholder="e.g. Carlos Alcaraz" autocomplete="off" />
+      <div class="autocomplete-list" id="dropB"></div>
     </div>
 
     <div id="surfaceWrap" style="display:none;">
@@ -2729,15 +2720,7 @@ body.dark-mode .tracker-analytics-section-head {
       <input id="roundDisplay" type="hidden" />
     </div>
 
-    <!-- Hidden surface select kept for engine compatibility; top section drives it -->
-    <select id="surfaceSelect" style="display:none;">
-      <option value="">- Auto / Unknown -</option>
-      <option value="Hard">Hard Court</option>
-      <option value="Clay">Clay Court</option>
-      <option value="Grass">Grass Court</option>
-    </select>
-
-    <div id="fetchStatus" style="font-size:10px;margin-top:5px;">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
+    <div id="fetchStatus">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
 
     <div class="fetch-note-box" id="fetchNoteBoxA">
       <div class="fetch-note-title">Player A Fetch Notes</div>
@@ -6830,11 +6813,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
       else if (surfTxt.includes("grass") || surfTxt.includes("lawn")) surfaceSelect.value = "Grass";
       else if (surfTxt.includes("hard") || surfTxt.includes("carpet") || surfTxt.includes("indoor")) surfaceSelect.value = "Hard";
     }
-    // Mirror detected surface to the visible top dropdown
-    const surfaceSelectTopSync = qs("surfaceSelectTop");
-    if (surfaceSelectTopSync && surfaceSelect) {
-      surfaceSelectTopSync.value = surfaceSelect.value;
-    }
+
 
     accordionToggle("marketSection");
     fetchESPNTennis();
