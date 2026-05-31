@@ -1,5 +1,4 @@
-B
-
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3663,10 +3662,10 @@ let g_clearDebug = {
     const volNorm = volatility / marketBaseline;
     let conf = "PASS";
 
-    if (volNorm > 0.295) conf = "PASS";
-    else if (edgePct >= 12.0 && volNorm <= 0.182) conf = "A";
-    else if (edgePct >= 7.5  && volNorm <= 0.227) conf = "B";
-    else if (edgePct >= 4.0  && volNorm <= 0.273) conf = "C";
+    if (volNorm > 0.36) conf = "PASS";
+    else if (edgePct >= 12.0 && volNorm <= 0.20) conf = "A";
+    else if (edgePct >= 7.5  && volNorm <= 0.26) conf = "B";
+    else if (edgePct >= 3.5  && volNorm <= 0.32) conf = "C";
 
     if (conf !== "PASS") {
       const bucketKey = `${tour}|${marketKey}|${surface}|${conf}`;
@@ -3913,14 +3912,16 @@ let g_clearDebug = {
          ctx.surface === "Grass" ? 2.21 : 2.35);
       avgA *= expectedSets;
       avgB *= expectedSets;
-      stdA *= expectedSets;
-      stdB *= expectedSets;
+      // VARIANCE FIX: stdDev of sum of N independent vars scales by sqrt(N), not N.
+      // Linear scaling inflated combined volatility ~2x for BO5, causing false PASS.
+      stdA *= Math.sqrt(expectedSets);
+      stdB *= Math.sqrt(expectedSets);
       notes.push(isBO5 ? "Format: BO5 \u00d73.82 sets" : "Normalized: \u00d7" + expectedSets.toFixed(2) + " sets");
     } else if (isMatch && isBO5) {
       avgA *= 1.45;
       avgB *= 1.45;
-      stdA *= 1.45;
-      stdB *= 1.45;
+      stdA *= Math.sqrt(1.45);
+      stdB *= Math.sqrt(1.45);
       notes.push("Format: BO5 Multiplier (1.45x)");
     }
 
@@ -4442,8 +4443,8 @@ let g_clearDebug = {
       };
 
       const fairLine = fmt(result.projection);
-      const edgePct = isNoPlay ? "—" : fmt((Math.abs(result.edge) / result.lineRange.mid) * 100) + "%";
-      const probText = isNoPlay ? "—" : fmt(winProb) + "%";
+      const edgePct = fmt((Math.abs(result.edge) / result.lineRange.mid) * 100) + "%";
+      const probText = fmt(result.simPct) + "%";
       const fairOdds = isNoPlay ? "—" : getFairOdds(winProb);
       const predictionText = getPredictionText(result);
       const isLock = idx === lockIdx && !isNoPlay;
@@ -5566,6 +5567,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     const actualValue = item.market === "Set 1 Total Games"
       ? record.set1Total
+      : item.market === "Player A Total Games"
+      ? (item.playerAId && record.playerAId === item.playerAId ? record.playerAGames
+         : item.playerAId && record.playerBId === item.playerAId ? record.playerBGames
+         : record.playerAGames)
+      : item.market === "Player B Total Games"
+      ? (item.playerBId && record.playerBId === item.playerBId ? record.playerBGames
+         : item.playerBId && record.playerAId === item.playerBId ? record.playerAGames
+         : record.playerBGames)
       : record.totalGames;
 
     if (!Number.isFinite(actualValue)) return item;
