@@ -2772,25 +2772,27 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
   </div>
 
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0;">
-  <div class="section" id="teamASection">
-    <h3>Player A - Last 5 / 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
+  <div class="section" id="playersSection">
+  <h3>Player Stats <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span> <span class="autofill-indicator" id="bAutoTag" style="margin-left:8px;">✅ Auto-filled</span></h3>
 
-    <label id="aFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player A only • recent → oldest)</span></label>
-    <input id="aFTScored" placeholder="12,10,14,9,11" style="width:100%;" />
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <!-- Player A column -->
+    <div>
+      <label>Player A – Recent Games Won <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+      <input id="aFTScored" placeholder="12,10,14,9,11" style="width:100%;" />
 
-    <label id="aFTAllowedLabel">Recent Set 1 Games Won</label>
-    <input id="aFTAllowed" placeholder="6,4,7,5,6" style="width:100%;" />
-  </div>
+      <label style="margin-top:8px; display:block;">Player A – Recent Set 1 Games Won</label>
+      <input id="aFTAllowed" placeholder="6,4,7,5,6" style="width:100%;" />
+    </div>
 
-  <div class="section" id="teamBSection">
-    <h3>Player B - Last 5 / 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
+    <!-- Player B column -->
+    <div>
+      <label>Player B – Recent Games Won <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+      <input id="bFTScored" placeholder="11,12,9,13,10" style="width:100%;" />
 
-    <label id="bFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player B only • recent → oldest)</span></label>
-    <input id="bFTScored" placeholder="11,12,9,13,10" style="width:100%;" />
-
-    <label id="bFTAllowedLabel">Recent Set 1 Games Won</label>
-    <input id="bFTAllowed" placeholder="4,6,5,7,5" style="width:100%;" />
+      <label style="margin-top:8px; display:block;">Player B – Recent Set 1 Games Won</label>
+      <input id="bFTAllowed" placeholder="4,6,5,7,5" style="width:100%;" />
+    </div>
   </div>
 </div>
 
@@ -3366,10 +3368,10 @@ let g_clearDebug = {
   }
 
   function updateSectionLocks() {
-    ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"].forEach(function (id) {
-      unlockSection(id);
-    });
-  }
+  ["leagueSection", "espnSection", "marketSection", "playersSection", "h2hSection", "intelSection"].forEach(function (id) {
+    unlockSection(id);
+  });
+}
 
   function toggleTheme() {
     const isDark = document.body.classList.toggle("dark-mode");
@@ -4508,7 +4510,7 @@ let g_clearDebug = {
       if (value) nonEmpty += 1;
     });
 
-    const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"];
+const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSection", "h2hSection", "intelSection"];
     const collapsedMap = sectionIds.map(function (id) {
       const el = qs(id);
       if (!el) return id + ":missing";
@@ -7300,8 +7302,7 @@ let g_clearDebug = {
 
       clearHeaderError();
       setFetchStatus(statusParts.join(" • "), "ok");
-      openSection("teamASection");
-      openSection("teamBSection");
+      openSection("playersSection");
       openSection("h2hSection");
     } catch (err) {
       latestFetchedContext = null;
