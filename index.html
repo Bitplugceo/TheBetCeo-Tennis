@@ -2418,16 +2418,7 @@ body.dark-mode .tracker-analytics-section-head {
   margin-top: 0;
 }
 
-/* Force side‑by‑side player sections on desktop */
-@media (min-width: 641px) {
-  .wrapper > div[style*="grid-template-columns: 1fr 1fr"] {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-  }
-  .wrapper > div[style*="grid-template-columns: 1fr 1fr"] > .section {
-    margin: 0 !important;
-  }
-}
+/* Removed forced grid layout for player sections */
 
   #intelSection {
     display: none;
@@ -2572,6 +2563,14 @@ body.dark-mode .tracker-analytics-section-head {
     .context-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  /* Stack Player A and B sections vertically */
+  .player-sections-stack > .section {
+    margin-bottom: 8px;
+  }
+  .player-sections-stack > .section:last-child {
+    margin-bottom: 0;
   }
   </style>
 </head>
@@ -2749,8 +2748,8 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
   </div>
 
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start;">
-    <div class="section" id="teamASection" style="margin:0; min-width:0;">
+  <div class="player-sections-stack">
+    <div class="section" id="teamASection">
       <h3>Player A - Last 5 / 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
 
       <label id="aFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player A only • recent → oldest)</span></label>
@@ -2760,7 +2759,7 @@ body.dark-mode .tracker-analytics-section-head {
       <input id="aFTAllowed" placeholder="6,4,7,5,6" style="width:100%;" />
     </div>
 
-    <div class="section" id="teamBSection" style="margin:0; min-width:0;">
+    <div class="section" id="teamBSection">
       <h3>Player B - Last 5 / 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
 
       <label id="bFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player B only • recent → oldest)</span></label>
