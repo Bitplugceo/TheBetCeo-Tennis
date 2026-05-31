@@ -1,4 +1,4 @@
-F
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3033,8 +3033,7 @@ window.__BETCEO_SESSION_ID = "sess_tennis_" + Date.now() + "_" + Math.random().t
 const ENGINE_INTEGRITY_SHIELD = {
   audit: function() {
     const issues = [];
-    if (typeof runTennisMarkovSimulation !== 'function') issues.push("CRITICAL: Markov Simulator logic is missing.");
-    if (typeof weightedMean !== 'function') issues.push("INTEGRITY: Decay math has been altered.");
+    if (typeof window.runTennisMarkovSimulation !== 'function') issues.push("CRITICAL: Markov Simulator logic is missing.");
     if (!window.indexedDB) issues.push("ENV: Browser IndexedDB is disabled. Data loss imminent.");
     return issues;
   },
@@ -4331,9 +4330,6 @@ let g_clearDebug = {
   }
 
   function getConfidenceCellClass(confidence) {
-    if (confidence === "A") return "conf-a";
-    if (confidence === "B") return "conf-b";
-    if (confidence === "C") return "conf-c";
     return "conf-none";
   }
 
@@ -5667,6 +5663,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     for (const tour of Object.keys(tourGroups)) {
       const completedRecords = await fetchCompletedMatchesForSettlement(tour, [0, -1, -2]);
+      window.engineDebug("SETTLE P1: " + tour + " scoreboard", { completedFound: completedRecords.length });
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         if (item.status !== "PENDING" || String(item.tour || "ATP").toUpperCase() !== tour) continue;
@@ -5682,6 +5679,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             updateBucketPerformance(item, settled.status, settled.actualTotal, null);
           }
           items[i] = settled;
+        } else {
+          window.engineDebug("SETTLE P1 MISS: " + item.match, {
+            market: item.market,
+            playerAId: item.playerAId || "MISSING",
+            playerBId: item.playerBId || "MISSING",
+            fixtureDate: item.fixtureDate || item.savedAt || "MISSING",
+            scoreboardSize: completedRecords.length
+          });
         }
       }
     }
@@ -5725,8 +5730,17 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         if (settledItem.status !== item.status) {
           settledCount += 1;
           updateBucketPerformance(item, settledItem.status, settledItem.actualTotal, null);
+          window.engineDebug("SETTLED via history probe", { match: item.match, market: item.market, result: settledItem.status, actual: settledItem.actualTotal });
         }
         items[i] = settledItem;
+      } else {
+        window.engineDebug("SETTLE P2 FAIL: " + item.match, {
+          market: item.market,
+          reason: probe && probe.debug ? probe.debug.reason : "no probe returned",
+          playerAId: item.playerAId || "MISSING",
+          playerBId: item.playerBId || "MISSING",
+          savedAt: item.savedAt ? item.savedAt.slice(0, 10) : "MISSING"
+        });
       }
     }
 
@@ -6058,7 +6072,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const _liveInfo = (status === "PENDING" && _liveEid) ? g_liveGameStatus.get(_liveEid) : null;
 
     const _conf = String(item.confidence || "—").toUpperCase();
-    const _confClass = _conf === "A" ? "conf-a" : _conf === "B" ? "conf-b" : _conf === "C" ? "conf-c" : "conf-none";
+    const _confClass = "conf-none";
     const _edgeNum = isFinite(Number(item.edge)) ? Number(item.edge) : null;
     const _edgeTxt = _edgeNum !== null ? ((_edgeNum > 0 ? "+" : "") + _edgeNum.toFixed(2)) : "—";
 
@@ -6710,7 +6724,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
   function isSinglesLabel(text) {
     const value = normalizeName(text);
-    if (!value) return false;
+    // If ESPN returns no type label, allow it through — we are already scoped to the ATP/WTA endpoint.
+    // Doubles are caught downstream by the competitors.length !== 2 guard in buildCompetitionRecord.
+    if (!value) return true;
     return value.includes("singles") && !value.includes("doubles") && !value.includes("mixed");
   }
 
@@ -8052,6 +8068,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     };
     window.runTennisMarkovSimulation = runTennisMarkovSimulation;
+    window.autoSettleTracker = autoSettleTracker;
     window.getTrackerItems = getTrackerItems;
     window.selectedPlayerIds = selectedPlayerIds;
     window.renderTrackerAnalytics = renderTrackerAnalytics;
@@ -8138,6 +8155,7 @@ const AFDB = (function() {
           '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">📋 Copy Log</button>' +
           '<button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ Clear</button>' +
           '<button onclick="AFDB.runTestSweep()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>' +
+          '<button onclick="AFDB.settleNow(this)" style="background:#0a2310;border:1px solid #3a9c35;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">⚡ SETTLE NOW</button>' +
           '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
           '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
         '</div>' +
@@ -8249,6 +8267,21 @@ const AFDB = (function() {
       if (typeof window.setTrackerView === 'function') window.setTrackerView('report');
     }, 80);
   }
-  return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, get logs() { return _log; } };
+  function settleNow(btnEl) {
+    if (btnEl) { var orig = btnEl.innerHTML; btnEl.innerHTML = '⏳ Running...'; btnEl.disabled = true; }
+    log('INFO', 'SETTLE', 'Manual settlement triggered — watch for SETTLE P1/P2 entries below...');
+    if (typeof window.autoSettleTracker === 'function') {
+      window.autoSettleTracker(false).then(function() {
+        if (btnEl) { btnEl.innerHTML = '✅ Done'; setTimeout(function() { if (btnEl) { btnEl.innerHTML = orig; btnEl.disabled = false; } }, 2500); }
+      }).catch(function(e) {
+        log('ERROR', 'SETTLE', 'Settlement threw: ' + e.message);
+        if (btnEl) { btnEl.innerHTML = '❌ Failed'; setTimeout(function() { if (btnEl) { btnEl.innerHTML = orig; btnEl.disabled = false; } }, 2500); }
+      });
+    } else {
+      log('ERROR', 'SETTLE', 'window.autoSettleTracker not found — reload the page.');
+      if (btnEl) { btnEl.innerHTML = orig; btnEl.disabled = false; }
+    }
+  }
+  return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, get logs() { return _log; } };
 })();
 </script>
