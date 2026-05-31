@@ -1,4 +1,5 @@
-A
+B
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2889,7 +2890,9 @@ body.dark-mode .tracker-analytics-section-head {
   <div class="tracker-panel">
     <div class="tracker-head">
       <span id="trackerHeadTitle">Tracked Picks</span>
+      <span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:11px;font-weight:900;pointer-events:none;white-space:nowrap;"></span>
       <div class="tracker-head-actions">
+        <button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Military Grade Settle" onclick="window.triggerTrackerMilitaryRaid()">🚨</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
     </div>
@@ -5662,7 +5665,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     let settledCount = 0;
 
     for (const tour of Object.keys(tourGroups)) {
-      const completedRecords = await fetchCompletedMatchesForSettlement(tour, [0, -1, -2]);
+      const completedRecords = await fetchCompletedMatchesForSettlement(tour, [1, 0, -1, -2]);
       window.engineDebug("SETTLE P1: " + tour + " scoreboard", { completedFound: completedRecords.length });
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
@@ -8080,6 +8083,31 @@ document.addEventListener("DOMContentLoaded", function () {
     window.normalizeTrackerState = normalizeTrackerState;
     window.openTrackerModal = openTrackerModal;
     window.setTrackerView = setTrackerView;
+    window.triggerTrackerMilitaryRaid = function() {
+      const statusEl = document.getElementById("trackerStatusLabel");
+      if (statusEl) {
+        statusEl.textContent = "⚡ Running...";
+        statusEl.style.color = "#ff6b6b";
+      }
+      const btn = document.getElementById("trackerMilitaryRaidBtn");
+      if (btn) btn.style.opacity = "0.4";
+      autoSettleTracker(false).then(function() {
+        if (statusEl) {
+          statusEl.textContent = "✅ Done";
+          statusEl.style.color = "#4ade80";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.style.color = ""; }, 2000);
+        }
+        if (btn) btn.style.opacity = "1";
+      }).catch(function(err) {
+        if (statusEl) {
+          statusEl.textContent = "❌ Failed";
+          statusEl.style.color = "#ff5c61";
+          setTimeout(function() { statusEl.textContent = ""; statusEl.style.color = ""; }, 2000);
+        }
+        if (btn) btn.style.opacity = "1";
+        if (typeof engineDebug === "function") engineDebug("MILITARY RAID FAIL", err && err.message ? err.message : String(err));
+      });
+    };
 
 
 
@@ -8155,7 +8183,6 @@ const AFDB = (function() {
           '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">📋 Copy Log</button>' +
           '<button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ Clear</button>' +
           '<button onclick="AFDB.runTestSweep()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>' +
-          '<button onclick="AFDB.settleNow(this)" style="background:#0a2310;border:1px solid #3a9c35;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">⚡ SETTLE NOW</button>' +
           '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
           '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
         '</div>' +
