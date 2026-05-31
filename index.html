@@ -1,4 +1,4 @@
-B
+C
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2911,6 +2911,8 @@ body.dark-mode .tracker-analytics-section-head {
               <th>Market</th>
               <th>Line</th>
               <th>Pick</th>
+              <th>Grade</th>
+              <th>Edge</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -4578,9 +4580,9 @@ let g_clearDebug = {
   function getClearDebugSnapshot() {
     const fieldIds = [
       "leagueSelect", "fixtureSelect", "teamAName", "teamBName",
-      "ftMarket", "h1Market",
-      "aFTScored", "aFTAllowed", "aFTAllowedOpp",
-      "bFTScored", "bFTAllowed", "bFTAllowedOpp",
+      "ftMarket", "h1Market", "teamAMarket", "teamBMarket",
+      "aFTScored", "aFTAllowed", "aFTAllowedOpp", "aSet1AllowedOpp",
+      "bFTScored", "bFTAllowed", "bFTAllowedOpp", "bSet1AllowedOpp",
       "aFTH2H", "a1HH2H"
     ];
 
@@ -4650,7 +4652,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
 
   function clearFetchedAutofill() {
     latestFetchedContext = null;
-    ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTAllowedOpp", "bFTAllowedOpp", "aFTH2H", "a1HH2H", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "roundDisplay"].forEach(function (id) {
+    ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTAllowedOpp", "bFTAllowedOpp",
+     "aSet1AllowedOpp", "bSet1AllowedOpp", "teamAMarket", "teamBMarket",
+     "aFTH2H", "a1HH2H", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "roundDisplay"].forEach(function (id) {
       const el = qs(id);
       if (el) el.value = "";
     });
@@ -4686,9 +4690,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
 
     const clearIds = [
       "teamAName", "teamBName",
-      "ftMarket", "h1Market",
-      "aFTScored", "aFTAllowed", "aFTAllowedOpp",
-      "bFTScored", "bFTAllowed", "bFTAllowedOpp",
+      "ftMarket", "h1Market", "teamAMarket", "teamBMarket",
+      "aFTScored", "aFTAllowed", "aFTAllowedOpp", "aSet1AllowedOpp",
+      "bFTScored", "bFTAllowed", "bFTAllowedOpp", "bSet1AllowedOpp",
       "aFTH2H", "a1HH2H",
       "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "roundDisplay"
     ];
@@ -4746,6 +4750,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     setFetchNotes("", "");
     setRunStatus("", "");
     closeDrops();
+
+    // ── NUCLEAR CLEAR: wipe every remaining input back to factory default ──
+    const _extraClearIds = ["teamAMarket", "teamBMarket", "aSet1AllowedOpp", "bSet1AllowedOpp"];
+    _extraClearIds.forEach(function (id) {
+      const el = qs(id);
+      if (el) { el.value = ""; el.defaultValue = ""; el.setAttribute("value", ""); }
+    });
+    const _surfSel = qs("surfaceSelect");
+    if (_surfSel) { _surfSel.selectedIndex = 0; _surfSel.value = ""; }
 
     const resultsBody = qs("resultsBody");
     if (resultsBody) {
@@ -6058,6 +6071,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
         '</div>';
     }
 
+    const _conf = String(item.confidence || "—").toUpperCase();
+    const _confClass = _conf === "A" ? "conf-a" : _conf === "B" ? "conf-b" : _conf === "C" ? "conf-c" : "conf-none";
+    const _edgeNum = isFinite(Number(item.edge)) ? Number(item.edge) : null;
+    const _edgeTxt = _edgeNum !== null ? ((_edgeNum > 0 ? "+" : "") + _edgeNum.toFixed(2)) : "—";
+
     return (
       '<tr>' +
         '<td>' + htmlEscape(formatTrackerDate(item.fixtureDate || item.savedAt)) + '</td>' +
@@ -6065,6 +6083,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
         '<td style="font-weight:800;">' + htmlEscape(item.market) + '</td>' +
         '<td>' + htmlEscape(String(item.line || "—")) + '</td>' +
         '<td style="white-space:nowrap;font-size:11px;">' + htmlEscape(item.pick) + (item.isLock ? ' <span style="font-size:4px;transform:translateY(0.5px);">🔒</span>' : '') + '</td>' +
+        '<td class="' + _confClass + '">' + htmlEscape(_conf) + '</td>' +
+        '<td style="font-size:11px;font-weight:700;">' + htmlEscape(_edgeTxt) + '</td>' +
         '<td class="' + statusClass + '"><div class="tracker-status-stack">' + statusHtml + '</div></td>' +
       '</tr>'
     );
@@ -6857,6 +6877,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
       else if (surfTxt.includes("grass") || surfTxt.includes("lawn")) surfaceSelect.value = "Grass";
       else if (surfTxt.includes("hard") || surfTxt.includes("carpet") || surfTxt.includes("indoor")) surfaceSelect.value = "Hard";
     }
+
+    // Ensure surface is reset on clear
+    window.__surfaceSelectRef = surfaceSelect;
 
 
     accordionToggle("marketSection");
