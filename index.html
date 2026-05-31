@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3154,13 +3155,18 @@ let g_clearDebug = {
       localStorage.setItem("tennis_line_memory", JSON.stringify(g_lineMemory));
     } catch (e) {}
   }
-  function resolveLineWithMemory(marketKey, playerAId, playerBId, surface, currentLine) {
+  function resolveLineWithMemory(marketKey, playerAId, playerBId, surface, currentLine, currentPick) {
     const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
     const entry = g_lineMemory[key];
     if (!entry) return { line: currentLine, usedMemory: false };
-    const bestLine = entry.bestLine;
-    const side = marketKey === "match" ? "over" : "under";
-    const resolved = (side === "over") ? Math.min(currentLine, bestLine) : Math.max(currentLine, bestLine);
+    const ageDays = entry.lastSeen ? Math.round((Date.now() - new Date(entry.lastSeen).getTime()) / 86400000) : 999;
+    if (ageDays > 90) return { line: currentLine, usedMemory: false };
+    const MAX_DEV = 0.10;
+    const minAllowed = currentLine * (1 - MAX_DEV);
+    const maxAllowed = currentLine * (1 + MAX_DEV);
+    const rawBest = Math.min(maxAllowed, Math.max(minAllowed, entry.bestLine));
+    const side = currentPick === "OVER" ? "over" : "under";
+    const resolved = (side === "over") ? Math.min(currentLine, rawBest) : Math.max(currentLine, rawBest);
     return { line: resolved, usedMemory: (resolved !== currentLine) };
   }
   function upsertLineMemory(marketKey, playerAId, playerBId, surface, side, line) {
@@ -3593,6 +3599,7 @@ let g_clearDebug = {
   }
 
   function mean(values) {
+    if (!Array.isArray(values) || values.length === 0) return null;
     return values.reduce(function (sum, val) { return sum + val; }, 0) / values.length;
   }
 
@@ -3641,21 +3648,25 @@ let g_clearDebug = {
 
         function getRawConfidence(edge, volatility, lineMid, tour, marketKey, surface, baseConfidence) {
     const absEdge = Math.abs(edge);
-    const edgePct = (absEdge / (lineMid || 22.0)) * 100;
+    const safeVol = volatility > 0 ? volatility : 0.01;
+    const edgeZ = absEdge / safeVol;
+    const edgePct = Math.min(100, edgeZ * 15);
+    const marketBaseline = (marketKey === "set1") ? 10.0 : 22.0;
+    const volNorm = volatility / marketBaseline;
     let conf = "PASS";
 
-    if (volatility > 6.5) conf = "PASS";
-    else if (edgePct >= 12.0 && volatility <= 4.0) conf = "A";
-    else if (edgePct >= 7.5  && volatility <= 5.0) conf = "B";
-    else if (edgePct >= 4.0  && volatility <= 6.0) conf = "C";
+    if (volNorm > 0.295) conf = "PASS";
+    else if (edgePct >= 12.0 && volNorm <= 0.182) conf = "A";
+    else if (edgePct >= 7.5  && volNorm <= 0.227) conf = "B";
+    else if (edgePct >= 4.0  && volNorm <= 0.273) conf = "C";
 
     if (conf !== "PASS") {
       const bucketKey = `${tour}|${marketKey}|${surface}|${conf}`;
       const perf = g_bucketPerformance[bucketKey];
       if (perf && (perf.wins + perf.losses) >= 5) {
-        const winRate = perf.wins / (perf.wins + perf.losses);
+        const winRate = perf.wins / (perf.wins + perf.losses + (perf.pushes || 0));
         if (winRate < 0.45) conf = (conf === "A" ? "B" : conf === "B" ? "C" : "PASS");
-        else if (winRate > 0.65 && conf !== "A") conf = (conf === "C" ? "B" : "B" ? "A" : "A");
+        else if (winRate > 0.65 && conf !== "A") conf = (conf === "C" ? "B" : conf === "B" ? "A" : conf);
       }
     }
     return conf;
@@ -3768,15 +3779,14 @@ let g_clearDebug = {
 
   function computeFatiguePenalty(profile, marketKey) {
     if (!profile) return 0;
-    let penalty = 0;
-    const isSet1 = marketKey === "set1";
+    let fraction = 0;
     if (profile.daysRest !== null) {
-      if (profile.daysRest <= 1) penalty += isSet1 ? 0.18 : 0.55;
-      else if (profile.daysRest === 2) penalty += isSet1 ? 0.08 : 0.22;
+      if (profile.daysRest <= 1) fraction += 0.055;
+      else if (profile.daysRest === 2) fraction += 0.022;
     }
-    if (profile.matches7 >= 3) penalty += isSet1 ? 0.10 : 0.28;
-    if (profile.longLoad >= 2) penalty += isSet1 ? 0.10 : 0.28;
-    return penalty;
+    if (profile.matches7 >= 3) fraction += 0.028;
+    if (profile.longLoad >= 2) fraction += 0.028;
+    return fraction;
   }
 
   function uniqueNotes(notes) {
@@ -3786,42 +3796,62 @@ let g_clearDebug = {
     function buildDerivedMarketInputs(options) {
     const ctx = options.ctx;
     const marketKey = options.marketKey;
-    let avgA = mean(options.manualA);
-    let avgB = mean(options.manualB);
-    let stdA = stdDev(options.manualA);
-    let stdB = stdDev(options.manualB);
 
-    // Blend in opponent allowed data (defensive signal) — 25% weight
-    const ALLOWED_BLEND = 0.25;
-    if (options.manualAllowedA && options.manualAllowedA.length >= 3) {
-      const avgAllowedA = mean(options.manualAllowedA);
-      avgA = avgA * (1 - ALLOWED_BLEND) + avgAllowedA * ALLOWED_BLEND;
-    }
-    if (options.manualAllowedB && options.manualAllowedB.length >= 3) {
-      const avgAllowedB = mean(options.manualAllowedB);
-      avgB = avgB * (1 - ALLOWED_BLEND) + avgAllowedB * ALLOWED_BLEND;
-    }
+    // Select data source once: prefer context series (weighted, per-set normalized) over manual entry
+    const ctxSeriesA = ctx ? (marketKey === "match" ? ctx.recentMatchA : ctx.recentSet1A) : [];
+    const ctxSeriesB = ctx ? (marketKey === "match" ? ctx.recentMatchB : ctx.recentSet1B) : [];
+    const useCtx = ctxSeriesA.length >= 3 && ctxSeriesB.length >= 3;
+    const sourceA = useCtx ? ctxSeriesA : options.manualA;
+    const sourceB = useCtx ? ctxSeriesB : options.manualB;
+
+    let avgA = weightedMean(sourceA) || mean(sourceA) || 0;
+    let avgB = weightedMean(sourceB) || mean(sourceB) || 0;
+    let stdA = stdDev(sourceA);
+    let stdB = stdDev(sourceB);
 
     const notes = [];
+    if (useCtx) notes.push("Recency weighted");
 
-    // TREND DETECTION: Recent 3 vs older baseline. 12% directional weight catches
-    // genuine hot/cold streaks without overfitting to 1-match noise.
-    if (options.manualA.length >= 5) {
-      const recentA = mean(options.manualA.slice(0, 3));
-      const baseA   = mean(options.manualA.slice(3));
-      if (baseA > 0) {
-        const trendA = (recentA - baseA) / baseA;
-        avgA *= (1 + trendA * 0.12);
-        if (Math.abs(trendA) >= 0.08) notes.push("A " + (trendA > 0 ? "hot" : "cold") + " " + (trendA > 0 ? "+" : "") + Math.round(trendA * 100) + "%");
+    // Opponent allowed blend: only meaningful on manual entry path; ctx path has opponent quality baked in via normalizeMatchGames
+    const ALLOWED_BLEND = 0.25;
+    if (!useCtx) {
+      if (options.manualAllowedA && options.manualAllowedA.length >= 3) {
+        const avgAllowedA = mean(options.manualAllowedA);
+        if (avgAllowedA !== null) avgA = avgA * (1 - ALLOWED_BLEND) + avgAllowedA * ALLOWED_BLEND;
+      }
+      if (options.manualAllowedB && options.manualAllowedB.length >= 3) {
+        const avgAllowedB = mean(options.manualAllowedB);
+        if (avgAllowedB !== null) avgB = avgB * (1 - ALLOWED_BLEND) + avgAllowedB * ALLOWED_BLEND;
       }
     }
-    if (options.manualB.length >= 5) {
-      const recentB = mean(options.manualB.slice(0, 3));
-      const baseB   = mean(options.manualB.slice(3));
-      if (baseB > 0) {
+
+    // TREND DETECTION: Significant moves only — requires >20% change or >2σ deviation from baseline
+    if (sourceA.length >= 5) {
+      const recentA = mean(sourceA.slice(0, 3));
+      const baseSliceA = sourceA.slice(3);
+      const baseA = mean(baseSliceA);
+      const baseStdA = stdDev(baseSliceA);
+      if (recentA !== null && baseA !== null && baseA > 0 && baseSliceA.length >= 2) {
+        const trendA = (recentA - baseA) / baseA;
+        const absMoveA = Math.abs(recentA - baseA);
+        if (Math.abs(trendA) > 0.20 || (baseStdA > 0 && absMoveA > 2 * baseStdA)) {
+          avgA *= (1 + trendA * 0.12);
+          notes.push("A " + (trendA > 0 ? "hot" : "cold") + " " + (trendA > 0 ? "+" : "") + Math.round(trendA * 100) + "%");
+        }
+      }
+    }
+    if (sourceB.length >= 5) {
+      const recentB = mean(sourceB.slice(0, 3));
+      const baseSliceB = sourceB.slice(3);
+      const baseB = mean(baseSliceB);
+      const baseStdB = stdDev(baseSliceB);
+      if (recentB !== null && baseB !== null && baseB > 0 && baseSliceB.length >= 2) {
         const trendB = (recentB - baseB) / baseB;
-        avgB *= (1 + trendB * 0.12);
-        if (Math.abs(trendB) >= 0.08) notes.push("B " + (trendB > 0 ? "hot" : "cold") + " " + (trendB > 0 ? "+" : "") + Math.round(trendB * 100) + "%");
+        const absMoveB = Math.abs(recentB - baseB);
+        if (Math.abs(trendB) > 0.20 || (baseStdB > 0 && absMoveB > 2 * baseStdB)) {
+          avgB *= (1 + trendB * 0.12);
+          notes.push("B " + (trendB > 0 ? "hot" : "cold") + " " + (trendB > 0 ? "+" : "") + Math.round(trendB * 100) + "%");
+        }
       }
     }
 
@@ -3854,16 +3884,9 @@ let g_clearDebug = {
     if (!ctx)     return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: notes, avgGrind, avgTb, avgS1Kill };
 
 
+    // Source selection is handled at function entry; declarations kept for format-scaling checks below
     const seriesA = marketKey === "match" ? ctx.recentMatchA : ctx.recentSet1A;
     const seriesB = marketKey === "match" ? ctx.recentMatchB : ctx.recentSet1B;
-
-    if (seriesA.length >= 3 && seriesB.length >= 3) {
-      avgA = weightedMean(seriesA);
-      avgB = weightedMean(seriesB);
-      stdA = stdDev(seriesA);
-      stdB = stdDev(seriesB);
-      notes.push("Recency weighted");
-    }
 
         // WEAPONIZED DYNAMIC SHIFTS: Replacing "Magic Numbers" with Statistical Scaling
     // BO5 (Grand Slams) are not just +2.75 games; they are historically ~1.45x the length of a BO3 match.
@@ -3908,19 +3931,17 @@ let g_clearDebug = {
       notes.push("Surface: Clay (-3.5%)");
     }
 
-    // 3. Fatigue Re-balancing (Zero-Sum Logic)
-    const fatiguePenaltyA = computeFatiguePenalty(ctx.fatigueA, marketKey);
-    const fatiguePenaltyB = computeFatiguePenalty(ctx.fatigueB, marketKey);
-    
-    if (fatiguePenaltyA > 0) {
-      avgA = Math.max(0, avgA - fatiguePenaltyA);
-      avgB += fatiguePenaltyA;
-      notes.push("Fatigue A (Re-balanced)");
+    // 3. Fatigue Penalty (Proportional, Non-Zero-Sum — fatigue shortens matches, not gifts games)
+    const fatigueFracA = computeFatiguePenalty(ctx.fatigueA, marketKey);
+    const fatigueFracB = computeFatiguePenalty(ctx.fatigueB, marketKey);
+
+    if (fatigueFracA > 0) {
+      avgA = Math.max(0, avgA - avgA * fatigueFracA);
+      notes.push("Fatigue A (-" + Math.round(fatigueFracA * 100) + "%)");
     }
-    if (fatiguePenaltyB > 0) {
-      avgB = Math.max(0, avgB - fatiguePenaltyB);
-      avgA += fatiguePenaltyB;
-      notes.push("Fatigue B (Re-balanced)");
+    if (fatigueFracB > 0) {
+      avgB = Math.max(0, avgB - avgB * fatigueFracB);
+      notes.push("Fatigue B (-" + Math.round(fatigueFracB * 100) + "%)");
     }
 
     if (ctx.eventLevel) notes.push(ctx.eventLevel);
@@ -3949,7 +3970,17 @@ let g_clearDebug = {
             if (ptsB >= 7 && ptsB - ptsA >= 2) return "B";
           }
         }
-        function simSet(pA, pB) {
+        function simSuperTiebreak(pA_srv, pB_srv, serverStart) {
+          let ptsA = 0, ptsB = 0, currentServer = serverStart;
+          while (true) {
+            let p = (currentServer === "A") ? pA_srv : (1 - pB_srv);
+            if (Math.random() < p) ptsA++; else ptsB++;
+            if ((ptsA + ptsB) % 2 !== 0) currentServer = (currentServer === "A") ? "B" : "A";
+            if (ptsA >= 10 && ptsA - ptsB >= 2) return "A";
+            if (ptsB >= 10 && ptsB - ptsA >= 2) return "B";
+          }
+        }
+        function simSet(pA, pB, isFinalBO5Set) {
           let gA = 0, gB = 0, server = "A";
           while (true) {
             let winner = simGame(server === "A" ? pA : (1 - pB));
@@ -3960,6 +3991,10 @@ let g_clearDebug = {
             if (gA === 7 && gB === 5) return { gA: 7, gB: 5 };
             if (gB === 7 && gA === 5) return { gA: 5, gB: 7 };
             if (gA === 6 && gB === 6) {
+              if (isFinalBO5Set) {
+                let stWinner = simSuperTiebreak(pA, pB, server);
+                return (stWinner === "A") ? { gA: 7, gB: 6 } : { gA: 6, gB: 7 };
+              }
               let tbWinner = simTiebreak(pA, pB, server);
               return (tbWinner === "A") ? { gA: 7, gB: 6 } : { gA: 6, gB: 7 };
             }
@@ -3970,13 +4005,14 @@ let g_clearDebug = {
           let overHits = 0;
           for (let i = 0; i < runs; i++) {
             if (set1Only) {
-              let res = simSet(pA, pB);
+              let res = simSet(pA, pB, false);
               if ((res.gA + res.gB) > line) overHits++;
             } else {
               let totalGames = 0, setsA = 0, setsB = 0;
               let target = isBO5 ? 3 : 2;
               while (setsA < target && setsB < target) {
-                let res = simSet(pA, pB);
+                let isFinalBO5Set = isBO5 && setsA === 2 && setsB === 2;
+                let res = simSet(pA, pB, isFinalBO5Set);
                 totalGames += (res.gA + res.gB);
                 if (res.gA > res.gB) setsA++; else setsB++;
               }
@@ -4027,11 +4063,12 @@ let g_clearDebug = {
         const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
     let projection = projectionCore + (config.projectionShift || 0);
 
-    // MARKET REGRESSION: Pull 20% toward the Vegas line.
-    // The market aggregates sharp money, real-world injury intel, and weather.
-    // Treating it as noise is arrogant. Blending it in keeps the model honest.
-    const MARKET_PULL = 0.20;
+    // MARKET REGRESSION: Pull toward Vegas line, scaled by distance.
+    // When the line is far from our projection (>2σ), it is more likely a model outlier than edge — blend less.
     const preRegressionProjection = projection;
+    const _regVol = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2)) || 1;
+    const _lineZ = Math.abs(config.lineRange.mid - projection) / _regVol;
+    const MARKET_PULL = _lineZ > 3.0 ? 0.0 : _lineZ > 2.0 ? 0.05 : 0.20;
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
 
     // WEAPONIZED MATH: Variance Summation Rule
@@ -4048,7 +4085,7 @@ let g_clearDebug = {
       upsertLineMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", pick === "OVER" ? "over" : "under", config.lineRange.mid);
     }
     // Apply line memory if available
-    const lineMemoryResult = resolveLineWithMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", config.lineRange.mid);
+    const lineMemoryResult = resolveLineWithMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", config.lineRange.mid, pick);
     let notes = [].concat(config.extraNotes || []);
     if (lineMemoryResult.usedMemory) {
       config.lineRange = { ...config.lineRange, mid: lineMemoryResult.line };
@@ -4073,11 +4110,16 @@ let g_clearDebug = {
     const _eloA = config.ctx?.eloA || 1500;
     const _eloB = config.ctx?.eloB || 1500;
     const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
-    const _gameRatioA = config.avgA / ((config.avgA + config.avgB) || 1);
-    const _blendA = (_eloExpectedA * 0.5) + (_gameRatioA * 0.5);
-    const _blendB = 1 - _blendA;
-    const pA = baseHoldProb + (_blendA - 0.5) * 0.18;
-    const pB = baseHoldProb + (_blendB - 0.5) * 0.18;
+    // Per-player serve proxy derived from game dominance ratio (logistic-like mapping)
+    const _gA = config.avgA || 5;
+    const _gB = config.avgB || 5;
+    const _gameDomA = (_gA - _gB) / (_gA + _gB + 2);
+    const _rawServeA = 0.5 + _gameDomA * 0.30;
+    const _rawServeB = 0.5 - _gameDomA * 0.30;
+    const _blendA = (_eloExpectedA * 0.40) + (_rawServeA * 0.60);
+    const _blendB = ((1 - _eloExpectedA) * 0.40) + (_rawServeB * 0.60);
+    const pA = baseHoldProb + (_blendA - 0.5) * 0.28;
+    const pB = baseHoldProb + (_blendB - 0.5) * 0.28;
     const isBO5 = config.ctx?.matchFormat === "BO5";
 
         // Run the point-by-point simulation
@@ -4088,31 +4130,34 @@ let g_clearDebug = {
 
     if (lineDecision.atMid) { notes.push("Projection exactly on midpoint"); confidence = "PASS"; pick = "PASS"; }
 
-        // --- BRUTAL VETOES ---
+        // --- BRUTAL VETOES (Downgrade, not instant kill — preserves signal when confidence is already strong) ---
     if (config.avgGrind >= 0.40 && pick === "UNDER") {
       filtersTriggered.push("grind_veto");
-      notes.push("VETO UNDER: Grind Factor");
-      confidence = "PASS"; pick = "PASS";
-      terminalVeto = true;
-}
+      confidence = downgradeConfidence(confidence);
+      notes.push("Grind factor: UNDER downgraded");
+      if (confidence === "PASS") { pick = "PASS"; terminalVeto = true; }
+    }
     if (config.avgTb >= 0.25 && pick === "UNDER") {
       filtersTriggered.push("tb_veto");
-      notes.push("VETO UNDER: Serve-Bot Alert");
-      confidence = "PASS"; pick = "PASS";
-      terminalVeto = true;
+      confidence = downgradeConfidence(confidence);
+      notes.push("Serve-bot alert: UNDER downgraded");
+      if (confidence === "PASS") { pick = "PASS"; terminalVeto = true; }
     }
     if (config.avgS1Kill >= 0.35 && pick === "OVER" && config.marketKey === "set1") {
-       notes.push("VETO OVER: Set 1 Kill Rate");
-       confidence = "PASS"; pick = "PASS";
-       terminalVeto = true;
+      filtersTriggered.push("s1kill_veto");
+      confidence = downgradeConfidence(confidence);
+      notes.push("High kill rate: OVER downgraded");
+      if (confidence === "PASS") { pick = "PASS"; terminalVeto = true; }
     }
 
     // EDGE SANITY CAP: Edges above 18% after market regression are almost certainly
     // outlier data artifacts, not real signal. Downgrade to protect the record.
-    const edgePctFinal = (Math.abs(edge) / (config.lineRange.mid || 22.0)) * 100;
+    const _safeVolFinal = volatility > 0 ? volatility : 0.01;
+    const _edgeZFinal = Math.abs(edge) / _safeVolFinal;
+    const edgePctFinal = Math.min(100, _edgeZFinal * 15);
     if (edgePctFinal > 18.0 && confidence !== "PASS") {
       confidence = downgradeConfidence(confidence);
-      notes.push("Edge cap: " + fmt(edgePctFinal) + "% > 18% ceiling");
+      notes.push("Edge cap: Z=" + fmt(_edgeZFinal) + " > 1.2 ceiling");
     }
 
     const isRescueEligible = simPct >= 62 || Math.abs(edge) >= 4.0;
@@ -4131,15 +4176,14 @@ let g_clearDebug = {
     }
     if (volatility > 7.0) { filtersTriggered.push("chaos"); notes.push("Extreme volatility / skip zone"); confidence = "PASS"; pick = "PASS"; }
 
-    if (simPct < 53 && pick !== "PASS") { notes.push(`Sim Warning: ${simPct.toFixed(1)}%`); confidence = downgradeConfidence(confidence); } 
-    else if (simPct >= 62 && pick !== "PASS" && !terminalVeto) { 
-      notes.push(`Sim Strong: ${simPct.toFixed(1)}%`); 
-      if (confidence === "C") {
-        confidence = "B";
-      } else if (confidence === "PASS") { 
-        confidence = "C"; 
-        pick = lineDecision.pick; 
-      } 
+    if (simPct < 45 && pick !== "PASS") {
+      notes.push("Sim strongly disagrees: " + simPct.toFixed(1) + "%");
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") pick = "PASS";
+    } else if (simPct < 53 && pick !== "PASS") {
+      notes.push("Sim Warning: " + simPct.toFixed(1) + "%");
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") pick = "PASS";
     }
 
 
@@ -4229,7 +4273,7 @@ let g_clearDebug = {
     avgB: 0,
     stdA: matchDerived.stdA,
     stdB: 0,
-    h2h: [],
+    h2h: (ctx && ctx.h2hPlayerA && ctx.h2hPlayerA.length) ? ctx.h2hPlayerA : [],
     avgGrind: matchDerived.avgGrind,
     avgTb: matchDerived.avgTb,
     avgS1Kill: matchDerived.avgS1Kill,
@@ -4246,7 +4290,7 @@ let g_clearDebug = {
     avgB: 0,
     stdA: matchDerived.stdB,
     stdB: 0,
-    h2h: [],
+    h2h: (ctx && ctx.h2hPlayerB && ctx.h2hPlayerB.length) ? ctx.h2hPlayerB : [],
     avgGrind: matchDerived.avgGrind,
     avgTb: matchDerived.avgTb,
     avgS1Kill: matchDerived.avgS1Kill,
@@ -4405,6 +4449,7 @@ let g_clearDebug = {
           '<td style="font-family:monospace;">' + fairLine + '</td>' +
           '<td style="color:#2f8f4a;">' + edgePct + '</td>' +
           '<td style="font-weight:bold;">' + probText + '</td>' +
+          '<td class="' + getConfidenceCellClass(result.confidence) + '" style="font-weight:800;text-align:center;min-width:32px;">' + htmlEscape(result.confidence) + '</td>' +
           '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
             '<div style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">' +
               '<span>' + htmlEscape(predictionText) + '</span>' +
@@ -7241,7 +7286,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
       const surfaceKey = currentSurface.toLowerCase();
       
       const eloMap = new Map();
-      const K_FACTOR = 32;
+      // K-factor scaled by event level: Grand Slam results are more informative than Challengers
+      const K_MAP = { "Grand Slam": 40, "Masters / 1000": 32, "Finals": 36, "Olympics": 32, "500": 28, "250": 24, "Tour": 28, "Challenger": 20 };
 
       // Bayesian Surface Filter: Process matches on target surface in chronological order
       workingRecords.filter(r => r.surface && r.surface.toLowerCase().includes(surfaceKey))
@@ -7251,9 +7297,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
           if (!eloMap.has(r.playerBId)) eloMap.set(r.playerBId, 1500);
           const rA = eloMap.get(r.playerAId), rB = eloMap.get(r.playerBId);
           const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
-          const scoreA = r.playerAGames > r.playerBGames ? 1 : 0;
-          eloMap.set(r.playerAId, rA + K_FACTOR * (scoreA - expectedA));
-          eloMap.set(r.playerBId, rB + K_FACTOR * ((1 - scoreA) - (1 - expectedA)));
+          // Determine winner by sets won, not total games (a player can win more games and still lose the match)
+          const aSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.aSets.filter((g, i) => g > (r.bSets[i] || 0)).length : (r.playerAGames > r.playerBGames ? 1 : 0);
+          const bSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.bSets.filter((g, i) => g > (r.aSets[i] || 0)).length : 0;
+          const scoreA = aSetsWon > bSetsWon ? 1 : aSetsWon < bSetsWon ? 0 : 0.5;
+          const kFactor = K_MAP[r.eventLevel] || 28;
+          eloMap.set(r.playerAId, rA + kFactor * (scoreA - expectedA));
+          eloMap.set(r.playerBId, rB + kFactor * ((1 - scoreA) - (1 - expectedA)));
         });
 
       const eloA = eloMap.get(playerAId) || 1500;
@@ -7267,6 +7317,17 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
       const bSet1Games = recentB10.map(m => m.playerSet1Games).filter(Number.isFinite);
       const h2hMatchTotals = h2h.slice(0, 5).map(m => m.totalGames).filter(Number.isFinite);
       const h2hSet1Totals = h2h.slice(0, 5).map(m => m.set1Total).filter(Number.isFinite);
+      // Per-player H2H games: check both record orientations so bidirectional records resolve correctly
+      const h2hPlayerAGames = h2h.slice(0, 5).map(function(m) {
+        if (m.playerAId === playerAId && Number.isFinite(m.playerAGames)) return m.playerAGames;
+        if (m.playerBId === playerAId && Number.isFinite(m.playerBGames)) return m.playerBGames;
+        return null;
+      }).filter(Number.isFinite);
+      const h2hPlayerBGames = h2h.slice(0, 5).map(function(m) {
+        if (m.playerBId === playerBId && Number.isFinite(m.playerBGames)) return m.playerBGames;
+        if (m.playerAId === playerBId && Number.isFinite(m.playerAGames)) return m.playerAGames;
+        return null;
+      }).filter(Number.isFinite);
 
       // Per-set normalization + opponent quality weighting for internal context.
       // Display fields keep raw totals so the UI stays readable for manual edits.
@@ -7350,7 +7411,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
         eloA, eloB, // INJECTED WEAPONIZED DATA
         recentMatchA: bayesianANorm, recentMatchB: bayesianBNorm,
         recentSet1A: bayesianS1A, recentSet1B: bayesianS1B,
-        h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals
+        h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals,
+        h2hPlayerA: h2hPlayerAGames, h2hPlayerB: h2hPlayerBGames
       };
 
 
@@ -7908,12 +7970,7 @@ const AFDB = (function() {
     if (ov) ov.style.display = 'none';
   }
 
-  function runPhase2Simulator() {
-    log('INFO', 'PHASE2', 'Running Phase 2 auto‑calibration...');
-    const items = window.getTrackerItems ? window.getTrackerItems() : [];
-    const settled = items.filter(i => i.status === "WIN" || i.status === "LOSS");
-    if (settled.length < 20) {
-      log('WARN', 'PHASE2', `Only ${settled.length} settled picks — need 20 to calibrate.`);
+
       return;
     }
     const candidates = [
