@@ -1,4 +1,3 @@
-G
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2639,25 +2638,27 @@ body.dark-mode .tracker-analytics-section-head {
       </div>
       <div>
         <label id="surfaceLabel">Surface</label>
-        <select id="surfaceSelect" class="league-box" style="max-width:100%;">
+        <select id="surfaceSelect" class="league-box" style="max-width:calc(50% - 4px);">
           <option value="">- Auto -</option>
           <option value="Hard">Hard</option>
           <option value="Clay">Clay</option>
           <option value="Grass">Grass</option>
         </select>
       </div>
-      <div>
-        <label id="teamALabel">Player A</label>
-        <div class="autocomplete-wrap" style="max-width:100%;">
-          <input id="teamAName" placeholder="e.g. Djokovic" autocomplete="off" />
-          <div class="autocomplete-list" id="dropA"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label id="teamALabel">Player A</label>
+          <div class="autocomplete-wrap" style="max-width:100%;">
+            <input id="teamAName" placeholder="e.g. Djokovic" autocomplete="off" />
+            <div class="autocomplete-list" id="dropA"></div>
+          </div>
         </div>
-      </div>
-      <div>
-        <label id="teamBLabel">Player B</label>
-        <div class="autocomplete-wrap" style="max-width:100%;">
-          <input id="teamBName" placeholder="e.g. Alcaraz" autocomplete="off" />
-          <div class="autocomplete-list" id="dropB"></div>
+        <div>
+          <label id="teamBLabel">Player B</label>
+          <div class="autocomplete-wrap" style="max-width:100%;">
+            <input id="teamBName" placeholder="e.g. Alcaraz" autocomplete="off" />
+            <div class="autocomplete-list" id="dropB"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -2699,8 +2700,8 @@ body.dark-mode .tracker-analytics-section-head {
 
   <!-- Player A collapsible sub-section -->
   <div style="border:1px solid var(--panel-border); margin-bottom:8px;">
-    <button type="button" id="playerAToggle" onclick="(function(){var b=document.getElementById('playerABody');var btn=document.getElementById('playerAToggle');var collapsed=b.style.display==='none';b.style.display=collapsed?'block':'none';btn.querySelector('.pa-icon').style.transform=collapsed?'':'rotate(-90deg)';})();" style="width:100%;background:var(--panel-soft)!important;border:none;padding:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-weight:900;font-size:12px;color:var(--text)!important;">
-      <span>PLAYER A</span>
+    <button type="button" id="playerAToggle" onclick="(function(){var b=document.getElementById('playerABody');var btn=document.getElementById('playerAToggle');var collapsed=b.style.display==='none';b.style.display=collapsed?'block':'none';btn.querySelector('.pa-icon').style.transform=collapsed?'':'rotate(-90deg)';})();" style="width:100%;background:none!important;border:none;padding:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-weight:800;font-size:12px;color:var(--section-toggle-text)!important;">
+      <span>Player A</span>
       <span class="pa-icon" style="color:var(--section-toggle-icon);font-size:13px;transition:transform 0.2s;">▾</span>
     </button>
     <div id="playerABody" style="padding:8px;background:var(--panel);">
@@ -2729,8 +2730,8 @@ body.dark-mode .tracker-analytics-section-head {
 
   <!-- Player B collapsible sub-section -->
   <div style="border:1px solid var(--panel-border);">
-    <button type="button" id="playerBToggle" onclick="(function(){var b=document.getElementById('playerBBody');var btn=document.getElementById('playerBToggle');var collapsed=b.style.display==='none';b.style.display=collapsed?'block':'none';btn.querySelector('.pb-icon').style.transform=collapsed?'':'rotate(-90deg)';})();" style="width:100%;background:var(--panel-soft)!important;border:none;padding:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-weight:900;font-size:12px;color:var(--text)!important;">
-      <span>PLAYER B</span>
+    <button type="button" id="playerBToggle" onclick="(function(){var b=document.getElementById('playerBBody');var btn=document.getElementById('playerBToggle');var collapsed=b.style.display==='none';b.style.display=collapsed?'block':'none';btn.querySelector('.pb-icon').style.transform=collapsed?'':'rotate(-90deg)';})();" style="width:100%;background:none!important;border:none;padding:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-weight:800;font-size:12px;color:var(--section-toggle-text)!important;">
+      <span>Player B</span>
       <span class="pb-icon" style="color:var(--section-toggle-icon);font-size:13px;transition:transform 0.2s;">▾</span>
     </button>
     <div id="playerBBody" style="padding:8px;background:var(--panel);">
@@ -6732,6 +6733,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     const opt = select.options[select.selectedIndex];
     if (!opt || !opt.value) return;
 
+    // Collapse the dropdown text to a short confirmation
+    const selectedVal = opt.value;
+    const selectedText = opt.textContent || "";
+    select.innerHTML = "";
+    const confirmed = document.createElement("option");
+    confirmed.value = selectedVal;
+    confirmed.textContent = "Selected ✅";
+    confirmed.dataset.playerAId = opt.dataset.playerAId;
+    confirmed.dataset.playerAName = opt.dataset.playerAName;
+    confirmed.dataset.playerBId = opt.dataset.playerBId;
+    confirmed.dataset.playerBName = opt.dataset.playerBName;
+    select.appendChild(confirmed);
+    select.value = selectedVal;
+
     clearFetchedAutofill();
 
     qs("teamAName").value = opt.dataset.playerAName || "";
@@ -6955,19 +6970,25 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     const surnameA = getSurnameToken(playerAName);
     const surnameB = getSurnameToken(playerBName);
 
+    // Also build single-ID sets so a record from athlete-history
+    // (which only contains one player's ID) still matches
     return records.filter(function (record) {
-      // Primary: match by ID (both must appear)
+      // Primary: both IDs present in the record
       const byIdA = record.playerAId === playerAId || record.playerBId === playerAId;
       const byIdB = record.playerAId === playerBId || record.playerBId === playerBId;
       if (byIdA && byIdB) return true;
 
-      // Secondary: full normalized name match
+      // Secondary: one ID matches + name cross-check for the other
       const recA = normalizeName(record.playerAName);
       const recB = normalizeName(record.playerBName);
+      if (byIdA && (recA === normB || recB === normB)) return true;
+      if (byIdB && (recA === normA || recB === normA)) return true;
+
+      // Tertiary: full normalized name match (no IDs needed)
       const byName = (recA === normA && recB === normB) || (recA === normB && recB === normA);
       if (byName) return true;
 
-      // Tertiary: surname-pair fallback (catches ESPN name format differences)
+      // Quaternary: surname-pair fallback
       if (surnameA && surnameB) {
         const recSurnameA = getSurnameToken(record.playerAName);
         const recSurnameB = getSurnameToken(record.playerBName);
@@ -7154,7 +7175,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
       const recentB = buildRecentSeries(workingRecords, playerBId);
       let h2h = buildH2HSeries(workingRecords, playerAId, playerBId, qs("teamAName").value, qs("teamBName").value);
 
-      if (h2h.length < 2) {
+      if (h2h.length < 3) {
         setFetchStatus("Recent stats found. Searching older windows for more H2H...", "loading");
         const extraBundle = await fetchExtraH2HRecords(
           league,
@@ -7163,7 +7184,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
           playerBId,
           qs("teamAName").value,
           qs("teamBName").value,
-          3
+          5
         );
         workingRecords = extraBundle.records;
         h2h = extraBundle.h2h;
