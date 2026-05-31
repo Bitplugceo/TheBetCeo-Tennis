@@ -3742,6 +3742,49 @@ let g_clearDebug = {
     return latestFetchedContext.matchupKey === matchupKey(tour, playerAName, playerBName) ? latestFetchedContext : null;
   }
 
+  function inferSurfaceFromText(surfaceTxt, tournamentName) {
+    const surf = String(surfaceTxt || "").toLowerCase();
+    const tName = String(tournamentName || "").toLowerCase();
+    if (surf.includes("clay") || surf.includes("red dirt") || surf.includes("terre battue") ||
+        tName.includes("roland") || tName.includes("garros") || tName.includes("french open") ||
+        tName.includes("monte carlo") || tName.includes("monte-carlo") || tName.includes("rolex monte") ||
+        tName.includes("madrid") || tName.includes("rome") || tName.includes("internazionali") ||
+        tName.includes("barcelona") || tName.includes("munich") || tName.includes("hamburg") ||
+        tName.includes("estoril") || tName.includes("geneva") || tName.includes("lyon") ||
+        tName.includes("gstaad") || tName.includes("kitzb") || tName.includes("umag") ||
+        tName.includes("bastad") || tName.includes("båstad") || tName.includes("marrakech") ||
+        tName.includes("buenos aires") || tName.includes("rio de") || tName.includes("houston") ||
+        tName.includes("santiago") || tName.includes("cordoba") || tName.includes("cagliari") ||
+        tName.includes("bucharest") || tName.includes("istanbul") || tName.includes("sao paulo") ||
+        tName.includes("nordea open") || tName.includes("swiss open") || tName.includes("kitzbuhel")) return "Clay";
+    if (surf.includes("grass") || surf.includes("lawn") ||
+        tName.includes("wimbledon") || tName.includes("queen") ||
+        tName.includes("halle") || tName.includes("hertogenbosch") ||
+        tName.includes("eastbourne") || tName.includes("mallorca") ||
+        tName.includes("newport") || tName.includes("boss open") ||
+        tName.includes("bad homburg") || tName.includes("birmingham") ||
+        tName.includes("nottingham") || tName.includes("ilkley") ||
+        tName.includes("cinch championships")) return "Grass";
+    if (surf.includes("hard") || surf.includes("carpet") || surf.includes("rebound ace") ||
+        surf.includes("deco turf") || surf.includes("plexicushion") || surf.includes("laykold") ||
+        tName.includes("australian open") || tName.includes("us open") ||
+        tName.includes("miami open") || tName.includes("indian wells") || tName.includes("bnp paribas open") ||
+        tName.includes("cincinnati") || tName.includes("western & southern") ||
+        tName.includes("toronto") || tName.includes("montreal") || tName.includes("national bank open") ||
+        tName.includes("shanghai") || tName.includes("bercy") ||
+        tName.includes("paris masters") || tName.includes("rolex paris") ||
+        tName.includes("vienna") || tName.includes("erste bank") ||
+        tName.includes("nitto atp") || tName.includes("atp finals")) return "Hard";
+    return "";
+  }
+
+  function inferSurfaceFromRecord(record) {
+    return inferSurfaceFromText(
+      (record && record.surface) || "",
+      (record && record.tournamentName) || ""
+    );
+  }
+
   function classifyEventLevel(tournamentName) {
     const value = normalizeName(tournamentName || "");
     if (!value) return "";
@@ -4139,7 +4182,7 @@ let g_clearDebug = {
     if (lineDecision.atMid) { notes.push("Projection exactly on midpoint"); confidence = "PASS"; pick = "PASS"; }
 
         // --- BRUTAL VETOES (Downgrade, not instant kill — preserves signal when confidence is already strong) ---
-    if (config.avgGrind >= 0.40 && pick === "UNDER") {
+    if (config.avgGrind >= 0.40 && pick === "UNDER" && config.marketKey === "match") {
       filtersTriggered.push("grind_veto");
       confidence = downgradeConfidence(confidence);
       notes.push("Grind factor: UNDER downgraded");
@@ -6810,12 +6853,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     let surface = extractSurfaceText(comp, parentEvent);
     const tournamentName = String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim();
-    if (!surface && tournamentName) {
-      const nameLow = tournamentName.toLowerCase();
-      if (nameLow.includes('clay') || nameLow.includes('roland') || nameLow.includes('garros')) surface = "Clay";
-      else if (nameLow.includes('grass') || nameLow.includes('wimbledon')) surface = "Grass";
-      else if (nameLow.includes('hard') || nameLow.includes('indoor')) surface = "Hard";
-    }
+    if (!surface) surface = inferSurfaceFromText(surface, tournamentName);
 
     const a = competitors[0], b = competitors[1];
     const aId = String(a && a.id || ""), bId = String(b && b.id || "");
@@ -6826,13 +6864,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const aSets = extractLinescores(a), bSets = extractLinescores(b);
     const setCount = Math.min(aSets.length, bSets.length);
     const eventLevel = classifyEventLevel(tournamentName);
-    
-    if (!surface && tournamentName) {
-      const nameLow = tournamentName.toLowerCase();
-      if (nameLow.includes('clay') || nameLow.includes('roland') || nameLow.includes('garros')) surface = "Clay";
-      else if (nameLow.includes('grass') || nameLow.includes('wimbledon')) surface = "Grass";
-      else if (nameLow.includes('hard') || nameLow.includes('indoor')) surface = "Hard";
-    }
+    if (!surface) surface = inferSurfaceFromText(surface, tournamentName);
     
     // --- SYNDICATE FIX: DETECT GENDER TO PREVENT MIXING ---
     let gender = "UNKNOWN";
@@ -7051,13 +7083,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       roundName: record && record.roundName ? record.roundName : ""
     });
 
-    // Auto-detect surface from ESPN strings
+    // Auto-detect surface — ESPN surface field first, tournament name as fallback
     const surfaceSelect = qs("surfaceSelect");
-    if (surfaceSelect && record && record.surface) {
-      const surfTxt = String(record.surface).toLowerCase();
-      if (surfTxt.includes("clay") || surfTxt.includes("red")) surfaceSelect.value = "Clay";
-      else if (surfTxt.includes("grass") || surfTxt.includes("lawn")) surfaceSelect.value = "Grass";
-      else if (surfTxt.includes("hard") || surfTxt.includes("carpet") || surfTxt.includes("indoor")) surfaceSelect.value = "Hard";
+    if (surfaceSelect) {
+      const autoSurface = inferSurfaceFromText(
+        (record && record.surface) || "",
+        (record && record.tournamentName) || ""
+      );
+      if (autoSurface) surfaceSelect.value = autoSurface;
     }
 
     // Ensure surface is reset on clear
@@ -7507,7 +7540,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const K_MAP = { "Grand Slam": 40, "Masters / 1000": 32, "Finals": 36, "Olympics": 32, "500": 28, "250": 24, "Tour": 28, "Challenger": 20 };
 
       // Bayesian Surface Filter: Process matches on target surface in chronological order
-      workingRecords.filter(r => r.surface && r.surface.toLowerCase().includes(surfaceKey))
+      workingRecords.filter(r => {
+        if (!surfaceKey) return true;
+        return inferSurfaceFromRecord(r).toLowerCase() === surfaceKey;
+      })
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .forEach(r => {
           if (!eloMap.has(r.playerAId)) eloMap.set(r.playerAId, 1500);
@@ -7620,6 +7656,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       latestFetchedContext = {
         matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
         tour: league,
+        surface: currentSurface || "",
         competitionId: selectedFixtureRecord?.competitionId || "",
         eventId: selectedFixtureRecord?.eventId || "",
         fixtureDate: selectedFixtureRecord?.date || "",
