@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2737,7 +2736,7 @@ body.dark-mode .tracker-analytics-section-head {
       <input id="roundDisplay" type="hidden" />
     </div>
 
-    <div id="fetchStatus">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
+    <div id="fetchStatus" style="font-size:10px; margin-top:4px;">Select ATP or WTA, then pick a match.</div>
   </div>
 
       <div class="section" id="marketSection">
@@ -3998,13 +3997,12 @@ let g_clearDebug = {
     }
     // Apply line memory if available
     const lineMemoryResult = resolveLineWithMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", config.lineRange.mid);
+    let notes = [].concat(config.extraNotes || []);
     if (lineMemoryResult.usedMemory) {
       config.lineRange = { ...config.lineRange, mid: lineMemoryResult.line };
       notes.push("Line memory improved from " + config.lineRange.mid + " to " + lineMemoryResult.line);
     }
     let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx?.tour, config.marketKey, config.ctx?.surface, null);
-
-    const notes = [].concat(config.extraNotes || []);
     if (Math.abs(preRegressionProjection - projection) >= 0.5) {
       notes.push("Mkt pull: raw " + fmt(preRegressionProjection) + " \u2192 " + fmt(projection));
     }
@@ -6795,7 +6793,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     }
 
     const promise = (async function () {
-      const chunks = getChunkedHistoryRanges(240, 80);
+      // Reduced from 240 to 90 days for faster initial load
+      const chunks = getChunkedHistoryRanges(90, 60);
 
       const settled = await Promise.all(chunks.map(async function(datesQuery) {
         try {
