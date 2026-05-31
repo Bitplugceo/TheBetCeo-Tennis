@@ -1,4 +1,4 @@
-C
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3072,6 +3072,8 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
 let g_trackerSyncPromise = Promise.resolve();
 let g_trackerRefreshPromise = null;
 let g_trackerSaveTimer = null;
+let g_bucketPerformance = {};
+let g_lineMemory = {};
 let g_clearDebug = {
     lastAction: "idle",
     lastFlagWrite: "",
@@ -3081,6 +3083,66 @@ let g_clearDebug = {
     lastCollapsedMap: "",
     lastError: ""
   };
+
+  function loadLineMemory() {
+    try {
+      const raw = localStorage.getItem("tennis_line_memory");
+      if (raw) g_lineMemory = JSON.parse(raw);
+    } catch (e) {}
+  }
+  function saveLineMemory() {
+    try {
+      localStorage.setItem("tennis_line_memory", JSON.stringify(g_lineMemory));
+    } catch (e) {}
+  }
+  function resolveLineWithMemory(marketKey, playerAId, playerBId, surface, currentLine) {
+    const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
+    const entry = g_lineMemory[key];
+    if (!entry) return { line: currentLine, usedMemory: false };
+    const bestLine = entry.bestLine;
+    const side = marketKey === "match" ? "over" : "under";
+    const resolved = (side === "over") ? Math.min(currentLine, bestLine) : Math.max(currentLine, bestLine);
+    return { line: resolved, usedMemory: (resolved !== currentLine) };
+  }
+  function upsertLineMemory(marketKey, playerAId, playerBId, surface, side, line) {
+    const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
+    const existing = g_lineMemory[key];
+    if (!existing) {
+      g_lineMemory[key] = { bestLine: line, lastSeen: new Date().toISOString(), side };
+    } else {
+      if ((side === "over" && line < existing.bestLine) || (side === "under" && line > existing.bestLine)) {
+        existing.bestLine = line;
+      }
+      existing.lastSeen = new Date().toISOString();
+    }
+    saveLineMemory();
+  }
+  function loadBucketPerformance() {
+    try {
+      const raw = localStorage.getItem("tennis_bucket_performance");
+      if (raw) g_bucketPerformance = JSON.parse(raw);
+    } catch (e) {}
+  }
+  function saveBucketPerformance() {
+    try {
+      localStorage.setItem("tennis_bucket_performance", JSON.stringify(g_bucketPerformance));
+    } catch (e) {}
+  }
+  function updateBucketPerformance(item, result, actualTotal, closingLine) {
+    if (!item || !result) return;
+    const tour = item.tour || "ATP";
+    const market = item.market || "Match Total Games";
+    const marketKey = market === "Match Total Games" ? "match" : "set1";
+    const surface = item.surface || (item.context && item.context.surface) || "Hard";
+    const grade = item.confidence || "PASS";
+    const bucketKey = `${tour}|${marketKey}|${surface}|${grade}`;
+    if (!g_bucketPerformance[bucketKey]) g_bucketPerformance[bucketKey] = { wins: 0, losses: 0, pushes: 0 };
+    const perf = g_bucketPerformance[bucketKey];
+    if (result === "WIN") perf.wins++;
+    else if (result === "LOSS") perf.losses++;
+    else if (result === "PUSH") perf.pushes++;
+    saveBucketPerformance();
+  }
 
   // --- BOSS STORAGE: INDEXEDDB CORE ---
   const DB_NAME = "TennisEngineData";
