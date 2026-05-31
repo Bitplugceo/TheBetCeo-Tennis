@@ -1,4 +1,4 @@
-A
+B
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7970,7 +7970,10 @@ const AFDB = (function() {
     if (ov) ov.style.display = 'none';
   }
 
-
+  function runPhase2Simulator() {
+    const items = typeof window.getTrackerItems === 'function' ? window.getTrackerItems() : [];
+    const settled = items.filter(i => i.status === "WIN" || i.status === "LOSS");
+    if (settled.length < 50) {
       log('WARN', 'PHASE2', `Only ${settled.length} settled picks — need 50 to calibrate.`);
       return;
     }
@@ -8015,6 +8018,7 @@ const AFDB = (function() {
       log('WARN', 'PHASE2', 'No config with >50% Wilson lower bound');
     }
   }
+
   function runTestSweep() {
     log('INFO', 'SWEEP', 'Starting Military Raid diagnostic sweep...');
     if (typeof runPhase2Simulator === 'function') runPhase2Simulator();
