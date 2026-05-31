@@ -319,7 +319,7 @@ small {
     .league-box,
     .autocomplete-wrap {
       width: 100%;
-      max-width: 260px;
+      max-width: 100%;
       box-sizing: border-box;
     }
 
@@ -2410,13 +2410,37 @@ body.dark-mode .tracker-analytics-section-head {
   }
 }
 
-.tracker-hidden {
+  .tracker-hidden {
   display: none !important;
 }
 
-#trackedPicksTable {
+  #trackedPicksTable {
+  width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse;
   margin-top: 0;
 }
+#trackedPicksTable th,
+#trackedPicksTable td {
+  border: 1px solid var(--table-border);
+  padding: 8px 2px !important;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.25;
+  font-size: 10px !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+}
+#trackedPicksTable td:nth-child(1) { width: 12%; }
+#trackedPicksTable td:nth-child(2) { width: 21%; font-weight: 900; text-transform: uppercase; padding: 8px 1px !important; }
+#trackedPicksTable td:nth-child(3) { width: 13%; font-weight: 800; }
+#trackedPicksTable td:nth-child(4) { width: 7%; }
+#trackedPicksTable td:nth-child(5) { width: 14%; font-weight: 900; }
+#trackedPicksTable td:nth-child(6) { width: 10%; font-weight: 800; opacity: 0.8; }
+#trackedPicksTable td:nth-child(7) { width: 23%; font-weight: 900; }
+
+/* Removed forced grid layout for player sections */
 
   #intelSection {
     display: none;
@@ -2562,6 +2586,7 @@ body.dark-mode .tracker-analytics-section-head {
       grid-template-columns: 1fr;
     }
   }
+
   </style>
 </head>
 <body>
@@ -2630,74 +2655,6 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="autocomplete-list" id="dropB"></div>
     </div>
 
-    <script>
-    (function() {
-      function wireAutocomplete(inputId, dropId, playerKey) {
-        const input = document.getElementById(inputId);
-        const drop = document.getElementById(dropId);
-        if (!input || !drop) return;
-
-        input.addEventListener("input", function() {
-          const query = input.value.trim().toLowerCase();
-          drop.innerHTML = "";
-          drop.style.display = "none";
-          if (!query || query.length < 2) return;
-
-          const pool = [];
-          if (window.historyPoolCache) {
-            window.historyPoolCache.forEach(function(promiseOrRecords) {
-              if (Array.isArray(promiseOrRecords)) {
-                promiseOrRecords.forEach(function(record) {
-                  [[record.playerAId, record.playerAName],[record.playerBId, record.playerBName]].forEach(function(pair) {
-                    if (pair[0] && pair[1] && !pool.find(function(p){ return p.id === pair[0]; })) {
-                      pool.push({ id: pair[0], name: pair[1] });
-                    }
-                  });
-                });
-              }
-            });
-          }
-
-          const matches = pool.filter(function(p) {
-            return p.name.toLowerCase().includes(query);
-          }).slice(0, 10);
-
-          if (!matches.length) return;
-
-          matches.forEach(function(player) {
-            const div = document.createElement("div");
-            const escapedName = player.name.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-            const highlighted = escapedName.replace(new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + ")", "gi"), "<strong>$1</strong>");
-            div.innerHTML = highlighted;
-            div.addEventListener("mousedown", function(e) {
-              e.preventDefault();
-              input.value = player.name;
-              if (playerKey === "A") window.selectedPlayerIds && (window.selectedPlayerIds.A = player.id);
-              if (playerKey === "B") window.selectedPlayerIds && (window.selectedPlayerIds.B = player.id);
-              drop.innerHTML = "";
-              drop.style.display = "none";
-            });
-            drop.appendChild(div);
-          });
-
-          drop.style.display = "block";
-        });
-
-        document.addEventListener("click", function(e) {
-          if (!input.contains(e.target) && !drop.contains(e.target)) {
-            drop.innerHTML = "";
-            drop.style.display = "none";
-          }
-        });
-      }
-
-      document.addEventListener("DOMContentLoaded", function() {
-        wireAutocomplete("teamAName", "dropA", "A");
-        wireAutocomplete("teamBName", "dropB", "B");
-      });
-    })();
-    </script>
-
     <div id="surfaceWrap" style="display:none;">
       <input id="tournamentDisplay" type="hidden" />
       <input id="leagueLevelDisplay" type="hidden" />
@@ -2727,6 +2684,11 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="h1MarketLabel">Set 1 Total Games</label>
     <input id="h1Market" placeholder="e.g. 8.5 - 10.5" />
 
+    <label id="teamAMarketLabel">Player A Total Games</label>
+    <input id="teamAMarket" placeholder="e.g. 18.5 - 24.5" />
+
+    <label id="teamBMarketLabel">Player B Total Games</label>
+    <input id="teamBMarket" placeholder="e.g. 18.5 - 24.5" />
   </div>
 
   <div class="section" id="teamASection">
@@ -2735,8 +2697,14 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="aFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player A only • recent → oldest)</span></label>
     <input id="aFTScored" placeholder="12,10,14,9,11" />
 
+    <label id="aFTAllowedOppLabel">Recent Games Allowed (Opponent)</label>
+    <input id="aFTAllowedOpp" placeholder="10,8,12,7,9" />
+
     <label id="aFTAllowedLabel">Recent Set 1 Games Won</label>
     <input id="aFTAllowed" placeholder="6,4,7,5,6" />
+
+    <label id="aSet1AllowedOppLabel">Recent Set 1 Games Allowed</label>
+    <input id="aSet1AllowedOpp" placeholder="5,7,4,6,5" />
   </div>
 
   <div class="section" id="teamBSection">
@@ -2745,8 +2713,14 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="bFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player B only • recent → oldest)</span></label>
     <input id="bFTScored" placeholder="11,12,9,13,10" />
 
+    <label id="bFTAllowedOppLabel">Recent Games Allowed (Opponent)</label>
+    <input id="bFTAllowedOpp" placeholder="9,11,8,12,10" />
+
     <label id="bFTAllowedLabel">Recent Set 1 Games Won</label>
     <input id="bFTAllowed" placeholder="4,6,5,7,5" />
+
+    <label id="bSet1AllowedOppLabel">Recent Set 1 Games Allowed</label>
+    <input id="bSet1AllowedOpp" placeholder="6,4,7,5,6" />
   </div>
 
   <div class="section" id="h2hSection">
@@ -2844,7 +2818,6 @@ body.dark-mode .tracker-analytics-section-head {
               <th>Market</th>
               <th>Line</th>
               <th>Pick</th>
-              <th>Edge</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -2862,6 +2835,7 @@ body.dark-mode .tracker-analytics-section-head {
               <th>Market</th>
               <th>Line</th>
               <th>Pick</th>
+              <th>Grade</th>
               <th>Edge</th>
               <th>Status</th>
             </tr>
@@ -3065,6 +3039,8 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
 let g_trackerSyncPromise = Promise.resolve();
 let g_trackerRefreshPromise = null;
 let g_trackerSaveTimer = null;
+let g_bucketPerformance = {};
+let g_lineMemory = {};
 let g_clearDebug = {
     lastAction: "idle",
     lastFlagWrite: "",
@@ -3074,6 +3050,66 @@ let g_clearDebug = {
     lastCollapsedMap: "",
     lastError: ""
   };
+
+  function loadLineMemory() {
+    try {
+      const raw = localStorage.getItem("tennis_line_memory");
+      if (raw) g_lineMemory = JSON.parse(raw);
+    } catch (e) {}
+  }
+  function saveLineMemory() {
+    try {
+      localStorage.setItem("tennis_line_memory", JSON.stringify(g_lineMemory));
+    } catch (e) {}
+  }
+  function resolveLineWithMemory(marketKey, playerAId, playerBId, surface, currentLine) {
+    const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
+    const entry = g_lineMemory[key];
+    if (!entry) return { line: currentLine, usedMemory: false };
+    const bestLine = entry.bestLine;
+    const side = marketKey === "match" ? "over" : "under";
+    const resolved = (side === "over") ? Math.min(currentLine, bestLine) : Math.max(currentLine, bestLine);
+    return { line: resolved, usedMemory: (resolved !== currentLine) };
+  }
+  function upsertLineMemory(marketKey, playerAId, playerBId, surface, side, line) {
+    const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
+    const existing = g_lineMemory[key];
+    if (!existing) {
+      g_lineMemory[key] = { bestLine: line, lastSeen: new Date().toISOString(), side };
+    } else {
+      if ((side === "over" && line < existing.bestLine) || (side === "under" && line > existing.bestLine)) {
+        existing.bestLine = line;
+      }
+      existing.lastSeen = new Date().toISOString();
+    }
+    saveLineMemory();
+  }
+  function loadBucketPerformance() {
+    try {
+      const raw = localStorage.getItem("tennis_bucket_performance");
+      if (raw) g_bucketPerformance = JSON.parse(raw);
+    } catch (e) {}
+  }
+  function saveBucketPerformance() {
+    try {
+      localStorage.setItem("tennis_bucket_performance", JSON.stringify(g_bucketPerformance));
+    } catch (e) {}
+  }
+  function updateBucketPerformance(item, result, actualTotal, closingLine) {
+    if (!item || !result) return;
+    const tour = item.tour || "ATP";
+    const market = item.market || "Match Total Games";
+    const marketKey = market === "Match Total Games" ? "match" : "set1";
+    const surface = item.surface || (item.context && item.context.surface) || "Hard";
+    const grade = item.confidence || "PASS";
+    const bucketKey = `${tour}|${marketKey}|${surface}|${grade}`;
+    if (!g_bucketPerformance[bucketKey]) g_bucketPerformance[bucketKey] = { wins: 0, losses: 0, pushes: 0 };
+    const perf = g_bucketPerformance[bucketKey];
+    if (result === "WIN") perf.wins++;
+    else if (result === "LOSS") perf.losses++;
+    else if (result === "PUSH") perf.pushes++;
+    saveBucketPerformance();
+  }
 
   // --- BOSS STORAGE: INDEXEDDB CORE ---
   const DB_NAME = "TennisEngineData";
@@ -3221,7 +3257,7 @@ let g_clearDebug = {
   }
 
   function forceStartupCollapsedLayout() {
-    const openIds = new Set(["marketSection"]);
+    const openIds = new Set([]);
     document.querySelectorAll(".section").forEach(function (section) {
       if (!section || !section.id) return;
       if (openIds.has(section.id)) {
@@ -3252,10 +3288,10 @@ let g_clearDebug = {
   }
 
   function updateSectionLocks() {
-    ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"].forEach(function (id) {
-      unlockSection(id);
-    });
-  }
+  ["leagueSection", "espnSection", "marketSection", "playersSection", "h2hSection", "intelSection"].forEach(function (id) {
+    unlockSection(id);
+  });
+}
 
   function toggleTheme() {
     const isDark = document.body.classList.toggle("dark-mode");
@@ -3273,6 +3309,18 @@ let g_clearDebug = {
     if (!el) return;
     el.className = state || "";
     el.textContent = text;
+  }
+
+  function renderHeaderErrorState() {
+    const btn = qs("headerErrorBtn");
+    if (!btn) return;
+    if (g_engineAlertNeedsReview) {
+      btn.classList.add("active");
+      document.body.classList.add("engine-alert");
+    } else {
+      btn.classList.remove("active");
+      document.body.classList.remove("engine-alert");
+    }
   }
 
   function buildGodFatherDebugHtml() { return ""; }
@@ -3499,18 +3547,26 @@ let g_clearDebug = {
     return "PASS";
   }
 
-      function getRawConfidence(edge, volatility, lineMid) {
+        function getRawConfidence(edge, volatility, lineMid, tour, marketKey, surface, baseConfidence) {
     const absEdge = Math.abs(edge);
     const edgePct = (absEdge / (lineMid || 22.0)) * 100;
+    let conf = "PASS";
 
-    if (volatility > 6.5) return "PASS";
+    if (volatility > 6.5) conf = "PASS";
+    else if (edgePct >= 12.0 && volatility <= 4.0) conf = "A";
+    else if (edgePct >= 7.5  && volatility <= 5.0) conf = "B";
+    else if (edgePct >= 4.0  && volatility <= 6.0) conf = "C";
 
-    // RECALIBRATED: Market regression naturally compresses edges, so tighter gates
-    // ensure only genuine signals survive. A: >12%+vol≤4.0 | B: >7.5% | C: >4.0%
-    if (edgePct >= 12.0 && volatility <= 4.0) return "A";
-    if (edgePct >= 7.5  && volatility <= 5.0) return "B";
-    if (edgePct >= 4.0  && volatility <= 6.0) return "C";
-    return "PASS";
+    if (conf !== "PASS") {
+      const bucketKey = `${tour}|${marketKey}|${surface}|${conf}`;
+      const perf = g_bucketPerformance[bucketKey];
+      if (perf && (perf.wins + perf.losses) >= 5) {
+        const winRate = perf.wins / (perf.wins + perf.losses);
+        if (winRate < 0.45) conf = (conf === "A" ? "B" : conf === "B" ? "C" : "PASS");
+        else if (winRate > 0.65 && conf !== "A") conf = (conf === "C" ? "B" : "B" ? "A" : "A");
+      }
+    }
+    return conf;
   }
 
     function parseLineRange(raw, name, allowEmpty = false) {
@@ -3642,6 +3698,17 @@ let g_clearDebug = {
     let avgB = mean(options.manualB);
     let stdA = stdDev(options.manualA);
     let stdB = stdDev(options.manualB);
+
+    // Blend in opponent allowed data (defensive signal) — 25% weight
+    const ALLOWED_BLEND = 0.25;
+    if (options.manualAllowedA && options.manualAllowedA.length >= 3) {
+      const avgAllowedA = mean(options.manualAllowedA);
+      avgA = avgA * (1 - ALLOWED_BLEND) + avgAllowedA * ALLOWED_BLEND;
+    }
+    if (options.manualAllowedB && options.manualAllowedB.length >= 3) {
+      const avgAllowedB = mean(options.manualAllowedB);
+      avgB = avgB * (1 - ALLOWED_BLEND) + avgAllowedB * ALLOWED_BLEND;
+    }
 
     const notes = [];
 
@@ -3854,9 +3921,16 @@ let g_clearDebug = {
     const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
     const h2hAvg = hasH2H ? mean(config.h2h) : null;
 
+    // DYNAMIC H2H WEIGHT: scales with number of meetings and surface correlation
     let h2hWeight = 0.3;
-    if (config.ctx && config.ctx.surface === "Grass") h2hWeight = 0.2; 
-    else if (config.ctx && config.ctx.surface === "Clay") h2hWeight = 0.4; 
+    const h2hCount = config.h2h ? config.h2h.length : 0;
+    if (h2hCount >= 5) h2hWeight = 0.35;
+    else if (h2hCount >= 3) h2hWeight = 0.30;
+    else if (h2hCount >= 2) h2hWeight = 0.20;
+    else h2hWeight = 0.0;
+    if (config.ctx && config.ctx.surface === "Clay") h2hWeight *= 1.2;
+    else if (config.ctx && config.ctx.surface === "Grass") h2hWeight *= 0.9;
+    h2hWeight = Math.min(0.45, Math.max(0.0, h2hWeight));
 
         const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
     let projection = projectionCore + (config.projectionShift || 0);
@@ -3877,10 +3951,18 @@ let g_clearDebug = {
 
             let pick = lineDecision.pick;
     let edge = lineDecision.edge;
-    // Updated call to include the line midpoint for normalized grading
-    let confidence = getRawConfidence(edge, volatility, config.lineRange.mid);
-
-    const notes = [].concat(config.extraNotes || []);
+    // Record the line used for future memory
+    if (pick !== "PASS" && config.lineRange.mid) {
+      upsertLineMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", pick === "OVER" ? "over" : "under", config.lineRange.mid);
+    }
+    // Apply line memory if available
+    const lineMemoryResult = resolveLineWithMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", config.lineRange.mid);
+    let notes = [].concat(config.extraNotes || []);
+    if (lineMemoryResult.usedMemory) {
+      config.lineRange = { ...config.lineRange, mid: lineMemoryResult.line };
+      notes.push("Line memory improved from " + config.lineRange.mid + " to " + lineMemoryResult.line);
+    }
+    let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx?.tour, config.marketKey, config.ctx?.surface, null);
     if (Math.abs(preRegressionProjection - projection) >= 0.5) {
       notes.push("Mkt pull: raw " + fmt(preRegressionProjection) + " \u2192 " + fmt(projection));
     }
@@ -3907,7 +3989,7 @@ let g_clearDebug = {
     const isBO5 = config.ctx?.matchFormat === "BO5";
 
         // Run the point-by-point simulation
-    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000, config.marketKey === "set1");
+    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 5000, config.marketKey === "set1");
     const simPct = (pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50;
 
 
@@ -3995,9 +4077,13 @@ let g_clearDebug = {
 
   const matchLineRange = parseLineRange(qs("ftMarket").value, "Match total range", false);
   const set1LineRange = parseLineRange(qs("h1Market").value, "Set 1 total range", true);
+  const teamALineRange = parseLineRange(qs("teamAMarket").value, "Player A total range", true);
+  const teamBLineRange = parseLineRange(qs("teamBMarket").value, "Player B total range", true);
 
   const matchRecentA = parseNumericList(qs("aFTScored").value, "Player A recent games won", 3, 10, false);
   const matchRecentB = parseNumericList(qs("bFTScored").value, "Player B recent games won", 3, 10, false);
+  const matchAllowedA = parseNumericList(qs("aFTAllowedOpp") && qs("aFTAllowedOpp").value || "", "Player A games allowed", 0, 10, true);
+  const matchAllowedB = parseNumericList(qs("bFTAllowedOpp") && qs("bFTAllowedOpp").value || "", "Player B games allowed", 0, 10, true);
   const set1RecentA = parseNumericList(qs("aFTAllowed").value, "Player A recent Set 1 games won", 3, 10, false);
   const set1RecentB = parseNumericList(qs("bFTAllowed").value, "Player B recent Set 1 games won", 3, 10, false);
 
@@ -4006,8 +4092,8 @@ let g_clearDebug = {
 
   const ctx = getEffectiveContext(tour, playerAName, playerBName);
 
-  const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: matchRecentA, manualB: matchRecentB, manualH2H: matchH2H, ctx: ctx });
-  const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: set1RecentA, manualB: set1RecentB, manualH2H: set1H2H, ctx: ctx });
+  const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: matchRecentA, manualB: matchRecentB, manualAllowedA: matchAllowedA, manualAllowedB: matchAllowedB, manualH2H: matchH2H, ctx: ctx });
+  const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: set1RecentA, manualB: set1RecentB, manualAllowedA: [], manualAllowedB: [], manualH2H: set1H2H, ctx: ctx });
 
   const matchResult = await buildMarketResult({
     marketLabel: "Match Total Games",
@@ -4043,6 +4129,40 @@ let g_clearDebug = {
     ctx: ctx
   }) : null;
 
+  const teamAResult = teamALineRange ? await buildMarketResult({
+    marketLabel: "Player A Total Games",
+    marketKey: "team_a",
+    lineRange: teamALineRange,
+    avgA: matchDerived.avgA,
+    avgB: 0,
+    stdA: matchDerived.stdA,
+    stdB: 0,
+    h2h: [],
+    avgGrind: matchDerived.avgGrind,
+    avgTb: matchDerived.avgTb,
+    avgS1Kill: matchDerived.avgS1Kill,
+    projectionShift: 0,
+    extraNotes: matchDerived.extraNotes,
+    ctx: ctx
+  }) : null;
+
+  const teamBResult = teamBLineRange ? await buildMarketResult({
+    marketLabel: "Player B Total Games",
+    marketKey: "team_b",
+    lineRange: teamBLineRange,
+    avgA: matchDerived.avgB,
+    avgB: 0,
+    stdA: matchDerived.stdB,
+    stdB: 0,
+    h2h: [],
+    avgGrind: matchDerived.avgGrind,
+    avgTb: matchDerived.avgTb,
+    avgS1Kill: matchDerived.avgS1Kill,
+    projectionShift: 0,
+    extraNotes: matchDerived.extraNotes,
+    ctx: ctx
+  }) : null;
+
   return {
     tour: tour,
     playerAName: playerAName,
@@ -4054,7 +4174,9 @@ let g_clearDebug = {
     fixtureDate: ctx && ctx.fixtureDate ? ctx.fixtureDate : "",
     context: ctx,
     matchResult: matchResult,
-    set1Result: set1Result
+    set1Result: set1Result,
+    teamAResult: teamAResult,
+    teamBResult: teamBResult
   };
 }
 
@@ -4137,13 +4259,35 @@ let g_clearDebug = {
     }
   }
 
+  function showLockCelebration() {
+    const overlay = document.createElement('div');
+    overlay.className = 'lock-celebration';
+    const particleCount = 50;
+    for (let i = 0; i < particleCount; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 100 + Math.random() * 200;
+      const tx = Math.cos(angle) * distance;
+      const ty = Math.sin(angle) * distance;
+      particle.style.setProperty('--tx', tx + 'px');
+      particle.style.setProperty('--ty', ty + 'px');
+      particle.style.left = (window.innerWidth / 2) + (Math.random() - 0.5) * 60 + 'px';
+      particle.style.top = (window.innerHeight / 2) + (Math.random() - 0.5) * 60 + 'px';
+      particle.style.animationDelay = Math.random() * 0.2 + 's';
+      overlay.appendChild(particle);
+    }
+    document.body.appendChild(overlay);
+    setTimeout(() => { overlay.remove(); }, 2000);
+  }
   function renderResults(resultBundle) {
     const body = qs("resultsBody");
     if (!body) return;
 
     // Filter out nulls so we only draw rows for markets that were actually calculated
-    const results = [resultBundle.matchResult, resultBundle.set1Result].filter(Boolean);
+    const results = [resultBundle.matchResult, resultBundle.set1Result, resultBundle.teamAResult, resultBundle.teamBResult].filter(Boolean);
     const lockIdx = selectLockIndex(results);
+    if (lockIdx !== -1) showLockCelebration();
 
         const rows = results.map(function (result, idx) {
       const isNoPlay = result.pick === "PASS" || result.confidence === "PASS";
@@ -4298,7 +4442,8 @@ let g_clearDebug = {
     const fieldIds = [
       "leagueSelect", "fixtureSelect", "teamAName", "teamBName",
       "ftMarket", "h1Market",
-      "aFTScored", "aFTAllowed", "bFTScored", "bFTAllowed",
+      "aFTScored", "aFTAllowed", "aFTAllowedOpp",
+      "bFTScored", "bFTAllowed", "bFTAllowedOpp",
       "aFTH2H", "a1HH2H"
     ];
 
@@ -4310,7 +4455,7 @@ let g_clearDebug = {
       if (value) nonEmpty += 1;
     });
 
-    const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"];
+const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSection", "h2hSection", "intelSection"];
     const collapsedMap = sectionIds.map(function (id) {
       const el = qs(id);
       if (!el) return id + ":missing";
@@ -4368,7 +4513,7 @@ let g_clearDebug = {
 
   function clearFetchedAutofill() {
     latestFetchedContext = null;
-    ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTH2H", "a1HH2H", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "roundDisplay"].forEach(function (id) {
+    ["aFTScored", "bFTScored", "aFTAllowed", "bFTAllowed", "aFTAllowedOpp", "bFTAllowedOpp", "aFTH2H", "a1HH2H", "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "roundDisplay"].forEach(function (id) {
       const el = qs(id);
       if (el) el.value = "";
     });
@@ -4405,8 +4550,8 @@ let g_clearDebug = {
     const clearIds = [
       "teamAName", "teamBName",
       "ftMarket", "h1Market",
-      "aFTScored", "aFTAllowed",
-      "bFTScored", "bFTAllowed",
+      "aFTScored", "aFTAllowed", "aFTAllowedOpp",
+      "bFTScored", "bFTAllowed", "bFTAllowedOpp",
       "aFTH2H", "a1HH2H",
       "tournamentDisplay", "leagueLevelDisplay", "formatDisplay", "roundDisplay"
     ];
@@ -4826,10 +4971,15 @@ let g_clearDebug = {
 
 
   function formatTrackerDate(iso) {
-    if (!iso) return "-";
+    if (!iso) return "—";
     const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "-";
-    return d.toLocaleDateString();
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    });
   }
 
   function ageHoursSince(iso) {
@@ -5377,6 +5527,7 @@ let g_clearDebug = {
               match: item.match, market: item.market,
               result: settled.status, actual: settled.actualTotal
             });
+            updateBucketPerformance(item, settled.status, settled.actualTotal, null);
           }
           items[i] = settled;
         }
@@ -5419,7 +5570,10 @@ let g_clearDebug = {
 
       if (probe && probe.record) {
         const settledItem = settleTrackerItemFromRecord(item, probe.record);
-        if (settledItem.status !== item.status) settledCount += 1;
+        if (settledItem.status !== item.status) {
+          settledCount += 1;
+          updateBucketPerformance(item, settledItem.status, settledItem.actualTotal, null);
+        }
         items[i] = settledItem;
       }
     }
@@ -5736,33 +5890,42 @@ let g_clearDebug = {
     if (tableWrap) tableWrap.style.display = "block";
     if (archiveWrap) archiveWrap.style.display = "none"; // Hide archive table permanently
 
-    function statusBadge(item) {
-      const status = String(item.status || "PENDING").toUpperCase();
-      return '<div class="tracker-status-stack"><div>' + htmlEscape(status) + '</div></div>';
+            function rowHtml(item) {
+    const status = String(item.status || "PENDING").toUpperCase();
+    const statusClass = "track-" + status.toLowerCase();
+    const pId = String(item.id || "").replace(/[^a-z0-9]/gi, "_");
+    const encId = htmlEscape(item.id || "");
+
+    let statusHtml = "";
+    if (status !== "PENDING") {
+      statusHtml =
+        '<div class="tracker-settled-edit-btn" data-id="' + encId + '" style="cursor:pointer;" title="Click to edit or revert">' +
+          status +
+          (isFinite(Number(item.actualTotal)) ? '<br><span style="font-size:8px;opacity:0.85;">Total: ' + item.actualTotal + '</span>' : '') +
+        '</div>';
+    } else {
+      statusHtml =
+        '<div class="tracker-disp-toggle" data-pid="' + pId + '" style="font-weight:900;font-size:10px;cursor:pointer;text-decoration:underline dotted #ccc;" title="Click to settle">PENDING</div>' +
+        '<div id="act-' + pId + '" style="display:none;flex-direction:column;align-items:center;gap:2px;margin-top:-2px;">' +
+          '<div style="font-size:8px;font-weight:900;opacity:0.6;margin-bottom:1px;color:var(--text);">SETTLE</div>' +
+          '<button class="tracker-manual-btn tracker-settle-btn" data-manual-settle="WIN" data-id="' + encId + '" style="padding:0!important;width:28px!important;min-width:28px!important;height:16px!important;min-height:16px!important;font-size:9px!important;line-height:16px!important;">W</button>' +
+          '<button class="tracker-manual-btn tracker-settle-btn" data-manual-settle="LOSS" data-id="' + encId + '" style="padding:0!important;width:28px!important;min-width:28px!important;height:16px!important;min-height:16px!important;font-size:9px!important;line-height:16px!important;">L</button>' +
+          '<button class="tracker-manual-btn tracker-settle-btn" data-manual-settle="PUSH" data-id="' + encId + '" style="padding:0!important;width:28px!important;min-width:28px!important;height:16px!important;min-height:16px!important;font-size:9px!important;line-height:16px!important;">P</button>' +
+          '<div class="tracker-custom-settle-btn" data-id="' + encId + '" style="font-size:8px;text-decoration:underline;cursor:pointer;margin-top:2px;font-weight:800;opacity:0.7;">CUSTOM</div>' +
+        '</div>';
     }
 
-    function rowHtml(item) {
-      const edgeText = (Number(item.edge) > 0 ? "+" : "") + fmt(item.edge);
-      const statusClass = "track-" + String(item.status || "PENDING").toLowerCase();
-
-      return (
-        '<tr data-id="' + htmlEscape(item.id) + '">' +
-          '<td>' + htmlEscape(formatTrackerDate(item.fixtureDate || item.savedAt)) + '</td>' +
-          '<td>' + htmlEscape(item.match) + '</td>' +
-          '<td>' + htmlEscape(item.market) + '</td>' +
-          '<td>' + htmlEscape(item.line || "—") + '</td>' +
-'<td>' +
-  '<div style="display: flex; align-items: center; justify-content: center; gap: 4px;">' +
-    '<span>' + htmlEscape(item.pick) + '</span>' +
-    (item.isLock ? '<span style="font-size: 4px; transform: translateY(0.5px);">🔒</span>' : '') +
-  '</div>' +
-'</td>' +
-
-          '<td>' + htmlEscape(edgeText) + '</td>' +
-          '<td class="' + statusClass + '">' + statusBadge(item) + '</td>' +
-        '</tr>'
-      );
-    }
+    return (
+      '<tr>' +
+        '<td>' + htmlEscape(formatTrackerDate(item.fixtureDate || item.savedAt)) + '</td>' +
+        '<td style="font-weight:900;text-transform:uppercase;">' + htmlEscape(item.match) + '</td>' +
+        '<td style="font-weight:800;">' + htmlEscape(item.market) + '</td>' +
+        '<td>' + htmlEscape(String(item.line || "—")) + '</td>' +
+        '<td style="white-space:nowrap;font-size:11px;">' + htmlEscape(item.pick) + (item.isLock ? ' <span style="font-size:4px;transform:translateY(0.5px);">🔒</span>' : '') + '</td>' +
+        '<td class="' + statusClass + '"><div class="tracker-status-stack">' + statusHtml + '</div></td>' +
+      '</tr>'
+    );
+  }
 
     if (body) {
       body.innerHTML = displayPicks.map(rowHtml).join("");
@@ -5770,67 +5933,45 @@ let g_clearDebug = {
   }
 
 
-  function autoSaveCurrentRunToTracker() {
-    g_trackerDebug.lastSaveAttemptAt = new Date().toISOString();
-    g_trackerDebug.lastInsertedEntries = 0;
-    g_trackerDebug.lastDuplicateSkipped = 0;
-
+    function autoSaveCurrentRunToTracker() {
+    // Basketball-style: save every pick that passed runEngine, regardless of notes
     if (!latestRunBundle || latestRunBundle._trackerSaved) {
-      g_trackerDebug.lastSaveDiagnosis = "No unsaved run bundle available.";
-      renderTrackerDebug();
+      engineDebug("Tracker save: no new run bundle");
       return 0;
     }
 
     const entries = buildTrackerEntriesFromBundle(latestRunBundle);
     if (!entries.length) {
       latestRunBundle._trackerSaved = true;
-      g_trackerDebug.lastSaveDiagnosis = "Run finished, but there were no actionable picks to save.";
-      updateTrackerUI();
-      renderTrackerDebug();
+      engineDebug("Tracker save: no picks to save");
       return 0;
     }
 
     const items = getTrackerItems();
+    let inserted = 0;
 
-    entries.reverse().forEach(function (entry) {
-      const duplicate = items.some(function (item) {
-        const sameMatch = normalizeName(item.match) === normalizeName(entry.match);
-        if (!sameMatch) return false;
-        const sameEventId = !!(item.eventId && entry.eventId && item.eventId === entry.eventId);
-        const sameDay = (item.fixtureDate || item.savedAt || "").slice(0, 10) ===
-          (entry.fixtureDate || entry.savedAt || "").slice(0, 10);
-        return (sameEventId || sameDay) &&
-          item.market === entry.market &&
-          item.line === entry.line &&
-          item.pick === entry.pick;
-      });
-
-      if (duplicate) {
-        g_trackerDebug.lastDuplicateSkipped += 1;
-      } else {
+    entries.forEach(entry => {
+      // Skip duplicates exactly like basketball does
+      const duplicate = items.some(item =>
+        item.market === entry.market &&
+        item.line === entry.line &&
+        item.pick === entry.pick &&
+        normalizeName(item.match) === normalizeName(entry.match)
+      );
+      if (!duplicate) {
         items.unshift(entry);
-        g_trackerDebug.lastInsertedEntries += 1;
+        inserted++;
       }
     });
 
-        if (g_trackerDebug.lastInsertedEntries === 0) {
-      console.warn("[Tracker] No new entries inserted");
+    if (inserted) {
+      saveTrackerItems(items);
       latestRunBundle._trackerSaved = true;
-      g_trackerDebug.lastSaveDiagnosis = g_trackerDebug.lastDuplicateSkipped
-        ? "All generated picks matched existing same-day tracker entries, so nothing new was added."
-        : "No new tracker entries were inserted.";
-      updateTrackerUI();
-      renderTrackerDebug();
-      return 0;
+      engineDebug(`Tracker save: inserted ${inserted} new pick(s)`);
     }
-
-    g_trackerDebug.lastSaveDiagnosis = "Local save executed for " + g_trackerDebug.lastInsertedEntries + " pick(s).";
-    saveTrackerItems(items);
-    latestRunBundle._trackerSaved = true;
     updateTrackerUI();
-    renderTrackerDebug();
     autoSettleTracker(true);
-    return g_trackerDebug.lastInsertedEntries;
+    return inserted;
   }
 
 
@@ -5845,6 +5986,13 @@ let g_clearDebug = {
     g_trackerDebug.lastSettlementSummary = "Running settlement...";
     renderTrackerDebug();
     updateTrackerUI();
+    // Show loading spinner in tracker header
+    const summaryEl = qs("trackerSummary");
+    if (summaryEl && !isSilent) {
+      const originalText = summaryEl.textContent;
+      summaryEl.innerHTML = '<span class="spinner"></span> Syncing...';
+      setTimeout(() => { if (summaryEl && summaryEl.innerHTML.includes('Syncing')) summaryEl.textContent = originalText; }, 5000);
+    }
 
     g_trackerRefreshPromise = (async function () {
       try {
@@ -6009,9 +6157,9 @@ let g_clearDebug = {
   async function proxyFetch(url, timeoutMs) {
     const encoded = WORKER_URL.replace(/\/+$/, "") + "/?url=" + encodeURIComponent(url);
     try {
-      return await fetchJson(encoded, timeoutMs);
+      return await fetchJson(encoded, timeoutMs || 12000);
     } catch (workerErr) {
-      return await fetchJson(url, timeoutMs);
+      return await fetchJson(url, timeoutMs || 12000);
     }
   }
 
@@ -6023,7 +6171,7 @@ let g_clearDebug = {
     let lastErr = null;
     for (const url of urls) {
       try {
-        const payload = await proxyFetch(url, 18000);
+        const payload = await proxyFetch(url, 12000);
         if (payload && Array.isArray(payload.events)) return payload;
       } catch (err) {
         lastErr = err;
@@ -6041,7 +6189,7 @@ let g_clearDebug = {
     let lastErr = null;
     for (const url of urls) {
       try {
-        const payload = await proxyFetch(url, 18000);
+        const payload = await proxyFetch(url, 12000);
         if (payload) return payload;
       } catch (err) {
         lastErr = err;
@@ -6117,7 +6265,7 @@ let g_clearDebug = {
   }
 
   async function fetchAthleteHistoryPayload(url) {
-    const payload = await proxyFetch(url, 18000);
+    const payload = await proxyFetch(url, 12000);
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
@@ -6140,7 +6288,7 @@ let g_clearDebug = {
 
     for (let i = 0; i < athleteUrls.length; i += 1) {
       try {
-        const athletePayload = await proxyFetch(athleteUrls[i], 18000);
+        const athletePayload = await proxyFetch(athleteUrls[i], 12000);
         const urls = [];
         refKeys.forEach(function (key) {
           const value = athletePayload && athletePayload[key];
@@ -6151,7 +6299,7 @@ let g_clearDebug = {
 
         for (let j = 0; j < urls.length; j += 1) {
           try {
-            const collectionPayload = await proxyFetch(urls[j], 18000);
+            const collectionPayload = await proxyFetch(urls[j], 12000);
             const directRecords = extractCompetitionRecordsDeep(collectionPayload).filter(function (record) {
               return record.status &&
                 record.status.completed &&
@@ -6315,6 +6463,15 @@ let g_clearDebug = {
     const competitors = orderCompetitors(comp.competitors || []);
     if (competitors.length !== 2) return null;
 
+    let surface = extractSurfaceText(comp, parentEvent);
+    const tournamentName = String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim();
+    if (!surface && tournamentName) {
+      const nameLow = tournamentName.toLowerCase();
+      if (nameLow.includes('clay') || nameLow.includes('roland') || nameLow.includes('garros')) surface = "Clay";
+      else if (nameLow.includes('grass') || nameLow.includes('wimbledon')) surface = "Grass";
+      else if (nameLow.includes('hard') || nameLow.includes('indoor')) surface = "Hard";
+    }
+
     const a = competitors[0], b = competitors[1];
     const aId = String(a && a.id || ""), bId = String(b && b.id || "");
     const aName = String(a && a.athlete && (a.athlete.displayName || a.athlete.fullName || a.athlete.shortName) || "").trim();
@@ -6323,8 +6480,14 @@ let g_clearDebug = {
 
     const aSets = extractLinescores(a), bSets = extractLinescores(b);
     const setCount = Math.min(aSets.length, bSets.length);
-    const tournamentName = String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim();
     const eventLevel = classifyEventLevel(tournamentName);
+    
+    if (!surface && tournamentName) {
+      const nameLow = tournamentName.toLowerCase();
+      if (nameLow.includes('clay') || nameLow.includes('roland') || nameLow.includes('garros')) surface = "Clay";
+      else if (nameLow.includes('grass') || nameLow.includes('wimbledon')) surface = "Grass";
+      else if (nameLow.includes('hard') || nameLow.includes('indoor')) surface = "Hard";
+    }
     
     // --- SYNDICATE FIX: DETECT GENDER TO PREVENT MIXING ---
     let gender = "UNKNOWN";
@@ -6593,7 +6756,8 @@ let g_clearDebug = {
     }
 
     const promise = (async function () {
-      const chunks = getChunkedHistoryRanges(240, 80);
+      // Reduced to 60 days for faster initial load — enough for recent form + H2H
+      const chunks = getChunkedHistoryRanges(60, 60);
 
       const settled = await Promise.all(chunks.map(async function(datesQuery) {
         try {
@@ -6618,11 +6782,15 @@ let g_clearDebug = {
     return promise;
   }
 
-  function findPlayerCandidatesByName(name, records) {
+  function findPlayerCandidatesByName(name, records, tour) {
     const target = normalizeName(name);
     const map = new Map();
+    const tourLower = (tour || "").toLowerCase();
 
     records.forEach(function (record) {
+      // Gender filter: prevent ATP/WTA cross‑tour false positives
+      if (tourLower === "atp" && record.gender === "WTA") return;
+      if (tourLower === "wta" && record.gender === "ATP") return;
       [
         { id: record.playerAId, name: record.playerAName },
         { id: record.playerBId, name: record.playerBName }
@@ -6664,7 +6832,9 @@ let g_clearDebug = {
         opponentId: isA ? record.playerBId : record.playerAId,
         opponentName: isA ? record.playerBName : record.playerAName,
         playerGames: isA ? record.playerAGames : record.playerBGames,
+        opponentGames: isA ? record.playerBGames : record.playerAGames,
         playerSet1Games: isA ? record.playerASet1Games : record.playerBSet1Games,
+        opponentSet1Games: isA ? record.playerBSet1Games : record.playerASet1Games,
         totalGames: record.totalGames,
         tournamentName: record.tournamentName,
         eventLevel: record.eventLevel,
@@ -6741,52 +6911,65 @@ let g_clearDebug = {
   function buildH2HSeries(records, playerAId, playerBId, playerAName, playerBName) {
     const normA = normalizeName(playerAName);
     const normB = normalizeName(playerBName);
+    const surnameA = getSurnameToken(playerAName);
+    const surnameB = getSurnameToken(playerBName);
 
+    // Also build single-ID sets so a record from athlete-history
+    // (which only contains one player's ID) still matches
     return records.filter(function (record) {
+      // Primary: both IDs present in the record
       const byIdA = record.playerAId === playerAId || record.playerBId === playerAId;
       const byIdB = record.playerAId === playerBId || record.playerBId === playerBId;
       if (byIdA && byIdB) return true;
 
+      // Secondary: one ID matches + name cross-check for the other
       const recA = normalizeName(record.playerAName);
       const recB = normalizeName(record.playerBName);
-      const byName =
-        ((recA === normA && recB === normB) || (recA === normB && recB === normA));
+      if (byIdA && (recA === normB || recB === normB)) return true;
+      if (byIdB && (recA === normA || recB === normA)) return true;
 
-      return byName;
+      // Tertiary: full normalized name match (no IDs needed)
+      const byName = (recA === normA && recB === normB) || (recA === normB && recB === normA);
+      if (byName) return true;
+
+      // Quaternary: surname-pair fallback
+      if (surnameA && surnameB) {
+        const recSurnameA = getSurnameToken(record.playerAName);
+        const recSurnameB = getSurnameToken(record.playerBName);
+        const bySurname =
+          (recSurnameA === surnameA && recSurnameB === surnameB) ||
+          (recSurnameA === surnameB && recSurnameB === surnameA);
+        if (bySurname) return true;
+      }
+
+      return false;
     }).sort(function (a, b) {
       return new Date(b.date) - new Date(a.date);
     });
   }
 
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
-    const extraRanges = getChunkedHistoryRanges(720, 120).slice(2);
+    // Fire ALL date windows simultaneously instead of sequentially
+    const extraRanges = getChunkedHistoryRanges(730, 90);
     const all = existingRecords.slice();
 
-    for (let i = 0; i < extraRanges.length; i += 3) {
-      const batch = extraRanges.slice(i, i + 3);
-      const batchResults = await Promise.all(batch.map(async function(datesQuery) {
-        try {
-          const payload = await fetchTennisScoreboard(league, datesQuery);
-          return extractCompetitionRecords(payload).filter(function(record) {
-            return record.status.completed &&
-              !record.retired &&
-              Number.isFinite(record.totalGames) &&
-              Number.isFinite(record.set1Total) &&
-              Number.isFinite(record.playerAGames) &&
-              Number.isFinite(record.playerBGames) &&
-              Number.isFinite(record.playerASet1Games) &&
-              Number.isFinite(record.playerBSet1Games);
-          });
-        } catch(e) { return []; }
-      }));
-      batchResults.forEach(function(records) { all.push.apply(all, records); });
-      const deduped = dedupeRecords(all);
-      const h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
-      if (h2h.length >= targetCount) {
-        return { records: deduped, h2h: h2h };
-      }
-    }
+    const allResults = await Promise.all(extraRanges.map(async function(datesQuery) {
+      try {
+        const payload = await fetchTennisScoreboard(league, datesQuery);
+        return extractCompetitionRecords(payload).filter(function(record) {
+          return record.status.completed &&
+            !record.retired &&
+            Number.isFinite(record.totalGames) &&
+            Number.isFinite(record.set1Total) &&
+            Number.isFinite(record.playerAGames) &&
+            Number.isFinite(record.playerBGames) &&
+            Number.isFinite(record.playerASet1Games) &&
+            Number.isFinite(record.playerBSet1Games);
+        });
+      } catch(e) { return []; }
+    }));
 
+    allResults.forEach(function(records) { all.push.apply(all, records); });
     const deduped = dedupeRecords(all);
     return {
       records: deduped,
@@ -6809,8 +6992,12 @@ let g_clearDebug = {
   function applyAutofillData(bundle) {
     setFieldValue("aFTScored", bundle.aGames);
     setFieldValue("bFTScored", bundle.bGames);
+    if (bundle.aGamesAllowed && bundle.aGamesAllowed.length) setFieldValue("aFTAllowedOpp", bundle.aGamesAllowed);
+    if (bundle.bGamesAllowed && bundle.bGamesAllowed.length) setFieldValue("bFTAllowedOpp", bundle.bGamesAllowed);
     setFieldValue("aFTAllowed", bundle.aSet1Games);
     setFieldValue("bFTAllowed", bundle.bSet1Games);
+    if (bundle.aSet1GamesAllowed && bundle.aSet1GamesAllowed.length) setFieldValue("aSet1AllowedOpp", bundle.aSet1GamesAllowed);
+    if (bundle.bSet1GamesAllowed && bundle.bSet1GamesAllowed.length) setFieldValue("bSet1AllowedOpp", bundle.bSet1GamesAllowed);
 
     const matchH2HInput = qs("aFTH2H");
     const set1H2HInput = qs("a1HH2H");
@@ -6868,6 +7055,8 @@ let g_clearDebug = {
     setContextValue("roundDisplay", meta.roundName || "", "");
   }
 
+  let espnFetchToken = 0;
+
   async function fetchESPNTennis() {
     const league = String(qs("leagueSelect").value || "").trim();
     const playerAName = String(qs("teamAName").value || "").trim();
@@ -6887,9 +7076,11 @@ let g_clearDebug = {
 
     clearHeaderError();
     setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
+    const myToken = ++espnFetchToken;
 
     try {
       const records = await fetchHistoryPool(league);
+      if (myToken !== espnFetchToken) return; // stale — user changed selection
       if (!records.length) {
         throw new Error("No completed singles results were returned from ESPN.");
       }
@@ -6898,14 +7089,14 @@ let g_clearDebug = {
       let playerBId = selectedPlayerIds.B;
 
       if (!playerAId) {
-        const candidateA = findPlayerCandidatesByName(playerAName, records);
+        const candidateA = findPlayerCandidatesByName(playerAName, records, league);
         if (!candidateA) throw new Error("Could not resolve Player A from ESPN history. Pick a fixture or use the exact ESPN player name.");
         playerAId = candidateA.id;
         qs("teamAName").value = candidateA.name;
       }
 
       if (!playerBId) {
-        const candidateB = findPlayerCandidatesByName(playerBName, records);
+        const candidateB = findPlayerCandidatesByName(playerBName, records, league);
         if (!candidateB) throw new Error("Could not resolve Player B from ESPN history. Pick a fixture or use the exact ESPN player name.");
         playerBId = candidateB.id;
         qs("teamBName").value = candidateB.name;
@@ -6932,7 +7123,7 @@ let g_clearDebug = {
           playerBId,
           qs("teamAName").value,
           qs("teamBName").value,
-          3
+          5
         );
         workingRecords = extraBundle.records;
         h2h = extraBundle.h2h;
@@ -6971,6 +7162,8 @@ let g_clearDebug = {
 
       const aGames = recentA10.map(m => m.playerGames).filter(Number.isFinite);
       const bGames = recentB10.map(m => m.playerGames).filter(Number.isFinite);
+      const aGamesAllowed = recentA10.map(m => m.opponentGames).filter(Number.isFinite);
+      const bGamesAllowed = recentB10.map(m => m.opponentGames).filter(Number.isFinite);
       const aSet1Games = recentA10.map(m => m.playerSet1Games).filter(Number.isFinite);
       const bSet1Games = recentB10.map(m => m.playerSet1Games).filter(Number.isFinite);
       const h2hMatchTotals = h2h.slice(0, 5).map(m => m.totalGames).filter(Number.isFinite);
@@ -7007,6 +7200,8 @@ let g_clearDebug = {
 
       const bayesianA = aGames.length < MIN_SAMPLE_SIZE ? applyPrior(aGames, TOUR_AVG_GAMES) : aGames;
       const bayesianB = bGames.length < MIN_SAMPLE_SIZE ? applyPrior(bGames, TOUR_AVG_GAMES) : bGames;
+      const bayesianAAllowed = aGamesAllowed.length < MIN_SAMPLE_SIZE ? applyPrior(aGamesAllowed, TOUR_AVG_GAMES) : aGamesAllowed;
+      const bayesianBAllowed = bGamesAllowed.length < MIN_SAMPLE_SIZE ? applyPrior(bGamesAllowed, TOUR_AVG_GAMES) : bGamesAllowed;
       const bayesianANorm = aGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(aGamesNorm, TOUR_AVG_GAMES_NORM) : aGamesNorm;
       const bayesianBNorm = bGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(bGamesNorm, TOUR_AVG_GAMES_NORM) : bGamesNorm;
       const bayesianS1A = aSet1Games.length < MIN_SAMPLE_SIZE ? applyPrior(aSet1Games, TOUR_AVG_S1) : aSet1Games;
@@ -7017,11 +7212,20 @@ let g_clearDebug = {
         throw new Error("Zero match history found. Bayesian anchor requires at least one real data point.");
       }
 
+      const aSet1GamesAllowed = recentA10.map(m => m.opponentSet1Games).filter(Number.isFinite);
+      const bSet1GamesAllowed = recentB10.map(m => m.opponentSet1Games).filter(Number.isFinite);
+      const bayesianAS1Allowed = aSet1GamesAllowed.length < MIN_SAMPLE_SIZE ? applyPrior(aSet1GamesAllowed, TOUR_AVG_S1) : aSet1GamesAllowed;
+      const bayesianBS1Allowed = bSet1GamesAllowed.length < MIN_SAMPLE_SIZE ? applyPrior(bSet1GamesAllowed, TOUR_AVG_S1) : bSet1GamesAllowed;
+
       applyAutofillData({
         aGames: bayesianA,
         bGames: bayesianB,
+        aGamesAllowed: bayesianAAllowed,
+        bGamesAllowed: bayesianBAllowed,
         aSet1Games: bayesianS1A,
         bSet1Games: bayesianS1B,
+        aSet1GamesAllowed: bayesianAS1Allowed,
+        bSet1GamesAllowed: bayesianBS1Allowed,
         h2hMatchTotals,
         h2hSet1Totals
       });
@@ -7076,10 +7280,10 @@ let g_clearDebug = {
 
       clearHeaderError();
       setFetchStatus(statusParts.join(" • "), "ok");
-      openSection("teamASection");
-      openSection("teamBSection");
+      openSection("playersSection");
       openSection("h2hSection");
     } catch (err) {
+      if (myToken !== espnFetchToken) return; // stale
       latestFetchedContext = null;
       setHeaderError(true, err.message || "Fetch failed.");
       setFetchStatus(err.message || "Fetch failed.", "err");
@@ -7110,6 +7314,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const trackerCloseBtn = qs("trackerCloseBtn");
     if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
 
+    const trackedPicksBody = qs("trackedPicksBody");
+    if (trackedPicksBody) trackedPicksBody.addEventListener("click", handleTrackedPicksActionClick);
+
 
 
     const trackerModal = qs("trackerModal");
@@ -7119,15 +7326,9 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
-  function renderHeaderErrorState() {
-    const btn = qs("headerErrorBtn");
-    if (!btn) return;
-    const hasIssues = g_engineAlertNeedsReview;
-    btn.classList.toggle("active", hasIssues);
-    document.body.classList.toggle("engine-alert", hasIssues);
-  }
-
-  let g_trackerSaveTimer = null;
+  // The helper functions have been moved to the top-level scope.
+  // This block is intentionally left empty to remove the duplicate definitions.
+  // No action needed here.
 
   window.engineDebug = function(msg, detail) {
     const stamp = new Date().toLocaleTimeString();
@@ -7146,6 +7347,105 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
+    async function settleTrackedPick(id, result) {
+      const items = getTrackerItems();
+      const index = items.findIndex(i => i.id === id);
+      if (index === -1) return;
+      const item = items[index];
+      if (!item) return;
+      const finalStatus = String(result || "").toUpperCase();
+      if (!["WIN", "LOSS", "PUSH", "PENDING"].includes(finalStatus)) return;
+      item.status = finalStatus;
+      item.settledAt = finalStatus !== "PENDING" ? new Date().toISOString() : null;
+      updateBucketPerformance(item, finalStatus, item.actualTotal || null, null);
+      saveTrackerItems(items);
+      updateTrackerUI();
+      refreshTrackerNow(true);
+    }
+
+    function settleTrackedPickManualFull(id) {
+      const items = getTrackerItems();
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      const matchName = item.match;
+      const score = prompt(
+        "Enter actual total games for " + matchName + "\n(e.g. 24 — or leave blank to skip):",
+        isFinite(item.actualTotal) ? String(item.actualTotal) : ""
+      );
+      if (score === null) return;
+      const closingLineInput = prompt(
+        "Optional — Closing line for CLV tracking (leave blank to skip).\nPick line was: " + item.line,
+        item.closingLine || ""
+      );
+      if (closingLineInput !== null && closingLineInput.trim() !== "") {
+        const cl = parseFloat(closingLineInput.trim());
+        if (isFinite(cl) && cl > 0) {
+          item.closingLine = cl;
+          const lp = Number(item.line);
+          const side = String(item.rawPick || "").toUpperCase().includes("OVER") ? "over" : "under";
+          if (isFinite(lp) && lp > 0) {
+            item.clv = side === "under"
+              ? Math.round((lp - cl) * 100) / 100
+              : Math.round((cl - lp) * 100) / 100;
+          }
+        }
+      }
+      const rawResult = prompt(
+        "Type 'W' for Win, 'L' for Loss, 'P' for Push, or 'PENDING' to revert a mistake:",
+        item.status || "PENDING"
+      );
+      if (rawResult === null) return;
+      const result = rawResult.trim().toLowerCase();
+      if (!result) return;
+      const map = { w: "WIN", l: "LOSS", p: "PUSH", win: "WIN", loss: "LOSS", push: "PUSH", pending: "PENDING" };
+      const finalStatus = map[result];
+      if (!finalStatus) { alert("Invalid status."); return; }
+      if (score && score.trim()) {
+        const parsedTotal = parseFloat(score.trim());
+        if (isFinite(parsedTotal)) item.actualTotal = parsedTotal;
+      }
+      settleTrackedPick(id, finalStatus);
+    }
+
+    function handleTrackedPicksActionClick(event) {
+      const target = event && event.target;
+      if (!target) return;
+      const dispToggle = target.closest && target.closest(".tracker-disp-toggle");
+      if (dispToggle) {
+        const pid = dispToggle.dataset.pid;
+        if (pid) {
+          dispToggle.style.display = "none";
+          const actEl = document.getElementById("act-" + pid);
+          if (actEl) actEl.style.display = "flex";
+        }
+        return;
+      }
+      const customBtn = target.closest && target.closest(".tracker-custom-settle-btn");
+      if (customBtn) {
+        const id = customBtn.getAttribute("data-id") || "";
+        if (id) settleTrackedPickManualFull(id);
+        return;
+      }
+      const settledEdit = target.closest && target.closest(".tracker-settled-edit-btn");
+      if (settledEdit) {
+        const id = settledEdit.getAttribute("data-id") || "";
+        if (id) settleTrackedPickManualFull(id);
+        return;
+      }
+      const btn = target.closest && target.closest(".tracker-settle-btn");
+      if (!btn) return;
+      const resultStatus = String(btn.getAttribute("data-manual-settle") || "").toUpperCase();
+      const itemId = String(btn.getAttribute("data-id") || "");
+      if (!itemId || !["WIN", "LOSS", "PUSH"].includes(resultStatus)) return;
+      btn.disabled = true;
+      Promise.resolve(settleTrackedPick(itemId, resultStatus))
+        .catch(function(err) { console.error("[Tennis Engine] settle failed", err); })
+        .finally(function() { btn.disabled = false; });
+    }
+
+    window.settleTrackedPick = settleTrackedPick;
+    window.settleTrackedPickManualFull = settleTrackedPickManualFull;
+
     const headerErrorBtn = qs("headerErrorBtn");
     if (headerErrorBtn) {
       headerErrorBtn.addEventListener("click", function () {
@@ -7162,9 +7462,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
-    const trackedPicksBody = qs("trackedPicksBody");
-    if (trackedPicksBody) {
-    }
 
     const fixturesTodayBtn = qs("fixturesTodayBtn");
     const fixturesTomorrowBtn = qs("fixturesTomorrowBtn");
@@ -7198,7 +7495,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (leagueSelect.value) {
           openSection("espnSection");
           loadFixtures(currentFixtureOffset);
-          fetchHistoryPool(leagueSelect.value);
+          // fetchHistoryPool is called lazily inside fetchESPNTennis — no eager double-fetch needed
         } else {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
           setFetchStatus("Select ATP or WTA first.", "");
@@ -7268,6 +7565,8 @@ document.addEventListener("DOMContentLoaded", function () {
       g_clearDebug.lastError = "init reset failed: " + (err && err.message ? err.message : String(err));
     }
 
+    loadLineMemory();
+    loadBucketPerformance();
     updateTrackerUI();
     renderTrackerDebug();
     hydrateTrackerState(true).then(function () {
@@ -7510,8 +7809,49 @@ const AFDB = (function() {
     if (ov) ov.style.display = 'none';
   }
 
+  function runPhase2Simulator() {
+    log('INFO', 'PHASE2', 'Running Phase 2 auto‑calibration...');
+    const items = window.getTrackerItems ? window.getTrackerItems() : [];
+    const settled = items.filter(i => i.status === "WIN" || i.status === "LOSS");
+    if (settled.length < 20) {
+      log('WARN', 'PHASE2', `Only ${settled.length} settled picks — need 20 to calibrate.`);
+      return;
+    }
+    const candidates = [
+      { label: "standard", decay: 0.75, clayMult: 0.965, grassMult: 1.035, hardMult: 1.0 },
+      { label: "aggressive_recency", decay: 0.85, clayMult: 0.96, grassMult: 1.04, hardMult: 1.0 },
+      { label: "heavy_recent", decay: 0.9, clayMult: 0.97, grassMult: 1.03, hardMult: 1.0 },
+      { label: "flat", decay: 0.5, clayMult: 0.96, grassMult: 1.04, hardMult: 1.0 },
+    ];
+    let best = null, bestScore = -Infinity;
+    for (const cfg of candidates) {
+      let wins = 0, total = 0;
+      for (const pick of settled) {
+        const predText = pick.pick || "";
+        const side = predText.includes("OVER") ? "over" : "under";
+        const actual = pick.actualTotal;
+        const line = parseFloat(pick.line);
+        if (!actual || !line) continue;
+        const correct = (side === "over" && actual > line) || (side === "under" && actual < line);
+        if (correct) wins++;
+        total++;
+      }
+      const score = total ? wins / total : 0;
+      if (score > bestScore) {
+        bestScore = score;
+        best = cfg;
+      }
+    }
+    if (best) {
+      localStorage.setItem("tennis_phase2_config", JSON.stringify(best));
+      log('SUCCESS', 'PHASE2', `Best config: ${best.label} with win rate ${(bestScore*100).toFixed(1)}%`);
+    } else {
+      log('WARN', 'PHASE2', 'No config found');
+    }
+  }
   function runTestSweep() {
     log('INFO', 'SWEEP', 'Starting Military Raid diagnostic sweep...');
+    runPhase2Simulator();
     var suspects = 0;
     var tour = (document.getElementById('leagueSelect') || {}).value || '';
     var pA = ((document.getElementById('teamAName') || {}).value || '').trim();
@@ -7548,5 +7888,3 @@ const AFDB = (function() {
   return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, get logs() { return _log; } };
 })();
 </script>
-</body>
-</html>
