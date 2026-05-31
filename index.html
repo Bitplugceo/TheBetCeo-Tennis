@@ -1,4 +1,4 @@
-B
+C
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7250,77 +7250,9 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
-  function renderHeaderErrorState() {
-    const btn = qs("headerErrorBtn");
-    if (!btn) return;
-    const hasIssues = g_engineAlertNeedsReview;
-    btn.classList.toggle("active", hasIssues);
-    document.body.classList.toggle("engine-alert", hasIssues);
-  }
-
-  let g_trackerSaveTimer = null;
-  let g_bucketPerformance = {};
-  let g_lineMemory = {};
-
-  function loadLineMemory() {
-    try {
-      const raw = localStorage.getItem("tennis_line_memory");
-      if (raw) g_lineMemory = JSON.parse(raw);
-    } catch (e) {}
-  }
-  function saveLineMemory() {
-    try {
-      localStorage.setItem("tennis_line_memory", JSON.stringify(g_lineMemory));
-    } catch (e) {}
-  }
-  function resolveLineWithMemory(marketKey, playerAId, playerBId, surface, currentLine) {
-    const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
-    const entry = g_lineMemory[key];
-    if (!entry) return { line: currentLine, usedMemory: false };
-    const bestLine = entry.bestLine;
-    const side = marketKey === "match" ? "over" : "under";
-    const resolved = (side === "over") ? Math.min(currentLine, bestLine) : Math.max(currentLine, bestLine);
-    return { line: resolved, usedMemory: (resolved !== currentLine) };
-  }
-  function upsertLineMemory(marketKey, playerAId, playerBId, surface, side, line) {
-    const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
-    const existing = g_lineMemory[key];
-    if (!existing) {
-      g_lineMemory[key] = { bestLine: line, lastSeen: new Date().toISOString(), side };
-    } else {
-      if ((side === "over" && line < existing.bestLine) || (side === "under" && line > existing.bestLine)) {
-        existing.bestLine = line;
-      }
-      existing.lastSeen = new Date().toISOString();
-    }
-    saveLineMemory();
-  }
-  function loadBucketPerformance() {
-    try {
-      const raw = localStorage.getItem("tennis_bucket_performance");
-      if (raw) g_bucketPerformance = JSON.parse(raw);
-    } catch (e) {}
-  }
-  function saveBucketPerformance() {
-    try {
-      localStorage.setItem("tennis_bucket_performance", JSON.stringify(g_bucketPerformance));
-    } catch (e) {}
-  }
-  function updateBucketPerformance(item, result, actualTotal, closingLine) {
-    if (!item || !result) return;
-    const tour = item.tour || "ATP";
-    const market = item.market || "Match Total Games";
-    const marketKey = market === "Match Total Games" ? "match" : "set1";
-    const surface = item.surface || (item.context && item.context.surface) || "Hard";
-    const grade = item.confidence || "PASS";
-    const bucketKey = `${tour}|${marketKey}|${surface}|${grade}`;
-    if (!g_bucketPerformance[bucketKey]) g_bucketPerformance[bucketKey] = { wins: 0, losses: 0, pushes: 0 };
-    const perf = g_bucketPerformance[bucketKey];
-    if (result === "WIN") perf.wins++;
-    else if (result === "LOSS") perf.losses++;
-    else if (result === "PUSH") perf.pushes++;
-    saveBucketPerformance();
-  }
+  // The helper functions have been moved to the top-level scope.
+  // This block is intentionally left empty to remove the duplicate definitions.
+  // No action needed here.
 
   window.engineDebug = function(msg, detail) {
     const stamp = new Date().toLocaleTimeString();
