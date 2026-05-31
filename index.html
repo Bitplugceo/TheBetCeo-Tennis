@@ -1,3 +1,4 @@
+P
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -319,7 +320,7 @@ small {
     .league-box,
     .autocomplete-wrap {
       width: 100%;
-      max-width: 260px;
+      max-width: 100%;
       box-sizing: border-box;
     }
 
@@ -2661,73 +2662,7 @@ body.dark-mode .tracker-analytics-section-head {
       </div>
     </div>
 
-    <script>
-    (function() {
-      function wireAutocomplete(inputId, dropId, playerKey) {
-        const input = document.getElementById(inputId);
-        const drop = document.getElementById(dropId);
-        if (!input || !drop) return;
-
-        input.addEventListener("input", function() {
-          const query = input.value.trim().toLowerCase();
-          drop.innerHTML = "";
-          drop.style.display = "none";
-          if (!query || query.length < 2) return;
-
-          const pool = [];
-          if (window.historyPoolCache) {
-            window.historyPoolCache.forEach(function(promiseOrRecords) {
-              if (Array.isArray(promiseOrRecords)) {
-                promiseOrRecords.forEach(function(record) {
-                  [[record.playerAId, record.playerAName],[record.playerBId, record.playerBName]].forEach(function(pair) {
-                    if (pair[0] && pair[1] && !pool.find(function(p){ return p.id === pair[0]; })) {
-                      pool.push({ id: pair[0], name: pair[1] });
-                    }
-                  });
-                });
-              }
-            });
-          }
-
-          const matches = pool.filter(function(p) {
-            return p.name.toLowerCase().includes(query);
-          }).slice(0, 10);
-
-          if (!matches.length) return;
-
-          matches.forEach(function(player) {
-            const div = document.createElement("div");
-            const escapedName = player.name.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-            const highlighted = escapedName.replace(new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + ")", "gi"), "<strong>$1</strong>");
-            div.innerHTML = highlighted;
-            div.addEventListener("mousedown", function(e) {
-              e.preventDefault();
-              input.value = player.name;
-              if (playerKey === "A") window.selectedPlayerIds && (window.selectedPlayerIds.A = player.id);
-              if (playerKey === "B") window.selectedPlayerIds && (window.selectedPlayerIds.B = player.id);
-              drop.innerHTML = "";
-              drop.style.display = "none";
-            });
-            drop.appendChild(div);
-          });
-
-          drop.style.display = "block";
-        });
-
-        document.addEventListener("click", function(e) {
-          if (!input.contains(e.target) && !drop.contains(e.target)) {
-            drop.innerHTML = "";
-            drop.style.display = "none";
-          }
-        });
-      }
-
-      document.addEventListener("DOMContentLoaded", function() {
-        wireAutocomplete("teamAName", "dropA", "A");
-        wireAutocomplete("teamBName", "dropB", "B");
-      });
-    })();
-    </script>
+    <!-- Autocomplete is wired in DOMContentLoaded — no duplicate script needed here -->
 
     <div id="surfaceWrap" style="display:none;">
       <input id="tournamentDisplay" type="hidden" />
@@ -3372,6 +3307,18 @@ let g_clearDebug = {
     if (!el) return;
     el.className = state || "";
     el.textContent = text;
+  }
+
+  function renderHeaderErrorState() {
+    const btn = qs("headerErrorBtn");
+    if (!btn) return;
+    if (g_engineAlertNeedsReview) {
+      btn.classList.add("active");
+      document.body.classList.add("engine-alert");
+    } else {
+      btn.classList.remove("active");
+      document.body.classList.remove("engine-alert");
+    }
   }
 
   function buildGodFatherDebugHtml() { return ""; }
@@ -4029,7 +3976,7 @@ let g_clearDebug = {
     const isBO5 = config.ctx?.matchFormat === "BO5";
 
         // Run the point-by-point simulation
-    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 10000, config.marketKey === "set1");
+    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 5000, config.marketKey === "set1");
     const simPct = (pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50;
 
 
@@ -6194,9 +6141,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
   async function proxyFetch(url, timeoutMs) {
     const encoded = WORKER_URL.replace(/\/+$/, "") + "/?url=" + encodeURIComponent(url);
     try {
-      return await fetchJson(encoded, timeoutMs);
+      return await fetchJson(encoded, timeoutMs || 12000);
     } catch (workerErr) {
-      return await fetchJson(url, timeoutMs);
+      return await fetchJson(url, timeoutMs || 12000);
     }
   }
 
@@ -6208,7 +6155,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     let lastErr = null;
     for (const url of urls) {
       try {
-        const payload = await proxyFetch(url, 18000);
+        const payload = await proxyFetch(url, 12000);
         if (payload && Array.isArray(payload.events)) return payload;
       } catch (err) {
         lastErr = err;
@@ -6226,7 +6173,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     let lastErr = null;
     for (const url of urls) {
       try {
-        const payload = await proxyFetch(url, 18000);
+        const payload = await proxyFetch(url, 12000);
         if (payload) return payload;
       } catch (err) {
         lastErr = err;
@@ -6302,7 +6249,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
   }
 
   async function fetchAthleteHistoryPayload(url) {
-    const payload = await proxyFetch(url, 18000);
+    const payload = await proxyFetch(url, 12000);
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
@@ -6325,7 +6272,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
 
     for (let i = 0; i < athleteUrls.length; i += 1) {
       try {
-        const athletePayload = await proxyFetch(athleteUrls[i], 18000);
+        const athletePayload = await proxyFetch(athleteUrls[i], 12000);
         const urls = [];
         refKeys.forEach(function (key) {
           const value = athletePayload && athletePayload[key];
@@ -6336,7 +6283,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
 
         for (let j = 0; j < urls.length; j += 1) {
           try {
-            const collectionPayload = await proxyFetch(urls[j], 18000);
+            const collectionPayload = await proxyFetch(urls[j], 12000);
             const directRecords = extractCompetitionRecordsDeep(collectionPayload).filter(function (record) {
               return record.status &&
                 record.status.completed &&
@@ -6793,8 +6740,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     }
 
     const promise = (async function () {
-      // Reduced from 240 to 90 days for faster initial load
-      const chunks = getChunkedHistoryRanges(90, 60);
+      // Reduced to 60 days for faster initial load — enough for recent form + H2H
+      const chunks = getChunkedHistoryRanges(60, 60);
 
       const settled = await Promise.all(chunks.map(async function(datesQuery) {
         try {
@@ -6964,7 +6911,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
   }
 
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
-    const extraRanges = getChunkedHistoryRanges(720, 120).slice(2);
+    const extraRanges = getChunkedHistoryRanges(360, 120).slice(2);
     const all = existingRecords.slice();
 
     for (let i = 0; i < extraRanges.length; i += 3) {
@@ -7073,6 +7020,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     setContextValue("roundDisplay", meta.roundName || "", "");
   }
 
+  let espnFetchToken = 0;
+
   async function fetchESPNTennis() {
     const league = String(qs("leagueSelect").value || "").trim();
     const playerAName = String(qs("teamAName").value || "").trim();
@@ -7092,9 +7041,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
 
     clearHeaderError();
     setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
+    const myToken = ++espnFetchToken;
 
     try {
       const records = await fetchHistoryPool(league);
+      if (myToken !== espnFetchToken) return; // stale — user changed selection
       if (!records.length) {
         throw new Error("No completed singles results were returned from ESPN.");
       }
@@ -7284,6 +7235,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
       openSection("playersSection");
       openSection("h2hSection");
     } catch (err) {
+      if (myToken !== espnFetchToken) return; // stale
       latestFetchedContext = null;
       setHeaderError(true, err.message || "Fetch failed.");
       setFetchStatus(err.message || "Fetch failed.", "err");
@@ -7495,7 +7447,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (leagueSelect.value) {
           openSection("espnSection");
           loadFixtures(currentFixtureOffset);
-          fetchHistoryPool(leagueSelect.value);
+          // fetchHistoryPool is called lazily inside fetchESPNTennis — no eager double-fetch needed
         } else {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
           setFetchStatus("Select ATP or WTA first.", "");
