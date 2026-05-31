@@ -1,4 +1,4 @@
-B
+C
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2733,11 +2733,9 @@ body.dark-mode .tracker-analytics-section-head {
       </div>
     </div>
 
-    <div id="playerTotalsSection">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-        <div><label>Player A Total Games</label><input id="teamAMarket" placeholder="18.5 - 24.5" style="width:100%;" /></div>
-        <div><label>Player B Total Games</label><input id="teamBMarket" placeholder="18.5 - 24.5" style="width:100%;" /></div>
-      </div>
+    <div id="playerTotalsSection" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0;">
+      <div><label>Player A Total Games</label><input id="teamAMarket" placeholder="18.5 - 24.5" style="width:100%;" /></div>
+      <div><label>Player B Total Games</label><input id="teamBMarket" placeholder="18.5 - 24.5" style="width:100%;" /></div>
     </div>
   </div>
 
@@ -2764,11 +2762,16 @@ body.dark-mode .tracker-analytics-section-head {
   <div class="section" id="h2hSection">
     <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled / manual-ready</span></h3>
 
-    <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" checked /> Use Match H2H Totals</label>
-    <input id="aFTH2H" placeholder="22,24,19,27" />
-
-    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" checked /> Use Set 1 H2H Totals</label>
-    <input id="a1HH2H" placeholder="10,9,12" />
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div>
+        <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" checked /> Use Match H2H Totals</label>
+        <input id="aFTH2H" placeholder="22,24,19,27" style="width:100%;" />
+      </div>
+      <div>
+        <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" checked /> Use Set 1 H2H Totals</label>
+        <input id="a1HH2H" placeholder="10,9,12" style="width:100%;" />
+      </div>
+    </div>
 
     <div class="section-note">
       H2H remains shared totals. Player A and Player B recent fields are player-only games won.
@@ -3295,7 +3298,7 @@ let g_clearDebug = {
   }
 
   function forceStartupCollapsedLayout() {
-    const openIds = new Set(["marketSection"]);
+    const openIds = new Set([]);
     document.querySelectorAll(".section").forEach(function (section) {
       if (!section || !section.id) return;
       if (openIds.has(section.id)) {
