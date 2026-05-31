@@ -1,4 +1,4 @@
-A
+B
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2722,16 +2722,21 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="section" id="marketSection">
     <h3>Market Lines</h3>
 
-    <label id="ftMarketLabel">Match Total Games</label>
-    <input id="ftMarket" placeholder="18.5 - 22.5" />
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+      <div>
+        <label id="ftMarketLabel">Match Total Games</label>
+        <input id="ftMarket" placeholder="18.5 - 22.5" style="width:100%;" />
+      </div>
+      <div>
+        <label id="h1MarketLabel">Set 1 Total Games</label>
+        <input id="h1Market" placeholder="8.5 - 10.5" style="width:100%;" />
+      </div>
+    </div>
 
-    <label id="h1MarketLabel">Set 1 Total Games</label>
-    <input id="h1Market" placeholder="8.5 - 10.5" />
-
-    <div id="playerTotalsSection" style="margin-top: 12px;">
+    <div id="playerTotalsSection">
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-        <div><label>Player A Total Games</label><input id="teamAMarket" placeholder="18.5 - 24.5" /></div>
-        <div><label>Player B Total Games</label><input id="teamBMarket" placeholder="18.5 - 24.5" /></div>
+        <div><label>Player A Total Games</label><input id="teamAMarket" placeholder="18.5 - 24.5" style="width:100%;" /></div>
+        <div><label>Player B Total Games</label><input id="teamBMarket" placeholder="18.5 - 24.5" style="width:100%;" /></div>
       </div>
     </div>
   </div>
