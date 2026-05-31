@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2565,10 +2566,21 @@ body.dark-mode .tracker-analytics-section-head {
     }
   }
 
-  /* No extra stacking rules needed – grid layout handles side‑by‑side */
+  /* Force side-by-side for player sections on desktop, stack on mobile */
+  .player-sections-flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .player-sections-flex > .section {
+    flex: 1;
+    min-width: 240px;
+    margin: 0 !important;
+  }
   @media (max-width: 640px) {
-    .wrapper > div[style*="grid-template-columns: 1fr 1fr"] {
-      grid-template-columns: 1fr !important;
+    .player-sections-flex > .section {
+      flex: 1 1 100%;
     }
   }
   </style>
@@ -2747,8 +2759,8 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
   </div>
 
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start;">
-    <div class="section" id="teamASection" style="margin:0; min-width:0;">
+  <div class="player-sections-flex">
+    <div class="section" id="teamASection">
       <h3>Player A - Last 5 / 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
 
       <label id="aFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player A only • recent → oldest)</span></label>
@@ -2758,7 +2770,7 @@ body.dark-mode .tracker-analytics-section-head {
       <input id="aFTAllowed" placeholder="6,4,7,5,6" style="width:100%;" />
     </div>
 
-    <div class="section" id="teamBSection" style="margin:0; min-width:0;">
+    <div class="section" id="teamBSection">
       <h3>Player B - Last 5 / 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
 
       <label id="bFTScoredLabel">Recent Games Won <span style="font-size:10px;color:#888;">(Player B only • recent → oldest)</span></label>
