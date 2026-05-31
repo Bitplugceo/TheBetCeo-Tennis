@@ -1,3 +1,4 @@
+M
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2629,36 +2630,35 @@ body.dark-mode .tracker-analytics-section-head {
       <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-      <div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div style="grid-column:1/-1;">
         <label id="fixtureSelectLabel">Select Match</label>
-        <select id="fixtureSelect" class="league-box" style="max-width:100%;">
+        <select id="fixtureSelect" class="league-box" style="max-width:calc(50% - 4px);">
           <option value="">- Select match -</option>
         </select>
       </div>
       <div>
         <label id="surfaceLabel">Surface</label>
-        <select id="surfaceSelect" class="league-box" style="max-width:calc(50% - 4px);">
+        <select id="surfaceSelect" class="league-box" style="max-width:100%;">
           <option value="">- Auto -</option>
           <option value="Hard">Hard</option>
           <option value="Clay">Clay</option>
           <option value="Grass">Grass</option>
         </select>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div>
-          <label id="teamALabel">Player A</label>
-          <div class="autocomplete-wrap" style="max-width:100%;">
-            <input id="teamAName" placeholder="e.g. Djokovic" autocomplete="off" />
-            <div class="autocomplete-list" id="dropA"></div>
-          </div>
+      <div></div>
+      <div>
+        <label id="teamALabel">Player A</label>
+        <div class="autocomplete-wrap" style="max-width:100%;">
+          <input id="teamAName" placeholder="e.g. Djokovic" autocomplete="off" />
+          <div class="autocomplete-list" id="dropA"></div>
         </div>
-        <div>
-          <label id="teamBLabel">Player B</label>
-          <div class="autocomplete-wrap" style="max-width:100%;">
-            <input id="teamBName" placeholder="e.g. Alcaraz" autocomplete="off" />
-            <div class="autocomplete-list" id="dropB"></div>
-          </div>
+      </div>
+      <div>
+        <label id="teamBLabel">Player B</label>
+        <div class="autocomplete-wrap" style="max-width:100%;">
+          <input id="teamBName" placeholder="e.g. Alcaraz" autocomplete="off" />
+          <div class="autocomplete-list" id="dropB"></div>
         </div>
       </div>
     </div>
@@ -2704,24 +2704,24 @@ body.dark-mode .tracker-analytics-section-head {
       <span>Player A</span>
       <span class="pa-icon" style="color:var(--section-toggle-icon);font-size:13px;transition:transform 0.2s;">▾</span>
     </button>
-    <div id="playerABody" style="padding:8px;background:var(--panel);">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+    <div id="playerABody" style="padding:6px 8px 8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px;">
         <div>
-          <label>Games Won</label>
+          <label style="margin-bottom:2px;">Games Won</label>
           <input id="aFTScored" placeholder="12,10,14,9,11" style="width:100%;margin-bottom:0;" />
         </div>
         <div>
-          <label>Games Allowed (Opp)</label>
+          <label style="margin-bottom:2px;">Games Allowed (Opp)</label>
           <input id="aFTAllowedOpp" placeholder="10,8,12,7,9" style="width:100%;margin-bottom:0;" />
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
         <div>
-          <label>Set 1 Games Won</label>
+          <label style="margin-bottom:2px;">Set 1 Won</label>
           <input id="aFTAllowed" placeholder="6,4,7,5,6" style="width:100%;margin-bottom:0;" />
         </div>
         <div>
-          <label>Set 1 Allowed (Opp)</label>
+          <label style="margin-bottom:2px;">Set 1 Allowed</label>
           <input id="aSet1AllowedOpp" placeholder="5,7,4,6,5" style="width:100%;margin-bottom:0;" />
         </div>
       </div>
@@ -2734,24 +2734,24 @@ body.dark-mode .tracker-analytics-section-head {
       <span>Player B</span>
       <span class="pb-icon" style="color:var(--section-toggle-icon);font-size:13px;transition:transform 0.2s;">▾</span>
     </button>
-    <div id="playerBBody" style="padding:8px;background:var(--panel);">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+    <div id="playerBBody" style="padding:6px 8px 8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px;">
         <div>
-          <label>Games Won</label>
+          <label style="margin-bottom:2px;">Games Won</label>
           <input id="bFTScored" placeholder="11,12,9,13,10" style="width:100%;margin-bottom:0;" />
         </div>
         <div>
-          <label>Games Allowed (Opp)</label>
+          <label style="margin-bottom:2px;">Games Allowed (Opp)</label>
           <input id="bFTAllowedOpp" placeholder="9,11,8,12,10" style="width:100%;margin-bottom:0;" />
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
         <div>
-          <label>Set 1 Games Won</label>
+          <label style="margin-bottom:2px;">Set 1 Won</label>
           <input id="bFTAllowed" placeholder="4,6,5,7,5" style="width:100%;margin-bottom:0;" />
         </div>
         <div>
-          <label>Set 1 Allowed (Opp)</label>
+          <label style="margin-bottom:2px;">Set 1 Allowed</label>
           <input id="bSet1AllowedOpp" placeholder="6,4,7,5,6" style="width:100%;margin-bottom:0;" />
         </div>
       </div>
@@ -6733,20 +6733,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     const opt = select.options[select.selectedIndex];
     if (!opt || !opt.value) return;
 
-    // Collapse the dropdown text to a short confirmation
-    const selectedVal = opt.value;
-    const selectedText = opt.textContent || "";
-    select.innerHTML = "";
-    const confirmed = document.createElement("option");
-    confirmed.value = selectedVal;
-    confirmed.textContent = "Selected ✅";
-    confirmed.dataset.playerAId = opt.dataset.playerAId;
-    confirmed.dataset.playerAName = opt.dataset.playerAName;
-    confirmed.dataset.playerBId = opt.dataset.playerBId;
-    confirmed.dataset.playerBName = opt.dataset.playerBName;
-    select.appendChild(confirmed);
-    select.value = selectedVal;
-
     clearFetchedAutofill();
 
     qs("teamAName").value = opt.dataset.playerAName || "";
@@ -7005,34 +6991,27 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
   }
 
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
-    const extraRanges = getChunkedHistoryRanges(730, 120).slice(1);
+    // Fire ALL date windows simultaneously instead of sequentially
+    const extraRanges = getChunkedHistoryRanges(730, 90);
     const all = existingRecords.slice();
 
-    for (let i = 0; i < extraRanges.length; i += 3) {
-      const batch = extraRanges.slice(i, i + 3);
-      const batchResults = await Promise.all(batch.map(async function(datesQuery) {
-        try {
-          const payload = await fetchTennisScoreboard(league, datesQuery);
-          return extractCompetitionRecords(payload).filter(function(record) {
-            return record.status.completed &&
-              !record.retired &&
-              Number.isFinite(record.totalGames) &&
-              Number.isFinite(record.set1Total) &&
-              Number.isFinite(record.playerAGames) &&
-              Number.isFinite(record.playerBGames) &&
-              Number.isFinite(record.playerASet1Games) &&
-              Number.isFinite(record.playerBSet1Games);
-          });
-        } catch(e) { return []; }
-      }));
-      batchResults.forEach(function(records) { all.push.apply(all, records); });
-      const deduped = dedupeRecords(all);
-      const h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
-      if (h2h.length >= targetCount) {
-        return { records: deduped, h2h: h2h };
-      }
-    }
+    const allResults = await Promise.all(extraRanges.map(async function(datesQuery) {
+      try {
+        const payload = await fetchTennisScoreboard(league, datesQuery);
+        return extractCompetitionRecords(payload).filter(function(record) {
+          return record.status.completed &&
+            !record.retired &&
+            Number.isFinite(record.totalGames) &&
+            Number.isFinite(record.set1Total) &&
+            Number.isFinite(record.playerAGames) &&
+            Number.isFinite(record.playerBGames) &&
+            Number.isFinite(record.playerASet1Games) &&
+            Number.isFinite(record.playerBSet1Games);
+        });
+      } catch(e) { return []; }
+    }));
 
+    allResults.forEach(function(records) { all.push.apply(all, records); });
     const deduped = dedupeRecords(all);
     return {
       records: deduped,
@@ -7059,6 +7038,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
     if (bundle.bGamesAllowed && bundle.bGamesAllowed.length) setFieldValue("bFTAllowedOpp", bundle.bGamesAllowed);
     setFieldValue("aFTAllowed", bundle.aSet1Games);
     setFieldValue("bFTAllowed", bundle.bSet1Games);
+    if (bundle.aSet1GamesAllowed && bundle.aSet1GamesAllowed.length) setFieldValue("aSet1AllowedOpp", bundle.aSet1GamesAllowed);
+    if (bundle.bSet1GamesAllowed && bundle.bSet1GamesAllowed.length) setFieldValue("bSet1AllowedOpp", bundle.bSet1GamesAllowed);
 
     const matchH2HInput = qs("aFTH2H");
     const set1H2HInput = qs("a1HH2H");
@@ -7273,6 +7254,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
         throw new Error("Zero match history found. Bayesian anchor requires at least one real data point.");
       }
 
+      const aSet1GamesAllowed = recentA10.map(m => m.opponentSet1Games).filter(Number.isFinite);
+      const bSet1GamesAllowed = recentB10.map(m => m.opponentSet1Games).filter(Number.isFinite);
+      const bayesianAS1Allowed = aSet1GamesAllowed.length < MIN_SAMPLE_SIZE ? applyPrior(aSet1GamesAllowed, TOUR_AVG_S1) : aSet1GamesAllowed;
+      const bayesianBS1Allowed = bSet1GamesAllowed.length < MIN_SAMPLE_SIZE ? applyPrior(bSet1GamesAllowed, TOUR_AVG_S1) : bSet1GamesAllowed;
+
       applyAutofillData({
         aGames: bayesianA,
         bGames: bayesianB,
@@ -7280,6 +7266,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "playersSec
         bGamesAllowed: bayesianBAllowed,
         aSet1Games: bayesianS1A,
         bSet1Games: bayesianS1B,
+        aSet1GamesAllowed: bayesianAS1Allowed,
+        bSet1GamesAllowed: bayesianBS1Allowed,
         h2hMatchTotals,
         h2hSet1Totals
       });
