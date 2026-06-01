@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3085,10 +3086,11 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
   let g_engineDebugLog = [];
   let g_engineAlertNeedsReview = false;
   let g_trackerSaveInFlight = false;
-  let g_trackerSaveFailureCount = 0;
-  let g_trackerSaveVersion = 0;
-  let g_trackerPersistedVersion = 0;
-  const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+let g_trackerSaveFailureCount = 0;
+let g_trackerSaveVersion = 0;
+let g_trackerPersistedVersion = 0;
+let g_trackerSyncDebounceTimer = null;
+const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
   const TRACKER_STORAGE_KEY = "The_Bet_Ceo_Key2";
   const TRACKER_API_URL = String(WORKER_URL || "").replace(/\/+$/, "") + "/tracker-state";
   const TRACKER_CACHE_KEY = "bb_engine_tracker_state_" + TRACKER_STORAGE_KEY;
@@ -5045,31 +5047,38 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   function queueTrackerSync(stateSnapshot) {
-    const snapshot = normalizeTrackerState(stateSnapshot);
+  if (g_trackerSyncDebounceTimer) clearTimeout(g_trackerSyncDebounceTimer);
 
-    g_trackerSyncPromise = g_trackerSyncPromise.then(async function () {
-      g_trackerDebug.lastSyncStartAt = new Date().toISOString();
-      g_trackerDebug.lastSyncStatus = "running";
-      g_trackerDebug.lastSyncError = "";
-      try {
-        const syncResult = await pushTrackerStateToServer(snapshot);
-        const merged = syncResult && syncResult.state ? normalizeTrackerState(syncResult.state) : snapshot;
-        await saveTrackerStateToLocal(merged);
-        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
-        g_trackerDebug.lastSyncStatus = "ok";
-        renderTrackerDebug();
-        return merged;
-      } catch (err) {
-        g_trackerDebug.lastSyncEndAt = new Date().toISOString();
-        g_trackerDebug.lastSyncStatus = "error";
-        g_trackerDebug.lastSyncError = err && err.message ? err.message : String(err);
-        renderTrackerDebug();
-        return snapshot;
-      }
-    });
+  return new Promise((resolve) => {
+    g_trackerSyncDebounceTimer = setTimeout(async () => {
+      g_trackerSyncDebounceTimer = null;
+      const snapshot = normalizeTrackerState(stateSnapshot);
 
-    return g_trackerSyncPromise;
-  }
+      g_trackerSyncPromise = g_trackerSyncPromise.then(async function () {
+        g_trackerDebug.lastSyncStartAt = new Date().toISOString();
+        g_trackerDebug.lastSyncStatus = "running";
+        g_trackerDebug.lastSyncError = "";
+        try {
+          const syncResult = await pushTrackerStateToServer(snapshot);
+          const merged = syncResult && syncResult.state ? normalizeTrackerState(syncResult.state) : snapshot;
+          await saveTrackerStateToLocal(merged);
+          g_trackerDebug.lastSyncEndAt = new Date().toISOString();
+          g_trackerDebug.lastSyncStatus = "ok";
+          renderTrackerDebug();
+          resolve(merged);
+          return merged;
+        } catch (err) {
+          g_trackerDebug.lastSyncEndAt = new Date().toISOString();
+          g_trackerDebug.lastSyncStatus = "error";
+          g_trackerDebug.lastSyncError = err && err.message ? err.message : String(err);
+          renderTrackerDebug();
+          resolve(snapshot);
+          return snapshot;
+        }
+      });
+    }, 200);
+  });
+}
 
   async function hydrateTrackerState(force) {
     if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
@@ -5716,37 +5725,44 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       tourGroups[t].push(item);
     });
 
-    let settledCount = 0;
+      let settledCount = 0;
+  const scoreboardCache = new Map();
 
-    for (const tour of Object.keys(tourGroups)) {
-      const completedRecords = await fetchCompletedMatchesForSettlement(tour, [1, 0, -1, -2]);
-      window.engineDebug("SETTLE P1: " + tour + " scoreboard", { completedFound: completedRecords.length });
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.status !== "PENDING" || String(item.tour || "ATP").toUpperCase() !== tour) continue;
-        const record = trySettleItemFromScoreboard(item, completedRecords);
-        if (record) {
-          const settled = settleTrackerItemFromRecord(item, record);
-          if (settled.status !== item.status) {
-            settledCount++;
-            window.engineDebug("SETTLED via scoreboard", {
-              match: item.match, market: item.market,
-              result: settled.status, actual: settled.actualTotal
-            });
-            updateBucketPerformance(item, settled.status, settled.actualTotal, null);
-          }
-          items[i] = settled;
-        } else {
-          window.engineDebug("SETTLE P1 MISS: " + item.match, {
-            market: item.market,
-            playerAId: item.playerAId || "MISSING",
-            playerBId: item.playerBId || "MISSING",
-            fixtureDate: item.fixtureDate || item.savedAt || "MISSING",
-            scoreboardSize: completedRecords.length
+  for (const tour of Object.keys(tourGroups)) {
+    let completedRecords;
+    if (scoreboardCache.has(tour)) {
+      completedRecords = scoreboardCache.get(tour);
+    } else {
+      completedRecords = await fetchCompletedMatchesForSettlement(tour, [1, 0, -1, -2]);
+      scoreboardCache.set(tour, completedRecords);
+    }
+    window.engineDebug("SETTLE P1: " + tour + " scoreboard", { completedFound: completedRecords.length });
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.status !== "PENDING" || String(item.tour || "ATP").toUpperCase() !== tour) continue;
+      const record = trySettleItemFromScoreboard(item, completedRecords);
+      if (record) {
+        const settled = settleTrackerItemFromRecord(item, record);
+        if (settled.status !== item.status) {
+          settledCount++;
+          window.engineDebug("SETTLED via scoreboard", {
+            match: item.match, market: item.market,
+            result: settled.status, actual: settled.actualTotal
           });
+          updateBucketPerformance(item, settled.status, settled.actualTotal, null);
         }
+        items[i] = settled;
+      } else {
+        window.engineDebug("SETTLE P1 MISS: " + item.match, {
+          market: item.market,
+          playerAId: item.playerAId || "MISSING",
+          playerBId: item.playerBId || "MISSING",
+          fixtureDate: item.fixtureDate || item.savedAt || "MISSING",
+          scoreboardSize: completedRecords.length
+        });
       }
     }
+  }
 
     // ── PHASE 2: Fallback — athlete-history for anything still pending ──
     const recordCache = new Map();
