@@ -1,4 +1,4 @@
-S
+P
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4836,38 +4836,41 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   function clearAll() {
-    g_clearDebug.lastAction = "clearAll";
-    g_clearDebug.lastError = "";
-    g_clearDebug.lastFlagWrite = new Date().toISOString();
+  g_clearDebug.lastAction = "clearAll";
+  g_clearDebug.lastError = "";
+  g_clearDebug.lastFlagWrite = new Date().toISOString();
 
-    applyHardResetState();
+  applyHardResetState();
 
-    function finalizeClear(passLabel) {
-      forceStartupCollapsedLayout();
-      const snap = getClearDebugSnapshot();
-      g_clearDebug.lastAction = "clearAll:" + passLabel;
-      g_clearDebug.lastApplyAt = new Date().toISOString();
-      g_clearDebug.lastNonEmptyFields = snap.nonEmpty;
-      g_clearDebug.lastCollapsedMap = snap.collapsedMap;
-      renderClearDebug();
-    }
-
-    try {
-      requestAnimationFrame(function () {
-        finalizeClear("raf");
-        setTimeout(function () {
-          finalizeClear("t60");
-          try {
-            window.scrollTo(0, 0);
-          } catch (err) {
-          }
-        }, 60);
-      });
-    } catch (err) {
-      g_clearDebug.lastError = "finalize clear failed: " + (err && err.message ? err.message : String(err));
-      finalizeClear("fallback");
-    }
+  function finalizeClear(passLabel) {
+    forceStartupCollapsedLayout();
+    const snap = getClearDebugSnapshot();
+    g_clearDebug.lastAction = "clearAll:" + passLabel;
+    g_clearDebug.lastApplyAt = new Date().toISOString();
+    g_clearDebug.lastNonEmptyFields = snap.nonEmpty;
+    g_clearDebug.lastCollapsedMap = snap.collapsedMap;
+    renderClearDebug();
   }
+
+  try {
+    requestAnimationFrame(function () {
+      finalizeClear("raf");
+      setTimeout(function () {
+        finalizeClear("t60");
+        // Reset the explicit clear flag after all clearing actions are done
+        setTimeout(() => { window._explicitClear = false; }, 500);
+        try {
+          window.scrollTo(0, 0);
+        } catch (err) {
+        }
+      }, 60);
+    });
+  } catch (err) {
+    g_clearDebug.lastError = "finalize clear failed: " + (err && err.message ? err.message : String(err));
+    finalizeClear("fallback");
+    setTimeout(() => { window._explicitClear = false; }, 500);
+  }
+}
 
 
   // 🚨 PRISON MODEL: STATE HIERARCHY
@@ -5052,7 +5055,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   return new Promise((resolve) => {
     g_trackerSyncDebounceTimer = setTimeout(async () => {
       g_trackerSyncDebounceTimer = null;
-      const snapshot = normalizeTrackerState(stateSnapshot);
+      // Always use the current global tracker state, not the potentially stale snapshot
+      const currentState = g_trackerState;
+      const snapshot = normalizeTrackerState(currentState);
+
+      // Prevent syncing an empty state over a non‑empty one (unless explicitly cleared)
+      if (snapshot.items.length === 0 && currentState.items.length === 0 && window._explicitClear !== true) {
+        console.warn("[Tracker] Skipping sync of empty state – no data loss.");
+        resolve(currentState);
+        return;
+      }
 
       g_trackerSyncPromise = g_trackerSyncPromise.then(async function () {
         g_trackerDebug.lastSyncStartAt = new Date().toISOString();
