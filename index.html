@@ -2360,12 +2360,13 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="section" id="leagueSection">
   <h3>League Tier</h3>
   <label>Select League</label>
-  <select id="leagueSelect" class="league-box">
-    <option value="">- Select League -</option>
-    <optgroup label="── BASEBALL ──────────────────">
-      <option value="mlb">MLB - USA</option>
-    </optgroup>
-  </select>
+            <select id="leagueSelect" class="league-box">
+            <option value="">- Select League -</option>
+            <optgroup label="── BASEBALL ──────────────────">
+              <option value="mlb">MLB - USA</option>
+              <option value="college-baseball">NCAA College Baseball</option>
+            </optgroup>
+          </select>
 </div>
 
 <div class="section" id="sofascoreManualSection" style="display:none;">
@@ -2458,15 +2459,15 @@ body.dark-mode .tracker-analytics-section-head {
   <h3>Market Lines</h3>
 
   <div id="ftH1MarketRow" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-    <div><label id="ftMarketLabel">FT Total</label><input id="ftMarket" placeholder="150.5 - 160.5" /></div>
-    <div id="h1MarketSection"><label>1H Total</label><input id="h1Market" placeholder="75.5 - 85.5" /></div>
+    <div><label id="ftMarketLabel">FT Total</label><input id="ftMarket" placeholder="7.5 - 9.5" /></div>
+    <div id="h1MarketSection"><label>F5 Total</label><input id="h1Market" placeholder="3.5 - 4.5" /></div>
   </div>
 
 
 
   <div id="teamMarketSection" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label id="teamAMarketLabel">Team A Total</label><input id="teamAMarket" placeholder="75.5 - 79.5" /></div>
-    <div><label id="teamBMarketLabel">Team B Total</label><input id="teamBMarket" placeholder="75.5 - 79.5" /></div>
+    <div><label id="teamAMarketLabel">Team A Total</label><input id="teamAMarket" placeholder="3.5 - 4.5" /></div>
+    <div><label id="teamBMarketLabel">Team B Total</label><input id="teamBMarket" placeholder="3.5 - 4.5" /></div>
   </div>
 
       <div id="q1q2MarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
@@ -2504,11 +2505,11 @@ body.dark-mode .tracker-analytics-section-head {
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
     <div>
       <label id="aFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
-      <input id="aFTScored" placeholder="85,79,88,74,82" />
+      <input id="aFTScored" placeholder="5,3,6,2,4" />
     </div>
     <div id="aFTAllowedSection">
       <label id="aFTAllowedLabel">FT Allowed</label>
-      <input id="aFTAllowed" placeholder="80,76,84,72,79" />
+      <input id="aFTAllowed" placeholder="4,2,5,3,1" />
     </div>
   </div>
 
@@ -2531,12 +2532,12 @@ body.dark-mode .tracker-analytics-section-head {
   <div id="a1HSection" style="display:none;">
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
       <div>
-        <label id="a1HScoredLabel">1H Scored</label>
-        <input id="a1HScored" placeholder="42,38,45,40,41" />
+        <label id="a1HScoredLabel">F5 Scored</label>
+        <input id="a1HScored" placeholder="2,1,3,0,2" />
       </div>
       <div>
-        <label>1H Allowed</label>
-        <input id="a1HAllowed" placeholder="39,36,41,35,38" />
+        <label>F5 Allowed</label>
+        <input id="a1HAllowed" placeholder="1,2,2,1,0" />
       </div>
     </div>
   </div>
@@ -2576,11 +2577,11 @@ body.dark-mode .tracker-analytics-section-head {
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
     <div>
       <label id="bFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
-      <input id="bFTScored" placeholder="83,77,81,79,80" />
+      <input id="bFTScored" placeholder="4,2,5,3,1" />
     </div>
     <div id="bFTAllowedSection">
       <label id="bFTAllowedLabel">FT Allowed</label>
-      <input id="bFTAllowed" placeholder="78,80,77,76,81" />
+      <input id="bFTAllowed" placeholder="5,3,6,2,4" />
     </div>
   </div>
 
@@ -2603,12 +2604,12 @@ body.dark-mode .tracker-analytics-section-head {
   <div id="b1HSection" style="display:none;">
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
       <div>
-        <label id="b1HScoredLabel">1H Scored</label>
-        <input id="b1HScored" placeholder="40,39,42,38,41" />
+        <label id="b1HScoredLabel">F5 Scored</label>
+        <input id="b1HScored" placeholder="1,2,2,1,0" />
       </div>
       <div>
-        <label>1H Allowed</label>
-        <input id="b1HAllowed" placeholder="38,39,37,36,40" />
+        <label>F5 Allowed</label>
+        <input id="b1HAllowed" placeholder="2,1,3,0,2" />
       </div>
     </div>
   </div>
@@ -2643,19 +2644,19 @@ body.dark-mode .tracker-analytics-section-head {
 </div>
 
 <div class="section" id="h2hSection">
-  <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2022+, decay-weighted, OT stripped)</span></h3>
+  <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2022+, decay-weighted, extra-innings stripped)</span></h3>
 
   <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" /> Use FT H2H (min 2 games)</label>
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-    <input id="aFTH2H" placeholder="82,78,84,76,82" />
-    <input id="bFTH2H" placeholder="79,81,77,80,78" />
+    <input id="aFTH2H" placeholder="5,3,6,2,4" />
+    <input id="bFTH2H" placeholder="4,2,5,3,1" />
   </div>
 
   <div id="h2h1HSection" style="display:none; margin-top: 6px;">
-    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" /> Use 1H H2H (min 2 games)</label>
+    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" /> Use F5 H2H (min 2 games)</label>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-      <input id="a1HH2H" placeholder="41,39,43,38,41" />
-      <input id="b1HH2H" placeholder="39,41,38,42,39" />
+      <input id="a1HH2H" placeholder="2,1,3,0,2" />
+      <input id="b1HH2H" placeholder="1,2,2,1,0" />
     </div>
   </div>
 
@@ -2890,10 +2891,10 @@ try {
     if (typeof getDynamicWeights !== 'function') issues.push("CRITICAL: getDynamicWeights logic is missing.");
     if (typeof runMassacreMonteCarlo !== 'function') issues.push("CRITICAL: Monte Carlo Worker bridge is broken.");
 
-    try {
-      const testWeight = getDynamicWeights("full", 5, "nba");
-      if (testWeight.teamWeight !== 0.65) issues.push("INTEGRITY: getDynamicWeights returned unexpected teamWeight.");
-    } catch(e) {
+                try {
+              const testWeight = getDynamicWeights("full", 5, "mlb");
+              if (testWeight.teamWeight !== 0.65) issues.push("INTEGRITY: getDynamicWeights returned unexpected teamWeight.");
+            } catch(e) {
       issues.push("INTEGRITY: Math engine failed internal sanity test.");
     }
 
@@ -2913,45 +2914,29 @@ const SS_PROXY_FALLBACKS = [
   "https://thingproxy.freeboard.io/fetch/"
 ];
 
-// LOCK: BASKETBALL_SPORT_IDS — SofaScore sport IDs that correspond to basketball variants.
-// sport.id=2 is standard basketball. Do NOT add football (1), tennis (5), etc.
-// This set is checked in ssProcessTeamEvents to hard-block non-basketball events
-// from ever entering the projection pipeline regardless of team name matches.
-const SS_BASKETBALL_SPORT_IDS = new Set([2, 128, 129, 155, 156, 157, 158]);
+// LOCK: BASEBALL_SPORT_IDS — SofaScore sport IDs that correspond to baseball variants.
+// sport.id=3 is standard baseball.
+const SS_BASEBALL_SPORT_IDS = new Set([3]);
 
-function ssIsBasketballEvent(ev) {
-  // Primary check: tournament/category sport slug
+function ssIsBaseballEvent(ev) {
   const sportSlug = String(
     ev?.tournament?.category?.sport?.slug ||
     ev?.sport?.slug ||
     ev?.category?.sport?.slug ||
     ""
   ).toLowerCase();
-  if (sportSlug && sportSlug !== "basketball") return false;
+  if (sportSlug && sportSlug !== "baseball") return false;
 
-  // Secondary check: sport id (check recursively in tournament.category if needed)
   let sportId = Number(
     ev?.tournament?.category?.sport?.id ??
     ev?.sport?.id ??
     ev?.category?.sport?.id ??
     -1
   );
-  // If not found, check tournament?.category?.parent?.sport?.id for multi-sport events
   if (sportId === -1 && ev?.tournament?.category?.parent?.sport?.id) {
     sportId = Number(ev.tournament.category.parent.sport.id);
   }
-  if (sportId !== -1 && !SS_BASKETBALL_SPORT_IDS.has(sportId)) return false;
-
-  // Tertiary check: score shape — basketball scores are integers typically 1–200.
-  // Football scores are 0–20 range. If both scores are ≤ 5 and sport is ambiguous,
-  // treat as non-basketball to avoid football contamination.
-  if (sportSlug === "" && sportId === -1) {
-    const hScore = Number(ev?.homeScore?.current ?? ev?.homeScore?.normaltime ?? -1);
-    const aScore = Number(ev?.awayScore?.current ?? ev?.awayScore?.normaltime ?? -1);
-    if (isFinite(hScore) && isFinite(aScore) && hScore >= 0 && aScore >= 0) {
-      if (hScore <= 9 && aScore <= 9) return false; // Almost certainly football
-    }
-  }
+  if (sportId !== -1 && !SS_BASEBALL_SPORT_IDS.has(sportId)) return false;
 
   return true;
 }
@@ -2964,13 +2949,13 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
   const q1ScoredList = [], q2ScoredList = [], q3ScoredList = [], q4ScoredList = [];
   const q1AllowedList = [], q2AllowedList = [], q3AllowedList = [], q4AllowedList = [];
 
-  // LOCK: Filter to basketball events ONLY before any processing.
-  // ssIsBasketballEvent checks sport slug, sport id, and score shape.
-  // This prevents football/soccer results from contaminating basketball projections.
-  const basketballEvents = events.filter(ev => ssIsBasketballEvent(ev));
-  const blockedCount = events.length - basketballEvents.length;
+  // LOCK: Filter to baseball events ONLY before any processing.
+  // ssIsBaseballEvent checks sport slug, sport id, and score shape.
+  // This prevents football/soccer results from contaminating baseball projections.
+  const baseballEvents = events.filter(ev => ssIsBaseballEvent(ev));
+  const blockedCount = events.length - baseballEvents.length;
   if (blockedCount > 0) {
-    engineDebug("ssProcessTeamEvents: blocked " + blockedCount + " non-basketball events", { label, total: events.length, kept: basketballEvents.length });
+    engineDebug("ssProcessTeamEvents: blocked " + blockedCount + " non-baseball events", { label, total: events.length, kept: baseballEvents.length });
   }
 
   // LOCK: Filter to the fixture's competition ONLY using uniqueTournament.id.
@@ -2980,7 +2965,7 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
   //   3. Intersection detection after both teams pasted
   // No hardcoded names. No score thresholds. Works for every competition globally.
   // When null, filter is a no-op — preserves backward compatibility.
-  let competitionEvents = basketballEvents;
+  let competitionEvents = baseballEvents;
   if (fixtureTournamentId != null) {
     const tidStr = String(fixtureTournamentId);
     competitionEvents = basketballEvents.filter(ev => {
@@ -3107,9 +3092,9 @@ function updateSofascoreLinks(side) {
   const rawName = (nameEl?.value || "").trim();
   if (!rawName) { alert("Enter a player/team name first."); return; }
   const searchName = rawName.split(",")[0].trim();
-  // LOCK: sport=2 restricts SofaScore search to basketball ONLY.
+  // LOCK: sport=3 restricts SofaScore search to baseball ONLY.
   // Do NOT change to /search/all — that returns football, tennis, etc.
-  const searchUrl = "https://api.sofascore.com/api/v1/search/teams?q=" + encodeURIComponent(searchName) + "&sport=basketball";
+  const searchUrl = "https://api.sofascore.com/api/v1/search/teams?q=" + encodeURIComponent(searchName) + "&sport=baseball";
   window.open(searchUrl, "_blank");
   const st = document.getElementById("ssFetchStatus");
   if (st) {
@@ -3139,7 +3124,7 @@ function detectTournamentIdIntersection(eventsA, eventsB) {
   function countByTournament(events) {
     const counts = {};
     events.forEach(ev => {
-      if (!ssIsBasketballEvent(ev)) return;
+      if (!ssIsBaseballEvent(ev)) return;
       const sType = ev.status?.type ?? "";
       const done = sType === "finished" || sType === "afterExtraTime" || sType === "afterPenalties" || ev.status?.finished === true;
       if (!done) return;
@@ -4084,6 +4069,7 @@ const ASIA_EDGE_LEAGUES = [];
 
 let LEAGUE_BASES = {
   mlb: 8.5,
+  "college-baseball": 11.5,
   unknown: 8.5
 };
 
@@ -4158,14 +4144,10 @@ const _NBA_NAME_TO_ABV = {
 };
 
 function getNBASeasonBaseline(teamName, league) {
-  if (league !== "nba" || !teamName) return null;
-  const key = String(teamName).toLowerCase().trim();
-  const abv = _NBA_NAME_TO_ABV[key] || null;
-  if (!abv) return null;
-  return NBA_2026_TEAM_BASELINES[abv] || null;
+  return null;
 }
 
-const LEAGUE_PACE_BASES = { default: 74 };
+const LEAGUE_PACE_BASES = { mlb: 38, "college-baseball": 38, default: 38 };
 
 function getLeagueRecencyDefaults(league) {
   // Recency defaults removed per spec – return flat weights [1,1,1,1,1]
@@ -4174,7 +4156,7 @@ function getLeagueRecencyDefaults(league) {
 
 const LEAGUE_HOME_EDGE = {};
 
-let LEAGUE_VOL_LIMITS = {};
+let LEAGUE_VOL_LIMITS = { mlb: 3, "college-baseball": 4 };
 
 const LEAGUE_H1_RATIO = { default: 0.487 };
 
@@ -4199,32 +4181,12 @@ function getLeagueConfig(league) {
 
 const LEAGUE_TRUST_PROFILES = {
   trusted: [
-    "nba", "ncaa", "nba_gl", "ncaaw", "wnba", "euroleague", "eurocup", "champions_league", 
-    "acb", "lba", "bbl", "bcl", "turkey_bsl", "isl", "cba", "pba", 
-    "ausnbl", "proa", "united_league", "bleague", "korea_kbl",
-    "aus_nbl1_east", "aus_nbl1_north", "aus_nbl1_south", "aus_nbl1_west", "aus_big_v",
-    "nznbl"
+    "mlb"
   ],
   advisory: [
-    "wnba_pre", "aba", "lkl", "plk", "prob", "germany_proa", "serbia_kls", "croatia_premier", 
-    "romania_ln", "hungary_nb1", "nbl_cz", "denmark_bliga", "england_slb", "england_slb_w",
-    "finland_koris", "italy_a2", "italy_serb", "italy_a1_w", "poland_1liga",
-    "portugal_lpb", "portugal_proliga", "spain_primera", "spain_segunda", "sweden_sbl",
-    "swiss_sbl", "turkey_tbl", "turkey_tb2l", "china_nbl", "taipei_tpbl",
-    "austria_superliga", "belgium_top", "bih_1st", "bulgaria_nbl", "georgia_super", 
-    "argentina_lnb", "brazil_nbb", "chile_lnb", "mexico_lnbp", "mexico_cibacopa", 
-    "puerto_rico_bsn", "uruguay_lub", "cebl",
-    "aus_nbl1_east_w", "aus_nbl1_north_w", "aus_nbl1_south_w", "aus_nbl1_west_w", "aus_big_v_w",
-    "bnxt", "cyprus_div_a", "estonia_kml", "iceland_urvalsdeild", "latvia_lbl", 
-    "lebanon_1st", "slovenia_1a", "gb_super_league_w", "france_lfb_w"
+    "college-baseball"
   ],
-  blocked: [
-    "brazil_lbf_w", "chile_lnb2", "uruguay_lfb_w", "venezuela_sl", "el_salvador_lmb",
-    "bal", "nigeria", "rwanda",
-    "phil_mpbl", "indonesia_ibl", "italy_a2_w", "austria_zweite", 
-    "iceland_urvalsdeild_w", "iceland_1st", "portugal_taca", "portugal_lfb_w",
-    "fiba_wc", "fiba_eb", "fiba_ac"
-  ]
+  blocked: []
 };
 function normalizeLeagueTrustKey(league) {
   return String(league || "unknown").trim().toLowerCase() || "unknown";
@@ -4280,22 +4242,21 @@ const LEAGUE_FETCH_RULES = {
     scheduleTypes: ["1", "2", "3"],
     h2hScheduleTypes: ["1", "2", "3"],
     regulationPeriods: 9
+  },
+  "college-baseball": {
+    recentSeasons: 2,
+    scheduleTypes: ["1", "2", "3"],
+    h2hScheduleTypes: ["1", "2", "3"],
+    regulationPeriods: 9
   }
 };
 
-    const NBA_TEAM_MAP = {
-      "hawks":1,"atlanta":1,"celtics":2,"boston":2,"nets":17,"brooklyn":17,
-      "hornets":30,"charlotte":30,"bulls":4,"chicago":4,"cavaliers":5,"cavs":5,"cleveland":5,
-      "mavericks":6,"mavs":6,"dallas":6,"nuggets":7,"denver":7,"pistons":8,"detroit":8,
-      "warriors":9,"golden state":9,"gsw":9,"rockets":10,"houston":10,"pacers":11,"indiana":11,
-      "clippers":12,"la clippers":12,"lakers":13,"los angeles lakers":13,"la lakers":13,
-      "grizzlies":29,"memphis":29,"heat":14,"miami":14,"bucks":15,"milwaukee":15,
-      "timberwolves":16,"wolves":16,"minnesota":16,"pelicans":3,"new orleans":3,
-      "knicks":18,"new york":18,"thunder":25,"okc":25,"oklahoma city":25,"magic":19,"orlando":19,
-      "76ers":20,"sixers":20,"philadelphia":20,"suns":21,"phoenix":21,
-      "trail blazers":22,"trailblazers":22,"blazers":22,"portland":22,
-      "kings":23,"sacramento":23,"spurs":24,"san antonio":24,"raptors":28,"toronto":28,
-      "jazz":26,"utah":26,"wizards":27,"washington":27
+    const MLB_TEAM_MAP = {
+      "angels":1,"los angeles angels":1,"anaheim":1,"astros":18,"houston":18,"athletics":11,"oakland":11,"blue jays":14,"toronto":14,"braves":15,"atlanta":15,
+      "brewers":8,"milwaukee":8,"cardinals":24,"st louis":24,"saint louis":24,"cubs":16,"chicago cubs":16,"diamondbacks":29,"arizona":29,"dodgers":19,"los angeles dodgers":19,
+      "giants":26,"san francisco":26,"guardians":5,"cleveland":5,"mariners":12,"seattle":12,"marlins":28,"miami":28,"mets":21,"new york mets":21,"nationals":18,"washington":18,
+      "orioles":1,"baltimore":1,"padres":25,"san diego":25,"phillies":22,"philadelphia":22,"pirates":23,"pittsburgh":23,"rangers":13,"texas":13,"rays":30,"tampa bay":30,
+      "red sox":2,"boston":2,"reds":17,"cincinnati":17,"rockies":27,"colorado":27,"royals":7,"kansas city":7,"tigers":12,"detroit":12,"twins":9,"minnesota":9,"white sox":4,"chicago white sox":4,"yankees":10,"new york yankees":10
     };
 
     const NCAA_TEAM_MAP = {
@@ -4312,13 +4273,6 @@ const LEAGUE_FETCH_RULES = {
       "louisville":97,"syracuse":183,"notre dame":87,"georgetown":46,"georgia":61,"ole miss":145,
       "mississippi state":344,"lsu":99,"vanderbilt":238,"butler":2086,"belmont":2057,"drake":2181,
       "oregon state":204,"washington":264,"washington state":265
-    };
-
-    const WNBA_TEAM_MAP = {
-      "aces":18,"las vegas":18,"liberty":10,"new york":10,"sun":15,"connecticut":15,
-      "lynx":16,"minnesota":16,"storm":14,"seattle":14,"mercury":11,"phoenix":11,
-      "fever":13,"indiana":13,"dream":19,"atlanta":19,"sky":17,"chicago":17,
-      "wings":6,"dallas":6,"mystics":20,"washington":20,"sparks":12,"los angeles":12
     };
 
     const _schedCache = new Map();
@@ -5880,7 +5834,7 @@ function validateFetchSection() {
   const fetchBtn = document.getElementById("fetchBtn");
   const teamAName = document.getElementById("teamAName")?.value.trim() || "";
   const teamBName = document.getElementById("teamBName")?.value.trim() || "";
-  const supported = league === "mlb";
+  const supported = league === "mlb" || league === "college-baseball";
   const fixtureOpt = getSelectedFixtureOption();
   const hasActivity = !!teamAName || !!teamBName || !!fixtureOpt;
 
@@ -5957,39 +5911,25 @@ function validateFetchSection() {
   return isValid;
 }
 
-function calculateAdvancedMetrics(stats, pointsScored, pointsAllowed, minutes = 48) {
+function calculateAdvancedMetrics(stats, pointsScored, pointsAllowed, minutes = 9) {
   const getStat = (key) => {
-    const val = stats[key] || "0/0";
-    if (typeof val === "string" && val.includes("/")) return parseFloat(val.split("/")[1]) || 0;
+    const val = stats[key] || "0";
     return parseFloat(val) || 0;
   };
 
-  const fga = getStat("fieldGoals");
-  const fta = getStat("freeThrows");
+  const ab = getStat("atBats");
+  const bb = getStat("walks");
 
-  const orb = getStat("offensiveRebounds");
-  const tov = getStat("turnovers");
+  let possessions = ab + bb;
 
-  let possessions = 0.96 * (fga + (0.44 * fta) - (0.4 * orb) + tov);
-
-  // [LOCK: NULL RETURN FOR INVALID POSSESSIONS — DO NOT REINSTATE THE DEFAULT SUBSTITUTION]
-  // Previous version replaced computed possessions with 100 (48-min games) or 80 (shorter)
-  // when the formula yielded < 50. A partial or failed boxscore fetch produced
-  // plausible-looking but entirely fabricated ORTG/DRTG/pace values, stored them in the
-  // massacre context, and used them in projections with no flag indicating they came from
-  // assumed inputs rather than real data.
-  // Fix: return null when possessions <= 0 OR < 50. The caller already handles null safely:
-  //   if (advResult) { advanced = advResult; }
-  // so null correctly skips storing invalid metrics with no other change required.
-  // DO NOT reinstate any default substitution. DO NOT lower the < 50 threshold.
-  if (possessions <= 0 || possessions < 50) {
+  if (possessions <= 0 || possessions < 15) {
     return null;
   }
 
   const ortg = (pointsScored / possessions) * 100;
   const drtg = (pointsAllowed / possessions) * 100;
-  const safeMinutes = (isFinite(minutes) && minutes > 0) ? minutes : 48;
-  const pace = (possessions / safeMinutes) * minutes;
+  const safeMinutes = (isFinite(minutes) && minutes > 0) ? minutes : 9;
+  const pace = (possessions / safeMinutes) * 9;
 
   return {
     possessions: parseFloat(possessions.toFixed(2)),
@@ -7990,8 +7930,8 @@ function renderTrackedPicks() {
 
   summaryEl.textContent = `${displayPicks.length} live/recent • ${pendingCount} pending • ${stats.wins} wins • ${stats.losses} losses`;
 
-  const marketLabels = { ft: "FT", h1: "1H", h2: "2H", q1: "Q1", q2: "Q2", q3: "Q3", q4: "Q4", team_a: "Team A", team_b: "Team B" };
-  const chips = ["ft", "h1", "h2", "q1", "q2", "q3", "q4", "team_a", "team_b"].map(key => {
+  const marketLabels = { ft: "FT", h1: "F5", team_a: "Team A", team_b: "Team B" };
+  const chips = ["ft", "h1", "team_a", "team_b"].map(key => {
     const pending = active.filter(p => p.marketKey === key && String(p.resultStatus || "pending").toLowerCase() === "pending").length;
     return pending ? `<div class="tracker-market-chip">${marketLabels[key]} ${pending}</div>` : "";
   }).filter(Boolean);
@@ -8374,11 +8314,11 @@ function renderTrackerAnalytics() {
   const activeCount = Array.isArray(g_trackerState?.activePicks) ? g_trackerState.activePicks.length : 0;
 
   function marketLabel(key) {
-    const map = {
-      ft: "FT Total", h1: "1H Total", h2: "2H Total", q1: "Q1 Total", q2: "Q2 Total", q3: "Q3 Total", q4: "Q4 Total", team_a: "Team A Total", team_b: "Team B Total"
-    };
-    return map[String(key || "")] || String(key || "Other");
-  }
+  const map = {
+    ft: "FT Total", h1: "F5 Total", team_a: "Team A Total", team_b: "Team B Total"
+  };
+  return map[String(key || "")] || String(key || "Other");
+}
 
   function formatPct(value) { return isFinite(value) ? `${Number(value).toFixed(1)}%` : "—"; }
 
@@ -9503,6 +9443,7 @@ function applySoftTrackerInfluenceToPicks(picks, fixtureMeta, phase2Activation =
 function getTrackedLeagueBase(league) {
   const l = String(league || "").toLowerCase();
   if (l === "mlb") return "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb";
+  if (l === "college-baseball") return "https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball";
   return "";
 }
 
@@ -11198,6 +11139,7 @@ function clearH2HFields() {
     function getLeagueBase(league) {
   const l = String(league || "").toLowerCase();
   if (l === "mlb") return "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb";
+  if (l === "college-baseball") return "https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball";
   return "";
 }
 
@@ -11308,30 +11250,22 @@ updateIntelligencePack();
 
     function lookupTeamId(name, leagueHint) {
       const n = normalizeTeamName(name);
-      if (leagueHint === "nba") {
-        if (NBA_TEAM_MAP[n] !== undefined) return NBA_TEAM_MAP[n];
+      if (leagueHint === "mlb") {
+        if (MLB_TEAM_MAP[n] !== undefined) return MLB_TEAM_MAP[n];
         let bestKey = null, bestLen = 0;
-        for (const key of Object.keys(NBA_TEAM_MAP)) {
+        for (const key of Object.keys(MLB_TEAM_MAP)) {
           if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
         }
-        if (bestKey) return NBA_TEAM_MAP[bestKey];
+        if (bestKey) return MLB_TEAM_MAP[bestKey];
         if (n.length >= 3) {
           bestKey = null; bestLen = 0;
-          for (const key of Object.keys(NBA_TEAM_MAP)) {
+          for (const key of Object.keys(MLB_TEAM_MAP)) {
             if (key.includes(n) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
           }
-          if (bestKey) return NBA_TEAM_MAP[bestKey];
+          if (bestKey) return MLB_TEAM_MAP[bestKey];
         }
       }
-      if (leagueHint === "wnba" || leagueHint === "wnba_pre") {
-        if (WNBA_TEAM_MAP[n] !== undefined) return WNBA_TEAM_MAP[n];
-        let bestKey = null, bestLen = 0;
-        for (const key of Object.keys(WNBA_TEAM_MAP)) {
-          if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
-        }
-        if (bestKey) return WNBA_TEAM_MAP[bestKey];
-      }
-      if (leagueHint === "ncaa") {
+      if (leagueHint === "college-baseball") {
         if (NCAA_TEAM_MAP[n] !== undefined) return NCAA_TEAM_MAP[n];
         let bestKey = null, bestLen = 0;
         for (const key of Object.keys(NCAA_TEAM_MAP)) {
@@ -11371,7 +11305,7 @@ updateIntelligencePack();
       validateFetchSection();
 
       if (!val) { closeDrop(dropId); return; }
-      if (league !== "nba" && league !== "wnba" && league !== "wnba_pre" && league !== "ncaa") { closeDrop(dropId); return; }
+      if (league !== "mlb" && league !== "college-baseball") { closeDrop(dropId); return; }
 
       if (g_teamSearchControllers[side]) {
         g_teamSearchControllers[side].abort();
@@ -11618,7 +11552,7 @@ btn.addEventListener("click", () => { section.classList.toggle("collapsed"); });
       });
     }
 
-    const maxInjCap = league === "nba" ? 0.25 : 0.20;
+    const maxInjCap = league === "mlb" ? 0.15 : 0.12;
     result.scoringMult = 1 - Math.min(totalReduction, maxInjCap);
     result.hasUnknownImpact = result.unknownImpactCount > 0;
 
@@ -12415,7 +12349,7 @@ async function fetchESPN() {
       if (aStats.h1Allowed?.length > 0) document.getElementById("a1HAllowed").value = aStats.h1Allowed.join(",");
       if (aStats.h2Scored?.length > 0) {
         document.getElementById("a2HScored").value = aStats.h2Scored.join(",");
-        messages.push(`${safeText(teamAName)} 2H: ${aStats.h2Scored.length} games ✅`);
+        messages.push(`${safeText(teamAName)} L4I: ${aStats.h2Scored.length} games ✅`);
       }
       if (aStats.h2Allowed?.length > 0) document.getElementById("a2HAllowed").value = aStats.h2Allowed.join(",");
       if (aStats.q1Scored?.length > 0) {
@@ -12459,7 +12393,7 @@ async function fetchESPN() {
       if (bStats.h1Allowed?.length > 0) document.getElementById("b1HAllowed").value = bStats.h1Allowed.join(",");
       if (bStats.h2Scored?.length > 0) {
         document.getElementById("b2HScored").value = bStats.h2Scored.join(",");
-        messages.push(`${safeText(teamBName)} 2H: ${bStats.h2Scored.length} games ✅`);
+        messages.push(`${safeText(teamBName)} L4I: ${bStats.h2Scored.length} games ✅`);
       }
       if (bStats.h2Allowed?.length > 0) document.getElementById("b2HAllowed").value = bStats.h2Allowed.join(",");
       if (bStats.q1Scored?.length > 0) {
@@ -12564,34 +12498,29 @@ async function fetchESPN() {
       try {
         const data = await proxyFetch(`${espnBase}/teams/${teamId}?enable=roster`);
         const athletes = data?.team?.athletes || data?.team?.roster || [];
-        // [CLOSED: FIX 13 — PLAYER ADVANCED STATS] Extended with TS%, minPG, plusMinus.
-        // Feeds computeLineupQuality for a lineup strength index before prediction runs.
-        // DO NOT remove new fields — removing them silently degrades the lineup quality model.
         return athletes.map(a => {
-          const _fs = n => parseFloat(a.statsSummary?.statistics?.find(s => s.name === n)?.displayValue || 0);
-          const fga = _fs("fieldGoalsAttempted"), fta = _fs("freeThrowsAttempted");
-          const pts = _fs("points") || _fs("avgPoints");
-          const tsa = fga + fta * 0.44;
+          const _fs = n => parseFloat(a.statsSummary?.statistics?.find(s => s.name === n || s.abbreviation === n)?.displayValue || 0);
+          const avg = _fs("battingAverage") || _fs("AVG");
+          const hr = _fs("homeRuns") || _fs("HR");
+          const rbi = _fs("runsBattedIn") || _fs("RBI");
+          const ops = _fs("ops") || _fs("OPS");
+          const era = _fs("era") || _fs("ERA");
+          const whip = _fs("whip") || _fs("WHIP");
           return {
             name: a.displayName,
-            ppg: parseFloat(a.statsSummary?.statistics?.find(s => s.name === "points")?.displayValue || 0),
-            rpg: parseFloat(a.statsSummary?.statistics?.find(s => s.name === "rebounds")?.displayValue || 0),
-            apg: parseFloat(a.statsSummary?.statistics?.find(s => s.name === "assists")?.displayValue || 0),
-            tpm: _fs("threePointFieldGoalsMade"),
-            pos: a.position?.abbreviation || "G",
-            tsPercent: tsa > 0 ? parseFloat((pts / (2 * tsa)).toFixed(3)) : null,
-            minPG: _fs("avgMinutes") || _fs("minutes") || null,
-            plusMinus: _fs("plusMinus") || null
+            ppg: ops || avg,
+            rpg: hr,
+            apg: rbi,
+            tpm: era,
+            pos: a.position?.abbreviation || "DH",
+            tsPercent: whip,
+            minPG: null,
+            plusMinus: null
           };
         }).sort((a, b) => b.ppg - a.ppg).slice(0, 8);
       } catch (e) { return []; }
     }
 
-    // [CLOSED: FIX 2/19 — LIVE ESPN TEAM STATS] Replaces static NBA_2026_TEAM_BASELINES lookup
-    // with a live pull from ESPN /teams/{id}/statistics on every prediction run.
-    // Applies to all 5 ESPN auto-fetch leagues, not just NBA.
-    // Static table in getNBASeasonBaseline remains as final fallback for cold starts + network failures.
-    // DO NOT remove the fallback chain — live fetch can return null on flaky connections.
     async function fetchLiveTeamSeasonStats(teamId, base) {
       try {
         const data = await proxyFetch(`${base}/teams/${teamId}/statistics`).catch(() => null);
@@ -12605,13 +12534,12 @@ async function fetchESPN() {
           }
           return null;
         };
-        const ppg = _find(cats, ["avgPoints","pointsPerGame","PTS"]);
-        const oppPpg = _find(cats, ["avgPointsAgainst","oppAvgPoints"]);
-        const pace = _find(cats, ["avgPossessions","pace","possessionsPerGame"]);
-        const ortg = _find(cats, ["offensiveRating","ortg","offRating"]) || (ppg && pace && pace > 0 ? (ppg / pace) * 100 : null);
-        const drtg = _find(cats, ["defensiveRating","drtg","defRating"]) || (oppPpg && pace && pace > 0 ? (oppPpg / pace) * 100 : null);
-        if (!ortg && !drtg && !ppg) return null;
-        return { ortg: ortg || 110, drtg: drtg || 110, pace: pace || null, total: ((ortg || 110) + (drtg || 110)) / 2 * ((pace || 99) / 100) };
+        const ppg = _find(cats, ["runs","runsPerGame","RPG","PTS"]);
+        const oppPpg = _find(cats, ["runsAgainst","oppRunsPerGame","RA","oppAvgPoints"]);
+        const pace = _find(cats, ["plateAppearances","PA"]) || 38;
+        const ortg = (ppg / pace) * 100;
+        const drtg = (oppPpg / pace) * 100;
+        return { ortg: ortg || 15, drtg: drtg || 15, pace: pace || 38, total: ppg + oppPpg };
       } catch(_) { return null; }
     }
 
@@ -16300,10 +16228,10 @@ panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;p
     let paceAnomalies = 0, edgeAnomalies = 0;
     active.forEach(p => {
       const pace = (p.diagnostics && p.diagnostics.pace) || (p.godsEyeMemory && p.godsEyeMemory.pace);
-      if (pace && (pace > 135 || pace < 65)) paceAnomalies++;
+      if (pace && (pace > 135 || pace < 15)) paceAnomalies++;
       if (p.edgePct && Math.abs(p.edgePct) > 25) edgeAnomalies++;
     });
-    if (paceAnomalies > 0) { log('ERROR','MATH ENGINE', paceAnomalies + ' picks show unrealistic pace projections (<65 or >135). Logic contradiction detected.'); totalSuspects++; }
+    if (paceAnomalies > 0) { log('ERROR','MATH ENGINE', paceAnomalies + ' picks show unrealistic pace projections (<15 or >135). Logic contradiction detected.'); totalSuspects++; }
     if (edgeAnomalies > 0) { log('ERROR','MATH ENGINE', edgeAnomalies + ' picks show extreme edge anomalies (>25%).'); totalSuspects++; }
 
     const settled = (typeof g_trackerState !== 'undefined' && g_trackerState.stats && g_trackerState.stats.settled) || 0;
@@ -16319,7 +16247,7 @@ panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;p
     // LOCK: fetchESPN is only called for leagues that actually support it.
     // Previously AFDB would call fetchESPN for manual leagues, silently overwriting
     // user-typed data with a failed fetch result. Do not remove the isEspnLeague guard.
-    const isEspnLeague = ['nba', 'ncaa', 'wnba', 'wnba_pre'].includes(String(league || '').toLowerCase());
+    const isEspnLeague = ['mlb', 'college-baseball'].includes(String(league || '').toLowerCase());
     if (isEspnLeague && tA && tB) {
       try { await fetchESPN(); }
       catch(e) { log('ERROR','NETWORK','Live sweep failed: ' + e.message); totalSuspects++; }
@@ -16770,50 +16698,50 @@ window.ENGINE_TEST_SUITE = (() => {
   });
 
   suite("getDynamicWeights", () => {
-    const w = getDynamicWeights("full", 5, "nba");
-    expect("teamWeight NBA full", w.teamWeight, 0.65);
+    const w = getDynamicWeights("full", 5, "mlb");
+    expect("teamWeight MLB full", w.teamWeight, 0.65);
     expectTrue("weights sum to 1", Math.abs(w.teamWeight + w.oppWeight - 1) < 0.001);
-    expectTrue("thin <= full teamWeight", getDynamicWeights("thin", 5, "nba").teamWeight <= w.teamWeight);
+    expectTrue("thin <= full teamWeight", getDynamicWeights("thin", 5, "mlb").teamWeight <= w.teamWeight);
     expectTrue("high-vol oppWeight > low-vol", true);
   });
 
   suite("avg / trimmedAvg / stdDev / weightedRecentAverage", () => {
-    expectApprox("avg [80,90,100]", avg([80,90,100]), 90, 0.001);
+    expectApprox("avg [8,9,10]", avg([8,9,10]), 9, 0.001);
     expectTrue("avg empty = NaN", isNaN(avg([])));
-    const t = trimmedAvg([60,80,90,95,120]);
-    expectTrue("trimmedAvg drops outliers (75–100)", isFinite(t) && t > 75 && t < 100);
+    const t = trimmedAvg([6,8,9,9.5,12]);
+    expectTrue("trimmedAvg drops outliers", isFinite(t) && t > 5 && t < 11);
     expectApprox("stdDev uniform = 0", stdDev([10,10,10,10]), 0, 0.001);
-    expectApprox("stdDev always 0 (removed per spec)", stdDev([80,90,100,110,120]), 0, 0.001);
-    const w = weightedRecentAverage([100,90,80,70,60]);
-    expectApprox("weightedRecentAverage = simple avg (recency removed)", w, 80, 0.001);
+    expectApprox("stdDev always 0 (removed per spec)", stdDev([8,9,10,11,12]), 0, 0.001);
+    const w = weightedRecentAverage([10,9,8,7,6]);
+    expectApprox("weightedRecentAverage = simple avg (recency removed)", w, 8, 0.001);
   });
 
   suite("getPick — simplified direction", () => {
-    expectTrue("positive edge = OVER",  String(getPick(1,   220, "nba", "ft", {})).startsWith("OVER"));
-    expect("zero edge NO PLAY",         getPick(0,   220, "nba", "ft", {}), "NO PLAY");
-    expect("null line NO PLAY",         getPick(10, null, "nba", "ft", {}), "NO PLAY");
-    expectTrue("any positive = OVER",   String(getPick(13,  220, "nba", "ft", {})).startsWith("OVER"));
-    expectTrue("small positive = OVER", String(getPick(12, 220, "nba", "ft", {})).startsWith("OVER"));
-    expectTrue("negative = UNDER",      String(getPick(-14, 220, "nba", "ft", {})).startsWith("UNDER"));
+    expectTrue("positive edge = OVER",  String(getPick(1,   8, "mlb", "ft", {})).startsWith("OVER"));
+    expect("zero edge NO PLAY",         getPick(0,   8, "mlb", "ft", {}), "NO PLAY");
+    expect("null line NO PLAY",         getPick(10, null, "mlb", "ft", {}), "NO PLAY");
+    expectTrue("any positive = OVER",   String(getPick(2,  8, "mlb", "ft", {})).startsWith("OVER"));
+    expectTrue("small positive = OVER", String(getPick(1, 8, "mlb", "ft", {})).startsWith("OVER"));
+    expectTrue("negative = UNDER",      String(getPick(-2, 8, "mlb", "ft", {})).startsWith("UNDER"));
   });
 
   suite("detectTrap", () => {
-    expect("always false (removed per spec)", detectTrap(1,  220, "OVER 220.5", "nba", "ft", 0), false);
-    expect("always false (removed per spec)", detectTrap(12, 220, "OVER 220.5", "nba", "ft", 5), false);
+    expect("always false (removed per spec)", detectTrap(1,  8, "OVER 8.5", "mlb", "ft", 0), false);
+    expect("always false (removed per spec)", detectTrap(2, 8, "OVER 8.5", "mlb", "ft", 5), false);
   });
 
   suite("anchorProjection", () => {
-    const a = anchorProjection(250, 220, "nba", "ft");
-    expectApprox("returns proj unchanged (removed per spec)", a, 250, 0.001);
-    expectApprox("within gate no change", anchorProjection(232, 220, "nba", "ft"), 232, 0.5);
+    const a = anchorProjection(10, 8, "mlb", "ft");
+    expectApprox("returns proj unchanged (removed per spec)", a, 10, 0.001);
+    expectApprox("within gate no change", anchorProjection(9, 8, "mlb", "ft"), 9, 0.5);
   });
 
   suite("parseMarketRangeMeta", () => {
-    const r = parseMarketRangeMeta("218.5-224.5");
-    expect("range mid",   r?.mid,     221.5);
+    const r = parseMarketRangeMeta("8.5-10.5");
+    expect("range mid",   r?.mid,     9.5);
     expect("isRange",     r?.isRange, true);
-    const s = parseMarketRangeMeta("220.5");
-    expect("single mid",  s?.mid,     220.5);
+    const s = parseMarketRangeMeta("8.5");
+    expect("single mid",  s?.mid,     8.5);
     expect("not range",   s?.isRange, false);
     expect("invalid",     parseMarketRangeMeta("abc"), null);
     expect("empty",       parseMarketRangeMeta(""),    null);
@@ -16839,10 +16767,9 @@ window.ENGINE_TEST_SUITE = (() => {
   });
 
   suite("getLeagueTrustMeta", () => {
-    expect("NBA trusted",           getLeagueTrustMeta("nba").level,        "trusted");
-    expect("NBA mode full",         getLeagueTrustMeta("nba").mode,         "full");
-    expect("NCAA trusted",          getLeagueTrustMeta("ncaa").level,       "trusted");
-    expect("EuroCup trusted",       getLeagueTrustMeta("eurocup").level,    "trusted");
+    expect("MLB trusted",           getLeagueTrustMeta("mlb").level,        "trusted");
+    expect("MLB mode full",         getLeagueTrustMeta("mlb").mode,         "full");
+    expect("college-baseball advisory", getLeagueTrustMeta("college-baseball").level, "advisory");
     expect("unknown advisory",      getLeagueTrustMeta("unknown").level,    "advisory");
     expect("unknown mode advisory", getLeagueTrustMeta("unknown").mode,     "advisory");
     expect("rwanda blocked",        getLeagueTrustMeta("rwanda").level,     "blocked");
