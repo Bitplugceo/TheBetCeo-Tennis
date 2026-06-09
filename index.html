@@ -2369,52 +2369,10 @@ body.dark-mode .tracker-analytics-section-head {
           </select>
 </div>
 
-<div class="section" id="sofascoreManualSection" style="display:none;">
-  <h3>🔍 Player Lookup <span style="font-size:11px;color:#aaa;">(Manual leagues — SofaScore)</span></h3>
 
-
-
-  <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
-    <label>Player A Name (Home)</label>
-    <div style="display:flex;gap:6px;margin-bottom:4px;">
-      <input id="ssTeamAName" placeholder="Player / Team A" style="margin-bottom:0;flex:1;" oninput="validateSofascoreSection()" />
-      <input id="ssPasteA" placeholder="Paste JSON A" oninput="parseSofascoreIndividual('A')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
-      <button type="button" onclick="searchSofascorePlayer('A')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search basketball team">🔍</button>
-      <button type="button" onclick="clearPasteJSON('A')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
-    </div>
-    <div style="display:flex;gap:6px;align-items:center;">
-      <input id="ssTeamAId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('A')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
-      <a id="ssTeamALink" href="#" target="_blank" style="color:#4ea9ff;font-size:10px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 Open JSON A</a>
-    </div>
-  </div>
-
-  <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
-    <label>Player B Name (Away)</label>
-    <div style="display:flex;gap:6px;margin-bottom:4px;">
-      <input id="ssTeamBName" placeholder="Player / Team B" style="margin-bottom:0;flex:1;" oninput="validateSofascoreSection()" />
-      <input id="ssPasteB" placeholder="Paste JSON B" oninput="parseSofascoreIndividual('B')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
-      <button type="button" onclick="searchSofascorePlayer('B')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search basketball team">🔍</button>
-      <button type="button" onclick="clearPasteJSON('B')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
-    </div>
-    <div style="display:flex;gap:6px;align-items:center;">
-      <input id="ssTeamBId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('B')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
-      <a id="ssTeamBLink" href="#" target="_blank" style="color:#4ea9ff;font-size:10px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p0</a>
-      <a id="ssTeamBLink1" href="#" target="_blank" style="color:#4ea9ff;font-size:10px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p1</a>
-    </div>
-  </div>
-
-  <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--panel-border);">
-    <label style="font-size:11px;font-weight:800;">Tournament ID <span style="color:var(--muted);font-weight:600;">(auto-detected from paste · enter manually to override)</span></label>
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-      <input id="ssTournamentId" placeholder="e.g. 12345" style="margin-bottom:0;font-size:11px;padding:4px 6px;width:180px;flex-shrink:0;" oninput="onTournamentIdInput()" />
-      <span id="ssTournamentName" style="font-size:10px;font-weight:800;color:var(--muted);"></span>
-    </div>
-  </div>
-  <div id="ssFetchStatus" style="font-size:10px;min-height:16px;margin-top:6px;"></div>
-</div>
 
 <div class="section" id="espnSection">
-  <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(MLB Baseball)</span></h3>
+  <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(MLB / College Baseball)</span></h3>
 
   <div id="fixtureToolbar" class="fixture-toolbar">
     <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
@@ -2968,7 +2926,7 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
   let competitionEvents = baseballEvents;
   if (fixtureTournamentId != null) {
     const tidStr = String(fixtureTournamentId);
-    competitionEvents = basketballEvents.filter(ev => {
+    competitionEvents = baseballEvents.filter(ev => {
       const evTid = ev?.tournament?.uniqueTournament?.id;
       return evTid != null && String(evTid) === tidStr;
     });
@@ -4022,6 +3980,8 @@ function getLeagueUnderBlockRatio(league) {
     };
 
 // Raw point thresholds (edge = projection - line)
+// BASEBALL: thresholds are in RUNS, not points. MLB totals ~8-10 runs; F5 ~4-5 runs.
+// A 0.45-run edge on a 8.5-run line (~5.3%) is a meaningful baseball signal.
 const LEAGUE_EDGE_POINT_THRESHOLDS = {
   nba:      { ft: 12.0, h1: 5.0, team: 6.0, q: 4.0 },
   wnba:     { ft: 10.0, h1: 5.0, team: 5.0, q: 4.0 },
@@ -4029,6 +3989,8 @@ const LEAGUE_EDGE_POINT_THRESHOLDS = {
   ncaa:     { ft: 8.0,  h1: 4.0, team: 4.0, q: 3.5 },
   ncaaw:    { ft: 8.0,  h1: 4.0, team: 4.0, q: 3.5 },
   nba_gl:   { ft: 11.0, h1: 5.0, team: 5.5, q: 4.0 },
+  mlb:               { ft: 0.45, h1: 0.28, team: 0.28, q: 0.20 },
+  "college-baseball": { ft: 0.55, h1: 0.32, team: 0.32, q: 0.22 },
   default:  { ft: 8.0,  h1: 4.0, team: 4.0, q: 3.5 }
 };
 
@@ -5918,7 +5880,8 @@ function calculateAdvancedMetrics(stats, pointsScored, pointsAllowed, minutes = 
   };
 
   const ab = getStat("atBats");
-  const bb = getStat("walks");
+  // ESPN baseball API uses "baseOnBalls" or "BB" — fall through all common names.
+  const bb = Math.max(getStat("walks"), getStat("baseOnBalls"), getStat("BB"));
 
   let possessions = ab + bb;
 
@@ -10063,7 +10026,7 @@ function handleTrackedPicksActionClick(event) {
                         const period = competition?.status?.period;
                         const stateName = competition?.status?.type?.state;
                         const statusName = competition?.status?.type?.name;
-                        const forceSettle = (clock === "0.0" || clock === "0:00") && period >= ((pick.league === "nba" || pick.league === "wnba" || pick.league === "wnba_pre") ? 4 : 2);
+                        const forceSettle = false;
 
                                 if (apiFinal || forceSettle) {
                           const settled = settleTrackedPickFromCompetition(pick, competition);
@@ -11772,9 +11735,11 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
                 }
               }
               
-              if (Object.keys(sMap).length > 0) {
-                const gameMinutes = leagueKey === "nba" ? 48 : 40;
-                const advResult = calculateAdvancedMetrics(sMap, ms, os, gameMinutes);
+                            if (Object.keys(sMap).length > 0) {
+                  // 9 = innings (baseball), 48 = NBA minutes, 40 = college minutes
+                  const gameMinutes = (leagueKey === "mlb" || leagueKey === "college-baseball") ? 9
+                    : (leagueKey === "nba" ? 48 : 40);
+                  const advResult = calculateAdvancedMetrics(sMap, ms, os, gameMinutes);
                 if (advResult) {
                   advanced = advResult;
                   trackerDebug(`Level 2 Stats Extracted: ${ref.id}`, advanced);
@@ -12091,7 +12056,7 @@ const cls =
       // Without this, selecting NCAA Women's or G League showed the ESPN section greyed out
       // because loadFixtures returned early and never populated the fixture dropdown.
       // DO NOT narrow this set — it must always match the fetchESPN gate check.
-            const supported = league === "mlb";
+            const supported = league === "mlb" || league === "college-baseball";
       if (!supported) {
         toolbar.style.display = "none";
         sel.style.display = "none";
@@ -12106,7 +12071,7 @@ const cls =
         sel.value = "";
         selectedTeamIds = { A: null, B: null };
         validateFetchSection();
-      const base = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb";
+      const base = getLeagueBase(league) || "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb";
       const targetLocalKey = getLocalDateKey(offset);
       const queryDates = [getLocalDateKey(-1), getLocalDateKey(0), getLocalDateKey(1), getLocalDateKey(2)];
 
@@ -12255,8 +12220,8 @@ async function fetchESPN() {
   // [CLOSED: ESPN+ EXPANSION] Gate expanded to 5 verified ESPN auto-fetch leagues.
   // ncaaw = womens-college-basketball endpoint. nba_gl = nba-g-league endpoint.
   // DO NOT add further leagues without verifying ESPN endpoint stability for schedule + stats + injuries.
-        if (league !== "mlb") {
-        setStatusText("❌ ESPN auto-fetch: MLB only.", "err");
+        if (league !== "mlb" && league !== "college-baseball") {
+        setStatusText("❌ ESPN auto-fetch: MLB and College Baseball only.", "err");
         return;
       }
       
@@ -12273,7 +12238,8 @@ async function fetchESPN() {
       window.__abortSignal = g_activeFetchController.signal;
 
       try {
-        const espnBase = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb";
+        const espnBase = getLeagueBase(league);
+    if (!espnBase) { setStatusText("❌ No ESPN endpoint configured for " + league + ".", "err"); return; }
 
     let teamAId = selectedTeamIds.A || lookupTeamId(teamAName, league);
     if (!validateTeamId(teamAId, league)) teamAId = await searchTeamFromAPI(espnBase, teamAName, league);
@@ -12302,14 +12268,12 @@ async function fetchESPN() {
       selectedFixture && String(selectedFixture.dataset.awayId || "") === String(teamBId) ? "away" :
       null;
 
-                        // [CLOSED: ESPN+ EXPANSION] ncaaw uses 2-period schedule fetch like NCAA Men's.
-                        // nba_gl uses standard 4-period fetchScheduleCore path like NBA.
-                        const _useNcaaPath = isNcaa || isNcaaW;
+                        // BASEBALL: always use fetchScheduleCore — LEAGUE_FETCH_RULES drives 9-inning schedule logic.
                         const [aStats, bStats, aVenueStats, bVenueStats] = await Promise.all([
-                      _useNcaaPath ? fetchNcaaSchedule(espnBase, teamAId, null) : fetchScheduleCore(espnBase, teamAId, league, null, true),
-                      _useNcaaPath ? fetchNcaaSchedule(espnBase, teamBId, null) : fetchScheduleCore(espnBase, teamBId, league, null, true),
-                      teamAVenue ? (_useNcaaPath ? fetchNcaaSchedule(espnBase, teamAId, teamAVenue, true) : fetchScheduleCore(espnBase, teamAId, league, teamAVenue, true)) : Promise.resolve(null),
-                      teamBVenue ? (_useNcaaPath ? fetchNcaaSchedule(espnBase, teamBId, teamBVenue, true) : fetchScheduleCore(espnBase, teamBId, league, teamBVenue, true)) : Promise.resolve(null)
+                      fetchScheduleCore(espnBase, teamAId, league, null, true),
+                      fetchScheduleCore(espnBase, teamBId, league, null, true),
+                      teamAVenue ? fetchScheduleCore(espnBase, teamAId, league, teamAVenue, true) : Promise.resolve(null),
+                      teamBVenue ? fetchScheduleCore(espnBase, teamBId, league, teamBVenue, true) : Promise.resolve(null)
                     ]);
 
                     if (!aStats && !bStats) throw new Error("No recent schedule data found from ESPN.");
@@ -12427,10 +12391,8 @@ async function fetchESPN() {
 
     let h2hGames = [];
     try {
-      // [CLOSED: ESPN+ EXPANSION] ncaaw uses NCAA H2H path (2-period summaries).
-      // nba_gl uses standard fetchH2HCore. DO NOT merge these without verifying period counts.
-      const _useNcaaH2HPath = isNcaa || isNcaaW;
-      h2hGames = _useNcaaH2HPath ? await fetchNcaaH2H(espnBase, teamAId, teamBId) : await fetchH2HCore(espnBase, teamAId, teamBId, league);
+      // BASEBALL: fetchH2HCore handles 9-inning H2H via LEAGUE_FETCH_RULES automatically.
+      h2hGames = await fetchH2HCore(espnBase, teamAId, teamBId, league);
     } catch (e) {
       logDebug("H2H fetch failed", e);
     }
@@ -12976,8 +12938,8 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   let aS = isFinite(aS_pre) && isFinite(bAllowed) ? aS_pre * 0.55 + bAllowed * 0.45 : aS_pre;
   let bS = isFinite(bS_pre) && isFinite(aAllowed) ? bS_pre * 0.55 + aAllowed * 0.45 : bS_pre;
 
-  // --- ADVANCED STATS BLEND (ESPN auto-fetch leagues) ---
-  const isEspnLeague = ["nba","wnba","wnba_pre","ncaa","ncaaw","nba_gl"].includes(league);
+  // --- ADVANCED STATS BLEND (ESPN auto-fetch leagues, including baseball PA/pace) ---
+  const isEspnLeague = ["nba","wnba","wnba_pre","ncaa","ncaaw","nba_gl","mlb","college-baseball"].includes(league);
   let paceAdjust = 1.0;
   let netAdjustA = 0, netAdjustB = 0;
   let usedAdvanced = false;
@@ -13059,8 +13021,8 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   let projA1H = isFinite(aS_pre) && isFinite(bAllowed) ? aS_pre * 0.55 + bAllowed * 0.45 : aS_pre;
   let projB1H = isFinite(bS_pre) && isFinite(aAllowed) ? bS_pre * 0.55 + aAllowed * 0.45 : bS_pre;
 
-  // Advanced stats blend for 1H (half of full-game pace/net effect)
-  const isEspnLeague = ["nba","wnba","wnba_pre","ncaa","ncaaw","nba_gl"].includes(league);
+  // Advanced stats blend for F5 (first 5 innings — PA-based pace adjustment if ESPN data available)
+  const isEspnLeague = ["nba","wnba","wnba_pre","ncaa","ncaaw","nba_gl","mlb","college-baseball"].includes(league);
   if (isEspnLeague) {
     const ctxA = g_massacreFetchContext?.A || {};
     const ctxB = g_massacreFetchContext?.B || {};
@@ -14212,7 +14174,7 @@ if (_localState) {
 
     const league = document.getElementById("leagueSelect")?.value || "";
     const isNba = false;
-    const isNbaOrNcaa = league === "mlb";
+    const isNbaOrNcaa = league === "mlb" || league === "college-baseball";
 
     if (!league) {
       engineDebug("run blocked missing league");
@@ -14829,11 +14791,16 @@ const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
     const isManualLeagueRun = !isNbaOrNcaa;
 
     // Streamlined allowlists — 2H, exotics, margins, race, HT-FT permanently removed
+    // BASEBALL: no quarters — markets are Full Game, F5, Team Totals, and F5 Team Totals only.
+    const baseballAllowedMarkets = new Set(["ft", "h1", "team_a", "team_b", "h1_team_a", "h1_team_b"]);
     const wnbaAllowedMarkets   = new Set(["ft", "h1", "team_a", "team_b", "q1", "q2", "q3", "q4"]);
     const nbaAllowedMarkets    = new Set(["ft", "h1", "team_a", "team_b", "q1", "q2", "q3", "q4", "h1_team_a", "h1_team_b"]);
     const manualAllowedMarkets = new Set(["ft", "h1", "team_a", "team_b", "q1", "q2", "q3", "q4"]);
 
+    const isBaseballRun = league === "mlb" || league === "college-baseball";
+
     const finalPicks = picks.filter(p => {
+      if (isBaseballRun)   return baseballAllowedMarkets.has(p.marketKey);
       if (isWnbaRun)       return wnbaAllowedMarkets.has(p.marketKey);
       if (isNbaOrNcaa)     return nbaAllowedMarkets.has(p.marketKey);
       if (isManualLeagueRun) return manualAllowedMarkets.has(p.marketKey);
@@ -15258,20 +15225,7 @@ if (trackedToSave.length) {
       accordionOpen("leagueSection");
       validateFetchSection();
 
-            // Reset SofaScore manual section
-      const ssInputs = ["ssTeamAName", "ssTeamAId", "ssPasteA", "ssTeamBName", "ssTeamBId", "ssPasteB", "ssTournamentId"];
-      ssInputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = "";
-      });
-      window.__fixtureTournamentId = null;
-      window.__lastEventsA = null;
-      window.__lastEventsB = null;
-      window.__h2hEntryCache = [];
-      const _ssTournamentName = document.getElementById("ssTournamentName");
-      if (_ssTournamentName) _ssTournamentName.textContent = "";
-      const ssStatus = document.getElementById("ssFetchStatus");
-      if (ssStatus) ssStatus.textContent = "";
+
 
       // Reset quarter H2H checkboxes
       ["useQ1H2H", "useQ2H2H", "useQ3H2H", "useQ4H2H"].forEach(id => {
@@ -15312,11 +15266,9 @@ if (trackedToSave.length) {
   resetResultsTable();
 
   const leagueVal = document.getElementById("leagueSelect")?.value || "";
-  const isEspnLeague = leagueVal === "mlb";
-  const isNbaOrNcaa = leagueVal === "mlb";
-  const isWnba = leagueVal === "wnba" || leagueVal === "wnba_pre";
-  const ssSection = document.getElementById("sofascoreManualSection");
-  if (ssSection) ssSection.style.display = (!leagueVal || isEspnLeague) ? "none" : "block";
+  const isEspnLeague = leagueVal === "mlb" || leagueVal === "college-baseball";
+  const isNbaOrNcaa = leagueVal === "mlb" || leagueVal === "college-baseball";
+  const isWnba = false;
 
       document.querySelectorAll(".wrapper input").forEach(i => {
         if (i.type !== "checkbox") i.value = "";
@@ -15369,9 +15321,11 @@ if (trackedToSave.length) {
       const h1MarketElManual = document.getElementById("h1MarketSection");
       if (h1MarketElManual) h1MarketElManual.style.display = leagueVal ? "block" : "none";
 
+      // BASEBALL: quarters don't exist — hide Q1-Q4 market input fields.
+      const isBaseballLeagueChange = leagueVal === "mlb" || leagueVal === "college-baseball";
       ["q1q2MarketSection", "q3q4MarketSection"].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = leagueVal ? "grid" : "none";
+        if (el) el.style.display = (leagueVal && !isBaseballLeagueChange) ? "grid" : "none";
       });
       const highLowQEl = document.getElementById("highLowQMarketSection");
       if (highLowQEl) highLowQEl.style.display = "none";
@@ -16171,7 +16125,7 @@ const headerBtns = '<button onclick="AFDB.copy(this)" style="background:#111;bor
     const _sampleCount = (typeof g_pickVarianceLog !== 'undefined') ? g_pickVarianceLog.length : 0;
     const driftHtml = '<div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;"><span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">\ud83d\udcd0 DRIFT TRACKER</span><span style="color:' + _rmeColor + ';font-size:12px;font-weight:900;">Rolling Mean Error (last 20): ' + _rmeDisplay + '</span><span style="color:#555;font-size:10px;">' + _sampleCount + ' samples logged</span></div>';
 
-panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">\ud83d\udd2c AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div>' + driftHtml + '<div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>\ud83d\udce1 FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows||'<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
+panel.innerHTML = '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">\ud83d\udd2c AUTO-FETCH DEBUG BRAIN (BASEBALL)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div>' + driftHtml + '<div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>\ud83d\udce1 FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' + (logRows||'<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>') + '</div></div></div>';
 
 }
 
@@ -16466,7 +16420,7 @@ function copyTrackerData() {
 
   const lines = [];
   lines.push('==========================================');
-  lines.push('       BB ENGINE: FULL TRACKER REPORT     ');
+  lines.push('       BASEBALL ENGINE: TRACKER REPORT    ');
   lines.push('==========================================');
   lines.push(`Generated    : ${new Date().toLocaleString()}`);
   lines.push(`Model Version: ${currentVersion}`);
@@ -16568,7 +16522,7 @@ function copyTrackerData() {
 function copyConfigsData() {
   const lines = [];
   lines.push('==========================================');
-  lines.push('   BB ENGINE: CONFIG LAB FULL EXPORT     ');
+  lines.push('   BASEBALL ENGINE: CONFIG LAB EXPORT     ');
   lines.push('==========================================');
   lines.push('Generated: ' + new Date().toLocaleString());
   lines.push('');
