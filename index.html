@@ -2413,6 +2413,33 @@ body.dark-mode .tracker-analytics-section-head {
     <div id="injuryContentB"></div>
   </div>
 </div>
+
+<div class="section" id="pitcherSection">
+  <h3>⚾ Starting Pitchers <span style="font-size:11px;color:#aaa;">(boosts projection accuracy — optional)</span></h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+    <div>
+      <label>Team A Starter ERA</label>
+      <input id="teamAERA" placeholder="e.g. 3.50" />
+      <label style="margin-top:4px;">Team A Starter WHIP</label>
+      <input id="teamAWHIP" placeholder="e.g. 1.15" />
+      <small class="muted-note">Season ERA & WHIP for today's starter.</small>
+    </div>
+    <div>
+      <label>Team B Starter ERA</label>
+      <input id="teamBERA" placeholder="e.g. 4.20" />
+      <label style="margin-top:4px;">Team B Starter WHIP</label>
+      <input id="teamBWHIP" placeholder="e.g. 1.28" />
+      <small class="muted-note">Higher ERA = more runs allowed.</small>
+    </div>
+  </div>
+  <div style="margin-top:8px; padding:6px 8px; background:var(--panel-soft); border:1px solid var(--panel-border);">
+    <label style="font-size:11px;font-weight:800;display:flex;align-items:center;gap:6px;color:var(--section-toggle-text);">
+      <input type="checkbox" id="pitcherBullpenMode" />
+      Full-game bullpen adjustment (uses ERA for full 9 innings, not just starter)
+    </label>
+  </div>
+</div>
+
 <div class="section" id="marketSection">
   <h3>Market Lines</h3>
 
@@ -2457,16 +2484,16 @@ body.dark-mode .tracker-analytics-section-head {
 
 </div>
 
-<div class="section" id="teamASection">
-  <h3>Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
+  <div class="section" id="teamASection">
+  <h3>Team A — Last 5 Games ⚾ <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
 
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
     <div>
-      <label id="aFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+      <label id="aFTScoredLabel">Runs Scored — FG <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
       <input id="aFTScored" placeholder="5,3,6,2,4" />
     </div>
     <div id="aFTAllowedSection">
-      <label id="aFTAllowedLabel">FT Allowed</label>
+      <label id="aFTAllowedLabel">Runs Allowed — FG</label>
       <input id="aFTAllowed" placeholder="4,2,5,3,1" />
     </div>
   </div>
@@ -2530,15 +2557,15 @@ body.dark-mode .tracker-analytics-section-head {
 </div>
 
 <div class="section" id="teamBSection">
-  <h3>Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
+  <h3>Team B — Last 5 Games ⚾ <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
 
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
     <div>
-      <label id="bFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+      <label id="bFTScoredLabel">Runs Scored — FG <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
       <input id="bFTScored" placeholder="4,2,5,3,1" />
     </div>
     <div id="bFTAllowedSection">
-      <label id="bFTAllowedLabel">FT Allowed</label>
+      <label id="bFTAllowedLabel">Runs Allowed — FG</label>
       <input id="bFTAllowed" placeholder="5,3,6,2,4" />
     </div>
   </div>
@@ -3970,28 +3997,17 @@ function getLeagueUnderBlockRatio(league) {
 
 
     const LEAGUE_EDGE_THRESHOLDS = {
-  nba:      { ft: 0.055, h1: 0.050 },
-      ncaa:     { ft: 0.060, h1: 0.058 },
-      wnba:     { ft: 0.062, h1: 0.058 },
-      wnba_pre: { ft: 0.062, h1: 0.058 },
-      europe:   { ft: 0.062, h1: 0.059 },
-      asia:     { ft: 0.068, h1: 0.063 },
-      default:  { ft: 0.065, h1: 0.067 }
+  mlb:                { ft: 0.053, h1: 0.053 },
+  "college-baseball": { ft: 0.055, h1: 0.055 },
+      default:            { ft: 0.053, h1: 0.053 }
     };
 
-// Raw point thresholds (edge = projection - line)
-// BASEBALL: thresholds are in RUNS, not points. MLB totals ~8-10 runs; F5 ~4-5 runs.
-// A 0.45-run edge on a 8.5-run line (~5.3%) is a meaningful baseball signal.
+// Raw run thresholds (edge = projection - line) — BASEBALL ENGINE ONLY.
+// MLB totals ~8-10 runs per game; F5 ~4-5 runs. Thresholds are in RUNS, not points.
 const LEAGUE_EDGE_POINT_THRESHOLDS = {
-  nba:      { ft: 12.0, h1: 5.0, team: 6.0, q: 4.0 },
-  wnba:     { ft: 10.0, h1: 5.0, team: 5.0, q: 4.0 },
-  wnba_pre: { ft: 10.0, h1: 5.0, team: 5.0, q: 4.0 },
-  ncaa:     { ft: 8.0,  h1: 4.0, team: 4.0, q: 3.5 },
-  ncaaw:    { ft: 8.0,  h1: 4.0, team: 4.0, q: 3.5 },
-  nba_gl:   { ft: 11.0, h1: 5.0, team: 5.5, q: 4.0 },
-  mlb:               { ft: 0.45, h1: 0.28, team: 0.28, q: 0.20 },
+  mlb:                { ft: 0.45, h1: 0.28, team: 0.28, q: 0.20 },
   "college-baseball": { ft: 0.55, h1: 0.32, team: 0.32, q: 0.22 },
-  default:  { ft: 8.0,  h1: 4.0, team: 4.0, q: 3.5 }
+  default:            { ft: 0.45, h1: 0.28, team: 0.28, q: 0.20 }
 };
 
 function getLeagueEdgePointThreshold(league, marketKey) {
@@ -4035,76 +4051,7 @@ let LEAGUE_BASES = {
   unknown: 8.5
 };
 
-const NBA_2026_TEAM_BASELINES = {
-  ATL: { ortg: 116.1, drtg: 113.7, pace: 101.7, total: 234.5 },
-  BOS: { ortg: 120.8, drtg: 112.7, pace: 94.8,  total: 222.1 },
-  BRK: { ortg: 108.7, drtg: 119.0, pace: 97.1,  total: 221.8 },
-  CHO: { ortg: 119.4, drtg: 114.4, pace: 96.8,  total: 227.2 },
-  CHI: { ortg: 113.0, drtg: 118.1, pace: 102.5, total: 237.8 },
-  CLE: { ortg: 119.2, drtg: 115.1, pace: 99.9,  total: 234.9 },
-  DAL: { ortg: 111.2, drtg: 116.5, pace: 101.7, total: 233.7 },
-  DEN: { ortg: 122.6, drtg: 117.4, pace: 98.4,  total: 239.0 },
-  DET: { ortg: 112.3, drtg: 120.1, pace: 101.8, total: 234.9 },
-  GSW: { ortg: 115.0, drtg: 115.6, pace: 99.0,  total: 229.8 },
-  HOU: { ortg: 118.6, drtg: 113.2, pace: 96.1,  total: 225.2 },
-  IND: { ortg: 110.9, drtg: 118.8, pace: 101.0, total: 232.8 },
-  LAC: { ortg: 117.3, drtg: 116.1, pace: 96.5,  total: 226.4 },
-  LAL: { ortg: 118.2, drtg: 116.4, pace: 98.3,  total: 230.9 },
-  MEM: { ortg: 112.9, drtg: 118.8, pace: 101.3, total: 235.4 },
-  MIA: { ortg: 116.7, drtg: 114.5, pace: 103.4, total: 239.4 },
-  MIL: { ortg: 112.9, drtg: 119.3, pace: 97.6,  total: 227.4 },
-  MIN: { ortg: 116.8, drtg: 113.5, pace: 100.5, total: 232.6 },
-  NOP: { ortg: 114.4, drtg: 118.9, pace: 100.3, total: 235.5 },
-  NYK: { ortg: 119.8, drtg: 113.3, pace: 96.8,  total: 226.6 },
-  OKC: { ortg: 119.2, drtg: 111.8, pace: 99.6,  total: 231.0 },
-  ORL: { ortg: 114.9, drtg: 114.3, pace: 100.0, total: 230.8 },
-  PHI: { ortg: 115.4, drtg: 115.5, pace: 99.4,  total: 232.0 },
-  PHO: { ortg: 115.4, drtg: 113.9, pace: 97.2,  total: 223.7 },
-  POR: { ortg: 114.4, drtg: 114.7, pace: 100.5, total: 231.3 },
-  SAC: { ortg: 111.4, drtg: 121.5, pace: 99.2,  total: 232.0 },
-  SAS: { ortg: 114.5, drtg: 117.6, pace: 98.3,  total: 228.8 },
-  TOR: { ortg: 115.9, drtg: 113.0, pace: 98.4,  total: 226.4 },
-  UTA: { ortg: 114.1, drtg: 122.3, pace: 102.3, total: 243.6 },
-  WAS: { ortg: 111.0, drtg: 122.7, pace: 101.4, total: 237.8 }
-};
-
-const _NBA_NAME_TO_ABV = {
-  "atlanta hawks": "ATL", "boston celtics": "BOS", "brooklyn nets": "BRK",
-  "charlotte hornets": "CHO", "chicago bulls": "CHI", "cleveland cavaliers": "CLE",
-  "dallas mavericks": "DAL", "denver nuggets": "DEN", "detroit pistons": "DET",
-  "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
-  "los angeles clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
-  "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN",
-  "new orleans pelicans": "NOP", "new york knicks": "NYK",
-  "oklahoma city thunder": "OKC", "orlando magic": "ORL",
-  "philadelphia 76ers": "PHI", "phoenix suns": "PHO", "portland trail blazers": "POR",
-  "sacramento kings": "SAC", "san antonio spurs": "SAS",
-  "toronto raptors": "TOR", "utah jazz": "UTA", "washington wizards": "WAS",
-  "hawks": "ATL", "celtics": "BOS", "nets": "BRK", "hornets": "CHO", "bulls": "CHI",
-  "cavaliers": "CLE", "cavs": "CLE", "mavericks": "DAL", "mavs": "DAL",
-  "nuggets": "DEN", "pistons": "DET", "warriors": "GSW", "rockets": "HOU",
-  "pacers": "IND", "clippers": "LAC", "lakers": "LAL", "grizzlies": "MEM",
-  "heat": "MIA", "bucks": "MIL", "timberwolves": "MIN", "wolves": "MIN",
-  "pelicans": "NOP", "knicks": "NYK", "thunder": "OKC", "magic": "ORL",
-  "76ers": "PHI", "sixers": "PHI", "suns": "PHO", "trail blazers": "POR",
-  "blazers": "POR", "kings": "SAC", "spurs": "SAS", "raptors": "TOR",
-  "jazz": "UTA", "wizards": "WAS",
-  "atlanta": "ATL", "boston": "BOS", "brooklyn": "BRK", "charlotte": "CHO",
-  "chicago": "CHI", "cleveland": "CLE", "dallas": "DAL", "denver": "DEN",
-  "detroit": "DET", "golden state": "GSW", "houston": "HOU", "indiana": "IND",
-  "la clippers": "LAC", "la lakers": "LAL", "memphis": "MEM", "miami": "MIA",
-  "milwaukee": "MIL", "minnesota": "MIN", "new orleans": "NOP", "new york": "NYK",
-  "oklahoma city": "OKC", "orlando": "ORL", "philadelphia": "PHI",
-  "phoenix": "PHO", "portland": "POR", "sacramento": "SAC", "san antonio": "SAS",
-  "toronto": "TOR", "utah": "UTA", "washington": "WAS",
-  "atl": "ATL", "bos": "BOS", "brk": "BRK", "cho": "CHO", "chi": "CHI",
-  "cle": "CLE", "dal": "DAL", "den": "DEN", "det": "DET", "gsw": "GSW",
-  "hou": "HOU", "ind": "IND", "lac": "LAC", "lal": "LAL", "mem": "MEM",
-  "mia": "MIA", "mil": "MIL", "min": "MIN", "nop": "NOP", "nyk": "NYK",
-  "okc": "OKC", "orl": "ORL", "phi": "PHI", "pho": "PHO", "por": "POR",
-  "sac": "SAC", "sas": "SAS", "tor": "TOR", "uta": "UTA", "was": "WAS"
-};
-
+// Basketball team baselines and abbreviation maps removed — baseball engine only.
 function getNBASeasonBaseline(teamName, league) {
   return null;
 }
@@ -4221,21 +4168,10 @@ const LEAGUE_FETCH_RULES = {
       "red sox":2,"boston":2,"reds":17,"cincinnati":17,"rockies":27,"colorado":27,"royals":7,"kansas city":7,"tigers":12,"detroit":12,"twins":9,"minnesota":9,"white sox":4,"chicago white sox":4,"yankees":10,"new york yankees":10
     };
 
-    const NCAA_TEAM_MAP = {
-      "duke":150,"kentucky":96,"kansas":2305,"unc":153,"north carolina":153,"uconn":41,"connecticut":41,
-      "arizona":12,"gonzaga":2250,"purdue":2509,"ucla":26,"houston":248,"baylor":239,"tennessee":2633,
-      "alabama":333,"auburn":2,"michigan state":127,"wisconsin":275,"illinois":356,"texas":251,
-      "arkansas":8,"memphis":235,"florida":57,"virginia":258,"villanova":222,"marquette":269,
-      "creighton":156,"xavier":2752,"saint marys":2608,"st marys":2608,"san diego state":21,
-      "new mexico":167,"dayton":2168,"byu":252,"iowa state":66,"texas tech":2641,"texas a&m":245,
-      "texas a and m":245,"missouri":142,"indiana":84,"ohio state":194,"michigan":130,"usc":30,"oregon":2483,
-      "nevada":4,"boise state":68,"colorado state":36,"utah state":328,"providence":2507,"seton hall":2550,
-      "st johns":2599,"saint johns":2599,"wake forest":154,"clemson":228,"florida atlantic":2226,
-      "fau":2226,"miami":2390,"texas christian":2628,"tcu":2628,"nc state":152,"north carolina state":152,
-      "louisville":97,"syracuse":183,"notre dame":87,"georgetown":46,"georgia":61,"ole miss":145,
-      "mississippi state":344,"lsu":99,"vanderbilt":238,"butler":2086,"belmont":2057,"drake":2181,
-      "oregon state":204,"washington":264,"washington state":265
-    };
+    // College baseball teams — ESPN IDs resolved via search API.
+    // Basketball NCAA IDs removed (different sport, different IDs).
+    // Add manual overrides here only if API search fails for a specific program.
+    const NCAA_TEAM_MAP = {};
 
     const _schedCache = new Map();
     const _summaryCache = new Map();
@@ -6156,6 +6092,7 @@ function buildCompactFetchStatus(messages = [], fetchAuditIssues = []) {
   [
     "leagueSection",
     "espnSection",
+    "pitcherSection",
     "marketSection",
     "teamASection",
     "teamBSection",
@@ -6171,6 +6108,7 @@ function buildCompactFetchStatus(messages = [], fetchAuditIssues = []) {
     function lockFrom(startId) {
   const order = [
     "espnSection",
+    "pitcherSection",
     "marketSection",
     "teamASection",
     "teamBSection",
@@ -10493,6 +10431,102 @@ function computeLineupQuality(roster, injuryMeta) {
   return 0.5;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// BASEBALL PITCHER ENGINE
+// Starting pitcher ERA is the dominant variable in baseball run totals.
+// The opposing team's ERA determines how many runs the batting team scores.
+// ═══════════════════════════════════════════════════════════════
+
+const BASEBALL_LEAGUE_AVG_ERA = {
+  mlb:                4.00,  // MLB 2024-2025 season average
+  "college-baseball": 4.80,  // NCAA college baseball average
+  default:            4.10
+};
+
+const BASEBALL_LEAGUE_AVG_WHIP = {
+  mlb:                1.28,
+  "college-baseball": 1.38,
+  default:            1.30
+};
+
+function getLeagueAvgERA(league) {
+  return BASEBALL_LEAGUE_AVG_ERA[String(league || "default")] ||
+         BASEBALL_LEAGUE_AVG_ERA.default;
+}
+
+function getPitcherERA(side) {
+  const id = side === "A" ? "teamAERA" : "teamBERA";
+  const val = parseFloat(document.getElementById(id)?.value?.trim() || "");
+  return isFinite(val) && val > 0 ? val : null;
+}
+
+function getPitcherWHIP(side) {
+  const id = side === "A" ? "teamAWHIP" : "teamBWHIP";
+  const val = parseFloat(document.getElementById(id)?.value?.trim() || "");
+  return isFinite(val) && val > 0 ? val : null;
+}
+
+// Returns a run-scoring multiplier applied to the OPPOSING team's projection.
+// Higher ERA pitcher = opponent scores MORE runs (factor > 1.0).
+// Lower ERA pitcher  = opponent scores FEWER runs (factor < 1.0).
+//
+// scope "ft" = full game (starter ~5-6 inn + bullpen).
+// scope "f5" = first 5 innings only (starter dominates — stronger ERA influence).
+//
+// Full game formula:  factor = 0.70 + 0.30 * (ERA / leagueAvgERA)
+//   ERA=2.00, avg=4.00 → 0.70 + 0.30*0.50 = 0.85  (−15% runs) ✓
+//   ERA=4.00, avg=4.00 → 0.70 + 0.30*1.00 = 1.00  (neutral)   ✓
+//   ERA=6.00, avg=4.00 → 0.70 + 0.30*1.50 = 1.15  (+15% runs) ✓
+//
+// F5 formula:         factor = 0.52 + 0.48 * (ERA / leagueAvgERA)
+//   ERA=2.00, avg=4.00 → 0.52 + 0.48*0.50 = 0.76  (−24% runs) ✓
+//   ERA=4.00, avg=4.00 → 0.52 + 0.48*1.00 = 1.00  (neutral)   ✓
+//   ERA=6.00, avg=4.00 → 0.52 + 0.48*1.50 = 1.24  (+24% runs) ✓
+function getBaseballPitcherFactor(pitcherERA, league, scope) {
+  if (!isFinite(pitcherERA) || pitcherERA <= 0) return 1.0;
+  const avgERA = getLeagueAvgERA(league);
+  if (avgERA <= 0) return 1.0;
+  const share = scope === "f5" ? 0.48 : 0.30;
+  const factor = (1 - share) + share * (pitcherERA / avgERA);
+  return clampNumber(factor, scope === "f5" ? 0.66 : 0.76, scope === "f5" ? 1.40 : 1.28);
+}
+
+// WHIP factor as secondary signal — supplements ERA when both are entered.
+// Returns a small ±5% modifier on top of ERA adjustment.
+function getBaseballWHIPFactor(pitcherWHIP, league) {
+  if (!isFinite(pitcherWHIP) || pitcherWHIP <= 0) return 1.0;
+  const avgWHIP = BASEBALL_LEAGUE_AVG_WHIP[String(league || "default")] ||
+                  BASEBALL_LEAGUE_AVG_WHIP.default;
+  const raw = 0.95 + 0.05 * (pitcherWHIP / avgWHIP);
+  return clampNumber(raw, 0.94, 1.06);
+}
+
+function applyBaseballPitcherAdjustment(projA, projB, league, scope) {
+  // Team A's runs scored against Team B's pitcher (eraB suppresses A's offense)
+  // Team B's runs scored against Team A's pitcher (eraA suppresses B's offense)
+  const eraA  = getPitcherERA("A");
+  const eraB  = getPitcherERA("B");
+  const whipA = getPitcherWHIP("A");
+  const whipB = getPitcherWHIP("B");
+
+  let adjA = projA;
+  let adjB = projB;
+
+  if (eraB !== null && isFinite(adjA)) {
+    adjA *= getBaseballPitcherFactor(eraB, league, scope);
+    if (whipB !== null) adjA *= getBaseballWHIPFactor(whipB, league);
+  }
+  if (eraA !== null && isFinite(adjB)) {
+    adjB *= getBaseballPitcherFactor(eraA, league, scope);
+    if (whipA !== null) adjB *= getBaseballWHIPFactor(whipA, league);
+  }
+
+  return { adjA, adjB };
+}
+// ═══════════════════════════════════════════════════════════════
+// END PITCHER ENGINE
+// ═══════════════════════════════════════════════════════════════
+
 function getConfidenceGradeThresholds() {
   // [FIX: calibrated grade thresholds] Returns score cutoffs written by
   // calibrateMassacreCoefficients() after empirical win-rate analysis, or safe
@@ -11033,13 +11067,13 @@ function clearH2HFields() {
 
     function updateSectionLocks() {
   const league = document.getElementById("leagueSelect")?.value || "";
-  const isNbaOrNcaa = league === "nba" || league === "wnba" || league === "wnba_pre" || league === "ncaa";
+  // Baseball engine: MLB and college-baseball both use ESPN auto-fetch.
+  const isBaseballLeague = league === "mlb" || league === "college-baseball";
 
   if (!league) {
-    // LOCK: "intelSection" removed — this element does not exist in the HTML.
-    // The dead DOM query ran on every league change returning null each time, wasting cycles.
     [
       "espnSection",
+      "pitcherSection",
       "marketSection",
       "teamASection",
       "teamBSection",
@@ -11052,8 +11086,10 @@ function clearH2HFields() {
   unlockSection("teamASection");
   unlockSection("teamBSection");
   unlockSection("h2hSection");
+  unlockSection("pitcherSection");
 
-  if (isNbaOrNcaa) unlockSection("espnSection");
+  // LOCK: Only baseball leagues unlock ESPN auto-fetch.
+  if (isBaseballLeague) unlockSection("espnSection");
   else lockSection("espnSection");
 }
 
@@ -12589,6 +12625,9 @@ async function fetchESPN() {
       g_lastFetchedTeams.A = normalizeTeamName(teamAName);
       g_lastFetchedTeams.B = normalizeTeamName(teamBName);
       updateSectionLocks();
+      // Open the pitcher and market sections after a successful fetch.
+      openSection("pitcherSection");
+      openSection("marketSection");
     } else {
       // Explicit failure notification – force error status and disable fetch button? No, but show clear message.
       const missingMsg = `⚠️ FETCH INCOMPLETE: ${teamAName} has only ${aGameCount} games, ${teamBName} has ${bGameCount} games. Full model requires 5 each. Some markets will be NO PLAY. Click "Fetch Stats" again if data looks wrong.`;
@@ -12938,6 +12977,17 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   let aS = isFinite(aS_pre) && isFinite(bAllowed) ? aS_pre * 0.55 + bAllowed * 0.45 : aS_pre;
   let bS = isFinite(bS_pre) && isFinite(aAllowed) ? bS_pre * 0.55 + aAllowed * 0.45 : bS_pre;
 
+  // ── BASEBALL PITCHER ADJUSTMENT (Full Game) ──────────────────────────────
+  // Opposing pitcher ERA determines how many runs the batting team projects.
+  // Applied after the offense/defense blend but before H2H and pace adjustments
+  // so pitcher data refines — not overrides — historical run-scoring patterns.
+  if (league === "mlb" || league === "college-baseball") {
+    const _pitcherAdj = applyBaseballPitcherAdjustment(aS, bS, league, "ft");
+    aS = isFinite(_pitcherAdj.adjA) ? _pitcherAdj.adjA : aS;
+    bS = isFinite(_pitcherAdj.adjB) ? _pitcherAdj.adjB : bS;
+  }
+  // ── END PITCHER ADJUSTMENT ────────────────────────────────────────────────
+
   // --- ADVANCED STATS BLEND (ESPN auto-fetch leagues, including baseball PA/pace) ---
   const isEspnLeague = ["nba","wnba","wnba_pre","ncaa","ncaaw","nba_gl","mlb","college-baseball"].includes(league);
   let paceAdjust = 1.0;
@@ -13042,6 +13092,16 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
       projB1H *= (1 + clampNumber(netB / 200, -0.10, 0.10));
     }
   }
+
+  // ── BASEBALL PITCHER ADJUSTMENT (F5 — First 5 Innings) ───────────────────
+  // F5 is almost entirely determined by the starting pitcher.
+  // ERA factor is stronger here (0.48 share vs 0.30 for FT).
+  if (league === "mlb" || league === "college-baseball") {
+    const _f5PitcherAdj = applyBaseballPitcherAdjustment(projA1H, projB1H, league, "f5");
+    projA1H = isFinite(_f5PitcherAdj.adjA) ? _f5PitcherAdj.adjA : projA1H;
+    projB1H = isFinite(_f5PitcherAdj.adjB) ? _f5PitcherAdj.adjB : projB1H;
+  }
+  // ── END F5 PITCHER ADJUSTMENT ─────────────────────────────────────────────
 
   const aH2H = getH2HSeries("A", "h1", parsed);
   const bH2H = getH2HSeries("B", "h1", parsed);
@@ -14173,8 +14233,8 @@ if (_localState) {
     table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
 
     const league = document.getElementById("leagueSelect")?.value || "";
-    const isNba = false;
-    const isNbaOrNcaa = league === "mlb" || league === "college-baseball";
+    // Baseball engine — only MLB and college-baseball are supported.
+    const isBaseballRun = league === "mlb" || league === "college-baseball";
 
     if (!league) {
       engineDebug("run blocked missing league");
@@ -14375,11 +14435,9 @@ const h1Calc = compute1HProjection({
         let h1aPick = getPick(h1aEdge, finalLines.h1aLine, league, "h1", { teamSc: h1Calc.aS1 });
         let h1bPick = getPick(h1bEdge, finalLines.h1bLine, league, "h1", { teamSc: h1Calc.bS1 });
 
-        const hasLevel2 = (g_massacreFetchContext.A.ortg10?.length >= 1) && 
-                          (g_massacreFetchContext.B.ortg10?.length >= 1);
-        const hasManual1H = (safeArr(parsed.a1HScored)?.length >= 2) && (safeArr(parsed.b1HScored)?.length >= 2);
-
-        if ((league === "nba" || league === "wnba" || league === "wnba_pre") && !hasLevel2 && !hasManual1H) {
+        // Baseball: F5 (h1) requires at least a thin sample to produce a pick.
+        // Unlike basketball, there is no pace-based Level-2 fallback — form data is primary.
+        if (h1Calc.h1SampleTier === "insufficient") {
           h1Pick = "NO PLAY";
           h1Calc.projA1H = NaN;
           h1Calc.projB1H = NaN;
@@ -14787,23 +14845,12 @@ const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
       });
     }
 
-    const isWnbaRun = league === "wnba" || league === "wnba_pre";
-    const isManualLeagueRun = !isNbaOrNcaa;
-
-    // Streamlined allowlists — 2H, exotics, margins, race, HT-FT permanently removed
-    // BASEBALL: no quarters — markets are Full Game, F5, Team Totals, and F5 Team Totals only.
+    // Baseball market allowlist: Full Game, F5, Team Totals, F5 Team Totals.
+    // No quarters — baseball innings are not split into quarters.
     const baseballAllowedMarkets = new Set(["ft", "h1", "team_a", "team_b", "h1_team_a", "h1_team_b"]);
-    const wnbaAllowedMarkets   = new Set(["ft", "h1", "team_a", "team_b", "q1", "q2", "q3", "q4"]);
-    const nbaAllowedMarkets    = new Set(["ft", "h1", "team_a", "team_b", "q1", "q2", "q3", "q4", "h1_team_a", "h1_team_b"]);
-    const manualAllowedMarkets = new Set(["ft", "h1", "team_a", "team_b", "q1", "q2", "q3", "q4"]);
-
-    const isBaseballRun = league === "mlb" || league === "college-baseball";
 
     const finalPicks = picks.filter(p => {
-      if (isBaseballRun)   return baseballAllowedMarkets.has(p.marketKey);
-      if (isWnbaRun)       return wnbaAllowedMarkets.has(p.marketKey);
-      if (isNbaOrNcaa)     return nbaAllowedMarkets.has(p.marketKey);
-      if (isManualLeagueRun) return manualAllowedMarkets.has(p.marketKey);
+      if (isBaseballRun) return baseballAllowedMarkets.has(p.marketKey);
       return ["ft", "team_a", "team_b"].includes(p.marketKey);
     });
 
@@ -15266,21 +15313,21 @@ if (trackedToSave.length) {
   resetResultsTable();
 
   const leagueVal = document.getElementById("leagueSelect")?.value || "";
-  const isEspnLeague = leagueVal === "mlb" || leagueVal === "college-baseball";
-  const isNbaOrNcaa = leagueVal === "mlb" || leagueVal === "college-baseball";
-  const isWnba = false;
+  // Baseball engine: only MLB and college-baseball use ESPN auto-fetch.
+  const isBaseballLeague = leagueVal === "mlb" || leagueVal === "college-baseball";
+  // Baseball has no quarters (no innings-by-quarter market).
+  const showQuarterSections = false;
 
       document.querySelectorAll(".wrapper input").forEach(i => {
         if (i.type !== "checkbox") i.value = "";
         else i.checked = false;
         i.style.borderColor = "";
       });
-      
+
       const dash = document.getElementById("syndicateDashboard");
       if (dash) dash.remove();
 
       const league = leagueVal;
-      const isQs = league === "nba" || league === "wnba" || league === "wnba_pre" || league === "nba_gl";
 
       setFieldValues(FIELD_GROUPS.periodInputs);
 
@@ -15293,15 +15340,16 @@ if (trackedToSave.length) {
         ftH1MarketRow.style.gridTemplateColumns = "1fr 1fr";
       }
 
-      document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
-      
-      // ISSUE 16 FIX [CLOSED]: qMarketsSection does not exist in the HTML — the actual
-      // quarter market sections are q1q2MarketSection, q3q4MarketSection, and
-      // highLowQMarketSection, all correctly handled by the array loop below.
-      // These two dead lines are removed. DO NOT re-add them.
-      document.getElementById("aQSection").style.display = isQs || !isNbaOrNcaa ? "block" : "none";
-      document.getElementById("bQSection").style.display = isQs || !isNbaOrNcaa ? "block" : "none";
+      // Show/hide ESPN section and pitcher section for baseball leagues.
+      document.getElementById("espnSection").style.display = isBaseballLeague ? "block" : "none";
+      const _pitcherSectionEl = document.getElementById("pitcherSection");
+      if (_pitcherSectionEl) _pitcherSectionEl.style.display = isBaseballLeague ? "block" : "none";
 
+      // Baseball has no quarter sections — always hidden.
+      document.getElementById("aQSection").style.display = "none";
+      document.getElementById("bQSection").style.display = "none";
+
+      // F5 (first 5 innings) sections — always shown for baseball when a league is selected.
       ["a1HSection", "b1HSection", "h2h1HSection"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = leagueVal ? "block" : "none";
@@ -15311,21 +15359,18 @@ if (trackedToSave.length) {
         if (el) el.style.display = "none";
       });
       const h2hQ = document.getElementById("h2hQSection");
-      if (h2hQ) h2hQ.style.display = (isQs && isNbaOrNcaa) || !isNbaOrNcaa ? "block" : "none";
-      
+      if (h2hQ) h2hQ.style.display = "none"; // No quarters in baseball
+
       const h1MarketEl = document.getElementById("h1MarketSection");
       if (h1MarketEl) h1MarketEl.style.display = leagueVal ? "block" : "none";
+      // F5 team totals — shown for baseball.
       const h1TeamEl = document.getElementById("h1TeamMarketSection");
-      if (h1TeamEl) h1TeamEl.style.display = (isNbaOrNcaa && !isWnba) ? "grid" : "none";
+      if (h1TeamEl) h1TeamEl.style.display = isBaseballLeague ? "grid" : "none";
 
-      const h1MarketElManual = document.getElementById("h1MarketSection");
-      if (h1MarketElManual) h1MarketElManual.style.display = leagueVal ? "block" : "none";
-
-      // BASEBALL: quarters don't exist — hide Q1-Q4 market input fields.
-      const isBaseballLeagueChange = leagueVal === "mlb" || leagueVal === "college-baseball";
+      // Baseball: quarters don't exist — hide Q1-Q4 market input fields.
       ["q1q2MarketSection", "q3q4MarketSection"].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = (leagueVal && !isBaseballLeagueChange) ? "grid" : "none";
+        if (el) el.style.display = "none";
       });
       const highLowQEl = document.getElementById("highLowQMarketSection");
       if (highLowQEl) highLowQEl.style.display = "none";
@@ -15334,19 +15379,6 @@ if (trackedToSave.length) {
         const el = document.getElementById(id);
         if (el) el.style.display = "none";
       });
-
-              if (!isNbaOrNcaa) {
-          ["aAutoTag", "bAutoTag", "h2hAutoTag"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = "none";
-          });
-
-          syncH2HCheckbox("h1", false);
-          syncH2HCheckbox("q1", false);
-          syncH2HCheckbox("q2", false);
-          syncH2HCheckbox("q3", false);
-          syncH2HCheckbox("q4", false);
-        }
 
         ["aVenueSplitWrapper", "bVenueSplitWrapper"].forEach(id => {
           const el = document.getElementById(id);
@@ -15383,7 +15415,7 @@ if (trackedToSave.length) {
         }
 
         updateSectionLocks();
-        if (isNbaOrNcaa) { accordionOpen("espnSection"); loadFixtures(0); }
+        if (isBaseballLeague) { accordionOpen("espnSection"); loadFixtures(0); }
         else accordionOpen("marketSection");
         validateFetchSection();
     }
