@@ -2444,7 +2444,7 @@ body.dark-mode .tracker-analytics-section-head {
   <h3>Market Lines</h3>
 
   <div id="ftH1MarketRow" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-    <div><label id="ftMarketLabel">FT Total</label><input id="ftMarket" placeholder="7.5 - 9.5" /></div>
+    <div><label id="ftMarketLabel">Game Total (O/U)</label><input id="ftMarket" placeholder="7.5 - 9.5" /></div>
     <div id="h1MarketSection"><label>F5 Total</label><input id="h1Market" placeholder="3.5 - 4.5" /></div>
   </div>
 
@@ -2466,8 +2466,8 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
 
   <div id="h1TeamMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>1H Team A</label><input id="h1TeamAMarket" placeholder="52.5" /></div>
-    <div><label>1H Team B</label><input id="h1TeamBMarket" placeholder="53.5" /></div>
+    <div><label>F5 Team A</label><input id="h1TeamAMarket" placeholder="2.0 - 3.0" /></div>
+    <div><label>F5 Team B</label><input id="h1TeamBMarket" placeholder="2.0 - 3.0" /></div>
   </div>
 
   <div id="highLowQMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
@@ -2631,7 +2631,7 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="section" id="h2hSection">
   <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2022+, decay-weighted, extra-innings stripped)</span></h3>
 
-  <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" /> Use FT H2H (min 2 games)</label>
+  <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" /> Use Full Game H2H (min 2 games)</label>
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
     <input id="aFTH2H" placeholder="5,3,6,2,4" />
     <input id="bFTH2H" placeholder="4,2,5,3,1" />
@@ -2957,7 +2957,7 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
       const evTid = ev?.tournament?.uniqueTournament?.id;
       return evTid != null && String(evTid) === tidStr;
     });
-    const crossBlocked = basketballEvents.length - competitionEvents.length;
+    const crossBlocked = baseballEvents.length - competitionEvents.length;
     if (crossBlocked > 0) {
       engineDebug("ssProcessTeamEvents: blocked " + crossBlocked + " cross-competition events", { label, fixtureTournamentId, kept: competitionEvents.length });
     }
@@ -2985,24 +2985,24 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
       if (myFT > 0) {
         scoredList.push(myFT);
         allowedList.push(oppFT);
+        // Baseball: SofaScore periods 1-9 = innings 1-9
         const myQ1 = Number(myScore.period1 ?? 0);
         const myQ2 = Number(myScore.period2 ?? 0);
         const myQ3 = Number(myScore.period3 ?? 0);
         const myQ4 = Number(myScore.period4 ?? 0);
+        const myQ5 = Number(myScore.period5 ?? 0);
         const oppQ1 = Number(oppScore.period1 ?? 0);
         const oppQ2 = Number(oppScore.period2 ?? 0);
         const oppQ3 = Number(oppScore.period3 ?? 0);
         const oppQ4 = Number(oppScore.period4 ?? 0);
-            if (myQ1 + myQ2 + myQ3 + myQ4 > 0) {
-      q1ScoredList.push(myQ1); q2ScoredList.push(myQ2);
-      q3ScoredList.push(myQ3); q4ScoredList.push(myQ4);
-      q1AllowedList.push(oppQ1); q2AllowedList.push(oppQ2);
-      q3AllowedList.push(oppQ3); q4AllowedList.push(oppQ4);
-      if (myQ1 + myQ2 > 0) {
-        h1ScoredList.push(myQ1 + myQ2);
-        h1AllowedList.push(oppQ1 + oppQ2);
-      }
-    }
+        const oppQ5 = Number(oppScore.period5 ?? 0);
+        // Baseball F5 = innings 1–5 summed
+        const myF5  = myQ1 + myQ2 + myQ3 + myQ4 + myQ5;
+        const oppF5 = oppQ1 + oppQ2 + oppQ3 + oppQ4 + oppQ5;
+        if (myF5 + oppF5 > 0) {
+          h1ScoredList.push(myF5);
+          h1AllowedList.push(oppF5);
+        }
       }
       engineDebug("ssProcessTeamEvents overall match #" + (idx + 1), { myFT, oppFT, isHome });
     }
@@ -3632,7 +3632,7 @@ const MODEL_TUNING = {
   anchorEnabled: { ft: true, h1: true, h2: true, team: true },
   anchorScale: { ft: 0.75, h1: 0.75, h2: 0.75, team: 0.85 },
   h2hMaxWeight: 0.30,
-  recencyWeights: [1.35, 1.20, 1.00, 0.85, 0.70]
+  recencyWeights: [1.0, 1.0, 1.0, 1.0, 1.0]
 };
 
 // ========== RETROSPECTIVE TUNING GRID ==========
@@ -4076,11 +4076,11 @@ function getLeagueH1Ratio(league) {
 const LEAGUE_CONFIG_MAP = {};
 
 function getLeagueConfig(league) {
-  // League configs removed per spec – return minimal neutral object
+  // Baseball engine: return baseball-calibrated values
   return {
-    scoringBaseline: 160,
-    volatilityLimit: 12,
-    paceBase:        74,
+    scoringBaseline: LEAGUE_BASES[league] || 8.5,
+    volatilityLimit: LEAGUE_VOL_LIMITS[league] || 3,
+    paceBase:        LEAGUE_PACE_BASES[league] || 38,
     h1Ratio:         0.5,
     homeEdge:        0
   };
@@ -4411,7 +4411,7 @@ const TRACKER_SAVE_DEBOUNCE_MS = 10000;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
 const TRACKER_NETWORK_TIMEOUT_MS = BB_CONFIG.timeouts.fetch;
-const TRACKER_FIXED_USER_KEY = "THE_BET_CEO_KEY_XOOX";
+const TRACKER_FIXED_USER_KEY = "The_bet_ceo_keyzz";
 const ENGINE_MODEL_VERSION = "engine_v2_final";
 const TRACKER_LEARNING_ENABLED = true;
 
@@ -6924,6 +6924,15 @@ function secondsToClock(secs) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+// Baseball-aware period label helper
+function getPeriodLabel(league, period, regulationPeriods) {
+  const isBaseball = (league === "mlb" || league === "college-baseball");
+  if (isBaseball) return `INN${period}`;
+  const regP = Number(regulationPeriods) || 4;
+  if (period <= regP) return `Q${period}`;
+  const ot = period - regP;
+  return ot === 1 ? "OT" : `OT${ot}`;
+}
 function _tickLiveClocks() {
   if (document.hidden) return;
   if (g_liveGameStatus.size === 0) { stopLiveClockTicker(); return; }
@@ -6961,7 +6970,7 @@ function _tickLiveClocks() {
               const _regP = LEAGUE_FETCH_RULES[info.league || ""]?.regulationPeriods ?? 4;
               const _p = Number(info.period || 0);
               if (_p > 0 && _p < _regP) {
-                el.textContent = `Q${_p} Break`;
+                el.textContent = `${getPeriodLabel(info.league, _p, _regP)} Break`;
               } else {
                 el.textContent = "Settling";
                 if (!info._expiredAt) {
@@ -7869,10 +7878,12 @@ function renderTrackedPicks() {
       const isZombie = gameTs > 0 && (Date.now() - gameTs) > (36 * 60 * 60 * 1000);
       const _liveClockLabel = _liveInfo
         ? (_liveInfo.clock === "HALF" ? "HALF" : (() => {
-            const _regP = LEAGUE_FETCH_RULES[_liveInfo.league || ""]?.regulationPeriods ?? 4;
+            const _regP = LEAGUE_FETCH_RULES[_liveInfo.league || ""]?.regulationPeriods ?? 9;
             const _p = Number(_liveInfo.period || 0);
             if (_p === 0) return "LIVE";
-            const _pLabel = _p <= _regP ? `Q${_p}` : (_p - _regP === 1 ? "OT" : `OT${_p - _regP}`);
+            const _isBaseballLive = ["mlb","college-baseball"].includes(_liveInfo.league || "");
+            if (_isBaseballLive) return `INN${_p}`;
+            const _pLabel = getPeriodLabel(_liveInfo.league, _p, _regP);
             return `${_pLabel} ${_liveInfo.clock}`;
           })())
         : null;
@@ -7882,12 +7893,13 @@ function renderTrackedPicks() {
         : '';
       const _liveBlock = _liveClockLabel
         ? (() => {
-            const _regP2 = LEAGUE_FETCH_RULES[_liveInfo.league || ""]?.regulationPeriods ?? 4;
+            const _regP2 = LEAGUE_FETCH_RULES[_liveInfo.league || ""]?.regulationPeriods ?? 9;
             const _curP2 = Number(_liveInfo.period || 0);
             const _qH2 = _liveInfo.qScores?.home || [];
             const _qA2 = _liveInfo.qScores?.away || [];
-            const _maxQ2 = Math.min(_curP2, _regP2, 4);
-            const _clockOnly = _liveClockLabel === "HALF" ? "HALF" : _liveClockLabel.replace(/^(Q\d+|OT\d*)\s+/i, '');
+            const _isBaseballGame = ["mlb","college-baseball"].includes(_liveInfo.league || "");
+            const _maxQ2 = Math.min(_curP2, _regP2, _isBaseballGame ? 9 : 4);
+            const _clockOnly = _isBaseballGame ? "" : (_liveClockLabel === "HALF" ? "HALF" : _liveClockLabel.replace(/^(Q\d+|INN\d+|OT\d*)\s+/i, ''));
             const safeClock = escapeHtml(_clockOnly);
             const homeTotal = isFinite(_liveInfo.homeScore) ? Math.round(_liveInfo.homeScore) : 0;
             const awayTotal = isFinite(_liveInfo.awayScore) ? Math.round(_liveInfo.awayScore) : 0;
@@ -7896,10 +7908,11 @@ function renderTrackedPicks() {
               const _qHv = Number(_qH2[_qi]);
               const _qAv = Number(_qA2[_qi]);
               if (isFinite(_qHv) && isFinite(_qAv) && (_qHv > 0 || _qAv > 0)) {
-                _qRowsHtml += `<div style="font-size:7px;font-weight:900;line-height:1.25;color:var(--text);white-space:nowrap;letter-spacing:0;">Q${_qi+1}<span style="display:inline-block;min-width:13px;text-align:right;">${Math.round(_qHv)}</span>:<span style="display:inline-block;min-width:13px;">${Math.round(_qAv)}</span></div>`;
+                const _periodRowLabel = _isBaseballGame ? `INN${_qi+1}` : `Q${_qi+1}`;
+                _qRowsHtml += `<div style="font-size:7px;font-weight:900;line-height:1.25;color:var(--text);white-space:nowrap;letter-spacing:0;">${_periodRowLabel}<span style="display:inline-block;min-width:13px;text-align:right;">${Math.round(_qHv)}</span>:<span style="display:inline-block;min-width:13px;">${Math.round(_qAv)}</span></div>`;
               }
             }
-            return `<div style="color:var(--muted);font-size:8px;font-weight:900;line-height:1.0;letter-spacing:0.3px;margin-bottom:1px;">LIVE</div><div style="font-size:12px;font-weight:900;line-height:1.2;margin-bottom:2px;color:var(--tracker-strong);">${homeTotal} : ${awayTotal}</div><div style="font-size:6px;font-weight:800;line-height:1.1;margin-bottom:1px;color:var(--muted);white-space:nowrap;"><span style="font-size:5px;">⏰</span><span data-live-clk="${escapeHtml(p.eventId)}"> ${safeClock}</span></div>${_qRowsHtml}`;
+            return `<div style="color:var(--muted);font-size:8px;font-weight:900;line-height:1.0;letter-spacing:0.3px;margin-bottom:1px;">LIVE</div><div style="font-size:12px;font-weight:900;line-height:1.2;margin-bottom:2px;color:var(--tracker-strong);">${homeTotal} : ${awayTotal}</div>${_clockOnly ? `<div style="font-size:6px;font-weight:800;line-height:1.1;margin-bottom:1px;color:var(--muted);white-space:nowrap;"><span style="font-size:5px;">⏰</span><span data-live-clk="${escapeHtml(p.eventId)}"> ${safeClock}</span></div>` : ""}${_qRowsHtml}`;
           })()
         : '';
       statusHtml = `
@@ -8216,7 +8229,8 @@ function renderTrackerAnalytics() {
 
   function marketLabel(key) {
   const map = {
-    ft: "FT Total", h1: "F5 Total", team_a: "Team A Total", team_b: "Team B Total"
+    ft: "Full Game Total", h1: "F5 Total", team_a: "Team A Total", team_b: "Team B Total",
+    h1_team_a: "Team A F5", h1_team_b: "Team B F5"
   };
   return map[String(key || "")] || String(key || "Other");
 }
@@ -9752,7 +9766,8 @@ function handleTrackedPicksActionClick(event) {
       let q1Home = 0, q1Away = 0, q2Home = 0, q2Away = 0, q3Home = 0, q3Away = 0, q4Home = 0, q4Away = 0;
       
       if (lsHome.length >= 2 && lsAway.length >= 2) {
-         if (pick.league === "mlb") {
+         if (pick.league === "mlb" || pick.league === "college-baseball") {
+                    // Baseball F5 = sum of innings 1-5 from linescores
                     const getSumForCount = (lines, count) => {
                       if (!Array.isArray(lines) || !lines.length) return 0;
                       let total = 0;
@@ -9763,15 +9778,6 @@ function handleTrackedPicksActionClick(event) {
                     };
                     h1Home = getSumForCount(lsHome, 5);
                     h1Away = getSumForCount(lsAway, 5);
-         } else if (pick.league === "nba" || pick.league === "wnba" || pick.league === "wnba_pre") {
-                    q1Home = getVal(lsHome[0]); q1Away = getVal(lsAway[0]);
-                    q2Home = getVal(lsHome[1]); q2Away = getVal(lsAway[1]);
-                    h1Home = q1Home + q2Home;
-                    h1Away = q1Away + q2Away;
-                    if (lsHome.length >= 4 && lsAway.length >= 4) {
-                      q3Home = getVal(lsHome[2]); q3Away = getVal(lsAway[2]);
-                      q4Home = getVal(lsHome[3]); q4Away = getVal(lsAway[3]);
-                    }
          } else {
                     h1Home = getVal(lsHome[0]);
                     h1Away = getVal(lsAway[0]);
@@ -11753,21 +11759,22 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
                 const safePlayers = boxscore.players || [];
                 const myPlayers = safePlayers.find(p => matchesTeam(p, tId));
                 if (myPlayers && Array.isArray(myPlayers.statistics) && myPlayers.statistics[0] && Array.isArray(myPlayers.statistics[0].athletes)) {
-                  let fga = 0, fta = 0, orb = 0, tov = 0;
+                  // Baseball box score: use plate appearances (AB + BB) for pace calculation
+                  let ab = 0, h = 0, r = 0, bb = 0;
                   const keys = myPlayers.statistics[0].names || [];
-                  const iFga = keys.indexOf("FGA");
-                  const iFta = keys.indexOf("FTA");
-                  const iOrb = keys.indexOf("OREB");
-                  const iTov = keys.indexOf("TO");
-                  
+                  const iAB = keys.indexOf("AB");
+                  const iH  = keys.indexOf("H");
+                  const iR  = keys.indexOf("R");
+                  const iBB = keys.indexOf("BB");
+
                   myPlayers.statistics[0].athletes.forEach(ath => {
                     const st = ath.stats || [];
-                    if (iFga >= 0) fga += parseFloat(st[iFga]) || 0;
-                    if (iFta >= 0) fta += parseFloat(st[iFta]) || 0;
-                    if (iOrb >= 0) orb += parseFloat(st[iOrb]) || 0;
-                    if (iTov >= 0) tov += parseFloat(st[iTov]) || 0;
+                    if (iAB >= 0) ab += parseFloat(st[iAB]) || 0;
+                    if (iH  >= 0) h  += parseFloat(st[iH])  || 0;
+                    if (iR  >= 0) r  += parseFloat(st[iR])  || 0;
+                    if (iBB >= 0) bb += parseFloat(st[iBB]) || 0;
                   });
-                  sMap = { fieldGoals: fga, freeThrows: fta, offensiveRebounds: orb, turnovers: tov };
+                  sMap = { atBats: ab, hits: h, runs: r, baseOnBalls: bb, BB: bb };
                 }
               }
               
@@ -12532,12 +12539,12 @@ async function fetchESPN() {
           }
           return null;
         };
-        const ppg = _find(cats, ["runs","runsPerGame","RPG","PTS"]);
-        const oppPpg = _find(cats, ["runsAgainst","oppRunsPerGame","RA","oppAvgPoints"]);
-        const pace = _find(cats, ["plateAppearances","PA"]) || 38;
+        const ppg    = _find(cats, ["runs","runsPerGame","RPG","runsScored"]);
+        const oppPpg = _find(cats, ["runsAgainst","oppRunsPerGame","RA","runsAllowed"]);
+        const pace   = _find(cats, ["plateAppearances","PA","atBats","AB"]) || 38;
         const ortg = (ppg / pace) * 100;
         const drtg = (oppPpg / pace) * 100;
-        return { ortg: ortg || 15, drtg: drtg || 15, pace: pace || 38, total: ppg + oppPpg };
+        return { ortg: ortg || 10, drtg: drtg || 10, pace: pace || 38, total: ppg + oppPpg };
       } catch(_) { return null; }
     }
 
@@ -12924,8 +12931,12 @@ function getMarketKeyFromName(name, marketKeyOverride) {
   if (n.startsWith("Q1 Individual")) return "q1_teams";
   if (n.startsWith("Highest Scoring Quarter")) return "high_q";
   if (n.startsWith("Lowest Scoring Quarter")) return "low_q";
+  if (n.startsWith("Full Game Total")) return "ft";
   if (n.startsWith("FT Total")) return "ft";
+  if (n.startsWith("F5 Total")) return "h1";
   if (n.startsWith("1H Total")) return "h1";
+  if (n.startsWith("Team A F5")) return "h1_team_a";
+  if (n.startsWith("Team B F5")) return "h1_team_b";
   if (n.startsWith("2H Total")) return "h2";
   if (n.startsWith("Q1 Total")) return "q1";
   if (n.startsWith("Q2 Total")) return "q2";
@@ -12989,7 +13000,7 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   // ── END PITCHER ADJUSTMENT ────────────────────────────────────────────────
 
   // --- ADVANCED STATS BLEND (ESPN auto-fetch leagues, including baseball PA/pace) ---
-  const isEspnLeague = ["nba","wnba","wnba_pre","ncaa","ncaaw","nba_gl","mlb","college-baseball"].includes(league);
+  const isEspnLeague = ["mlb","college-baseball"].includes(league);
   let paceAdjust = 1.0;
   let netAdjustA = 0, netAdjustB = 0;
   let usedAdvanced = false;
@@ -12998,7 +13009,7 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
     const ctxB = g_massacreFetchContext?.B || {};
     const avgPaceA = avgOrNaN(ctxA.pace10);
     const avgPaceB = avgOrNaN(ctxB.pace10);
-    const leaguePaceBase = LEAGUE_PACE_BASES[league] || LEAGUE_PACE_BASES.default || 74;
+    const leaguePaceBase = LEAGUE_PACE_BASES[league] || LEAGUE_PACE_BASES.default || 38;
     if (isFinite(avgPaceA) && avgPaceA > 0 && isFinite(avgPaceB) && avgPaceB > 0) {
       const avgPace = (avgPaceA + avgPaceB) / 2;
       paceAdjust = avgPace / leaguePaceBase;
@@ -13071,14 +13082,14 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   let projA1H = isFinite(aS_pre) && isFinite(bAllowed) ? aS_pre * 0.55 + bAllowed * 0.45 : aS_pre;
   let projB1H = isFinite(bS_pre) && isFinite(aAllowed) ? bS_pre * 0.55 + aAllowed * 0.45 : bS_pre;
 
-  // Advanced stats blend for F5 (first 5 innings — PA-based pace adjustment if ESPN data available)
-  const isEspnLeague = ["nba","wnba","wnba_pre","ncaa","ncaaw","nba_gl","mlb","college-baseball"].includes(league);
+  // Advanced stats blend for F5 (first 5 innings — PA-based pace adjustment for baseball)
+  const isEspnLeague = ["mlb","college-baseball"].includes(league);
   if (isEspnLeague) {
     const ctxA = g_massacreFetchContext?.A || {};
     const ctxB = g_massacreFetchContext?.B || {};
     const avgPaceA = avgOrNaN(ctxA.pace10);
     const avgPaceB = avgOrNaN(ctxB.pace10);
-    const leaguePaceBase = LEAGUE_PACE_BASES[league] || LEAGUE_PACE_BASES.default || 74;
+    const leaguePaceBase = LEAGUE_PACE_BASES[league] || LEAGUE_PACE_BASES.default || 38;
     if (isFinite(avgPaceA) && isFinite(avgPaceB) && avgPaceA > 0 && avgPaceB > 0) {
       const avgPace = (avgPaceA + avgPaceB) / 2;
       const paceAdjust = clampNumber(avgPace / leaguePaceBase, 0.85, 1.15);
@@ -14725,7 +14736,7 @@ const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
     const picks = [
   {
     _idx: 0,
-    name: "FT Total" + ftBadge,
+    name: "Full Game Total" + ftBadge,
     marketKey: "ft",
     marketType: "ft",
     league,
@@ -14744,7 +14755,7 @@ const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
   },
   {
     _idx: 1,
-    name: "1H Total" + h1Badge,
+    name: "F5 Total" + h1Badge,
     marketKey: "h1",
     marketType: "h1",
     league,
@@ -14801,7 +14812,7 @@ const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
   },
   {
     _idx: 14,
-    name: "Team A 1H",
+    name: "Team A F5",
     marketKey: "h1_team_a",
     marketType: "h1",
     league,
@@ -14818,7 +14829,7 @@ const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
   },
   {
     _idx: 15,
-    name: "Team B 1H",
+    name: "Team B F5",
     marketKey: "h1_team_b",
     marketType: "h1",
     league,
@@ -16758,8 +16769,8 @@ window.ENGINE_TEST_SUITE = (() => {
     expect("college-baseball advisory", getLeagueTrustMeta("college-baseball").level, "advisory");
     expect("unknown advisory",      getLeagueTrustMeta("unknown").level,    "advisory");
     expect("unknown mode advisory", getLeagueTrustMeta("unknown").mode,     "advisory");
-    expect("rwanda blocked",        getLeagueTrustMeta("rwanda").level,     "blocked");
-    expect("rwanda mode block",     getLeagueTrustMeta("rwanda").mode,      "block");
+    expect("college-baseball advisory", getLeagueTrustMeta("college-baseball").level, "advisory");
+    expect("ncaa unknown advisory", getLeagueTrustMeta("ncaa").level,       "advisory");
   });
 
   suite("normalizeTeamName", () => {
