@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3655,12 +3656,12 @@ let g_clearDebug = {
 
         function getRawConfidence(edge, volatility, lineMid, tour, marketKey, surface, baseConfidence) {
     const absEdge = Math.abs(edge);
-    const safeVol = volatility > 0 ? volatility : 0.01;
-    const edgeZ = absEdge / safeVol;
-    const edgePct = Math.min(100, edgeZ * 15);
-    const marketBaseline = (marketKey === "set1") ? 10.0 : 22.0;
-    const volNorm = volatility / marketBaseline;
-    let conf = "PASS";
+   const safeVol = volatility > 0 ? volatility : 0.01;
+   const edgeZ = absEdge / safeVol;
+   const edgePct = Math.min(100, edgeZ * 15);
+   const marketBaseline = (marketKey === "set1") ? 10.0 : (marketKey === "team_a" || marketKey === "team_b") ? 11.0 : 22.0;
+   const volNorm = volatility / marketBaseline;
+   let conf = "PASS";
 
     if (volNorm > 0.36) conf = "PASS";
     else if (edgePct >= 12.0 && volNorm <= 0.20) conf = "A";
@@ -5903,12 +5904,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           rawPick: result.pick,
           confidence: result.confidence,
           status: "PENDING",
-          isLock: idx === lockIdx,
-          notes: Array.isArray(result.notes) ? result.notes.join(" | ") : "",
-          simPct: result.simPct
-        };
-      })
-      .filter(Boolean);
+         isLock: idx === lockIdx,
+         notes: Array.isArray(result.notes) ? result.notes.join(" | ") : "",
+         simPct: result.simPct,
+         manualSurface: (bundle.context && bundle.context.surface) ? bundle.context.surface : "unknown"
+       };
+     })
+     .filter(Boolean);
 
     g_trackerDebug.lastGeneratedEntries = built.length;
     g_trackerDebug.lastGeneratedPicks = built.map(function (item) {
