@@ -2490,35 +2490,9 @@ body.dark-mode .tracker-analytics-section-head {
 
 
 
-  <div id="teamMarketSection" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label id="teamAMarketLabel">Player A Total Points</label><input id="teamAMarket" placeholder="38.5 - 41.5" /></div>
-    <div><label id="teamBMarketLabel">Player B Total Points</label><input id="teamBMarket" placeholder="38.5 - 41.5" /></div>
-  </div>
-
-      <div id="q1q2MarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-      <div><label>Game 2 Total</label><input id="q1Market" placeholder="18.5" /></div>
-      <div><label>Game 3 Total</label><input id="q2Market" placeholder="18.5" /></div>
-    </div>
-    
-    <div id="q3q4MarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-      <div><label>Game 4 Total</label><input id="q3Market" placeholder="18.5" /></div>
-      <div><label>Game 5 Total</label><input id="q4Market" placeholder="18.5" /></div>
-    </div>
-
-  <div id="h1TeamMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>Game 1 Player A</label><input id="h1TeamAMarket" placeholder="9.5" /></div>
-    <div><label>Game 1 Player B</label><input id="h1TeamBMarket" placeholder="9.5" /></div>
-  </div>
-
-  <div id="highLowQMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>Highest Game Total</label><input id="highQTotalMarket" placeholder="22.5" /></div>
-    <div><label>Lowest Game Total</label><input id="lowQTotalMarket" placeholder="15.5" /></div>
-  </div>
-
-  <div id="q1TeamMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>Game 2 Player A</label><input id="q1TeamAMarket" placeholder="9.5" /></div>
-    <div><label>Game 2 Player B</label><input id="q1TeamBMarket" placeholder="9.5" /></div>
-  </div>
+  <!-- Player A/B Total, Game 2-5, per-game Player splits, and Highest/Lowest Game
+       markets removed — this engine now supports exactly two markets: Match Total
+       and Game 1 (Set 1) Total. -->
 
 
 
@@ -13769,34 +13743,14 @@ function getConfidenceClass(conf) {
     }
 
 function getMarketKeyFromName(name, marketKeyOverride) {
-  // Fix: Priority Override. If the engine already assigned a key, keep it.
-  const validKeys = ["ft", "h1", "h2", "team_a", "team_b", "q1", "q2", "q3", "q4", "h1_team_a", "h1_team_b", "player"];
+  // Only two markets are supported: Match Total (ft) and Set 1 / Game 1 Total (h1).
+  // Every other basketball-era market (quarters, team splits, HT/FT, margins, race,
+  // high/low quarter) has been removed.
+  const validKeys = ["ft", "h1"];
   if (validKeys.includes(marketKeyOverride)) return marketKeyOverride;
-  if (marketKeyOverride === "player") return "player";
   const n = String(name || "");
-  if (n.startsWith("Winner & Total")) return "w_ou";
-  if (n.startsWith("Race to")) return "race";
-  if (n.startsWith("1H Individual")) return "h1_teams";
-  if (n.startsWith("Q1 Individual")) return "q1_teams";
-  if (n.startsWith("Highest Scoring Quarter")) return "high_q";
-  if (n.startsWith("Lowest Scoring Quarter")) return "low_q";
-  if (n.startsWith("FT Total")) return "ft";
-  if (n.startsWith("1H Total")) return "h1";
-  if (n.startsWith("Q1 Total")) return "q1";
-  if (n.startsWith("Q2 Total")) return "q2";
-  if (n.startsWith("Q3 Total")) return "q3";
-  if (n.startsWith("Q4 Total")) return "q4";
-  if (n.startsWith("Team A Total")) return "team_a";
-  if (n.startsWith("Team B Total")) return "team_b";
-  if (n.startsWith("Team A Q1")) return "q1_team_a";
-  if (n.startsWith("Team B Q1")) return "q1_team_b";
-  if (n.startsWith("Team A 1H")) return "h1_team_a";
-  if (n.startsWith("Team B 1H")) return "h1_team_b";
-  if (n.startsWith("HT/FT")) return "htft";
-    if (n.startsWith("Winning Margin (Team)")) return "margin_team";
-  if (n.startsWith("Winning Margin (Any)")) return "margin_any";
-  if (n.startsWith("Highest Q Total")) return "high_q_ou";
-  if (n.startsWith("Lowest Q Total")) return "low_q_ou";
+  if (n.startsWith("FT Total") || n.startsWith("Match Total")) return "ft";
+  if (n.startsWith("1H Total") || n.startsWith("Game 1 Total") || n.startsWith("Set 1 Total")) return "h1";
   return "other";
 }
 
@@ -16438,23 +16392,22 @@ const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
     const isWnbaRun = league === "wnba" || league === "wnba_pre";
     const isManualLeagueRun = !isNbaOrNcaa;
 
-    // Streamlined allowlists — 2H, exotics, margins, race, HT-FT permanently removed
-    const wnbaAllowedMarkets   = new Set(["ft", "h1", "team_a", "team_b", "q1", "q2", "q3", "q4"]);
-    const nbaAllowedMarkets    = new Set(["ft", "h1", "team_a", "team_b", "q1", "q2", "q3", "q4", "h1_team_a", "h1_team_b"]);
-    const manualAllowedMarkets = new Set(["ft", "h1", "team_a", "team_b", "q1", "q2", "q3", "q4"]);
+    // Only two markets are supported for table tennis: Match Total (ft) and
+    // Set 1 / Game 1 Total (h1). Q1-Q4, Team A/B, H1 Team A/B, HT/FT, margin,
+    // and race markets are all basketball-only concepts and are no longer offered.
+    const wnbaAllowedMarkets   = new Set(["ft", "h1"]);
+    const nbaAllowedMarkets    = new Set(["ft", "h1"]);
+    const manualAllowedMarkets = new Set(["ft", "h1"]);
 
     const finalPicks = picks.filter(p => {
       if (isWnbaRun)       return wnbaAllowedMarkets.has(p.marketKey);
       if (isNbaOrNcaa)     return nbaAllowedMarkets.has(p.marketKey);
       if (isManualLeagueRun) return manualAllowedMarkets.has(p.marketKey);
-      return ["ft", "team_a", "team_b"].includes(p.marketKey);
+      return ["ft"].includes(p.marketKey);
     });
 
     const mktOrderMap = {
-      "ft": 1, "h1": 2,
-      "team_a": 3, "team_b": 4,
-      "q1": 5, "q2": 6, "q3": 7, "q4": 8,
-      "h1_team_a": 9, "h1_team_b": 10
+      "ft": 1, "h1": 2
     };
     finalPicks.sort((a, b) => (mktOrderMap[a.marketKey] || 99) - (mktOrderMap[b.marketKey] || 99));
 
@@ -17465,11 +17418,7 @@ const isWnba = leagueVal === "wnba" || leagueVal === "wnba_pre";
 
       setFieldValues(FIELD_GROUPS.periodInputs);
 
-            const teamMarketSection = document.getElementById("teamMarketSection");
-      if (teamMarketSection) {
-        teamMarketSection.style.gridTemplateColumns = "1fr 1fr";
-      }
-      const ftH1MarketRow = document.getElementById("ftH1MarketRow");
+            const ftH1MarketRow = document.getElementById("ftH1MarketRow");
       if (ftH1MarketRow) {
         ftH1MarketRow.style.gridTemplateColumns = "1fr 1fr";
       }
@@ -17479,8 +17428,9 @@ const isWnba = leagueVal === "wnba" || leagueVal === "wnba_pre";
       const _sofaEl = document.getElementById("sofascoreManualSection");
       if (_sofaEl) _sofaEl.style.display = (!league || _isBig5) ? "none" : "block";
 
-      document.getElementById("aQSection").style.display = isQs || !isNbaOrNcaa ? "block" : "none";
-      document.getElementById("bQSection").style.display = isQs || !isNbaOrNcaa ? "block" : "none";
+      // Game 2-5 ("Q") series are no longer a supported market — always hidden.
+      document.getElementById("aQSection").style.display = "none";
+      document.getElementById("bQSection").style.display = "none";
 
       ["a1HSection", "b1HSection", "h2h1HSection"].forEach(id => {
         const el = document.getElementById(id);
@@ -17490,28 +17440,15 @@ const isWnba = leagueVal === "wnba" || leagueVal === "wnba_pre";
         const el = document.getElementById(id);
         if (el) el.style.display = "none";
       });
+      // H2H Game 2-5 breakdown is no longer a supported market — always hidden.
       const h2hQ = document.getElementById("h2hQSection");
-      if (h2hQ) h2hQ.style.display = (isQs && isNbaOrNcaa) || !isNbaOrNcaa ? "block" : "none";
+      if (h2hQ) h2hQ.style.display = "none";
       
       const h1MarketEl = document.getElementById("h1MarketSection");
       if (h1MarketEl) h1MarketEl.style.display = leagueVal ? "block" : "none";
-      const h1TeamEl = document.getElementById("h1TeamMarketSection");
-      if (h1TeamEl) h1TeamEl.style.display = (isNbaOrNcaa && !isWnba) ? "grid" : "none";
 
       const h1MarketElManual = document.getElementById("h1MarketSection");
       if (h1MarketElManual) h1MarketElManual.style.display = leagueVal ? "block" : "none";
-
-      ["q1q2MarketSection", "q3q4MarketSection"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = leagueVal ? "grid" : "none";
-      });
-      const highLowQEl = document.getElementById("highLowQMarketSection");
-      if (highLowQEl) highLowQEl.style.display = "none";
-
-      ["q1TeamMarketSection", "exoticMarketSection"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = "none";
-      });
 
               if (!isNbaOrNcaa) {
           ["aAutoTag", "bAutoTag", "h2hAutoTag"].forEach(id => {
@@ -19028,10 +18965,10 @@ window.ENGINE_TEST_SUITE = (() => {
   });
 
   suite("getDynamicWeights", () => {
-    const w = getDynamicWeights("full", 5, "nba");
-    expect("teamWeight NBA full", w.teamWeight, 0.65);
+    const w = getDynamicWeights("full", 5, "tt_cup");
+    expect("teamWeight full sample", w.teamWeight, 0.65);
     expectTrue("weights sum to 1", Math.abs(w.teamWeight + w.oppWeight - 1) < 0.001);
-    expectTrue("thin <= full teamWeight", getDynamicWeights("thin", 5, "nba").teamWeight <= w.teamWeight);
+    expectTrue("thin <= full teamWeight", getDynamicWeights("thin", 5, "tt_cup").teamWeight <= w.teamWeight);
     expectTrue("high-vol oppWeight > low-vol", true);
   });
 
@@ -19047,17 +18984,17 @@ window.ENGINE_TEST_SUITE = (() => {
   });
 
   suite("getPick — simplified direction", () => {
-    expectTrue("positive edge = OVER",  String(getPick(1,   220, "nba", "ft", {})).startsWith("OVER"));
-    expect("zero edge NO PLAY",         getPick(0,   220, "nba", "ft", {}), "NO PLAY");
-    expect("null line NO PLAY",         getPick(10, null, "nba", "ft", {}), "NO PLAY");
-    expectTrue("any positive = OVER",   String(getPick(13,  220, "nba", "ft", {})).startsWith("OVER"));
-    expectTrue("small positive = OVER", String(getPick(12, 220, "nba", "ft", {})).startsWith("OVER"));
-    expectTrue("negative = UNDER",      String(getPick(-14, 220, "nba", "ft", {})).startsWith("UNDER"));
+    expectTrue("positive edge = OVER",  String(getPick(1,   220, "tt_cup", "ft", {})).startsWith("OVER"));
+    expect("zero edge NO PLAY",         getPick(0,   220, "tt_cup", "ft", {}), "NO PLAY");
+    expect("null line NO PLAY",         getPick(10, null, "tt_cup", "ft", {}), "NO PLAY");
+    expectTrue("any positive = OVER",   String(getPick(13,  220, "tt_cup", "ft", {})).startsWith("OVER"));
+    expectTrue("small positive = OVER", String(getPick(12, 220, "tt_cup", "ft", {})).startsWith("OVER"));
+    expectTrue("negative = UNDER",      String(getPick(-14, 220, "tt_cup", "ft", {})).startsWith("UNDER"));
   });
 
   suite("detectTrap", () => {
-    expect("always false (removed per spec)", detectTrap(1,  220, "OVER 220.5", "nba", "ft", 0), false);
-    expect("always false (removed per spec)", detectTrap(12, 220, "OVER 220.5", "nba", "ft", 5), false);
+    expect("always false (removed per spec)", detectTrap(1,  220, "OVER 220.5", "tt_cup", "ft", 0), false);
+    expect("always false (removed per spec)", detectTrap(12, 220, "OVER 220.5", "tt_cup", "ft", 5), false);
   });
 
   suite("anchorProjection", () => {
@@ -19066,7 +19003,7 @@ window.ENGINE_TEST_SUITE = (() => {
     // sampleSize=220 (>=6), which always skips the blending branch entirely — so the
     // blending logic (n<6) was never exercised by this suite despite the function still
     // implementing it. sampleSize=3 now actually exercises the blend-toward-base branch.
-    const a = anchorProjection(250, 220, "nba");
+    const a = anchorProjection(250, 220, "tt_cup");
     expectApprox("n>=6 returns proj unchanged", a, 250, 0.001);
     const blended = anchorProjection(300, 3, 220);
     expectTrue("n<6 blends toward leagueBase (between base and proj)", blended > 220 && blended < 300);
@@ -19084,32 +19021,22 @@ window.ENGINE_TEST_SUITE = (() => {
   });
 
   suite("getMarketKeyFromName", () => {
-    expect("FT Total",        getMarketKeyFromName("FT Total"),          "ft");
-    expect("1H Total",        getMarketKeyFromName("1H Total"),          "h1");
-    expect("Q1 Total",        getMarketKeyFromName("Q1 Total"),          "q1");
-    expect("Q2 Total",        getMarketKeyFromName("Q2 Total"),          "q2");
-    expect("Q3 Total",        getMarketKeyFromName("Q3 Total"),          "q3");
-    expect("Q4 Total",        getMarketKeyFromName("Q4 Total"),          "q4");
-    expect("Team A Total",    getMarketKeyFromName("Team A Total"),      "team_a");
-    expect("Team B Total",    getMarketKeyFromName("Team B Total"),      "team_b");
-    expect("Team A Q1",       getMarketKeyFromName("Team A Q1"),         "q1_team_a");
-    expect("Team B Q1",       getMarketKeyFromName("Team B Q1"),         "q1_team_b");
-    expect("Team A 1H",       getMarketKeyFromName("Team A 1H"),         "h1_team_a");
-    expect("Team B 1H",       getMarketKeyFromName("Team B 1H"),         "h1_team_b");
-    expect("HT/FT Double",    getMarketKeyFromName("HT/FT Double"),      "htft");
-    expect("Highest Q Total", getMarketKeyFromName("Highest Q Total"),   "high_q_ou");
-    expect("Lowest Q Total",  getMarketKeyFromName("Lowest Q Total"),    "low_q_ou");
+    expect("FT Total",         getMarketKeyFromName("FT Total"),          "ft");
+    expect("Match Total",      getMarketKeyFromName("Match Total"),       "ft");
+    expect("1H Total",         getMarketKeyFromName("1H Total"),          "h1");
+    expect("Game 1 Total",     getMarketKeyFromName("Game 1 Total"),      "h1");
+    expect("Set 1 Total",      getMarketKeyFromName("Set 1 Total"),       "h1");
+    expect("unknown market",   getMarketKeyFromName("Q1 Total"),          "other");
+    expect("override wins",    getMarketKeyFromName("anything", "h1"),    "h1");
   });
 
   suite("getLeagueTrustMeta", () => {
-    expect("NBA trusted",           getLeagueTrustMeta("nba").level,        "trusted");
-    expect("NBA mode full",         getLeagueTrustMeta("nba").mode,         "full");
-    expect("NCAA trusted",          getLeagueTrustMeta("ncaa").level,       "trusted");
-    expect("EuroCup trusted",       getLeagueTrustMeta("eurocup").level,    "trusted");
+    expect("TT Cup trusted",        getLeagueTrustMeta("tt_cup").level,     "trusted");
+    expect("TT Cup mode full",      getLeagueTrustMeta("tt_cup").mode,      "full");
+    expect("Setka Cup trusted",     getLeagueTrustMeta("set_ka").level,     "trusted");
+    expect("Setka Cup mode full",   getLeagueTrustMeta("set_ka").mode,      "full");
     expect("unknown advisory",      getLeagueTrustMeta("unknown").level,    "advisory");
     expect("unknown mode advisory", getLeagueTrustMeta("unknown").mode,     "advisory");
-    expect("rwanda blocked",        getLeagueTrustMeta("rwanda").level,     "blocked");
-    expect("rwanda mode block",     getLeagueTrustMeta("rwanda").mode,      "block");
   });
 
   suite("normalizeTeamName", () => {
