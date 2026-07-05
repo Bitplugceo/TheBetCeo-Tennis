@@ -11,14 +11,14 @@
   </script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="BB Engine" />
+  <meta name="apple-mobile-web-app-title" content="TT Engine" />
   <meta name="theme-color" content="#d4af37" />
 
   <link rel="manifest" href="manifest.json?v=tracker_cleanup_v22_measurement_lab" />
   <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_measurement_lab" />
   <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_measurement_lab" />
 
-  <title>Basketball Prediction Engine</title>
+  <title>Table Tennis Prediction Engine</title>
 
   <style>
 :root {
@@ -2365,13 +2365,13 @@ body.dark-mode .tracker-analytics-section-head {
 </head>
 <body>
  <header class="app-header">
-  <span class="brand-name">TheBetCeo ⚡️</span>
+  <span class="brand-name">TheBetCeo TT ⚡️</span>
 
 <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show fetch/input issues">⚠️</button>
 
   <span class="brand-right">
 
-    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏀</button>
+    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏓</button>
     <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
     <button class="theme-toggle" type="button" id="afdbBtn" title="Auto-Fetch Debugger" onclick="if(typeof AFDB!=='undefined'&&AFDB.open)AFDB.open()">🔬</button>
     PREDICTIONS
@@ -2385,159 +2385,14 @@ body.dark-mode .tracker-analytics-section-head {
   <label>Select League</label>
   <select id="leagueSelect" class="league-box">
     <option value="">- Select League -</option>
-    <optgroup label="── A ──────────────────">
-      <option value="aba">ABA - Liga ABA (International)</option>
-      <option value="acb">ACB - Spain (Liga ACB)</option>
-      <option value="argentina_lnb">Argentina - LNB</option>
-      <option value="ausnbl">Australia - NBL</option>
-      <option value="aus_nbl1_east">Australia - NBL1, East</option>
-      <option value="aus_nbl1_north">Australia - NBL1, North</option>
-      <option value="aus_nbl1_south">Australia - NBL1, South</option>
-      <option value="aus_nbl1_west">Australia - NBL1, West</option>
-      <option value="aus_nbl1_central">Australia - NBL1, Central</option>
-      <option value="aus_nbl1_east_w">Australia - NBL1 East, Women</option>
-      <option value="aus_nbl1_north_w">Australia - NBL1 North, Women</option>
-      <option value="aus_nbl1_south_w">Australia - NBL1 South, Women</option>
-      <option value="aus_nbl1_west_w">Australia - NBL1 West, Women</option>
-      <option value="aus_nbl1_central_w">Australia - NBL1 Central, Women</option>
-      <option value="aus_big_v">Australia - Big V</option>
-      <option value="aus_big_v_w">Australia - Big V, Women</option>
-      <option value="austria_superliga">Austria - Superliga</option>
-      <option value="austria_zweite">Austria - Zweite Liga</option>
+    <optgroup label="── ACTIVE COMPETITIONS ──────────────────">
+      <option value="tt_cup">TT Cup</option>
+      <option value="win_cup">Win Cup</option>
+      <option value="set_ka">Setka Cup</option>
+      <option value="liga_pro">Liga Pro</option>
+      <option value="challenger_series">Challenger Series</option>
     </optgroup>
-    <optgroup label="── B ──────────────────">
-      <option value="bal">BAL - Basketball Africa League</option>
-      <option value="bbl">BBL - Germany</option>
-      <option value="belgium_top">Belgium - Top Division 1</option>
-      <option value="bih_1st">Bosnia &amp; Herzegovina - 1st Division</option>
-      <option value="bnxt">BNXT League (Intl)</option>
-      <option value="brazil_nbb">Brazil - NBB</option>
-      <option value="brazil_lbf_w">Brazil - LBF Women</option>
-      <option value="bulgaria_nbl">Bulgaria - NBL</option>
-    </optgroup>
-    <optgroup label="── C ──────────────────">
-      <option value="cba">CBA - China</option>
-      <option value="cebl">CEBL - Canada</option>
-      <option value="chile_lnb">Chile - Liga Nacional</option>
-      <option value="chile_lnb2">Chile - LNB 2</option>
-      <option value="china_nbl">China - NBL</option>
-
-      <option value="croatia_premier">Croatia - Premijer Liga</option>
-      <option value="cyprus_div_a">Cyprus - Division A</option>
-      <option value="nbl_cz">Czech Republic - NBL</option>
-    </optgroup>
-    <optgroup label="── D ──────────────────">
-      <option value="denmark_bliga">Denmark - Basketligaen</option>
-    </optgroup>
-    <optgroup label="── E ──────────────────">
-      <option value="el_salvador_lmb">El Salvador - Liga Mayor</option>
-      <option value="england_slb">England - SLB</option>
-      <option value="england_slb_w">England - SLB Women</option>
-      <option value="estonia_kml">Estonia - KML</option>
-      <option value="eurocup">EuroCup (Intl)</option>
-      <option value="euroleague">EuroLeague (Intl)</option>
-      <option value="champions_league">Champions League (Intl)</option>
-    </optgroup>
-    <optgroup label="── F ──────────────────">
-      <option value="fiba_ac">FIBA - AmeriCup</option>
-      <option value="fiba_eb">FIBA - EuroBasket</option>
-      <option value="fiba_wc">FIBA - World Cup</option>
-      <option value="finland_koris">Finland - Korisliiga</option>
-      <option value="proa">France - Pro A</option>
-      <option value="prob">France - Pro B</option>
-      <option value="france_lfb_w">France - LFB Women</option>
-    </optgroup>
-    <optgroup label="── G ──────────────────">
-      <option value="georgia_super">Georgia - Superleague</option>
-      <option value="germany_proa">Germany - Pro A</option>
-      <option value="gb_super_league_w">Great Britain - Super League Women</option>
-      <option value="bcl">Greece - Basketball League</option>
-    </optgroup>
-    <optgroup label="── H ──────────────────">
-      <option value="hungary_nb1">Hungary - NB I. A</option>
-    </optgroup>
-    <optgroup label="── I ──────────────────">
-      <option value="iceland_urvalsdeild">Iceland - Urvalsdeild</option>
-      <option value="iceland_urvalsdeild_w">Iceland - Urvalsdeild Women</option>
-      <option value="iceland_1st">Iceland - First Division</option>
-      <option value="indonesia_ibl">Indonesia - IBL</option>
-      <option value="isl">Israel - Super League</option>
-      <option value="lba">Italy - Serie A</option>
-      <option value="italy_a2">Italy - Serie A2</option>
-      <option value="italy_serb">Italy - Serie B</option>
-      <option value="italy_a1_w">Italy - A1 Women</option>
-      <option value="italy_a2_w">Italy - Serie A2 Women</option>
-    </optgroup>
-    <optgroup label="── J ──────────────────">
-      <option value="bleague">Japan - B1 League</option>
-    </optgroup>
-    <optgroup label="── K ──────────────────">
-      <option value="korea_kbl">Korea - KBL</option>
-    </optgroup>
-    <optgroup label="── L ──────────────────">
-      <option value="latvia_lbl">Latvia - LBL</option>
-      <option value="lebanon_1st">Lebanon - First Division</option>
-      <option value="lkl">Lithuania - LKL</option>
-    </optgroup>
-    <optgroup label="── M ──────────────────">
-      <option value="mexico_cibacopa">Mexico - CIBACOPA</option>
-      <option value="mexico_lnbp">Mexico - LNBP</option>
-    </optgroup>
-    <optgroup label="── N ──────────────────">
-      <!-- [CLOSED: ESPN+ EXPANSION] nba_gl and ncaaw verified ESPN auto-fetch leagues.
-           Full feature parity with NBA/WNBA/NCAA: stats, injuries, H2H, live polling, tracker.
-           DO NOT remove or reclassify as manual leagues. -->
-      <!-- [CLOSED: ESPN+ EXPANSION] NBA stays under N. All other US ESPN leagues moved to USA group.
-           DO NOT re-add nba_gl, ncaa, ncaaw here — they now live in the USA optgroup. -->
-      <option value="nba">NBA - USA</option>
-      <option value="nznbl">New Zealand - NBL</option>
-    </optgroup>
-    <optgroup label="── P ──────────────────">
-      <option value="pba">Philippines - PBA (Philippine Cup)</option>
-      <option value="phil_mpbl">Philippines - MPBL</option>
-      <option value="plk">Poland - PLK</option>
-      <option value="poland_1liga">Poland - 1. Liga</option>
-      <option value="portugal_lpb">Portugal - LPB</option>
-      <option value="portugal_proliga">Portugal - Proliga</option>
-      <option value="portugal_taca">Portugal - Taca da Liga</option>
-      <option value="portugal_lfb_w">Portugal - Liga Feminina</option>
-      <option value="puerto_rico_bsn">Puerto Rico - BSN</option>
-    </optgroup>
-    <optgroup label="── R ──────────────────">
-      <option value="romania_ln">Romania - Liga Nationala</option>
-      <option value="rwanda">Rwanda - Basketball League</option>
-    </optgroup>
-    <optgroup label="── S ──────────────────">
-      <option value="serbia_kls">Serbia - KLS</option>
-      <option value="slovenia_1a">Slovenia - 1. A SKL</option>
-      <option value="spain_primera">Spain - Primera FEB</option>
-      <option value="spain_segunda">Spain - Segunda FEB</option>
-      <option value="sweden_sbl">Sweden - SBL</option>
-      <option value="swiss_sbl">Switzerland - SB League</option>
-    </optgroup>
-    <optgroup label="── T ──────────────────">
-      <option value="taipei_tpbl">Taiwan - TPBL / P. League+</option>
-      <option value="turkey_bsl">Turkiye - Super Lig</option>
-      <option value="turkey_tbl">Turkiye - TBL</option>
-      <option value="turkey_tb2l">Turkiye - TB2L</option>
-    </optgroup>
-    <optgroup label="── U ──────────────────">
-      <option value="united_league">United League (Intl)</option>
-      <option value="uruguay_lub">Uruguay - LUB</option>
-      <option value="uruguay_lfb_w">Uruguay - LFB Women</option>
-      <!-- [CLOSED: ESPN+ EXPANSION] All US ESPN auto-fetch leagues grouped here.
-           nba_gl, ncaa, ncaaw moved from N section — grouped with WNBA for clarity.
-           DO NOT split this group or move entries back under N. -->
-      <option value="nba_gl">USA - NBA G League</option>
-      <option value="ncaa">USA - NCAA Men's</option>
-      <option value="ncaaw">USA - NCAA Women's</option>
-      <option value="wnba">USA - WNBA</option>
-      <option value="wnba_pre">USA - WNBA Preseason</option>
-    </optgroup>
-    <optgroup label="── V ──────────────────">
-      <option value="venezuela_sl">Venezuela - SuperLiga</option>
-    </optgroup>
-    <optgroup label="── Z ──────────────────">
+    <optgroup label="── OTHER ──────────────────">
       <option value="unknown">Other / Mixed League</option>
     </optgroup>
   </select>
@@ -2545,8 +2400,8 @@ body.dark-mode .tracker-analytics-section-head {
 
 
 
-<div class="section" id="espnSection">
-  <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA · WNBA · NCAA Men's · NCAA Women's · NBA G League)</span></h3>
+<div class="section" id="espnSection" style="display:none;">
+  <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(Not active for TT)</span></h3>
 
   <div id="fixtureToolbar" class="fixture-toolbar">
     <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
@@ -2559,17 +2414,17 @@ body.dark-mode .tracker-analytics-section-head {
 <option value="">- Select match -</option>
 </select>
 
-<label id="teamALabel" style="font-size:12px;">Team A Name (Home)</label>
+<label id="teamALabel" style="font-size:12px;">Player A Name</label>
 
   <div class="autocomplete-wrap">
-    <input id="teamAName" placeholder="e.g. Lakers" autocomplete="off" />
+    <input id="teamAName" placeholder="Player A" autocomplete="off" />
     <div class="autocomplete-list" id="dropA"></div>
   </div>
 
-<label id="teamBLabel" style="font-size:12px;margin-top:6px;">Team B Name (Away)</label>
+<label id="teamBLabel" style="font-size:12px;margin-top:6px;">Player B Name</label>
 
   <div class="autocomplete-wrap">
-    <input id="teamBName" placeholder="e.g. Celtics" autocomplete="off" />
+    <input id="teamBName" placeholder="Player B" autocomplete="off" />
     <div class="autocomplete-list" id="dropB"></div>
   </div>
 
@@ -2578,42 +2433,42 @@ body.dark-mode .tracker-analytics-section-head {
   <div id="fetchStatus"></div>
 
   <div class="injury-box" id="injuryBoxA">
-    <div class="inj-title">Team A - Injury Report</div>
+    <div class="inj-title">Player A - Injury Report</div>
     <div id="injuryContentA"></div>
   </div>
 
   <div class="injury-box" id="injuryBoxB">
-    <div class="inj-title">Team B - Injury Report</div>
+    <div class="inj-title">Player B - Injury Report</div>
     <div id="injuryContentB"></div>
   </div>
 </div>
 <div class="section" id="sofascoreManualSection" style="display:none;">
-  <h3>🔍 Player Lookup <span style="font-size:11px;color:#aaa;">(Manual leagues — SofaScore)</span></h3>
+  <h3>🔍 Player Lookup <span style="font-size:11px;color:#aaa;">(SofaScore Parser)</span></h3>
 
   <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
-    <label>Player A Name (Home)</label>
+    <label>Player A Name</label>
     <div style="display:flex;gap:6px;margin-bottom:4px;">
-      <input id="ssTeamAName" placeholder="Player / Team A" style="margin-bottom:0;flex:1;" oninput="validateSofascoreSection()" />
+      <input id="ssTeamAName" placeholder="Player A" style="margin-bottom:0;flex:1;" oninput="validateSofascoreSection()" />
       <input id="ssPasteA" placeholder="Paste JSON A" oninput="parseSofascoreIndividual('A')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
-      <button type="button" onclick="searchSofascorePlayer('A')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search basketball team">🔍</button>
+      <button type="button" onclick="searchSofascorePlayer('A')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search player">🔍</button>
       <button type="button" onclick="clearPasteJSON('A')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
     </div>
     <div style="display:flex;gap:6px;align-items:center;">
-      <input id="ssTeamAId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('A')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
+      <input id="ssTeamAId" placeholder="Enter Player ID" oninput="updateSofascoreLinks('A')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
       <a id="ssTeamALink" href="#" target="_blank" style="color:#4ea9ff;font-size:10px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 Open JSON A</a>
     </div>
   </div>
 
   <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
-    <label>Player B Name (Away)</label>
+    <label>Player B Name</label>
     <div style="display:flex;gap:6px;margin-bottom:4px;">
-      <input id="ssTeamBName" placeholder="Player / Team B" style="margin-bottom:0;flex:1;" oninput="validateSofascoreSection()" />
+      <input id="ssTeamBName" placeholder="Player B" style="margin-bottom:0;flex:1;" oninput="validateSofascoreSection()" />
       <input id="ssPasteB" placeholder="Paste JSON B" oninput="parseSofascoreIndividual('B')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
-      <button type="button" onclick="searchSofascorePlayer('B')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search basketball team">🔍</button>
+      <button type="button" onclick="searchSofascorePlayer('B')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search player">🔍</button>
       <button type="button" onclick="clearPasteJSON('B')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
     </div>
     <div style="display:flex;gap:6px;align-items:center;">
-      <input id="ssTeamBId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('B')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
+      <input id="ssTeamBId" placeholder="Enter Player ID" oninput="updateSofascoreLinks('B')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
       <a id="ssTeamBLink" href="#" target="_blank" style="color:#4ea9ff;font-size:10px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p0</a>
       <a id="ssTeamBLink1" href="#" target="_blank" style="color:#4ea9ff;font-size:10px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p1</a>
     </div>
@@ -2632,40 +2487,40 @@ body.dark-mode .tracker-analytics-section-head {
   <h3>Market Lines</h3>
 
   <div id="ftH1MarketRow" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-    <div><label id="ftMarketLabel">FT Total</label><input id="ftMarket" placeholder="150.5 - 160.5" /></div>
-    <div id="h1MarketSection"><label>1H Total</label><input id="h1Market" placeholder="75.5 - 85.5" /></div>
+    <div><label id="ftMarketLabel">Match Total Points</label><input id="ftMarket" placeholder="70.5 - 78.5" /></div>
+    <div id="h1MarketSection"><label>Game 1 Total Points</label><input id="h1Market" placeholder="18.5" /></div>
   </div>
 
 
 
   <div id="teamMarketSection" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label id="teamAMarketLabel">Team A Total</label><input id="teamAMarket" placeholder="75.5 - 79.5" /></div>
-    <div><label id="teamBMarketLabel">Team B Total</label><input id="teamBMarket" placeholder="75.5 - 79.5" /></div>
+    <div><label id="teamAMarketLabel">Player A Total Points</label><input id="teamAMarket" placeholder="38.5 - 41.5" /></div>
+    <div><label id="teamBMarketLabel">Player B Total Points</label><input id="teamBMarket" placeholder="38.5 - 41.5" /></div>
   </div>
 
       <div id="q1q2MarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-      <div><label>Q1 Total</label><input id="q1Market" placeholder="45.5 - 55.5" /></div>
-      <div><label>Q2 Total</label><input id="q2Market" placeholder="45.5 - 55.5" /></div>
+      <div><label>Game 2 Total</label><input id="q1Market" placeholder="18.5" /></div>
+      <div><label>Game 3 Total</label><input id="q2Market" placeholder="18.5" /></div>
     </div>
     
     <div id="q3q4MarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-      <div><label>Q3 Total</label><input id="q3Market" placeholder="45.5 - 55.5" /></div>
-      <div><label>Q4 Total</label><input id="q4Market" placeholder="45.5 - 55.5" /></div>
+      <div><label>Game 4 Total</label><input id="q3Market" placeholder="18.5" /></div>
+      <div><label>Game 5 Total</label><input id="q4Market" placeholder="18.5" /></div>
     </div>
 
   <div id="h1TeamMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>1H Team A</label><input id="h1TeamAMarket" placeholder="52.5" /></div>
-    <div><label>1H Team B</label><input id="h1TeamBMarket" placeholder="53.5" /></div>
+    <div><label>Game 1 Player A</label><input id="h1TeamAMarket" placeholder="9.5" /></div>
+    <div><label>Game 1 Player B</label><input id="h1TeamBMarket" placeholder="9.5" /></div>
   </div>
 
   <div id="highLowQMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>Highest Q Total</label><input id="highQTotalMarket" placeholder="62.5 - 65.5" /></div>
-    <div><label>Lowest Q Total</label><input id="lowQTotalMarket" placeholder="32.5 - 35.5" /></div>
+    <div><label>Highest Game Total</label><input id="highQTotalMarket" placeholder="22.5" /></div>
+    <div><label>Lowest Game Total</label><input id="lowQTotalMarket" placeholder="15.5" /></div>
   </div>
 
   <div id="q1TeamMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>Q1 Team A</label><input id="q1TeamAMarket" placeholder="25.5 - 29.5" /></div>
-    <div><label>Q1 Team B</label><input id="q1TeamBMarket" placeholder="26.5 - 30.5" /></div>
+    <div><label>Game 2 Player A</label><input id="q1TeamAMarket" placeholder="9.5" /></div>
+    <div><label>Game 2 Player B</label><input id="q1TeamBMarket" placeholder="9.5" /></div>
   </div>
 
 
@@ -3148,36 +3003,21 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
   const scoredList = [], allowedList = [];
   const homeScoredList = [], homeAllowedList = [];
   const awayScoredList = [], awayAllowedList = [];
+  
   // LOCK: TABLE TENNIS DATA MODEL — replaces basketball's H1/Q1-Q4 period series.
-  // A table tennis MATCH is decided by games won (e.g. 3-1 in a best-of-5), and each
-  // GAME is played to 11 points. SofaScore reports match-level games-won in
-  // homeScore.current/normaltime (handled above by scoredList/allowedList — those keys
-  // are unchanged and now hold games-won totals, not basketball points) and per-game
-  // point scores in homeScore.period1..period5 — the exact same field names basketball
-  // used for quarters, just re-purposed here for games. g1-g5 below replace q1-q4;
-  // there is no h1ScoredList equivalent (no meaningful "half" in table tennis), so it
-  // has been removed rather than kept as unused dead weight.
+  // g1-g5 represent Game 1 to Game 5 scored and allowed point series (each typically to 11 points).
   const g1ScoredList = [], g2ScoredList = [], g3ScoredList = [], g4ScoredList = [], g5ScoredList = [];
   const g1AllowedList = [], g2AllowedList = [], g3AllowedList = [], g4AllowedList = [], g5AllowedList = [];
-  // [LOCK: ISSUE #14 — parallel date arrays for the per-game lists above, additive only]
   const g1ScoredDates = [], g2ScoredDates = [], g3ScoredDates = [], g4ScoredDates = [], g5ScoredDates = [];
 
   // LOCK: Filter to table tennis events ONLY before any processing.
-  // ssIsTableTennisEvent checks sport slug, sport id, and score shape.
-  // This prevents football/soccer/basketball results from contaminating table tennis projections.
-  const tableTennisEvents = events.filter(ev => ssIsTableTennisEvent(ev));
+  const tableTennisEvents = events.filter(ev => ssIsBasketballEvent(ev));
   const blockedCount = events.length - tableTennisEvents.length;
   if (blockedCount > 0) {
     engineDebug("ssProcessTeamEvents: blocked " + blockedCount + " non-table-tennis events", { label, total: events.length, kept: tableTennisEvents.length });
   }
 
   // LOCK: Filter to the fixture's competition ONLY using uniqueTournament.id.
-  // fixtureTournamentId is the sole source of truth. It comes from (in priority order):
-  //   1. Fixture JSON paste (parseSofascoreFixture) — authoritative, no inference
-  //   2. Manual ssTournamentId entry
-  //   3. Intersection detection after both teams pasted
-  // No hardcoded names. No score thresholds. Works for every competition globally.
-  // When null, filter is a no-op — preserves backward compatibility.
   let competitionEvents = tableTennisEvents;
   if (fixtureTournamentId != null) {
     const tidStr = String(fixtureTournamentId);
@@ -3210,30 +3050,25 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
     if (myScore && oppScore) {
         const myFT = Number(myScore.normaltime ?? myScore.current ?? myScore.display ?? 0);
         const oppFT = Number(oppScore.normaltime ?? oppScore.current ?? oppScore.display ?? 0);
-      if (myFT > 0) {
+      if (myFT > 0 || oppFT > 0) {
         scoredList.push(myFT);
         allowedList.push(oppFT);
-        // LOCK: TABLE TENNIS PER-GAME POINT SCORES — replaces basketball's Q1-Q4.
-        // period1..period5 map to Game 1..Game 5 point totals (e.g. 11-7). A best-of-5
-        // match has at most 5 games; a best-of-7/9 match may run longer, but SofaScore's
-        // period1-5 fields cap at 5 regardless of format, so g5 is the practical ceiling
-        // this parser supports. Missing games (match ended in fewer than 5) correctly
-        // read as 0 via the ?? 0 fallback and are filtered out below.
+        
+        // SofaScore period score keys map directly to G1-G5 sets
         const myG1 = Number(myScore.period1 ?? 0);
         const myG2 = Number(myScore.period2 ?? 0);
         const myG3 = Number(myScore.period3 ?? 0);
         const myG4 = Number(myScore.period4 ?? 0);
         const myG5 = Number(myScore.period5 ?? 0);
+        
         const oppG1 = Number(oppScore.period1 ?? 0);
         const oppG2 = Number(oppScore.period2 ?? 0);
         const oppG3 = Number(oppScore.period3 ?? 0);
         const oppG4 = Number(oppScore.period4 ?? 0);
         const oppG5 = Number(oppScore.period5 ?? 0);
-        // [LOCK: ISSUE #14 — real game date for the date-aware shadow average, additive only]
+        
         const _evDate = ev.startTimestamp ? new Date(ev.startTimestamp * 1000).toISOString() : null;
-        // LOCK: each individual game is pushed only if it was actually played (points > 0
-        // on at least one side), so a 3-0 sweep correctly contributes 3 games to
-        // g1-g3ScoredList and leaves g4/g5 untouched rather than padding them with zeros.
+        
         if (myG1 + oppG1 > 0) { g1ScoredList.push(myG1); g1AllowedList.push(oppG1); g1ScoredDates.push(_evDate); }
         if (myG2 + oppG2 > 0) { g2ScoredList.push(myG2); g2AllowedList.push(oppG2); g2ScoredDates.push(_evDate); }
         if (myG3 + oppG3 > 0) { g3ScoredList.push(myG3); g3AllowedList.push(oppG3); g3ScoredDates.push(_evDate); }
@@ -3251,7 +3086,7 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
     if (myScore && oppScore) {
       const myFT = Number(myScore.normaltime ?? myScore.current ?? myScore.display ?? 0);
       const oppFT = Number(oppScore.normaltime ?? oppScore.current ?? oppScore.display ?? 0);
-      if (myFT > 0) {
+      if (myFT > 0 || oppFT > 0) {
         if (isHome) {
           if (homeScoredList.length < 10) {
             homeScoredList.push(myFT);
@@ -3267,15 +3102,9 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
     }
   });
 
-  // [LOCK: ISSUE #10 FIX — VERIFIED 2026-07-03. SofaScore manual-league path: this is
-  // where real per-game FT scores enter the engine for the ~85 leagues without ESPN
-  // coverage, so it's the correct hook for the volatility cache. League is read from the
-  // same DOM select every other call site in this file already uses. DO NOT remove.]
   updateLeagueVolCache(document.getElementById("leagueSelect")?.value || "", scoredList);
 
   return { scoredList, allowedList, homeScoredList, homeAllowedList, awayScoredList, awayAllowedList,
-           // [LOCK: ISSUE #14 — additive date arrays, parallel to the lists above. Existing
-           // keys and existing consumers of this return value are completely untouched.]
            g1ScoredList, g2ScoredList, g3ScoredList, g4ScoredList, g5ScoredList,
            g1AllowedList, g2AllowedList, g3AllowedList, g4AllowedList, g5AllowedList,
            g1ScoredDates, g2ScoredDates, g3ScoredDates, g4ScoredDates, g5ScoredDates };
@@ -3608,61 +3437,61 @@ function parseSofascoreIndividual(side) {
         if (!g_massacreFetchContext.B.overall) g_massacreFetchContext.B.overall = {};
         window.__lastEventsB = mergedEvents;
       }
-      const mergedStats = ssProcessTeamEvents(mergedEvents, idVal, "Team " + side + " (merged)", getFixtureTournamentId());
-      const mergedDisplay5S = mergedStats.scoredList.slice(0, 10);
-      const mergedDisplay5A = mergedStats.allowedList.slice(0, 10);
-      const _currentField = document.getElementById(side === "A" ? "aFTScored" : "bFTScored");
-      const currentCount = (_currentField?.value || "").split(",").filter(v => v.trim()).length;
-      if (mergedDisplay5S.length > currentCount) {
-        if (side === "A") {
-          if (mergedDisplay5S.length) document.getElementById("aFTScored").value = mergedDisplay5S.join(",");
-          if (mergedDisplay5A.length) document.getElementById("aFTAllowed").value = mergedDisplay5A.join(",");
-          if (mergedStats.h1ScoredList?.length >= 2) {
-            document.getElementById("a1HScored").value = mergedStats.h1ScoredList.slice(0, 10).join(",");
-            document.getElementById("a1HAllowed").value = mergedStats.h1AllowedList.slice(0, 10).join(",");
-          }
-          if (mergedStats.q1ScoredList?.length >= 2) {
-            document.getElementById("aQ1Scored").value = mergedStats.q1ScoredList.slice(0, 10).join(",");
-            document.getElementById("aQ2Scored").value = mergedStats.q2ScoredList.slice(0, 10).join(",");
-            document.getElementById("aQ3Scored").value = mergedStats.q3ScoredList.slice(0, 10).join(",");
-            document.getElementById("aQ4Scored").value = mergedStats.q4ScoredList.slice(0, 10).join(",");
-            document.getElementById("aQ1Allowed").value = mergedStats.q1AllowedList.slice(0, 10).join(",");
-            document.getElementById("aQ2Allowed").value = mergedStats.q2AllowedList.slice(0, 10).join(",");
-            document.getElementById("aQ3Allowed").value = mergedStats.q3AllowedList.slice(0, 10).join(",");
-            document.getElementById("aQ4Allowed").value = mergedStats.q4AllowedList.slice(0, 10).join(",");
-          }
-          g_massacreFetchContext.A.overall.ftScored10 = mergedStats.scoredList;
-          g_massacreFetchContext.A.overall.ftAllowed10 = mergedStats.allowedList;
-          g_massacreFetchContext.A.overall.scored10 = mergedStats.scoredList;
-          g_massacreFetchContext.A.overall.allowed10 = mergedStats.allowedList;
-          g_massacreFetchContext.A.overall.scored = mergedDisplay5S;
-          g_massacreFetchContext.A.overall.allowed = mergedDisplay5A;
-        } else {
-          if (mergedDisplay5S.length) document.getElementById("bFTScored").value = mergedDisplay5S.join(",");
-          if (mergedDisplay5A.length) document.getElementById("bFTAllowed").value = mergedDisplay5A.join(",");
-          if (mergedStats.h1ScoredList?.length >= 2) {
-            document.getElementById("b1HScored").value = mergedStats.h1ScoredList.slice(0, 10).join(",");
-            document.getElementById("b1HAllowed").value = mergedStats.h1AllowedList.slice(0, 10).join(",");
-          }
-          if (mergedStats.q1ScoredList?.length >= 2) {
-            document.getElementById("bQ1Scored").value = mergedStats.q1ScoredList.slice(0, 10).join(",");
-            document.getElementById("bQ2Scored").value = mergedStats.q2ScoredList.slice(0, 10).join(",");
-            document.getElementById("bQ3Scored").value = mergedStats.q3ScoredList.slice(0, 10).join(",");
-            document.getElementById("bQ4Scored").value = mergedStats.q4ScoredList.slice(0, 10).join(",");
-            document.getElementById("bQ1Allowed").value = mergedStats.q1AllowedList.slice(0, 10).join(",");
-            document.getElementById("bQ2Allowed").value = mergedStats.q2AllowedList.slice(0, 10).join(",");
-            document.getElementById("bQ3Allowed").value = mergedStats.q3AllowedList.slice(0, 10).join(",");
-            document.getElementById("bQ4Allowed").value = mergedStats.q4AllowedList.slice(0, 10).join(",");
-          }
-          g_massacreFetchContext.B.overall.ftScored10 = mergedStats.scoredList;
-          g_massacreFetchContext.B.overall.ftAllowed10 = mergedStats.allowedList;
-          g_massacreFetchContext.B.overall.scored10 = mergedStats.scoredList;
-          g_massacreFetchContext.B.overall.allowed10 = mergedStats.allowedList;
-          g_massacreFetchContext.B.overall.scored = mergedDisplay5S;
-          g_massacreFetchContext.B.overall.allowed = mergedDisplay5A;
+    const mergedStats = ssProcessTeamEvents(mergedEvents, idVal, "Team " + side + " (merged)", getFixtureTournamentId());
+    const mergedDisplay5S = mergedStats.scoredList.slice(0, 10);
+    const mergedDisplay5A = mergedStats.allowedList.slice(0, 10);
+    const _currentField = document.getElementById(side === "A" ? "aFTScored" : "bFTScored");
+    const currentCount = (_currentField?.value || "").split(",").filter(v => v.trim()).length;
+    if (mergedDisplay5S.length > currentCount) {
+      if (side === "A") {
+        if (mergedDisplay5S.length) document.getElementById("aFTScored").value = mergedDisplay5S.join(",");
+        if (mergedDisplay5A.length) document.getElementById("aFTAllowed").value = mergedDisplay5A.join(",");
+        if (mergedStats.g1ScoredList?.length >= 2) {
+          document.getElementById("a1HScored").value = mergedStats.g1ScoredList.slice(0, 10).join(",");
+          document.getElementById("a1HAllowed").value = mergedStats.g1AllowedList.slice(0, 10).join(",");
         }
-        if (st) { st.style.color = "#2f8f4a"; st.textContent = "✅ Team " + side + " updated to " + mergedDisplay5S.length + " games from merged JSON!"; }
+        if (mergedStats.g2ScoredList?.length >= 2) {
+          document.getElementById("aQ1Scored").value = mergedStats.g2ScoredList.slice(0, 10).join(",");
+          document.getElementById("aQ2Scored").value = mergedStats.g3ScoredList.slice(0, 10).join(",");
+          document.getElementById("aQ3Scored").value = mergedStats.g4ScoredList.slice(0, 10).join(",");
+          document.getElementById("aQ4Scored").value = mergedStats.g5ScoredList.slice(0, 10).join(",");
+          document.getElementById("aQ1Allowed").value = mergedStats.g2AllowedList.slice(0, 10).join(",");
+          document.getElementById("aQ2Allowed").value = mergedStats.g3AllowedList.slice(0, 10).join(",");
+          document.getElementById("aQ3Allowed").value = mergedStats.g4AllowedList.slice(0, 10).join(",");
+          document.getElementById("aQ4Allowed").value = mergedStats.g5AllowedList.slice(0, 10).join(",");
+        }
+        g_massacreFetchContext.A.overall.ftScored10 = mergedStats.scoredList;
+        g_massacreFetchContext.A.overall.ftAllowed10 = mergedStats.allowedList;
+        g_massacreFetchContext.A.overall.scored10 = mergedStats.scoredList;
+        g_massacreFetchContext.A.overall.allowed10 = mergedStats.allowedList;
+        g_massacreFetchContext.A.overall.scored = mergedDisplay5S;
+        g_massacreFetchContext.A.overall.allowed = mergedDisplay5A;
       } else {
+        if (mergedDisplay5S.length) document.getElementById("bFTScored").value = mergedDisplay5S.join(",");
+        if (mergedDisplay5A.length) document.getElementById("bFTAllowed").value = mergedDisplay5A.join(",");
+        if (mergedStats.g1ScoredList?.length >= 2) {
+          document.getElementById("b1HScored").value = mergedStats.g1ScoredList.slice(0, 10).join(",");
+          document.getElementById("b1HAllowed").value = mergedStats.g1AllowedList.slice(0, 10).join(",");
+        }
+        if (mergedStats.g2ScoredList?.length >= 2) {
+          document.getElementById("bQ1Scored").value = mergedStats.g2ScoredList.slice(0, 10).join(",");
+          document.getElementById("bQ2Scored").value = mergedStats.g3ScoredList.slice(0, 10).join(",");
+          document.getElementById("bQ3Scored").value = mergedStats.g4ScoredList.slice(0, 10).join(",");
+          document.getElementById("bQ4Scored").value = mergedStats.g5ScoredList.slice(0, 10).join(",");
+          document.getElementById("bQ1Allowed").value = mergedStats.g2AllowedList.slice(0, 10).join(",");
+          document.getElementById("bQ2Allowed").value = mergedStats.g3AllowedList.slice(0, 10).join(",");
+          document.getElementById("bQ3Allowed").value = mergedStats.g4AllowedList.slice(0, 10).join(",");
+          document.getElementById("bQ4Allowed").value = mergedStats.g5AllowedList.slice(0, 10).join(",");
+        }
+        g_massacreFetchContext.B.overall.ftScored10 = mergedStats.scoredList;
+        g_massacreFetchContext.B.overall.ftAllowed10 = mergedStats.allowedList;
+        g_massacreFetchContext.B.overall.scored10 = mergedStats.scoredList;
+        g_massacreFetchContext.B.overall.allowed10 = mergedStats.allowedList;
+        g_massacreFetchContext.B.overall.scored = mergedDisplay5S;
+        g_massacreFetchContext.B.overall.allowed = mergedDisplay5A;
+      }
+      if (st) { st.style.color = "#2f8f4a"; st.textContent = "✅ Team " + side + " updated to " + mergedDisplay5S.length + " games from merged JSON!"; }
+    } else {
         if (st) { st.style.color = "#d98a00"; st.textContent = "⚠️ No additional games found beyond current " + currentCount + " — H2H updated only."; }
       }
     }
@@ -4526,27 +4355,12 @@ function getLeagueEdgePointThreshold(league, marketKey) {
 
 
 let LEAGUE_BASES = {
-  nba: 230, ncaa: 148, nba_gl: 228, ncaaw: 144, wnba: 168, wnba_pre: 164, cebl: 176,
-  pba: 196, phil_mpbl: 156, cba: 202, china_nbl: 188, taipei_tpbl: 176,
-  bleague: 162, korea_kbl: 164, indonesia_ibl: 154,
-  ausnbl: 176, aus_nbl1_east: 178, aus_nbl1_north: 178, aus_nbl1_south: 178, aus_nbl1_west: 178, aus_nbl1_central: 178, aus_nbl1_east_w: 152, aus_nbl1_north_w: 152, aus_nbl1_south_w: 152, aus_nbl1_west_w: 152, aus_nbl1_central_w: 152, aus_big_v: 154, aus_big_v_w: 148, nznbl: 176,
-  puerto_rico_bsn: 182, mexico_cibacopa: 180, mexico_lnbp: 172,
-  argentina_lnb: 160, brazil_nbb: 160, brazil_lbf_w: 142, chile_lnb: 158, chile_lnb2: 152,
-  uruguay_lub: 164, uruguay_lfb_w: 138, venezuela_sl: 156, el_salvador_lmb: 154,
-  euroleague: 162, eurocup: 160, champions_league: 160, acb: 166, lba: 162, bbl: 168, turkey_bsl: 168, proa: 162, bcl: 158, isl: 166,
-  aba: 158, bnxt: 156, united_league: 162, spain_primera: 158, spain_segunda: 152,
-  italy_a2: 156, italy_serb: 150, italy_a1_w: 144, italy_a2_w: 140,
-  germany_proa: 160, prob: 156, france_lfb_w: 144,
-  turkey_tbl: 160, turkey_tb2l: 154, lkl: 162, plk: 160, poland_1liga: 152,
-  england_slb: 164, england_slb_w: 146, gb_super_league_w: 146,
-  serbia_kls: 160, croatia_premier: 158, slovenia_1a: 156, bih_1st: 154,
-  austria_superliga: 156, austria_zweite: 150, belgium_top: 158, bulgaria_nbl: 158,
-  cyprus_div_a: 154, nbl_cz: 160, denmark_bliga: 164, estonia_kml: 156, finland_koris: 162,
-  georgia_super: 158, hungary_nb1: 158, iceland_urvalsdeild: 178, iceland_urvalsdeild_w: 154, iceland_1st: 172,
-  latvia_lbl: 158, lebanon_1st: 168, portugal_lpb: 160, portugal_proliga: 154, portugal_taca: 158, portugal_lfb_w: 142,
-  romania_ln: 156, sweden_sbl: 162, swiss_sbl: 156,
-  bal: 154, nigeria: 148, rwanda: 144,
-  fiba_wc: 156, fiba_eb: 156, fiba_ac: 154, unknown: 160
+  tt_cup: 74.5,
+  win_cup: 73.5,
+  set_ka: 74.0,
+  liga_pro: 74.5,
+  challenger_series: 72.0,
+  unknown: 74.0
 };
 
 const NBA_2026_TEAM_BASELINES = {
@@ -4692,11 +4506,12 @@ function getLeagueRecencyDefaults(league) {
 // anywhere in the file.
 
 const LEAGUE_VOL_LIMITS = {
-  nba: 12, ncaa: 15, ncaaw: 15, wnba: 13, wnba_pre: 14, nba_gl: 13,
-  euroleague: 10, eurocup: 11, champions_league: 11,
-  acb: 11, lba: 11, bbl: 12, turkey_bsl: 12,
-  ausnbl: 12, bleague: 11, united_league: 12, proa: 11,
-  default: 12
+  tt_cup: 3.5,
+  win_cup: 3.5,
+  set_ka: 3.5,
+  liga_pro: 3.5,
+  challenger_series: 3.5,
+  default: 3.5
 };
 // [LOCK: ISSUE #10 RESOLVED 2026-07-03 — SELF-LEARNING VOLATILITY CACHE] The limitation
 // documented below (uncovered leagues falling to LEAGUE_VOL_LIMITS.default = 12) is now
@@ -4787,20 +4602,11 @@ function getLearnedVolLimit(league) {
 }
 
 const LEAGUE_CONFIG_MAP = {
-  NBA: { volLimit:12, sanityMin:160, sanityMax:250 },
-  NCAA: { volLimit:15, sanityMin:120, sanityMax:200 },
-  NCAAW: { volLimit:15, sanityMin:100, sanityMax:175 },
-  WNBA: { volLimit:13, sanityMin:130, sanityMax:200 },
-  WNBA_PRE: { volLimit:14, sanityMin:125, sanityMax:200 },
-  NBA_GL: { volLimit:13, sanityMin:155, sanityMax:245 },
-  EUROLEAGUE: { volLimit:10, sanityMin:130, sanityMax:200 },
-  EUROCUP: { volLimit:11, sanityMin:125, sanityMax:195 },
-  CHAMPIONS_LEAGUE: { volLimit:11, sanityMin:120, sanityMax:195 },
-  ACB: { volLimit:11, sanityMin:130, sanityMax:200 },
-  LBA: { volLimit:11, sanityMin:125, sanityMax:195 },
-  BBL: { volLimit:12, sanityMin:130, sanityMax:205 },
-  TURKEY_BSL: { volLimit:12, sanityMin:130, sanityMax:205 },
-  AUSNBL: { volLimit:12, sanityMin:130, sanityMax:210 }
+  TT_CUP: { volLimit:3.5, sanityMin:45, sanityMax:125 },
+  WIN_CUP: { volLimit:3.5, sanityMin:45, sanityMax:125 },
+  SET_KA: { volLimit:3.5, sanityMin:45, sanityMax:125 },
+  LIGA_PRO: { volLimit:3.5, sanityMin:45, sanityMax:125 },
+  CHALLENGER_SERIES: { volLimit:3.5, sanityMin:45, sanityMax:125 }
 };
 // [LOCK: getLeagueConfig PERMANENTLY REMOVED — VERIFIED zero callers anywhere in the file.
 // It read recencyWeights/homeEdge/paceClampMin/paceClampMax fields that no other function
@@ -4814,32 +4620,10 @@ const LEAGUE_CONFIG_MAP = {
 
 const LEAGUE_TRUST_PROFILES = {
   trusted: [
-    "nba", "ncaa", "nba_gl", "ncaaw", "wnba", "euroleague", "eurocup", "champions_league", 
-    "acb", "lba", "bbl", "bcl", "turkey_bsl", "isl", "cba", "pba", 
-    "ausnbl", "proa", "united_league", "bleague", "korea_kbl",
-    "aus_nbl1_east", "aus_nbl1_north", "aus_nbl1_south", "aus_nbl1_west", "aus_nbl1_central", "aus_big_v",
-    "nznbl"
+    "tt_cup", "win_cup", "set_ka", "liga_pro", "challenger_series"
   ],
-  advisory: [
-    "wnba_pre", "aba", "lkl", "plk", "prob", "germany_proa", "serbia_kls", "croatia_premier", 
-    "romania_ln", "hungary_nb1", "nbl_cz", "denmark_bliga", "england_slb", "england_slb_w",
-    "finland_koris", "italy_a2", "italy_serb", "italy_a1_w", "poland_1liga",
-    "portugal_lpb", "portugal_proliga", "spain_primera", "spain_segunda", "sweden_sbl",
-    "swiss_sbl", "turkey_tbl", "turkey_tb2l", "china_nbl", "taipei_tpbl",
-    "austria_superliga", "belgium_top", "bih_1st", "bulgaria_nbl", "georgia_super", 
-    "argentina_lnb", "brazil_nbb", "chile_lnb", "mexico_lnbp", "mexico_cibacopa", 
-    "puerto_rico_bsn", "uruguay_lub", "cebl",
-    "aus_nbl1_east_w", "aus_nbl1_north_w", "aus_nbl1_south_w", "aus_nbl1_west_w", "aus_nbl1_central_w", "aus_big_v_w",
-    "bnxt", "cyprus_div_a", "estonia_kml", "iceland_urvalsdeild", "latvia_lbl", 
-    "lebanon_1st", "slovenia_1a", "gb_super_league_w", "france_lfb_w"
-  ],
-  blocked: [
-    "brazil_lbf_w", "chile_lnb2", "uruguay_lfb_w", "venezuela_sl", "el_salvador_lmb",
-    "bal", "nigeria", "rwanda",
-    "phil_mpbl", "indonesia_ibl", "italy_a2_w", "austria_zweite", 
-    "iceland_urvalsdeild_w", "iceland_1st", "portugal_taca", "portugal_lfb_w",
-    "fiba_wc", "fiba_eb", "fiba_ac"
-  ]
+  advisory: [],
+  blocked: []
 };
 function normalizeLeagueTrustKey(league) {
   return String(league || "unknown").trim().toLowerCase() || "unknown";
@@ -15874,17 +15658,17 @@ function validateExtractedInputs(extracted, league) {
   const tAId = String(selectedTeamIds?.A || "");
   const tBId = String(selectedTeamIds?.B || "");
   if ((tAId && tAId === tBId) || (normA && normA === normB))
-    errors.push("Team A and Team B cannot be the same team.");
+    errors.push("Player A and Player B cannot be the same.");
   function chk(s, lbl) { if (s?.err) errors.push(`<b>${lbl}:</b> ${s.err}`); }
-  chk(parsed.aFTScored, "Team A FT Scored"); chk(parsed.aFTAllowed, "Team A FT Allowed");
-  chk(parsed.bFTScored, "Team B FT Scored"); chk(parsed.bFTAllowed, "Team B FT Allowed");
-  chk(parsed.a1HScored, "Team A 1H Scored"); chk(parsed.a1HAllowed, "Team A 1H Allowed");
-  chk(parsed.b1HScored, "Team B 1H Scored"); chk(parsed.b1HAllowed, "Team B 1H Allowed");
-  chk(parsed.aFTH2H, "FT H2H (A)");  chk(parsed.bFTH2H, "FT H2H (B)");
-  chk(parsed.a1HH2H, "1H H2H (A)");  chk(parsed.b1HH2H, "1H H2H (B)");
+  chk(parsed.aFTScored, "Player A Games Scored"); chk(parsed.aFTAllowed, "Player A Games Allowed");
+  chk(parsed.bFTScored, "Player B Games Scored"); chk(parsed.bFTAllowed, "Player B Games Allowed");
+  chk(parsed.a1HScored, "Player A G1 Scored"); chk(parsed.a1HAllowed, "Player A G1 Allowed");
+  chk(parsed.b1HScored, "Player B G1 Scored"); chk(parsed.b1HAllowed, "Player B G1 Allowed");
+  chk(parsed.aFTH2H, "Games H2H (A)");  chk(parsed.bFTH2H, "Games H2H (B)");
+  chk(parsed.a1HH2H, "G1 H2H (A)");  chk(parsed.b1HH2H, "G1 H2H (B)");
   ["Q1","Q2","Q3","Q4"].forEach(q => {
-    chk(parsed[`aQ${q}H2H`], q + " H2H (A)");
-    chk(parsed[`bQ${q}H2H`], q + " H2H (B)");
+    chk(parsed[`aQ${q}H2H`], "G" + q.slice(1) + " H2H (A)");
+    chk(parsed[`bQ${q}H2H`], "G" + q.slice(1) + " H2H (B)");
   });
   const lineWarnings = validateLinesFromExtracted(league, extracted.lines || {});
   lineWarnings.forEach(w => errors.push(w));
