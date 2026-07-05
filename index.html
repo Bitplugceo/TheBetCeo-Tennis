@@ -2499,7 +2499,7 @@ body.dark-mode .tracker-analytics-section-head {
 </div>
 
 <div class="section" id="teamASection">
-  <h3>Team A - Last 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
+  <h3>Player A - Last 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
 
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
     <div>
@@ -2562,7 +2562,7 @@ body.dark-mode .tracker-analytics-section-head {
 </div>
 
 <div class="section" id="teamBSection">
-  <h3>Team B - Last 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
+  <h3>Player B - Last 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
 
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
     <div>
@@ -9172,7 +9172,7 @@ function renderTrackerAnalytics() {
             `).join("") : `<div class="tracker-empty-note">Pick a league or settle some results to start building the trust board.</div>`}
           </div>
           <div class="league-trust-note">Trusted = full plays allowed. Needs retune = advisory-only. Do not use = blocked to no-play until recalibrated.</div>
-          <div class="league-trust-note">Non-NBA / non-NCAA picks can now be settled manually from Tracked Picks so Report can learn from them too.</div>
+          <div class="league-trust-note">Picks can be settled manually from Tracked Picks so Report can learn from them too.</div>
         </div>
       </div>
 
@@ -10723,19 +10723,22 @@ function getEffectivePaceClamp(league) {
 
     function getLineSanityBands(league) {
   const cfg = LEAGUE_CONFIG_MAP[String(league || "").toUpperCase()];
-  if (cfg && isFinite(cfg.sanityMin) && isFinite(cfg.sanityMax)) {
-    return { ft: [cfg.sanityMin, cfg.sanityMax], h1: [cfg.sanityMin * 0.46, cfg.sanityMax * 0.54], team: [cfg.sanityMin * 0.44, cfg.sanityMax * 0.56] };
-  }
-  const defaults = {
-    nba: { ft:[160,260], h1:[74,130], team:[70,130] },
-    ncaa: { ft:[120,200], h1:[56,100], team:[54,100] },
-    wnba: { ft:[130,200], h1:[60,100], team:[58,100] },
-    euroleague: { ft:[130,200], h1:[60,100], team:[56,100] }
-  };
-  return defaults[String(league || "").toLowerCase()] || { ft:[100,300], h1:[44,154], team:[40,155] };
+  // Match Total (ft): sum of points across all sets played (3-7 sets depending on
+  // format). Per-league override comes from LEAGUE_CONFIG_MAP; otherwise a broad
+  // default that covers a quick 3-0 sweep through a full 5-set decider.
+  const ftBand = (cfg && isFinite(cfg.sanityMin) && isFinite(cfg.sanityMax))
+    ? [cfg.sanityMin, cfg.sanityMax]
+    : [45, 125];
+  // Set 1 / Game 1 Total: a single table tennis set (race to 11, win by 2).
+  // This is NOT half the match total (basketball's H1-is-half-of-FT logic doesn't
+  // apply here — a match has 3 to 7 sets, so Set 1 is more like a fifth to a third
+  // of the match, not a half). Realistic range covers an 11-0 shutout through an
+  // extended deuce battle (e.g. 18-16 = 34).
+  const h1Band = [10.5, 36];
+  return { ft: ftBand, h1: h1Band };
 }
 
-    function validateLines(league, ftLine, h1Line, aLine, bLine) {
+    function validateLines(league, ftLine, h1Line) {
   const errors = [];
   const bands = getLineSanityBands(league);
   const checkFt = (v, label) => {
@@ -10744,23 +10747,16 @@ function getEffectivePaceClamp(league) {
   };
   const checkH1 = (v, label) => {
     if (v == null || !isFinite(v)) return;
-    if (v < bands.h1[0] || v > bands.h1[1]) errors.push(label + " (" + v + ") outside expected range");
+    if (v < bands.h1[0] || v > bands.h1[1]) errors.push(label + " (" + v + ") outside expected range " + bands.h1[0] + "–" + bands.h1[1]);
   };
-  const checkTeam = (v, label) => {
-    if (v == null || !isFinite(v)) return;
-    if (v < bands.team[0] || v > bands.team[1]) errors.push(label + " (" + v + ") outside expected range");
-  };
-  checkFt(ftLine, "FT Total");
-  checkH1(h1Line, "1H Total");
-  checkTeam(aLine, "Team A Total");
-  checkTeam(bLine, "Team B Total");
+  checkFt(ftLine, "Match Total");
+  checkH1(h1Line, "Set 1 Total");
   return errors;
 }
 
     function validateLinesFromExtracted(league, lines = {}) {
-  // FIX #34: h2Line param removed from validateLines — it was already always passed
-  // as null here and never read inside that function's body.
-  return validateLines(league, lines.ftLine, lines.h1Line, lines.aLine, lines.bLine);
+  // Team A/B Total markets were removed — only Match Total and Set 1 Total are validated.
+  return validateLines(league, lines.ftLine, lines.h1Line);
 }
 
 // Helper: get overall 10-game scored series for a team side
@@ -16394,9 +16390,9 @@ const markets = finalPicksForDisplay.map(p => ({
           <span style="color: ${ftCalc.ftFullModel ? '#4CAF50' : '#ffa500'}">${ftCalc.ftFullModel ? '🟢 FULL MODEL' : '🟡 LIMITED DATA'}</span>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 12px; text-align: center; gap: 5px;">
-          <div><div style="font-size: 9px; color: var(--muted); margin-bottom: 3px; text-transform: uppercase;">Team A Net</div><div style="font-size: 18px; font-weight: 900; color: ${netAColor}">${netADisplay}</div></div>
+          <div><div style="font-size: 9px; color: var(--muted); margin-bottom: 3px; text-transform: uppercase;">Player A Net</div><div style="font-size: 18px; font-weight: 900; color: ${netAColor}">${netADisplay}</div></div>
           <div><div style="font-size: 9px; color: var(--muted); margin-bottom: 3px; text-transform: uppercase;">Pace</div><div style="font-size: 18px; font-weight: 900; color: var(--tracker-strong)">${paceIcon} ${paceDisplay}</div></div>
-          <div><div style="font-size: 9px; color: var(--muted); margin-bottom: 3px; text-transform: uppercase;">Team B Net</div><div style="font-size: 18px; font-weight: 900; color: ${netBColor}">${netBDisplay}</div></div>
+          <div><div style="font-size: 9px; color: var(--muted); margin-bottom: 3px; text-transform: uppercase;">Player B Net</div><div style="font-size: 18px; font-weight: 900; color: ${netBColor}">${netBDisplay}</div></div>
         </div>`;
 
         let existingDash = document.getElementById('syndicateDashboard');
