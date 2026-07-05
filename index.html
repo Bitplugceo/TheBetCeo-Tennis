@@ -4186,120 +4186,16 @@ function getLeagueUnderBlockRatio(league) {
 
 // Raw point thresholds (edge = projection - line)
 const LEAGUE_EDGE_POINT_THRESHOLDS = {
-  nba:                { ft: 7.0, h1: 8.0, team: 10.0, q: 5.0 },
-  wnba:               { ft: 7.0, h1: 8.0, team: 10.0, q: 5.0 },
-  wnba_pre:           { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  ncaa:               { ft: 7.0, h1: 8.0, team: 10.0, q: 5.0 },
-  ncaaw:              { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  euroleague:         { ft: 7.0, h1: 8.0, team: 10.0, q: 5.0 },
-  eurocup:            { ft: 7.0, h1: 8.0, team: 10.0, q: 5.0 },
-  acb:                { ft: 7.0, h1: 8.0, team: 10.0, q: 5.0 },
-  lba:                { ft: 7.0, h1: 8.0, team: 10.0, q: 5.0 },
-  turkey_bsl:         { ft: 7.0, h1: 8.0, team: 10.0, q: 5.0 },
-  aba:                { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  ausnbl:             { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  bcl:                { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  champions_league:   { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  bnxt:               { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  bbl:                { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  bleague:            { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  cba:                { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  korea_kbl:          { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  pba:                { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  lkl:                { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  nba_gl:             { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  bal:                { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  proa:               { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  brazil_nbb:         { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  plk:                { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  united_league:      { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  mexico_lnbp:        { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  puerto_rico_bsn:    { ft: 6.0, h1: 7.0, team:  9.0, q: 4.0 },
-  argentina_lnb:      { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  austria_superliga:  { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  belgium_top:        { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  cebl:               { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  croatia_premier:    { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  denmark_bliga:      { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  fiba_ac:            { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  fiba_eb:            { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  fiba_wc:            { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  finland_koris:      { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  france_lfb_w:       { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  germany_proa:       { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  hungary_nb1:        { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  isl:                { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  italy_a2:           { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  italy_a2_w:         { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  latvia_lbl:         { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  lebanon_1st:        { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  mexico_cibacopa:    { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  nbl_cz:             { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  nznbl:              { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  poland_1liga:       { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  portugal_lpb:       { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  portugal_taca:      { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  prob:               { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  romania_ln:         { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  serbia_kls:         { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  slovenia_1a:        { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  spain_primera:      { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  spain_segunda:      { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  sweden_sbl:         { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  swiss_sbl:          { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  taipei_tpbl:        { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  turkey_tbl:         { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  venezuela_sl:       { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  uruguay_lub:        { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  austria_zweite:     { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  bih_1st:            { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  brazil_lbf_w:       { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  bulgaria_nbl:       { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  cyprus_div_a:       { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  chile_lnb:          { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  chile_lnb2:         { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  el_salvador_lmb:    { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  england_slb:        { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  england_slb_w:      { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  estonia_kml:        { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  gb_super_league_w:  { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  georgia_super:      { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  iceland_1st:        { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  iceland_urvalsdeild:   { ft: 4.0, h1: 5.0, team: 7.0, q: 3.0 },
-  iceland_urvalsdeild_w: { ft: 4.0, h1: 5.0, team: 7.0, q: 3.0 },
-  indonesia_ibl:      { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  italy_a1_w:         { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  italy_serb:         { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  phil_mpbl:          { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  portugal_lfb_w:     { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  portugal_proliga:   { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  rwanda:             { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  turkey_tb2l:        { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  uruguay_lfb_w:      { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_big_v:          { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_big_v_w:        { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_east:      { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_east_w:    { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_north:     { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_north_w:   { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_south:     { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_south_w:   { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_west:      { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_west_w:    { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_central:   { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  aus_nbl1_central_w: { ft: 4.0, h1: 5.0, team:  7.0, q: 3.0 },
-  unknown:            { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 },
-  default:            { ft: 5.0, h1: 6.0, team:  8.0, q: 3.0 }
+  tt_cup:             { ft: 5.0, h1: 6.0 },
+  set_ka:             { ft: 5.0, h1: 6.0 },
+  unknown:            { ft: 5.0, h1: 6.0 },
+  default:            { ft: 5.0, h1: 6.0 }
 };
 
 function getLeagueEdgePointThreshold(league, marketKey) {
   const lk = (league || "default").toLowerCase();
   const thresholds = LEAGUE_EDGE_POINT_THRESHOLDS[lk] || LEAGUE_EDGE_POINT_THRESHOLDS.default;
-  let key = marketKey;
-  if (marketKey === "team_a" || marketKey === "team_b") key = "team";
-  else if (marketKey && marketKey.startsWith("q")) key = "q";
-  else if (marketKey === "h1") key = "h1";
-  else key = "ft";
+  const key = (marketKey === "h1") ? "h1" : "ft";
   return thresholds[key] ?? thresholds.ft;
 }
 
@@ -4343,52 +4239,14 @@ function getNBASeasonBaseline(teamName, league) {
 }
 
 const LEAGUE_PACE_BASES = {
-  nba: 99.0,
-  nba_gl: 101.5,
-  ncaa: 70.0,
-  ncaaw: 72.0,
-  wnba: 81.0,
-  wnba_pre: 81.0,
-  euroleague: 71.0,
-  eurocup: 72.0,
-  champions_league: 71.5,
-  acb: 72.5,
-  lba: 71.5,
-  bbl: 73.0,
-  turkey_bsl: 73.5,
-  ausnbl: 78.0,
-  nznbl: 78.0,
-  bleague: 75.5,
-  korea_kbl: 74.5,
-  cba: 91.0,
-  proa: 73.0,
-  cebl: 76.0,
-  aba: 71.0,
+  tt_cup: 74.0,
+  set_ka: 74.0,
   default: 74.0
 };
 
 const LEAGUE_RATING_BASES = {
-  nba: 115.0,
-  nba_gl: 112.5,
-  ncaa: 105.0,
-  ncaaw: 96.0,
-  wnba: 103.0,
-  wnba_pre: 101.0,
-  euroleague: 114.0,
-  eurocup: 111.0,
-  champions_league: 111.5,
-  acb: 110.5,
-  lba: 110.0,
-  bbl: 110.5,
-  turkey_bsl: 111.0,
-  ausnbl: 111.5,
-  nznbl: 111.0,
-  bleague: 108.5,
-  korea_kbl: 107.5,
-  cba: 114.5,
-  proa: 109.5,
-  cebl: 109.0,
-  aba: 108.5,
+  tt_cup: 110.0,
+  set_ka: 110.0,
   default: 110.0
 };
 
@@ -4628,45 +4486,10 @@ const LEAGUE_FETCH_RULES = {
   cebl:            { recentSeasons: 2, scheduleTypes: ["1","2","3"], h2hScheduleTypes: ["1","2","3"], regulationPeriods: 4 }
 };
 
-    const NBA_TEAM_MAP = {
-      "hawks":1,"atlanta":1,"celtics":2,"boston":2,"nets":17,"brooklyn":17,
-      "hornets":30,"charlotte":30,"bulls":4,"chicago":4,"cavaliers":5,"cavs":5,"cleveland":5,
-      "mavericks":6,"mavs":6,"dallas":6,"nuggets":7,"denver":7,"pistons":8,"detroit":8,
-      "warriors":9,"golden state":9,"gsw":9,"rockets":10,"houston":10,"pacers":11,"indiana":11,
-      "clippers":12,"la clippers":12,"lakers":13,"los angeles lakers":13,"la lakers":13,
-      "grizzlies":29,"memphis":29,"heat":14,"miami":14,"bucks":15,"milwaukee":15,
-      "timberwolves":16,"wolves":16,"minnesota":16,"pelicans":3,"new orleans":3,
-      "knicks":18,"new york":18,"thunder":25,"okc":25,"oklahoma city":25,"magic":19,"orlando":19,
-      "76ers":20,"sixers":20,"philadelphia":20,"suns":21,"phoenix":21,
-      "trail blazers":22,"trailblazers":22,"blazers":22,"portland":22,
-      "kings":23,"sacramento":23,"spurs":24,"san antonio":24,"raptors":28,"toronto":28,
-      "jazz":26,"utah":26,"wizards":27,"washington":27
-    };
-
-    const NCAA_TEAM_MAP = {
-      "duke":150,"kentucky":96,"kansas":2305,"unc":153,"north carolina":153,"uconn":41,"connecticut":41,
-      "arizona":12,"gonzaga":2250,"purdue":2509,"ucla":26,"houston":248,"baylor":239,"tennessee":2633,
-      "alabama":333,"auburn":2,"michigan state":127,"wisconsin":275,"illinois":356,"texas":251,
-      "arkansas":8,"memphis":235,"florida":57,"virginia":258,"villanova":222,"marquette":269,
-      "creighton":156,"xavier":2752,"saint marys":2608,"st marys":2608,"san diego state":21,
-      "new mexico":167,"dayton":2168,"byu":252,"iowa state":66,"texas tech":2641,"texas a&m":245,
-      "texas a and m":245,"missouri":142,"indiana":84,"ohio state":194,"michigan":130,"usc":30,"oregon":2483,
-      "nevada":4,"boise state":68,"colorado state":36,"utah state":328,"providence":2507,"seton hall":2550,
-      "st johns":2599,"saint johns":2599,"wake forest":154,"clemson":228,"florida atlantic":2226,
-      "fau":2226,"miami":2390,"texas christian":2628,"tcu":2628,"nc state":152,"north carolina state":152,
-      "louisville":97,"syracuse":183,"notre dame":87,"georgetown":46,"georgia":61,"ole miss":145,
-      "mississippi state":344,"lsu":99,"vanderbilt":238,"butler":2086,"belmont":2057,"drake":2181,
-      "oregon state":204,"washington":264,"washington state":265
-    };
-
-    const WNBA_TEAM_MAP = {
-      "aces":17,"las vegas":17,"liberty":9,"new york":9,"sun":18,"connecticut":18,
-      "lynx":8,"minnesota":8,"storm":14,"seattle":14,"mercury":11,"phoenix":11,
-      "fever":5,"indiana":5,"dream":20,"atlanta":20,"sky":19,"chicago":19,
-      "wings":3,"dallas":3,"mystics":16,"washington":16,"sparks":6,"los angeles":6,
-      "valkyries":129689,"golden state":129689,"fire":132052,"portland":132052,
-      "tempo":131935,"toronto":131935
-    };
+// [REMOVED FOR TABLE TENNIS: NBA_TEAM_MAP, NCAA_TEAM_MAP, WNBA_TEAM_MAP — these were
+// ESPN team-name-to-ID lookup tables, only ever consulted by lookupTeamId() when
+// leagueHint was "nba"/"ncaa"/"wnba". Since tt_cup/set_ka never pass those hints,
+// lookupTeamId() is simplified below to a no-op stub (behavior-neutral).]
 
     const _schedCache = new Map();
     const _summaryCache = new Map();
@@ -11862,38 +11685,10 @@ updateIntelligencePack();
 }
 
     function lookupTeamId(name, leagueHint) {
-      const n = normalizeTeamName(name);
-      if (leagueHint === "nba") {
-        if (NBA_TEAM_MAP[n] !== undefined) return NBA_TEAM_MAP[n];
-        let bestKey = null, bestLen = 0;
-        for (const key of Object.keys(NBA_TEAM_MAP)) {
-          if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
-        }
-        if (bestKey) return NBA_TEAM_MAP[bestKey];
-        if (n.length >= 3) {
-          bestKey = null; bestLen = 0;
-          for (const key of Object.keys(NBA_TEAM_MAP)) {
-            if (key.includes(n) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
-          }
-          if (bestKey) return NBA_TEAM_MAP[bestKey];
-        }
-      }
-      if (leagueHint === "wnba" || leagueHint === "wnba_pre") {
-        if (WNBA_TEAM_MAP[n] !== undefined) return WNBA_TEAM_MAP[n];
-        let bestKey = null, bestLen = 0;
-        for (const key of Object.keys(WNBA_TEAM_MAP)) {
-          if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
-        }
-        if (bestKey) return WNBA_TEAM_MAP[bestKey];
-      }
-      if (leagueHint === "ncaa") {
-        if (NCAA_TEAM_MAP[n] !== undefined) return NCAA_TEAM_MAP[n];
-        let bestKey = null, bestLen = 0;
-        for (const key of Object.keys(NCAA_TEAM_MAP)) {
-          if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
-        }
-        if (bestKey) return NCAA_TEAM_MAP[bestKey];
-      }
+      // [SIMPLIFIED FOR TABLE TENNIS: previously looked up ESPN NBA/NCAA/WNBA team
+      // IDs by name. Table tennis fixtures are identified manually via SofaScore
+      // paste, so this always returns null now — behavior-neutral for tt_cup/set_ka,
+      // which never passed "nba"/"ncaa"/"wnba" as leagueHint anyway.]
       return null;
     }
 
