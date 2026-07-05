@@ -2387,10 +2387,7 @@ body.dark-mode .tracker-analytics-section-head {
     <option value="">- Select League -</option>
     <optgroup label="── ACTIVE COMPETITIONS ──────────────────">
       <option value="tt_cup">TT Cup</option>
-      <option value="win_cup">Win Cup</option>
       <option value="set_ka">Setka Cup</option>
-      <option value="liga_pro">Liga Pro</option>
-      <option value="challenger_series">Challenger Series</option>
     </optgroup>
     <optgroup label="── OTHER ──────────────────">
       <option value="unknown">Other / Mixed League</option>
@@ -3011,7 +3008,7 @@ function ssProcessTeamEvents(events, teamId, label, fixtureTournamentId) {
   const g1ScoredDates = [], g2ScoredDates = [], g3ScoredDates = [], g4ScoredDates = [], g5ScoredDates = [];
 
   // LOCK: Filter to table tennis events ONLY before any processing.
-  const tableTennisEvents = events.filter(ev => ssIsBasketballEvent(ev));
+  const tableTennisEvents = events.filter(ev => ssIsTableTennisEvent(ev));
   const blockedCount = events.length - tableTennisEvents.length;
   if (blockedCount > 0) {
     engineDebug("ssProcessTeamEvents: blocked " + blockedCount + " non-table-tennis events", { label, total: events.length, kept: tableTennisEvents.length });
@@ -3150,13 +3147,13 @@ const nameEl = document.getElementById(side === "A" ? "ssTeamAName" : "ssTeamBNa
 const rawName = (nameEl?.value || "").trim();
 if (!rawName) { alert("Enter a player/team name first."); return; }
 const searchName = rawName.split(",")[0].trim();
-// Use sport=basketball to restrict results to basketball teams only.
-const searchUrl = "https://api.sofascore.com/api/v1/search/teams?q=" + encodeURIComponent(searchName) + "&sport=basketball";
+// Use sport=table-tennis to restrict results to table tennis players/teams only.
+const searchUrl = "https://api.sofascore.com/api/v1/search/teams?q=" + encodeURIComponent(searchName) + "&sport=table-tennis";
 window.open(searchUrl, "_blank");
 const st = document.getElementById("ssFetchStatus");
 if (st) {
 st.style.color = "#d98a00";
-st.textContent = "🔍 Basketball-only search opened for " + side + " — find the team ID in the JSON and paste it above.";
+st.textContent = "🔍 Table tennis-only search opened for " + side + " — find the player ID in the JSON and paste it above.";
 }
 }
 
@@ -4356,89 +4353,19 @@ function getLeagueEdgePointThreshold(league, marketKey) {
 
 let LEAGUE_BASES = {
   tt_cup: 74.5,
-  win_cup: 73.5,
   set_ka: 74.0,
-  liga_pro: 74.5,
-  challenger_series: 72.0,
   unknown: 74.0
 };
 
-const NBA_2026_TEAM_BASELINES = {
-  ATL: { ortg: 116.1, drtg: 113.7, pace: 101.7, total: 234.5 },
-  BOS: { ortg: 120.8, drtg: 112.7, pace: 94.8,  total: 222.1 },
-  BRK: { ortg: 108.7, drtg: 119.0, pace: 97.1,  total: 221.8 },
-  CHO: { ortg: 119.4, drtg: 114.4, pace: 96.8,  total: 227.2 },
-  CHI: { ortg: 113.0, drtg: 118.1, pace: 102.5, total: 237.8 },
-  CLE: { ortg: 119.2, drtg: 115.1, pace: 99.9,  total: 234.9 },
-  DAL: { ortg: 111.2, drtg: 116.5, pace: 101.7, total: 233.7 },
-  DEN: { ortg: 122.6, drtg: 117.4, pace: 98.4,  total: 239.0 },
-  DET: { ortg: 112.3, drtg: 120.1, pace: 101.8, total: 234.9 },
-  GSW: { ortg: 115.0, drtg: 115.6, pace: 99.0,  total: 229.8 },
-  HOU: { ortg: 118.6, drtg: 113.2, pace: 96.1,  total: 225.2 },
-  IND: { ortg: 110.9, drtg: 118.8, pace: 101.0, total: 232.8 },
-  LAC: { ortg: 117.3, drtg: 116.1, pace: 96.5,  total: 226.4 },
-  LAL: { ortg: 118.2, drtg: 116.4, pace: 98.3,  total: 230.9 },
-  MEM: { ortg: 112.9, drtg: 118.8, pace: 101.3, total: 235.4 },
-  MIA: { ortg: 116.7, drtg: 114.5, pace: 103.4, total: 239.4 },
-  MIL: { ortg: 112.9, drtg: 119.3, pace: 97.6,  total: 227.4 },
-  MIN: { ortg: 116.8, drtg: 113.5, pace: 100.5, total: 232.6 },
-  NOP: { ortg: 114.4, drtg: 118.9, pace: 100.3, total: 235.5 },
-  NYK: { ortg: 119.8, drtg: 113.3, pace: 96.8,  total: 226.6 },
-  OKC: { ortg: 119.2, drtg: 111.8, pace: 99.6,  total: 231.0 },
-  ORL: { ortg: 114.9, drtg: 114.3, pace: 100.0, total: 230.8 },
-  PHI: { ortg: 115.4, drtg: 115.5, pace: 99.4,  total: 232.0 },
-  PHO: { ortg: 115.4, drtg: 113.9, pace: 97.2,  total: 223.7 },
-  POR: { ortg: 114.4, drtg: 114.7, pace: 100.5, total: 231.3 },
-  SAC: { ortg: 111.4, drtg: 121.5, pace: 99.2,  total: 232.0 },
-  SAS: { ortg: 114.5, drtg: 117.6, pace: 98.3,  total: 228.8 },
-  TOR: { ortg: 115.9, drtg: 113.0, pace: 98.4,  total: 226.4 },
-  UTA: { ortg: 114.1, drtg: 122.3, pace: 102.3, total: 243.6 },
-  WAS: { ortg: 111.0, drtg: 122.7, pace: 101.4, total: 237.8 }
-};
-
-const _NBA_NAME_TO_ABV = {
-  "atlanta hawks": "ATL", "boston celtics": "BOS", "brooklyn nets": "BRK",
-  "charlotte hornets": "CHO", "chicago bulls": "CHI", "cleveland cavaliers": "CLE",
-  "dallas mavericks": "DAL", "denver nuggets": "DEN", "detroit pistons": "DET",
-  "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
-  "los angeles clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
-  "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN",
-  "new orleans pelicans": "NOP", "new york knicks": "NYK",
-  "oklahoma city thunder": "OKC", "orlando magic": "ORL",
-  "philadelphia 76ers": "PHI", "phoenix suns": "PHO", "portland trail blazers": "POR",
-  "sacramento kings": "SAC", "san antonio spurs": "SAS",
-  "toronto raptors": "TOR", "utah jazz": "UTA", "washington wizards": "WAS",
-  "hawks": "ATL", "celtics": "BOS", "nets": "BRK", "hornets": "CHO", "bulls": "CHI",
-  "cavaliers": "CLE", "cavs": "CLE", "mavericks": "DAL", "mavs": "DAL",
-  "nuggets": "DEN", "pistons": "DET", "warriors": "GSW", "rockets": "HOU",
-  "pacers": "IND", "clippers": "LAC", "lakers": "LAL", "grizzlies": "MEM",
-  "heat": "MIA", "bucks": "MIL", "timberwolves": "MIN", "wolves": "MIN",
-  "pelicans": "NOP", "knicks": "NYK", "thunder": "OKC", "magic": "ORL",
-  "76ers": "PHI", "sixers": "PHI", "suns": "PHO", "trail blazers": "POR",
-  "blazers": "POR", "kings": "SAC", "spurs": "SAS", "raptors": "TOR",
-  "jazz": "UTA", "wizards": "WAS",
-  "atlanta": "ATL", "boston": "BOS", "brooklyn": "BRK", "charlotte": "CHO",
-  "chicago": "CHI", "cleveland": "CLE", "dallas": "DAL", "denver": "DEN",
-  "detroit": "DET", "golden state": "GSW", "houston": "HOU", "indiana": "IND",
-  "la clippers": "LAC", "la lakers": "LAL", "memphis": "MEM", "miami": "MIA",
-  "milwaukee": "MIL", "minnesota": "MIN", "new orleans": "NOP", "new york": "NYK",
-  "oklahoma city": "OKC", "orlando": "ORL", "philadelphia": "PHI",
-  "phoenix": "PHO", "portland": "POR", "sacramento": "SAC", "san antonio": "SAS",
-  "toronto": "TOR", "utah": "UTA", "washington": "WAS",
-  "atl": "ATL", "bos": "BOS", "brk": "BRK", "cho": "CHO", "chi": "CHI",
-  "cle": "CLE", "dal": "DAL", "den": "DEN", "det": "DET", "gsw": "GSW",
-  "hou": "HOU", "ind": "IND", "lac": "LAC", "lal": "LAL", "mem": "MEM",
-  "mia": "MIA", "mil": "MIL", "min": "MIN", "nop": "NOP", "nyk": "NYK",
-  "okc": "OKC", "orl": "ORL", "phi": "PHI", "pho": "PHO", "por": "POR",
-  "sac": "SAC", "sas": "SAS", "tor": "TOR", "uta": "UTA", "was": "WAS"
-};
-
+// [REMOVED FOR TABLE TENNIS: NBA_2026_TEAM_BASELINES and _NBA_NAME_TO_ABV — these were
+// per-NBA-team offensive/defensive rating + pace baselines (basketball-only concepts with
+// no table tennis equivalent). getNBASeasonBaseline is kept as a no-op stub because its
+// call sites do `liveBaseA || getNBASeasonBaseline(...)` — removing it entirely would
+// require touching those call sites too. It now always returns null, which is exactly
+// what it already did for every non-"nba" league (i.e. tt_cup / set_ka), so this is a
+// behavior-neutral cleanup, not a functional change.]
 function getNBASeasonBaseline(teamName, league) {
-  if (league !== "nba" || !teamName) return null;
-  const key = String(teamName).toLowerCase().trim();
-  const abv = _NBA_NAME_TO_ABV[key] || null;
-  if (!abv) return null;
-  return NBA_2026_TEAM_BASELINES[abv] || null;
+  return null;
 }
 
 const LEAGUE_PACE_BASES = {
@@ -4507,10 +4434,7 @@ function getLeagueRecencyDefaults(league) {
 
 const LEAGUE_VOL_LIMITS = {
   tt_cup: 3.5,
-  win_cup: 3.5,
   set_ka: 3.5,
-  liga_pro: 3.5,
-  challenger_series: 3.5,
   default: 3.5
 };
 // [LOCK: ISSUE #10 RESOLVED 2026-07-03 — SELF-LEARNING VOLATILITY CACHE] The limitation
@@ -4603,10 +4527,7 @@ function getLearnedVolLimit(league) {
 
 const LEAGUE_CONFIG_MAP = {
   TT_CUP: { volLimit:3.5, sanityMin:45, sanityMax:125 },
-  WIN_CUP: { volLimit:3.5, sanityMin:45, sanityMax:125 },
-  SET_KA: { volLimit:3.5, sanityMin:45, sanityMax:125 },
-  LIGA_PRO: { volLimit:3.5, sanityMin:45, sanityMax:125 },
-  CHALLENGER_SERIES: { volLimit:3.5, sanityMin:45, sanityMax:125 }
+  SET_KA: { volLimit:3.5, sanityMin:45, sanityMax:125 }
 };
 // [LOCK: getLeagueConfig PERMANENTLY REMOVED — VERIFIED zero callers anywhere in the file.
 // It read recencyWeights/homeEdge/paceClampMin/paceClampMax fields that no other function
@@ -4620,7 +4541,7 @@ const LEAGUE_CONFIG_MAP = {
 
 const LEAGUE_TRUST_PROFILES = {
   trusted: [
-    "tt_cup", "win_cup", "set_ka", "liga_pro", "challenger_series"
+    "tt_cup", "set_ka"
   ],
   advisory: [],
   blocked: []
