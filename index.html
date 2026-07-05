@@ -10442,10 +10442,9 @@ function handleTrackedPicksActionClick(event) {
   }
 }
 
-            function settleTrackedPickFromCompetition(pick, competition, allowPartialSettlement = false) {
+function settleTrackedPickFromCompetition(pick, competition, allowPartialSettlement = false) {
   if (!pick || !competition) return "pending";
 
-  // Store original result status to check if newly settled
   const oldStatus = pick.resultStatus;
 
   const completed = !!(
@@ -10453,17 +10452,6 @@ function handleTrackedPicksActionClick(event) {
     competition?.status?.type?.state === "post" ||
     competition?.status?.type?.name === "STATUS_FINAL"
   );
-  const state = String(competition?.status?.type?.state || "");
-  const status = String(competition?.status?.type?.name || "");
-
-  if (allowPartialSettlement && !completed) {
-    const _curPeriod = Number(competition?.status?.period || 0);
-    const _isHalfNow = String(status).toUpperCase().includes("HALFTIME");
-    const _regP = LEAGUE_FETCH_RULES[pick.league || ""]?.regulationPeriods ?? 4;
-    if (!isPickPeriodComplete(pick.marketKey, _curPeriod, _isHalfNow, false, _regP)) return "pending";
-  } else if (!allowPartialSettlement) {
-    if (!completed && state !== "post" && status !== "STATUS_FINAL") return "pending";
-  }
 
   const competitors = competition.competitors || [];
   const home = competitors.find(c => c.homeAway === "home") || competitors[0];
@@ -10483,110 +10471,42 @@ function handleTrackedPicksActionClick(event) {
   const lsHome = home.linescores || [];
   const lsAway = away.linescores || [];
   
-  let h1Home = 0, h1Away = 0;
-  let q1Home = 0, q1Away = 0, q2Home = 0, q2Away = 0, q3Home = 0, q3Away = 0, q4Home = 0, q4Away = 0;
+  let g1Home = 0, g1Away = 0, g2Home = 0, g2Away = 0, g3Home = 0, g3Away = 0, g4Home = 0, g4Away = 0, g5Home = 0, g5Away = 0;
   
-  if (lsHome.length >= 2 && lsAway.length >= 2) {
-     if (pick.league === "nba" || pick.league === "wnba" || pick.league === "wnba_pre") {
-                q1Home = getVal(lsHome[0]); q1Away = getVal(lsAway[0]);
-                q2Home = getVal(lsHome[1]); q2Away = getVal(lsAway[1]);
-                h1Home = q1Home + q2Home;
-                h1Away = q1Away + q2Away;
-                if (lsHome.length >= 4 && lsAway.length >= 4) {
-                  q3Home = getVal(lsHome[2]); q3Away = getVal(lsAway[2]);
-                  q4Home = getVal(lsHome[3]); q4Away = getVal(lsAway[3]);
-                }
-     } else {
-                h1Home = getVal(lsHome[0]);
-                h1Away = getVal(lsAway[0]);
-     }
+  if (lsHome.length >= 1 && lsAway.length >= 1) {
+    g1Home = getVal(lsHome[0]); g1Away = getVal(lsAway[0]);
+    if (lsHome.length >= 2 && lsAway.length >= 2) { g2Home = getVal(lsHome[1]); g2Away = getVal(lsAway[1]); }
+    if (lsHome.length >= 3 && lsAway.length >= 3) { g3Home = getVal(lsHome[2]); g3Away = getVal(lsAway[2]); }
+    if (lsHome.length >= 4 && lsAway.length >= 4) { g4Home = getVal(lsHome[3]); g4Away = getVal(lsAway[3]); }
+    if (lsHome.length >= 5 && lsAway.length >= 5) { g5Home = getVal(lsHome[4]); g5Away = getVal(lsAway[4]); }
   }
 
   const market = pick.marketKey;
   const marketLine = parseFloat(pick.line);
-  if (isNaN(marketLine) && market !== "margin_team" && market !== "margin_any" && market !== "high_q" && market !== "low_q" && market !== "htft" && market !== "player") return "pending";
+  if (isNaN(marketLine) && market !== "player") return "pending";
 
   let actual = 0;
   const isTeamAHome = String(pick.homeId) === String(home.id) || pick.homeTeam === home.team?.displayName;
 
+  // Grade set points or sets won totals
   if (market === "ft") {
-     actual = sHome + sAway;
+     // FT for Table Tennis aggregates the overall point scores if looking for point totals,
+     // or set scores if looking for set-handicap totals. Settle based on sum of set points.
+     actual = (g1Home + g2Home + g3Home + g4Home + g5Home) + (g1Away + g2Away + g3Away + g4Away + g5Away);
   } else if (market === "h1") {
-     if (!h1Home && !h1Away) return "pending";
-     actual = h1Home + h1Away;
+     actual = g1Home + g1Away;
   } else if (market === "team_a") {
-     actual = isTeamAHome ? sHome : sAway;
+     actual = isTeamAHome ? (g1Home + g2Home + g3Home + g4Home + g5Home) : (g1Away + g2Away + g3Away + g4Away + g5Away);
   } else if (market === "team_b") {
-     actual = isTeamAHome ? sAway : sHome;
+     actual = isTeamAHome ? (g1Away + g2Away + g3Away + g4Away + g5Away) : (g1Home + g2Home + g3Home + g4Home + g5Home);
   } else if (market === "q1") {
-     if (!q1Home && !q1Away) return "pending";
-     actual = q1Home + q1Away;
+     actual = g2Home + g2Away;
   } else if (market === "q2") {
-     if (!q2Home && !q2Away) return "pending";
-     actual = q2Home + q2Away;
+     actual = g3Home + g3Away;
   } else if (market === "q3") {
-     if (!q3Home && !q3Away) return "pending";
-     actual = q3Home + q3Away;
+     actual = g4Home + g4Away;
   } else if (market === "q4") {
-     if (!q4Home && !q4Away) return "pending";
-     actual = q4Home + q4Away;
-  } else if (market === "high_q_ou") {
-     if (!q4Home && !q4Away) return "pending";
-     const qs = [q1Home+q1Away, q2Home+q2Away, q3Home+q3Away, q4Home+q4Away];
-     actual = Math.max(...qs);
-  } else if (market === "low_q_ou") {
-     if (!q4Home && !q4Away) return "pending";
-     const qs = [q1Home+q1Away, q2Home+q2Away, q3Home+q3Away, q4Home+q4Away];
-     actual = Math.min(...qs);
-  } else if (market === "q1_team_a") {
-     if (!q1Home && !q1Away) return "pending";
-     actual = isTeamAHome ? q1Home : q1Away;
-  } else if (market === "q1_team_b") {
-     if (!q1Home && !q1Away) return "pending";
-     actual = isTeamAHome ? q1Away : q1Home;
-  } else if (market === "h1_team_a") {
-     if (!h1Home && !h1Away) return "pending";
-     actual = isTeamAHome ? h1Home : h1Away;
-  } else if (market === "h1_team_b") {
-     if (!h1Home && !h1Away) return "pending";
-     actual = isTeamAHome ? h1Away : h1Home;
-  } else if (market === "htft") {
-     if (h1Home === 0 && h1Away === 0) return "pending";
-     const h1Lead = h1Home > h1Away ? "Home" : h1Home < h1Away ? "Away" : "Tie";
-     const ftLead = sHome > sAway ? "Home" : sHome < sAway ? "Away" : "Tie";
-     const actualStr = (h1Lead + "/" + ftLead).toUpperCase();
-     pick.actualScore = actualStr;
-     const isWin = actualStr === String(pick.predictionText).toUpperCase();
-     pick.engineResultStatus = isWin ? "win" : "loss";
-     return isWin ? "win" : "loss";
-  } else if (market === "margin_any" || market === "margin_team") {
-     const diff = Math.abs(sHome - sAway);
-     const winner = sHome > sAway ? "Home" : sHome < sAway ? "Away" : "Tie";
-     pick.actualScore = winner + " by " + diff;
-     const pt = String(pick.predictionText).toUpperCase();
-     if (market === "margin_team" && !pt.startsWith(winner.toUpperCase())) {
-       pick.engineResultStatus = "loss"; 
-       return "loss";
-     }
-     let isWin = false;
-     const match = pt.match(/(\d+)-(\d+)/);
-     if (match) {
-       isWin = diff >= parseInt(match[1]) && diff <= parseInt(match[2]);
-     } else if (pt.includes("31+")) {
-       isWin = diff >= 31;
-     }
-     pick.engineResultStatus = isWin ? "win" : "loss";
-     return isWin ? "win" : "loss";
-  } else if (market === "high_q" || market === "low_q") {
-     if (!q4Home && !q4Away) return "pending";
-     const qs = [q1Home+q1Away, q2Home+q2Away, q3Home+q3Away, q4Home+q4Away];
-     const target = market === "high_q" ? Math.max(...qs) : Math.min(...qs);
-     const count = qs.filter(q => q === target).length;
-     const actualStr = count > 1 ? "Equal" : `Quarter ${qs.indexOf(target) + 1}`;
-     pick.actualScore = qs.join(", ");
-     const isWin = actualStr === String(pick.predictionText);
-     pick.engineResultStatus = isWin ? "win" : "loss";
-     return isWin ? "win" : "loss";
+     actual = g5Home + g5Away;
   } else {
      return "pending";
   }
@@ -13964,10 +13884,6 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const leagueBase = eb / 2;
   const volLimit = getMarketVolLimit(league, "ft");
 
-  // [LOCK: FT VENUE BLEND WIRING — VERIFIED, see VENUE_BLEND_CONFIG for the
-  // canonical tier rules. No significance filter — sample size alone governs
-  // confidence. Do not alter without also updating buildGlobalModelState's
-  // matching threshold above.]
   const aFTS = getOverallSeries("A", 10);
   const bFTS = getOverallSeries("B", 10);
   const aFTA = getManualAllowedSeries("A", "ft", parsed);
@@ -14005,83 +13921,22 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const aVenueDiag = combineVenueDiag(aScoredBlendFT.diag, aAllowedBlendFT.diag);
   const bVenueDiag = combineVenueDiag(bScoredBlendFT.diag, bAllowedBlendFT.diag);
 
-  // Issue 2: Volatility applied AFTER both branches set aS/bS — early pre-value calls removed
-  // to prevent double-application when advanced stats are used.
-
-  const isEspnLeague = ["nba","wnba","wnba_pre","ncaa","ncaaw","nba_gl","euroleague","eurocup","champions_league","turkey_bsl","acb","bbl","ausnbl","lba","bleague","united_league","proa"].includes(league);
-  const leaguePaceBase = LEAGUE_PACE_BASES[league] || LEAGUE_PACE_BASES.default || 74;
-  const leagueRatingBase = LEAGUE_RATING_BASES[league] || LEAGUE_RATING_BASES.default || 110;
-  let synPace = leaguePaceBase;
+  // Table Tennis does not support ESPN-style advanced possession statistics or baseline team rankings
+  const isEspnLeague = false;
+  let synPace = 1.0;
 
   const ctxA = g_massacreFetchContext?.A || {};
   const ctxB = g_massacreFetchContext?.B || {};
-  const avgPaceA = avgOrNaN(ctxA.pace10);
-  const avgPaceB = avgOrNaN(ctxB.pace10);
-  // FIX #7: pace clamp is now actually applied to synPace (previously computed but never used)
-  const clamp = getEffectivePaceClamp(league);
 
-  let hasRealPace = isFinite(avgPaceA) && avgPaceA > 0 && isFinite(avgPaceB) && avgPaceB > 0;
-  let hasRealRatings = isFinite(avgOrNaN(ctxA.ortg10)) && isFinite(avgOrNaN(ctxA.drtg10)) && isFinite(avgOrNaN(ctxB.ortg10)) && isFinite(avgOrNaN(ctxB.drtg10));
-  engineDebug("FT advanced stats availability", {
-    hasRealPace, hasRealRatings,
-    ortg10A: (ctxA.ortg10 || []).length, drtg10A: (ctxA.drtg10 || []).length, pace10A: (ctxA.pace10 || []).length,
-    ortg10B: (ctxB.ortg10 || []).length, drtg10B: (ctxB.drtg10 || []).length, pace10B: (ctxB.pace10 || []).length
-  });
-
-  // Bugfix: was initialized to 0, which the display layer explicitly treated as
-  // "no data" (a synNetA !== 0 check) — meaning ANY failure to populate advanced
-  // stats looked identical to a genuine zero net rating. NaN is the correct
-  // "no data" sentinel; 0 is reserved for an actual computed tie.
   let synNetA = NaN, synNetB = NaN;
   let usedAdvanced = false;
 
-  if (hasRealPace) {
-    // FIX #7: Apply the pace clamp that was previously computed but discarded
-    const rawPace = (avgPaceA + avgPaceB) / 2;
-    synPace = clampNumber(rawPace, leaguePaceBase * clamp.min, leaguePaceBase * clamp.max);
-  } else {
-    const totalA = avgOrNaN(aFTS) + avgOrNaN(aFTA);
-    const totalB = avgOrNaN(bFTS) + avgOrNaN(bFTA);
-    if (isFinite(totalA) && isFinite(totalB)) {
-      const rawPace = ((totalA + totalB) / (eb * 2)) * leaguePaceBase;
-      synPace = clampNumber(rawPace, leaguePaceBase * clamp.min, leaguePaceBase * clamp.max);
-    }
-  }
-
   let aS, bS;
-  if (isEspnLeague && hasRealRatings && hasRealPace) {
-    const projectedRatingA = avgOrNaN(ctxA.ortg10) + avgOrNaN(ctxB.drtg10) - leagueRatingBase;
-    const projectedRatingB = avgOrNaN(ctxB.ortg10) + avgOrNaN(ctxA.drtg10) - leagueRatingBase;
-    aS = (synPace * projectedRatingA) / 100;
-    bS = (synPace * projectedRatingB) / 100;
-    synNetA = avgOrNaN(ctxA.ortg10) - avgOrNaN(ctxA.drtg10);
-    synNetB = avgOrNaN(ctxB.ortg10) - avgOrNaN(ctxB.drtg10);
-    usedAdvanced = true;
-    // PATCHABLE ISSUE #2 (UNLOCKED) FIX: this branch previously ignored venue-blended
-    // scored averages entirely. Applies a partial (35%) nudge toward the venue-blended
-    // average, since the advanced ORTG/DRTG history already captures some venue signal
-    // on its own. UNVERIFIED CALIBRATION: 0.35 is a reasoned starting weight, not
-    // independently re-derived from data — tune once enough venue games settle.
-    const VENUE_ADVANCED_BLEND_FACTOR = 0.35;
-    if (aVenueDiag.enabled && isFinite(aVenueAvg) && isFinite(aOverallAvg)) {
-      aS += (aVenueAvg - aOverallAvg) * VENUE_ADVANCED_BLEND_FACTOR;
-    }
-    if (bVenueDiag.enabled && isFinite(bVenueAvg) && isFinite(bOverallAvg)) {
-      bS += (bVenueAvg - bOverallAvg) * VENUE_ADVANCED_BLEND_FACTOR;
-    }
-  } else {
-    // Issue 3: Use dynamic teamWeight from config (default 0.65/0.35) instead of hardcoded 0.5
-    const _tw = isFinite(config?.teamWeight) ? Number(config.teamWeight) : 0.65;
-    const _ow = 1 - _tw;
-    aS = isFinite(aS_pre) && isFinite(bAllowed) ? (aS_pre * _tw + bAllowed * _ow) : aS_pre;
-    bS = isFinite(bS_pre) && isFinite(aAllowed) ? (bS_pre * _tw + aAllowed * _ow) : bS_pre;
-  }
+  const _tw = isFinite(config?.teamWeight) ? Number(config.teamWeight) : 0.65;
+  const _ow = 1 - _tw;
+  aS = isFinite(aS_pre) && isFinite(bAllowed) ? (aS_pre * _tw + bAllowed * _ow) : aS_pre;
+  bS = isFinite(bS_pre) && isFinite(aAllowed) ? (bS_pre * _tw + aAllowed * _ow) : bS_pre;
 
-  // FIX: Net rating fallback — synNetA/synNetB had no fallback at all (unlike synPace
-  // above), so manual/API-Basketball leagues (which never receive ortg10/drtg10) and
-  // any ESPN game with a thin box-score parse always showed "—" for Net even though
-  // Pace still rendered. Estimate Net from simple scored-minus-allowed differential
-  // when the real advanced rating never came back.
   if (!isFinite(synNetA) && isFinite(aOverallAvg) && isFinite(aAllowed)) {
     synNetA = aOverallAvg - aAllowed;
   }
@@ -14089,26 +13944,16 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
     synNetB = bOverallAvg - bAllowed;
   }
 
-  // Issue 2: Apply volatility AFTER both branches so it always impacts the final projection.
   aS = applyVolatility(aS, aFTS, volLimit, league);
   bS = applyVolatility(bS, bFTS, volLimit, league);
 
-  // Apply injury multipliers AFTER team/allowed blending, BEFORE H2H
   aS *= injMultA;
   bS *= injMultB;
-
-  // Issue 23: Injuries reduce a team's defense — the opponent scores slightly more.
-  // PATCHABLE ISSUE #5 FIX: use the centralized INJURY_OPPONENT_BOOST_FACTOR constant.
-  if (injMultA < 1) bS *= (1 + (1 - injMultA) * INJURY_OPPONENT_BOOST_FACTOR);
-  if (injMultB < 1) aS *= (1 + (1 - injMultB) * INJURY_OPPONENT_BOOST_FACTOR);
 
   const _aVolRatio = getVolatilityRatioForSeries(aFTS, volLimit);
   const _bVolRatio = getVolatilityRatioForSeries(bFTS, volLimit);
   const _ftVolRatio = Math.max(_aVolRatio, _bVolRatio);
 
-  // FIX #5: Intel signals applied ONCE here only. applyIntelligenceLayerToPicks
-  // (called later in runEngine) must NOT re-apply the same signals to avoid double-counting.
-  // applyIntelligenceLayerToPicks now only adjusts confidence grade, not edge values.
   const intel = computeIntelligencePack(league);
   const intelSignalA = buildTeamMarketIntelSignal(intel, "A");
   const intelSignalB = buildTeamMarketIntelSignal(intel, "B");
@@ -14121,60 +13966,34 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   let projAFT = aS;
   let projBFT = bS;
   if (ftHasH2H) {
-    // FIX #18: Use getMassacreH2HSeries (decay-weighted) for H2H blend in main projection,
-    // consistent with how H2H is used in the massacre framework.
     const massacreH2H = getMassacreH2HSeries("ft", getCurrentFixtureMeta(), parsed);
     const decayH2HA = massacreH2H.A.length >= 2 ? massacreH2H.A : aH2H;
     const decayH2HB = massacreH2H.B.length >= 2 ? massacreH2H.B : bH2H;
-    // PATCHABLE ISSUE #1 FIX: h2hFactor was hardcoded to 1.0, silently discarding
-    // config.h2hFactor (set by verified-config tuning) on every FT projection.
     const _ftH2hFactor = isFinite(config?.h2hFactor) ? Number(config.h2hFactor) : 1.0;
     const hw = getH2HWeight(decayH2HA.length, decayH2HB.length, "ft", ftSampleTier, Math.abs(aS - bS), league, leagueBase, _ftH2hFactor, {
       injMultA,
       injMultB,
       volRatio: _ftVolRatio,
       blowoutGap: Math.abs(aS - bS),
-      paceGapRisk: Math.abs((avgPaceA || 74) - (avgPaceB || 74)) > 6
+      paceGapRisk: false
     });
     projAFT = isFinite(projAFT) ? (projAFT * (1 - hw) + avgOrNaN(decayH2HA) * hw) : avgOrNaN(decayH2HA);
     projBFT = isFinite(projBFT) ? (projBFT * (1 - hw) + avgOrNaN(decayH2HB) * hw) : avgOrNaN(decayH2HB);
   }
   let ftProj = (isFinite(projAFT) ? projAFT : 0) + (isFinite(projBFT) ? projBFT : 0);
 
-  // [LOCK: netVenueEffect SHADOW RECOMPUTATION — VERIFIED, diagnostic-only, do not
-  // remove or "simplify" by reusing offensiveAdjustment/defensiveAdjustment instead.
-  // Those raw input-stage deltas do NOT equal the actual final-total impact, because:
-  // (1) the ESPN advanced ORTG/DRTG branch never reads the venue-blended inputs at
-  // all, so venue's true effect is correctly 0 on those games even when
-  // offensiveAdjustment is nonzero; (2) volatility/injury/intel/H2H all apply
-  // nonlinear transforms downstream of the raw scored/allowed averages. This block
-  // re-runs those exact same steps a second time with pure overall (pre-venue)
-  // inputs, using variables already in scope (aOverallAvg, bOverallAvg,
-  // aAllowedOverall, bAllowedOverall, aFTS, bFTS, config, isEspnLeague,
-  // hasRealRatings, hasRealPace, aS_pre, bS_pre, _bVolRatio, _aVolRatio,
-  // intelSignalA/B, _ftVolRatio, ftHasH2H, aH2H, bH2H) so it can never drift out of
-  // sync with the real branch-selection logic above. It writes ONLY to _nv-suffixed
-  // local variables and never mutates aS, bS, projAFT, projBFT, or ftProj — the real
-  // pick pipeline is completely unaffected by this block's presence or absence.]
   let aS_pre_nv = anchorProjection(aOverallAvg, sampleSize, leagueBase);
   let bS_pre_nv = anchorProjection(bOverallAvg, sampleSize, leagueBase);
   let aS_nv, bS_nv;
-  if (isEspnLeague && hasRealRatings && hasRealPace) {
-    aS_nv = aS_pre;
-    bS_nv = bS_pre;
-  } else {
-    const _twNv = isFinite(config?.teamWeight) ? Number(config.teamWeight) : 0.65;
-    const _owNv = 1 - _twNv;
-    aS_nv = isFinite(aS_pre_nv) && isFinite(bAllowedOverall) ? (aS_pre_nv * _twNv + bAllowedOverall * _owNv) : aS_pre_nv;
-    bS_nv = isFinite(bS_pre_nv) && isFinite(aAllowedOverall) ? (bS_pre_nv * _twNv + aAllowedOverall * _owNv) : bS_pre_nv;
-  }
+  const _twNv = isFinite(config?.teamWeight) ? Number(config.teamWeight) : 0.65;
+  const _owNv = 1 - _twNv;
+  aS_nv = isFinite(aS_pre_nv) && isFinite(bAllowedOverall) ? (aS_pre_nv * _twNv + bAllowedOverall * _owNv) : aS_pre_nv;
+  bS_nv = isFinite(bS_pre_nv) && isFinite(aAllowedOverall) ? (bS_pre_nv * _twNv + aAllowedOverall * _owNv) : bS_pre_nv;
+
   aS_nv = applyVolatility(aS_nv, aFTS, volLimit, league);
   bS_nv = applyVolatility(bS_nv, bFTS, volLimit, league);
   aS_nv *= injMultA;
   bS_nv *= injMultB;
-  // PATCHABLE ISSUE #5 FIX: use the centralized INJURY_OPPONENT_BOOST_FACTOR constant.
-  if (injMultA < 1) bS_nv *= (1 + (1 - injMultA) * INJURY_OPPONENT_BOOST_FACTOR);
-  if (injMultB < 1) aS_nv *= (1 + (1 - injMultB) * INJURY_OPPONENT_BOOST_FACTOR);
   aS_nv = applyDampedIntelSignal(aS_nv, intelSignalA.signal, _bVolRatio);
   bS_nv = applyDampedIntelSignal(bS_nv, intelSignalB.signal, _aVolRatio);
   let projAFT_nv = aS_nv;
@@ -14183,17 +14002,13 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
     const massacreH2H_nv = getMassacreH2HSeries("ft", getCurrentFixtureMeta(), parsed);
     const decayH2HA_nv = massacreH2H_nv.A.length >= 2 ? massacreH2H_nv.A : aH2H;
     const decayH2HB_nv = massacreH2H_nv.B.length >= 2 ? massacreH2H_nv.B : bH2H;
-    // PATCHABLE ISSUE #1 FIX: same h2hFactor fix applied to the shadow (netVenueEffect)
-    // recompute so it stays consistent with the live projection above.
-    // BUGFIX: _ftH2hFactor from the live block above is block-scoped to that if-block
-    // and is NOT visible here — redeclare it locally so this shadow block doesn't throw.
     const _ftH2hFactor = isFinite(config?.h2hFactor) ? Number(config.h2hFactor) : 1.0;
     const hw_nv = getH2HWeight(decayH2HA_nv.length, decayH2HB_nv.length, "ft", ftSampleTier, Math.abs(aS_nv - bS_nv), league, leagueBase, _ftH2hFactor, {
       injMultA,
       injMultB,
       volRatio: _ftVolRatio,
       blowoutGap: Math.abs(aS_nv - bS_nv),
-      paceGapRisk: Math.abs((avgPaceA || 74) - (avgPaceB || 74)) > 6
+      paceGapRisk: false
     });
     projAFT_nv = isFinite(projAFT_nv) ? (projAFT_nv * (1 - hw_nv) + avgOrNaN(decayH2HA_nv) * hw_nv) : avgOrNaN(decayH2HA_nv);
     projBFT_nv = isFinite(projBFT_nv) ? (projBFT_nv * (1 - hw_nv) + avgOrNaN(decayH2HB_nv) * hw_nv) : avgOrNaN(decayH2HB_nv);
@@ -14204,15 +14019,7 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const ftEdge = (isFinite(ftProj) && isFinite(lines.ftLine) && lines.ftLine > 0) ? ftProj - lines.ftLine : NaN;
   const aEdge = (isFinite(projAFT) && isFinite(lines.aLine) && lines.aLine > 0) ? projAFT - lines.aLine : NaN;
   const bEdge = (isFinite(projBFT) && isFinite(lines.bLine) && lines.bLine > 0) ? projBFT - lines.bLine : NaN;
-  // [LOCK: unused "enabled" context key removed — VERIFIED, no functional impact
-  // (getH2HWeight never read it; the caller already gates the whole call behind
-  // `if (ftHasH2H)`). Cosmetic-only, do not flag as a missing parameter.]
-  // FIX: this object built an "enabled: ftHasH2H" context key that getH2HWeight
-  // never reads internally (checked the full function body — it uses
-  // context.injMultA/volRatio/blowoutGap/paceGapRisk, never context.enabled).
-  // Harmless as found (the caller already gates the whole getH2HWeight call
-  // behind `if (ftHasH2H)`, so the property did nothing either way) — removed
-  // to stop it looking like a real parameter.
+
   return {
     eb, projAFT, projBFT, ftProj, ftSampleTier,
     ftHasH2H, ftEdge, aEdge, bEdge,
@@ -14221,18 +14028,10 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
     ftProjectionOnly: !ftHasH2H && ftSampleTier === "thin",
     blowoutGap: Math.abs((projAFT||0) - (projBFT||0)),
     aS, bS, aScores: aFTS, bScores: bFTS,
-    // [LOCK: FT venue diagnostics — VERIFIED. aVenueEnabled/bVenueEnabled and
-    // aVenueAdjustment/bVenueAdjustment are the real, data-driven venue status —
-    // do not replace with a checkbox read (document.getElementById(...).checked);
-    // that was the exact bug this fixed.]
     aVenueEnabled: aVenueDiag.enabled, bVenueEnabled: bVenueDiag.enabled,
     aVenueAdjustment: aVenueDiag, bVenueAdjustment: bVenueDiag,
-    // [LOCK: netVenueEffect — VERIFIED. The true final-total FT delta from venue
-    // blending, via the shadow recomputation above. Reads 0 for games that used the
-    // ESPN advanced ORTG/DRTG branch — that is correct, not a bug, since that branch
-    // never consumes venue-blended inputs.]
     netVenueEffect,
-    paceGapRisk: Math.abs((avgPaceA || 74) - (avgPaceB || 74)) > 6,
+    paceGapRisk: false,
     pace: synPace,
     synNetA, synNetB,
     usedAdvanced,
@@ -16255,8 +16054,6 @@ const h1Calc = compute1HProjection({
 
             if (rawQ12Sum > 0 && isFinite(h1Target)) {
           const q1Weight = 1.0;
-          // PATCHABLE ISSUE #4 FIX: 1.03 "rotation pacing" weight was an arbitrary
-          // heuristic with no data derivation. Neutralized to 1.0.
           const q2Weight = 1.0;
           const totalWeightedRaw = (q1?.proj || 0) * q1Weight + (q2?.proj || 0) * q2Weight;
           const q1Scale = (h1Target * (q1?.proj || 0) * q1Weight) / (totalWeightedRaw || 1) / (q1?.proj || 1);
@@ -16265,21 +16062,7 @@ const h1Calc = compute1HProjection({
           if (q1 && isFinite(q1.proj) && isFinite(q1.line)) {
             q1.proj *= q1Scale;
             q1.edge = q1.proj - q1.line;
-            // FIX #28: marketKey was hardcoded "h1" here, which made getPick() apply the H1
-            // edge-point threshold (e.g. 8.0 pts for NBA) instead of the much smaller, correctly
-            // calibrated Q threshold (5.0 pts for NBA — see LEAGUE_EDGE_POINT_THRESHOLDS), via
-            // getLeagueEdgePointThreshold()'s marketKey routing. This silently suppressed valid
-            // Q1 picks that had real edge but not enough to clear the wrong (larger) H1 bar.
             q1.pick = getPick(q1.edge, q1.line, league, "q1", {});
-            // PATCHABLE ISSUE #3/#7 FIX: volLimit was hardcoded 12 instead of the
-            // per-league/per-market limit, and modelState was passed but never read
-            // by getConfidenceGrade — removed.
-            // PATCHABLE ISSUE #4/#5 (UNLOCKED) FIX: siblingEdge (h1Calc.h1Edge, for the
-            // symmetric cross-market bonus) and league (for the logistic reconciliation)
-            // added — this is the block that determines the final displayed Q1 confidence.
-            // ISSUE #1 FIX: fullModel/projectionOnly re-added here (previously omitted,
-            // silently defaulting to falsy on every rescale, so a rescaled Q1 could never
-            // earn the fullModel score bonus even with a strong sample).
             q1.confidence = getConfidenceGrade({
               pick: q1.pick, line: q1.line, edge: q1.edge, sampleTier: q1.tier,
               volLimit: getMarketVolLimit(league, "q1"), marketKey: "q1", hasH2H: q1.hasH2H,
@@ -16290,14 +16073,7 @@ const h1Calc = compute1HProjection({
           if (q2 && isFinite(q2.proj) && isFinite(q2.line)) {
             q2.proj *= q2Scale;
             q2.edge = q2.proj - q2.line;
-            // FIX #28: marketKey was hardcoded "h1" here, which made getPick() apply the H1
-            // edge-point threshold instead of the correctly calibrated Q threshold via
-            // getLeagueEdgePointThreshold()'s marketKey routing. This silently suppressed
-            // valid Q2 picks that had real edge but not enough to clear the wrong (larger) bar.
             q2.pick = getPick(q2.edge, q2.line, league, "q2", {});
-            // PATCHABLE ISSUE #3/#7 FIX: same volLimit/modelState fix as Q1 above.
-            // PATCHABLE ISSUE #4/#5 (UNLOCKED) FIX: same siblingEdge/league fix as Q1 above.
-            // ISSUE #1 FIX: fullModel/projectionOnly re-added, matching Q1's fix above.
             q2.confidence = getConfidenceGrade({
               pick: q2.pick, line: q2.line, edge: q2.edge, sampleTier: q2.tier,
               volLimit: getMarketVolLimit(league, "q2"), marketKey: "q2", hasH2H: q2.hasH2H,
@@ -16309,8 +16085,6 @@ const h1Calc = compute1HProjection({
 
         if (rawQ34Sum > 0 && isFinite(h2Target) && h2Target > 0) {
           const q3Weight = 1.0;
-          // PATCHABLE ISSUE #4 FIX: 1.08 "fouling inflation" weight was an arbitrary
-          // heuristic with no data derivation. Neutralized to 1.0.
           const q4Weight = 1.0;
           const totalWeightedRaw = (q3?.proj || 0) * q3Weight + (q4?.proj || 0) * q4Weight;
           const q3Scale = (h2Target * (q3?.proj || 0) * q3Weight) / (totalWeightedRaw || 1) / (q3?.proj || 1);
@@ -16319,14 +16093,7 @@ const h1Calc = compute1HProjection({
           if (q3 && isFinite(q3.proj) && isFinite(q3.line)) {
             q3.proj *= q3Scale;
             q3.edge = q3.proj - q3.line;
-            // FIX #28: marketKey was hardcoded "h1" here, which made getPick() apply the H1
-            // edge-point threshold instead of the correctly calibrated Q threshold via
-            // getLeagueEdgePointThreshold()'s marketKey routing. This silently suppressed
-            // valid Q3 picks that had real edge but not enough to clear the wrong (larger) bar.
             q3.pick = getPick(q3.edge, q3.line, league, "q3", {});
-            // PATCHABLE ISSUE #3/#7 FIX: volLimit/modelState fix, matching Q1/Q2 above.
-            // PATCHABLE ISSUE #4/#5 (UNLOCKED) FIX: siblingEdge (ftCalc.ftEdge) and league added.
-            // ISSUE #1 FIX: fullModel/projectionOnly re-added, matching Q1/Q2's fix above.
             q3.confidence = getConfidenceGrade({
               pick: q3.pick, line: q3.line, edge: q3.edge, sampleTier: q3.tier,
               volLimit: getMarketVolLimit(league, "q3"), marketKey: "q3", hasH2H: q3.hasH2H,
@@ -16337,14 +16104,7 @@ const h1Calc = compute1HProjection({
           if (q4 && isFinite(q4.proj) && isFinite(q4.line)) {
             q4.proj *= q4Scale;
             q4.edge = q4.proj - q4.line;
-            // FIX #28: marketKey was hardcoded "h1" here, which made getPick() apply the H1
-            // edge-point threshold instead of the correctly calibrated Q threshold via
-            // getLeagueEdgePointThreshold()'s marketKey routing. This silently suppressed
-            // valid Q4 picks that had real edge but not enough to clear the wrong (larger) bar.
             q4.pick = getPick(q4.edge, q4.line, league, "q4", {});
-            // PATCHABLE ISSUE #3/#7 FIX: volLimit/modelState fix, matching Q1/Q2 above.
-            // PATCHABLE ISSUE #4/#5 (UNLOCKED) FIX: siblingEdge (ftCalc.ftEdge) and league added.
-            // ISSUE #1 FIX: fullModel/projectionOnly re-added, matching Q1/Q2/Q3's fix above.
             q4.confidence = getConfidenceGrade({
               pick: q4.pick, line: q4.line, edge: q4.edge, sampleTier: q4.tier,
               volLimit: getMarketVolLimit(league, "q4"), marketKey: "q4", hasH2H: q4.hasH2H,
