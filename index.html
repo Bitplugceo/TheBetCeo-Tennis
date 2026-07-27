@@ -961,10 +961,16 @@ body.dark-mode.engine-alert .section {
   display: none;
   align-items: stretch;
   justify-content: flex-end;
-  padding-top: max(8px, env(safe-area-inset-top));
-  padding-right: max(8px, env(safe-area-inset-right));
-  padding-bottom: max(8px, env(safe-area-inset-bottom));
-  padding-left: max(8px, env(safe-area-inset-left));
+  /* AUDIT FIX #270: explicit user request for true full-bleed — dropped the "max(8px, ...)" floor that forced an
+     8px+ margin on all four sides (visible as a border-like sliver of the page behind the modal in every
+     screenshot). Kept env(safe-area-inset-*) alone rather than a flat 0: on iPhone portrait that resolves to 0px
+     on left/right anyway (giving true edge-to-edge), but still yields a real nonzero value on notched/home-
+     indicator edges (top/bottom) so "Tracked Picks" and the ✕ button don't render clipped under the status bar —
+     avoids trading the reported gap bug for a hidden-header bug. */
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
   z-index: 9999;
   overscroll-behavior: none;
 }
