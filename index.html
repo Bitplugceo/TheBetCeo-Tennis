@@ -1,3 +1,4 @@
+B
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2666,7 +2667,10 @@ title="Show issues">
   <input id="roundDisplay" type="hidden" />
 </div>
 
-<div id="fetchStatus">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
+<div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
+  <button type="button" id="fetchStatsBtn" class="fetch-btn">Fetch Stats</button>
+  <div id="fetchStatus" style="flex:1;">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
+</div>
 
 <div class="fetch-note-box" id="fetchNoteBoxA">
   <div class="fetch-note-title">Player A Fetch Notes</div>
@@ -7633,21 +7637,39 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const playerAName = String(qs("teamAName").value || "").trim();
     const playerBName = String(qs("teamBName").value || "").trim();
 
+    const btn = document.getElementById('fetchStatsBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Fetching...';
+    }
+
     if (!league) {
       setHeaderError(true, "Select ATP or WTA first.");
       setFetchStatus("Select ATP or WTA first.", "err");
+      if (btn) { btn.disabled = false; btn.textContent = 'Fetch Stats'; }
       return;
     }
 
     if (!playerAName || !playerBName) {
       setHeaderError(true, "Enter both player names first.");
       setFetchStatus("Enter both player names or pick a fixture first.", "err");
+      if (btn) { btn.disabled = false; btn.textContent = 'Fetch Stats'; }
       return;
     }
 
     clearHeaderError();
     setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
     const myToken = espnFetchToken;
+    try {
+      // ... existing fetch logic ...
+    } catch (err) {
+      // error handling
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Fetch Stats';
+      }
+    }
 
     try {
       const records = await fetchHistoryPool(league);
@@ -8130,6 +8152,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const fixtureSelect = qs("fixtureSelect");
     if (fixtureSelect) {
       fixtureSelect.addEventListener("change", onFixtureSelect);
+    }
+
+    const fetchStatsBtn = qs("fetchStatsBtn");
+    if (fetchStatsBtn) {
+      fetchStatsBtn.addEventListener("click", function () {
+        fetchESPNTennis();
+      });
     }
 
     const teamAInput = qs("teamAName");
