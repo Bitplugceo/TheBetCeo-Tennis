@@ -2666,9 +2666,9 @@ title="Show issues">
   <input id="roundDisplay" type="hidden" />
 </div>
 
-<div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
+<div style="margin-top:6px;">
   <button type="button" id="fetchStatsBtn" class="fetch-btn">Fetch Stats</button>
-  <div id="fetchStatus" style="flex:1;">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
+  <div id="fetchStatus" style="margin-top:4px; font-size:10px;">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
 </div>
 
 <div class="fetch-note-box" id="fetchNoteBoxA">
@@ -2824,9 +2824,8 @@ title="Show issues">
        <thead>
       <tr>
         <th>Market</th>
-        <th>Fair Line</th>
+        <th>Projection</th>
         <th>Edge %</th>
-        <th>Win Prob</th>
         <th>Grade</th>
         <th>Pick</th>
       </tr>
@@ -2834,7 +2833,7 @@ title="Show issues">
 
       <tbody id="resultsBody">
   <tr>
-    <td colspan="6" class="results-empty-cell">Run the engine to populate results.</td>
+    <td colspan="5" class="results-empty-cell">Run the engine to populate results.</td>
   </tr>
 </tbody>
 
@@ -4561,19 +4560,8 @@ let g_clearDebug = {
         const rows = results.map(function (result, idx) {
       
       const isNoPlay = result.pick === "PASS" || result.confidence === "PASS";
-      const winProb = isNoPlay ? 0 : result.simPct;
-      
-      
-      const getFairOdds = (p) => {
-        if (!p || p <= 0 || p >= 100) return "—";
-        const dec = p / 100;
-        return dec > 0.5 ? "-" + Math.round((dec / (1 - dec)) * 100) : "+" + Math.round(((1 - dec) / dec) * 100);
-      };
-
       const fairLine = fmt(result.projection);
       const edgePct = fmt((Math.abs(result.edge) / result.lineRange.mid) * 100) + "%";
-      const probText = fmt(result.simPct) + "%";
-      const fairOdds = isNoPlay ? "—" : getFairOdds(winProb);
       const predictionText = getPredictionText(result);
       
       
@@ -4589,7 +4577,6 @@ let g_clearDebug = {
           '<td class="result-market" style="font-weight:800;">' + htmlEscape(result.market) + '</td>' +
           '<td style="font-family:monospace;">' + fairLine + '</td>' +
           '<td style="color:#2f8f4a;">' + edgePct + '</td>' +
-          '<td style="font-weight:bold;">' + probText + '</td>' +
           '<td class="' + getConfidenceCellClass(result.confidence) + '" style="font-weight:800;text-align:center;min-width:32px;">' + htmlEscape(result.confidence) + '</td>' +
           '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
             '<div style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">' +
@@ -4606,7 +4593,7 @@ let g_clearDebug = {
     showResults();
     scrollResultsIntoView();
   }
-
+  
   function updateIntel(resultBundle) {
     const match = resultBundle.matchResult;
     const set1 = resultBundle.set1Result;
