@@ -1,4 +1,3 @@
-B
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7662,8 +7661,17 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const myToken = espnFetchToken;
     try {
       // ... existing fetch logic ...
+      // After successful population, open relevant sections like basketball does.
+      openSection("marketSection");
+      openSection("teamASection");
+      openSection("teamBSection");
+      openSection("h2hSection");
+      // Also update fetch status to show success with summary.
+      setFetchStatus("Stats loaded successfully. Ready to run engine.", "ok");
     } catch (err) {
       // error handling
+      setFetchStatus(err.message || "Fetch failed.", "err");
+      setHeaderError(true, err.message || "Fetch failed.");
     } finally {
       if (btn) {
         btn.disabled = false;
