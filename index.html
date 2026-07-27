@@ -1,3 +1,4 @@
+F
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7788,11 +7789,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const aSet1Games = recentA10.map(m => m.playerSet1Games).filter(Number.isFinite);
       const bSet1Games = recentB10.map(m => m.playerSet1Games).filter(Number.isFinite);
       const h2hMatchTotals = h2h.slice(0, 5).map(function (m) {
-        if (!Number.isFinite(m.totalGames)) return null;
-        const setsPlayed = Number.isFinite(m.setCount) && m.setCount > 0 ? m.setCount : 2;
-        return m.totalGames / setsPlayed;
+        return Number.isFinite(m.totalGames) ? Math.round(m.totalGames) : null;
       }).filter(Number.isFinite);
-      const h2hSet1Totals = h2h.slice(0, 5).map(m => m.set1Total).filter(Number.isFinite);
+      const h2hSet1Totals = h2h.slice(0, 5).map(function (m) {
+        return Number.isFinite(m.set1Total) ? Math.round(m.set1Total) : null;
+      }).filter(Number.isFinite);
       
       
       
