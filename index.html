@@ -1,4 +1,3 @@
-H
 <!DOCTYPE html>
 
 <html lang="en">
@@ -14,59 +13,10 @@ H
   <meta name="theme-color" content="#d4af37" />
   <title>Tennis Prediction Engine</title>
 
-
   <style>
 
-        /* ── CSS custom properties ── */
-    /*
-══════════════════════════════════════════════════════
-AUDIT FIREWALL — LOCKED UI / UX SECTION
-══════════════════════════════════════════════════════
-
-THIS BLOCK IS NOT OPEN FOR DESIGN REVIEW.
-
-A COMPLIANT AUDIT MUST TREAT THE FOLLOWING AS CLOSED:
-- square / sharp UI
-- compact spacing and dense layout
-- current dark/light palette
-- current header layout and icon placement
-- right-docked tracker modal
-- current table/chip/panel styling
-- compact control sizing
-- current section collapse/lock behavior
-- current autocomplete structure
-- current tracker modal scroll-lock behavior
-- current mobile-first safe-area behavior
-
-FORBIDDEN AUDIT OUTPUT INSIDE THIS LOCKED UI AREA:
-- redesign suggestions
-- modernization suggestions
-- “improve UX” suggestions
-- spacing increase suggestions
-- icon size suggestions
-- border-radius suggestions
-- color suggestions
-- modal placement suggestions
-- typography/style preference suggestions
-- “cleaner look” / “better layout” / “more modern” comments
-- accessibility/style comments unless a real current usability failure is proven
-- maintainability/refactor comments about this locked visual layer unless a real break is proven
-
-THE ONLY VALID REASONS TO FLAG ANYTHING IN THIS LOCKED UI AREA ARE:
-1) runtime break
-2) unreadable state
-3) clipped/hidden critical content
-4) impossible interaction
-5) broken responsiveness
-6) contradiction with the stated locked behavior
-
-CRITICAL RULE:
-If no concrete current break is proven, this section must be ignored completely.
-Mentioning locked UI by preference, taste, best-practice, or alternative style is a failed audit.
-
-DEFAULT AUDIT ACTION:
-LEAVE LOCKED UI / UX ALONE.
-*/
+        
+    
 :root {
   --bg: #efefef;
   --text: #1f2430;
@@ -129,7 +79,7 @@ body.dark-mode {
   --tracker-mini-head-text: #d4af37;
 }
 
-    /* ── Zero border-radius on all UI controls ── */
+    
     button,
     input,
     select,
@@ -235,7 +185,6 @@ body.dark-mode {
       margin: 10px auto;
       padding: 0 10px;
     }
-
 
    .section {
   border: 1px solid var(--panel-border);
@@ -684,7 +633,6 @@ input,
       color: #9aa0a8 !important;
     }
 
-
     .track-pending {
       background: #eceff3 !important;
       color: #2a2f38 !important;
@@ -950,24 +898,14 @@ body.dark-mode.engine-alert .section {
 .tracker-modal {
   position: fixed;
   inset: 0;
-  /* AUDIT FIX #269: no explicit height was set here, so on iOS Safari this "fixed; inset:0" box sized itself to
-     the layout viewport captured while the address bar is expanded. When the toolbar is visible (as in the report
-     screenshot), the modal's real box falls short of the true visible viewport, leaving a blank strip above the
-     browser chrome — and .tracker-panel (height:100% of THIS box) inherits the same shortfall. 100vh is kept as a
-     fallback for browsers without dvh support; 100dvh (dynamic viewport height) overrides it where supported and
-     always matches the actually-visible viewport, toolbar shown or not. */
+  
   height: 100vh;
   height: 100dvh;
   background: rgba(0, 0, 0, 0.45);
   display: none;
   align-items: stretch;
   justify-content: flex-end;
-  /* AUDIT FIX #270: explicit user request for true full-bleed — dropped the "max(8px, ...)" floor that forced an
-     8px+ margin on all four sides (visible as a border-like sliver of the page behind the modal in every
-     screenshot). Kept env(safe-area-inset-*) alone rather than a flat 0: on iPhone portrait that resolves to 0px
-     on left/right anyway (giving true edge-to-edge), but still yields a real nonzero value on notched/home-
-     indicator edges (top/bottom) so "Tracked Picks" and the ✕ button don't render clipped under the status bar —
-     avoids trading the reported gap bug for a hidden-header bug. */
+  
   padding-top: env(safe-area-inset-top);
   padding-right: env(safe-area-inset-right);
   padding-bottom: env(safe-area-inset-bottom);
@@ -1438,7 +1376,6 @@ body.dark-mode .tracker-analytics-panel {
   }
 }
 
-
 .league-trust-pill {
   display: inline-flex;
   align-items: center;
@@ -1495,8 +1432,6 @@ body.dark-mode .league-trust-pill.trust-blocked {
   font-weight: 700;
 }
 
-
-/* = tracker analytics redesign = */
 .tracker-analytics-panel {
   padding: 12px;
   border-bottom: 1px solid var(--panel-border);
@@ -1947,7 +1882,6 @@ body.dark-mode .tracker-bar-stage {
   }
 }
 
-
 .tracker-panel.analytics-view #trackerSummary,
 .tracker-panel.analytics-view #trackerMarketSummary,
 .tracker-panel.analytics-view #trackerEmpty,
@@ -2043,9 +1977,6 @@ body.dark-mode .tracker-bar-stage {
   z-index: 1;
 }
 
-
-
-/* = compact tracker analytics = */
 .tracker-analytics-panel {
   padding: 10px;
   border-bottom: 1px solid var(--panel-border);
@@ -2457,8 +2388,6 @@ body.dark-mode .tracker-analytics-section-head {
 #trackedPicksTable td:nth-child(6) { width: 10%; font-weight: 800; opacity: 0.8; }
 #trackedPicksTable td:nth-child(7) { width: 23%; font-weight: 900; }
 
-/* Removed forced grid layout for player sections */
-
   #intelSection {
     display: none;
   }
@@ -2604,7 +2533,7 @@ body.dark-mode .tracker-analytics-section-head {
     }
   }
 
-  /* ── Compact 2-col input grid (matches basketball engine layout) ── */
+  
   .input-row-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2638,19 +2567,19 @@ body.dark-mode .tracker-analytics-section-head {
     margin-bottom: 0;
   }
 
-  /* Compact section boxes */
+  
   .section-body {
     padding: 0 8px 8px;
   }
 
-  /* Compact league/ESPN selects */
+  
   .league-box {
     font-size: 12px;
     padding: 5px 8px;
     margin-bottom: 5px;
   }
 
-  /* Fixture toolbar compact */
+  
   .fixture-toolbar {
     gap: 5px;
     margin: 6px 0 5px;
@@ -2664,14 +2593,11 @@ body.dark-mode .tracker-analytics-section-head {
 
   </style>
 
-
 </head>
 <body>
 <header class="app-header">
   <span class="brand-name">TheBetCeo ⚡️</span>
 
-
-<!-- AUDIT FIX #1: start tag was missing its closing '>', leaving <button id="headerErrorBtn"> open; it silently swallowed the sibling .brand-right span until the parser's implicit "close a button" recovery ran on the next <button>. Added '>' after title attribute. -->
 <button 
 class="header-error-btn" 
 type="button" 
@@ -2682,7 +2608,6 @@ title="Show issues">
 
   </button>
 
-
   <span class="brand-right">
     <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🎾</button>
     <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
@@ -2690,7 +2615,6 @@ title="Show issues">
     PREDICTIONS
   </span>
 </header>
-
 
 <div class="wrapper">
   <div class="section" id="leagueSection">
@@ -2703,10 +2627,8 @@ title="Show issues">
     </select>
   </div>
 
-
   <div class="section" id="espnSection">
     <h3>⚡ ESPN Auto-Fetch</h3>
-
 
 <div id="fixtureToolbar" class="fixture-toolbar">
   <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
@@ -2759,10 +2681,8 @@ title="Show issues">
 
   </div>
 
-
   <div class="section" id="marketSection">
     <h3>Market Lines</h3>
-
 
 <div class="input-row-2">
   <div class="input-col">
@@ -2788,10 +2708,8 @@ title="Show issues">
 
   </div>
 
-
   <div class="section" id="teamASection">
     <h3>Player A - Last 5 / 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
-
 
 <div class="input-row-2">
   <div class="input-col">
@@ -2817,10 +2735,8 @@ title="Show issues">
 
   </div>
 
-
   <div class="section" id="teamBSection">
     <h3>Player B - Last 5 / 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
-
 
 <div class="input-row-2">
   <div class="input-col">
@@ -2846,10 +2762,8 @@ title="Show issues">
 
   </div>
 
-
   <div class="section" id="h2hSection">
     <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled / manual-ready</span></h3>
-
 
 <div class="input-row-2">
   <div class="input-col">
@@ -2868,10 +2782,8 @@ title="Show issues">
 
   </div>
 
-
   <div class="section" id="intelSection">
     <h3>📈 Intelligence Pack <span class="autofill-indicator" id="intelAutoTag">✅ Auto-derived</span></h3>
-
 
 <div style="font-size:11px;color:#7b8088;margin:0 0 8px 0;font-weight:700;line-height:1.5;">
   This shell now uses player-only recent games for Player A and Player B, while H2H stays on shared total-games history.
@@ -2898,14 +2810,12 @@ title="Show issues">
   </div>
 </div>
 
-
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
   <button id="clearBtn" type="button">Clear</button>
   <button id="copyResultsBtn" type="button" onclick="window.copyEngineJson(this)" title="Copy engine JSON to clipboard" style="background:#3a404c!important;color:#fff!important;font-size:12px!important;padding:5px 14px!important;cursor:pointer!important;border:none!important;">📋</button>
     <div id="runStatus"></div>
 </div>
-
 
 <div class="table-wrap">
   <table id="results" class="results-hidden">
@@ -2920,7 +2830,6 @@ title="Show issues">
       </tr>
     </thead>
 
-
       <tbody id="resultsBody">
   <tr>
     <td colspan="6" class="results-empty-cell">Run the engine to populate results.</td>
@@ -2929,7 +2838,6 @@ title="Show issues">
 
   </table>
 </div>
-
 
 <div id="trackerModal" class="tracker-modal" aria-hidden="true">
   <div class="tracker-panel">
@@ -2943,7 +2851,6 @@ title="Show issues">
     </div>
     <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
     <div class="tracker-market-summary" id="trackerMarketSummary"></div>
-
 
 <div class="tracker-body-scroll" id="trackedPicksWrap">
           <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
@@ -2993,18 +2900,14 @@ title="Show issues">
   </div>
 </div>
 
-
 <script>
-/**
- * 🛡️ TENNIS-CEO UNKILLABLE GOD-MODE WATCHDOG
- * Detects: Syntax Errors, Typos, CORS Blocks, and Boot Failures.
- */
+
 (function () {
   if (window.__TENNISCEO_WATCHDOG_LOADED) return;
   window.__TENNISCEO_WATCHDOG_LOADED = true;
   window.__TENNISCEO_ENGINE_BOOT_SEEN = false;
 
-  // 1. FATAL TERMINAL UI (Hijacks screen on crash)
+  
   function spawnFatalTerminal(msg, file, line, col, stack) {
     if (document.getElementById("fatalGodModeTerminal")) return;
     const t = document.createElement("div");
@@ -3039,38 +2942,38 @@ title="Show issues">
     document.body ? document.body.appendChild(t) : document.addEventListener("DOMContentLoaded", () => document.body.appendChild(t));
   }
 
-    // 2. RAW ERROR INTERCEPTOR
+    
     window.addEventListener("error", function (e) {
-    // AUDIT FIX #2: '=' used instead of '===' made "e.lineno = 0" an invalid assignment target inside &&,
-    // which is a SyntaxError (Invalid left-hand side in assignment) that prevented this entire script from parsing.
+    
+    
     if (e.message === "Script error." && e.lineno === 0) return;
     const file = e.filename ? e.filename.split('/').pop() : "Inline Script";
     
-    // Fire the red terminal
+    
     spawnFatalTerminal(e.message, file, e.lineno, e.colno, e.error?.stack);
 
-    // AUDIT FIX #3: '=' instead of '===' after typeof is an invalid assignment target — SyntaxError, script fails to parse.
+    
     if (typeof window.engineDebug === "function") {
         window.engineDebug("ENGINE BREAKDOWN", `${e.message} | Loc: ${file}:${e.lineno}`);
     }
   });
 
-  // 3. NETWORK & PROMISE INTERCEPTOR
+  
   window.addEventListener("unhandledrejection", function (e) {
     const reason = e.reason?.message || String(e.reason);
-    // AUDIT FIX #4: '=' instead of '===' after typeof is an invalid assignment target — SyntaxError, script fails to parse.
+    
     if (typeof window.engineDebug === "function") {
         window.engineDebug("NETWORK/PROMISE ERROR", { detail: reason });
     }
     if (reason.includes("fetch") || reason.includes("Load failed")) {
-        // AUDIT FIX #5: '=' instead of '===' after typeof is an invalid assignment target — SyntaxError, script fails to parse.
+        
         if (typeof window.triggerGlobalEngineAlert === "function") {
             window.triggerGlobalEngineAlert("Watchdog: Network connection to Cloudflare was blocked.");
         }
     }
   });
 
-  // 4. ENGINE BOOT PROTECTION
+  
   window.addEventListener("load", function () {
     setTimeout(function () {
       if (!window.__TENNISCEO_ENGINE_BOOT_SEEN) {
@@ -3079,19 +2982,17 @@ title="Show issues">
     }, 5000);
   });
 })();
+
 </script>
-
-
 
 <script>
 window.__TENNISCEO_ENGINE_BOOT_SEEN = true;
 window.__BETCEO_SESSION_ID = "sess_tennis_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
 
-// --- GOD-MODE WATCHDOG CORE ---
 const ENGINE_INTEGRITY_SHIELD = {
   audit: function() {
     const issues = [];
-    // AUDIT FIX #6: '!' instead of '!==' after typeof is a SyntaxError (Unexpected token '!'), killing the whole main script.
+    
     if (typeof window.runTennisMarkovSimulation !== 'function') issues.push("CRITICAL: Markov Simulator logic is missing.");
     if (!window.indexedDB) issues.push("ENV: Browser IndexedDB is disabled. Data loss imminent.");
     return issues;
@@ -3100,7 +3001,7 @@ const ENGINE_INTEGRITY_SHIELD = {
     const issues = this.audit();
     if (issues.length) {
       issues.forEach(function(issue) {
-        // AUDIT FIX #7: '=' instead of '===' after typeof is an invalid assignment target — SyntaxError.
+        
         if (typeof window.engineDebug === "function") window.engineDebug("INTEGRITY SHIELD", issue);
       });
     }
@@ -3111,9 +3012,9 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
 
 (function () {
   const THEME_KEY = "tennis_engine_theme";
-    // 🧠 THE ENGINE BRAIN (Moved to top for visibility)
+    
   function normalizeTrackerItem(item) {
-    // AUDIT FIX #8: '=' instead of '===' after typeof is an invalid assignment target — SyntaxError.
+    
     const base = item && typeof item === "object" ? item : {};
     return Object.assign({
       id: "", savedAt: null, match: "", playerAName: "", playerBName: "",
@@ -3126,7 +3027,7 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
   }
 
   function normalizeTrackerState(raw) {
-    // AUDIT FIX #9: '=' instead of '===' after typeof is an invalid assignment target — SyntaxError.
+    
     const source = (raw && typeof raw === "object") ? raw : {};
     let items = [];
     if (Array.isArray(source.items)) {
@@ -3233,11 +3134,11 @@ let g_clearDebug = {
     const minAllowed = currentLine * (1 - MAX_DEV);
     const maxAllowed = currentLine * (1 + MAX_DEV);
     const rawBest = Math.min(maxAllowed, Math.max(minAllowed, entry.bestLine));
-    // AUDIT FIX #10/#11/#12: three '='/'!' typos for '==='/'!=='. As written, "currentPick = \"OVER\"" reassigns the
-    // currentPick PARAMETER to the literal string "OVER" every call (masking the caller's actual pick), "(side = \"over\")"
-    // always evaluates truthy (side gets set to "over" and the assignment expression returns that string), so "resolved"
-    // was always Math.min(...) regardless of actual side; and "resolved ! currentLine" is a SyntaxError (Unexpected
-    // token '!') that alone would kill the entire main script's parse.
+    
+    
+    
+    
+    
     const side = currentPick === "OVER" ? "over" : "under";
     const resolved = (side === "over") ? Math.min(currentLine, rawBest) : Math.max(currentLine, rawBest);
     return { line: resolved, usedMemory: (resolved !== currentLine) };
@@ -3248,10 +3149,10 @@ let g_clearDebug = {
     if (!existing) {
       g_lineMemory[key] = { bestLine: line, lastSeen: new Date().toISOString(), side };
     } else {
-      // AUDIT FIX #13: '=' instead of '===' twice. As written, "side = \"over\" && line < existing.bestLine" first
-      // evaluates the && sub-expression then assigns its boolean result to `side` (clobbering the side string with
-      // true/false), and the outer if() then tests that boolean OR the second clobbering assignment — the intended
-      // per-side best-line comparison never actually ran.
+      
+      
+      
+      
       if ((side === "over" && line < existing.bestLine) || (side === "under" && line > existing.bestLine)) {
         existing.bestLine = line;
       }
@@ -3274,27 +3175,27 @@ let g_clearDebug = {
     if (!item || !result) return;
     const tour = item.tour || "ATP";
     const market = item.market || "Match Total Games";
-    // AUDIT FIX #14: '=' instead of '===' turned this into an attempted reassignment of the outer `const market`
-    // (declared two lines above), which throws "TypeError: Assignment to constant variable." at runtime on every
-    // call — verified by executing the pre-fix logic in isolation. This crashed updateBucketPerformance() entirely.
+    
+    
+    
     const marketKey = market === "Match Total Games" ? "match" : "set1";
     const surface = item.surface || (item.context && item.context.surface) || "Hard";
     const grade = item.confidence || "PASS";
     const bucketKey = `${tour}|${marketKey}|${surface}|${grade}`;
     if (!g_bucketPerformance[bucketKey]) g_bucketPerformance[bucketKey] = { wins: 0, losses: 0, pushes: 0 };
     const perf = g_bucketPerformance[bucketKey];
-    // AUDIT FIX #15: two stacked bugs. (a) '=' instead of '===' meant these conditions unconditionally reassigned
-    // `result` to "WIN"/"LOSS"/"PUSH" rather than testing it — since the first branch's assignment is always
-    // truthy, every call fell into the WIN branch regardless of actual result. (b) even the WIN branch's body,
-    // "perf.wins;", is a bare property-read expression statement with no assignment/increment — it does nothing.
-    // Bucket win/loss/push counters (read by the calibration/learned-config pipeline) never incremented at all.
+    
+    
+    
+    
+    
     if (result === "WIN") perf.wins++;
     else if (result === "LOSS") perf.losses++;
     else if (result === "PUSH") perf.pushes++;
     saveBucketPerformance();
   }
 
-  // --- BOSS STORAGE: INDEXEDDB CORE ---
+  
   const DB_NAME = "TennisEngineData";
   const STORE_NAME = "trackerStore";
 
@@ -3333,7 +3234,7 @@ let g_clearDebug = {
     }
   }
 
-  // --- TRACKER MEMORY LOADERS ---
+  
   window.loadTrackerStateFromLocal = async function() {
     const cached = await readAsync(TRACKER_CACHE_KEY);
     if (cached) {
@@ -3410,21 +3311,7 @@ let g_clearDebug = {
     syncSectionBodyDisplay(section);
   }
 
-  function closeSection(id) {
-    const section = qs(id);
-    if (!section) return;
-    section.classList.add("collapsed");
-    syncSectionBodyDisplay(section);
-  }
 
-  function lockSection(id) {
-    const section = qs(id);
-    if (!section) return;
-    section.classList.add("locked");
-    // AUDIT FIX #16: '!' instead of '!==' is a SyntaxError (Unexpected token '!').
-    if (id !== "marketSection") section.classList.add("collapsed");
-    syncSectionBodyDisplay(section);
-  }
 
   function unlockSection(id) {
     const section = qs(id);
@@ -3460,7 +3347,7 @@ let g_clearDebug = {
     const wasCollapsed = target.classList.contains("collapsed");
 
     document.querySelectorAll(".section").forEach(function (section) {
-      // AUDIT FIX #17: '!' instead of '!==' is a SyntaxError (Unexpected token '!').
+      
       if (section.id !== id) {
         section.classList.add("collapsed");
         syncSectionBodyDisplay(section);
@@ -3484,11 +3371,11 @@ let g_clearDebug = {
   }
 
   function applySavedTheme() {
-    // AUDIT FIX #18: '=' instead of '==='. Unlike the typeof/&& cases elsewhere in this file, a call expression on
-    // the left of '=' is NOT a parse-time SyntaxError — it's a RUNTIME ReferenceError ("Invalid left-hand side in
-    // assignment") thrown the moment applySavedTheme() executes. It's called unguarded (no try/catch) from the
-    // DOMContentLoaded bootstrap handler, so once the earlier parse-time errors are fixed, this becomes the next
-    // fatal blocker: it would abort the entire boot sequence (wrapSection/collapseAll/etc. never run).
+    
+    
+    
+    
+    
     if (localStorage.getItem(THEME_KEY) === "dark") {
       document.body.classList.add("dark-mode");
     }
@@ -3513,15 +3400,11 @@ let g_clearDebug = {
     }
   }
 
-  function buildGodFatherDebugHtml() { return ""; }
 
-  function renderTrackerDebug() { /* replaced by AFDB — open via 🔬 */ }
+  function renderTrackerDebug() {  }
 
+  
 
-  // AUDIT FIX #19/#20: '!' instead of '!==' is a SyntaxError (Unexpected token '!') in both guards below.
-  function openTrackerDebugModal() { if (typeof AFDB !== "undefined") AFDB.open(); }
-
-  function closeTrackerDebugModal() { if (typeof AFDB !== "undefined") AFDB.close(); }
 
   function setRunStatus(text, state) {
     const el = qs("runStatus");
@@ -3533,23 +3416,22 @@ let g_clearDebug = {
   function setContextValue(id, value, fallback) {
     const el = qs(id);
     if (!el) return;
-    // AUDIT FIX #21: two corruptions on one line. "value  null" has the loose-equality null/undefined check
-    // deleted entirely (not even reduced to '='), which is "Unexpected token 'null'" — a SyntaxError. "value = \"\""
-    // (single '=') is also wrong: an assignment inside a boolean OR context, not the equality check clearly
-    // intended. Restored as "value == null" (idiomatic loose check catching both null and undefined in one
-    // comparison) OR "value === \"\"" — verified against null/undefined/""/0/42 inputs; 0 is correctly preserved
-    // as a real value rather than being treated as missing.
+    
+    
+    
+    
+    
+    
     el.value = value == null || value === "" ? (fallback || "") : String(value);
   }
 
   function formatDaysValue(value) {
-    // AUDIT FIX #22: same deleted-operator corruption as FIX #21 — "value  null" has the loose-equality check
-    // deleted, which is a SyntaxError ("Unexpected token 'null'"). Restored as "value == null" to catch both
-    // null and undefined before the NaN check.
+    
+    
+    
     if (value == null || Number.isNaN(Number(value))) return "?d";
     return String(value) + "d";
   }
-
 
   function scrollResultsIntoView() {
     const tableWrap = qs("results");
@@ -3589,7 +3471,7 @@ let g_clearDebug = {
     ctx.matchFormat = String(qs("formatDisplay") && qs("formatDisplay").value || "").trim();
     ctx.roundName = String(qs("roundDisplay") && qs("roundDisplay").value || "").trim();
     
-    // Read the surface from the dropdown
+    
     const surfaceEl = qs("surfaceSelect");
     if (surfaceEl) ctx.surface = surfaceEl.value;
 
@@ -3614,15 +3496,14 @@ let g_clearDebug = {
     if (manual.eventLevel) base.eventLevel = manual.eventLevel;
     if (manual.matchFormat) base.matchFormat = manual.matchFormat;
     if (manual.roundName) base.roundName = manual.roundName;
-    if (manual.surface) base.surface = manual.surface; // Force surface into active memory
+    if (manual.surface) base.surface = manual.surface; 
 
     return base;
   }
 
-
   function htmlEscape(value) {
-    // AUDIT FIX #23: same deleted-operator corruption as FIX #21/#22 — restored as loose "== null" to catch both
-    // null and undefined (falls back to empty string before HTML-escaping).
+    
+    
     return String(value == null ? "" : value)
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
@@ -3642,24 +3523,9 @@ let g_clearDebug = {
     setHeaderError(false, "Show issues");
   }
 
-    function parseNumber(value, name) {
-    // WEAPONIZED SANITIZATION: Strips non-breaking spaces and hidden HTML noise
-    const cleaned = String(value || "").replace(/[\u00A0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/g, " ").trim();
-    if (!cleaned) {
-      throw new Error(name + " is required.");
-    }
-    // Remove everything except numbers, dots, and minus signs
-    const hardCleaned = cleaned.replace(/[^0-9.-]/g, "");
-    const num = Number(hardCleaned);
-
-    if (!Number.isFinite(num)) {
-      throw new Error(name + " must be a valid number.");
-    }
-    return num;
-  }
 
     function parseNumericList(raw, name, minLen, maxLen, allowEmpty) {
-    // WEAPONIZED SANITIZATION: Force-cleans hidden chars from the entire string
+    
     const text = String(raw || "")
       .replace(/[\u00A0\ufeff]/g, " ") 
       .replace(/[^\x00-\x7F]/g, "") 
@@ -3691,12 +3557,12 @@ let g_clearDebug = {
       return num;
     });
 
-    // AUDIT FIX #24: '=' instead of '===' after typeof is an invalid assignment target — SyntaxError.
+    
     if (typeof minLen === "number" && numbers.length < minLen) {
       throw new Error(name + " must contain at least " + minLen + " values.");
     }
 
-    // AUDIT FIX #25: same as FIX #24, mirrored for the upper bound.
+    
     if (typeof maxLen === "number" && numbers.length > maxLen) {
       throw new Error(name + " must contain at most " + maxLen + " values.");
     }
@@ -3705,10 +3571,10 @@ let g_clearDebug = {
   }
 
   function mean(values) {
-    // AUDIT FIX #26: '=' instead of '===' — because of operator precedence, '=' tries to bind the entire preceding
-    // "!Array.isArray(values) || values.length" OR-expression as its assignment target, which is invalid —
-    // SyntaxError (same mechanism as FIX #2/#10). NOT a case of values.length being silently truncated (verified:
-    // this exact form throws Invalid-left-hand-side at parse time before any code runs).
+    
+    
+    
+    
     if (!Array.isArray(values) || values.length === 0) return null;
     return values.reduce(function (sum, val) { return sum + val; }, 0) / values.length;
   }
@@ -3717,8 +3583,8 @@ let g_clearDebug = {
     if (!Array.isArray(values) || values.length < 2) return 0;
     const avg = mean(values);
     
-    // WEAPONIZED MATH: Applying Bessel's Correction (n-1) 
-    // This provides an unbiased estimate of variance for small samples (3-10 games).
+    
+    
     const variance = values.reduce(function (sum, val) {
       const diff = val - avg;
       return sum + (diff * diff);
@@ -3726,7 +3592,6 @@ let g_clearDebug = {
 
     return Math.sqrt(variance);
   }
-
 
   function sign(value) {
     if (value > 0) return 1;
@@ -3739,26 +3604,26 @@ let g_clearDebug = {
   }
 
   function fmt(value) {
-    // AUDIT FIX #27: '=' instead of '===' twice. Because of operator precedence, the '=' binds the entire
-    // preceding "value == null || value == undefined" OR-chain as its target, which is invalid — SyntaxError
-    // (same mechanism as FIX #26), confirmed via node --check on the exact original text.
+    
+    
+    
     if (value === null || value === undefined || Number.isNaN(value)) return "-";
     return round2(value).toFixed(2);
   }
 
   function fmtCompact(value) {
-    // AUDIT FIX #28: same corruption/fix as FIX #27 (mirrored in fmtCompact).
+    
     if (value === null || value === undefined || Number.isNaN(value)) return "-";
     const rounded = round2(value);
     return Number.isInteger(rounded) ? String(rounded) : String(rounded);
   }
 
   function downgradeConfidence(confidence) {
-    // AUDIT FIX #29: '=' instead of '===' three times. Unlike most fixes in this file, this does NOT throw a
-    // SyntaxError — "confidence" is a plain identifier, a valid assignment target, so it parses fine. Instead it's
-    // a silent runtime bug: "confidence = \"A\"" assigns "A" and evaluates truthy for ANY input, so the first
-    // branch always fires. Verified by execution: downgradeConfidence("A"), ("C"), and ("PASS") all returned "B"
-    // pre-fix — the function always returned "B" no matter what grade was passed in.
+    
+    
+    
+    
+    
     if (confidence === "A") return "B";
     if (confidence === "B") return "C";
     if (confidence === "C") return "PASS";
@@ -3770,8 +3635,8 @@ let g_clearDebug = {
    const safeVol = volatility > 0 ? volatility : 0.01;
    const edgeZ = absEdge / safeVol;
    const edgePct = Math.min(100, edgeZ * 15);
-   // AUDIT FIX #30: '=' instead of '===' (both clauses) — the second clause "(marketKey = \"team_a\" || marketKey = \"team_b\")"
-   // is a SyntaxError (its '=' would have to bind the whole OR-expression as target, invalid — same mechanism as FIX #26).
+   
+   
    const marketBaseline = (marketKey === "set1") ? 10.0 : (marketKey === "team_a" || marketKey === "team_b") ? 11.0 : 22.0;
    const volNorm = volatility / marketBaseline;
    let conf = "PASS";
@@ -3781,18 +3646,18 @@ let g_clearDebug = {
     else if (edgePct >= 7.5  && volNorm <= 0.26) conf = "B";
     else if (edgePct >= 3.5  && volNorm <= 0.32) conf = "C";
 
-    // AUDIT FIX #31: '!' instead of '!==' — SyntaxError.
+    
     if (conf !== "PASS") {
       const bucketKey = `${tour}|${marketKey}|${surface}|${conf}`;
       const perf = g_bucketPerformance[bucketKey];
       if (perf && (perf.wins + perf.losses) >= 5) {
         const winRate = perf.wins / (perf.wins + perf.losses + (perf.pushes || 0));
-        // AUDIT FIX #32/#33: these nested ternary-assignment chains parse fine (conf is a plain identifier — no
-        // SyntaxError) but are a silent runtime bug: "conf = \"A\" ? \"B\" : ..." assigns "A" to conf and always
-        // evaluates truthy (a non-empty string literal), so the true branch "B" is ALWAYS taken and the intended
-        // per-tier downgrade path (A->B, B->C) never runs. Verified by executing the isolated mechanism: starting
-        // from "A", "B", or "C" all collapsed to "B". Same bug shape for the upgrade chain, plus '!' for '!=='.
-        // Restored as an explicit tier map, matching the evident intent (A<->B<->C one-step adjustment).
+        
+        
+        
+        
+        
+        
         if (winRate < 0.45) conf = (conf === "A" ? "B" : conf === "B" ? "C" : "PASS");
         else if (winRate > 0.65 && conf !== "A") conf = (conf === "C" ? "B" : conf === "B" ? "A" : conf);
       }
@@ -3801,7 +3666,7 @@ let g_clearDebug = {
   }
 
     function parseLineRange(raw, name, allowEmpty = false) {
-    // Strip hidden characters and convert all dash types to a standard minus
+    
     const cleaned = String(raw || "")
       .replace(/[\u00A0\ufeff]/g, " ")
       .replace(/[–—]/g, "-")
@@ -3810,17 +3675,17 @@ let g_clearDebug = {
 
     if (!cleaned) { if (allowEmpty) return null; throw new Error(name + " is required."); }
     const parts = cleaned.split("-").map(function (v) { return v.trim(); }).filter(Boolean);
-    // AUDIT FIX #34: '=' instead of '===' — "parts" is a plain array and ".length" is directly assignable in JS
-    // (unlike FIX #26/#27's cases, there's no OR-expression in front, so this is NOT a SyntaxError). It silently
-    // TRUNCATES the array: verified by execution — parts=["18.5","22.5"] became ["18.5"] after this line ran, so
-    // a real two-sided range like "18.5 - 22.5" always collapsed into the single-value branch, silently discarding
-    // the upper bound every time.
+    
+    
+    
+    
+    
     if (parts.length === 1) {
       const single = Number(parts[0]);
       if (!Number.isFinite(single)) throw new Error(name + " must be a valid number or range.");
       return { min: single, max: single, mid: single, label: fmt(single) };
     }
-    // AUDIT FIX #35: '!' instead of '!==' — SyntaxError.
+    
     if (parts.length !== 2) throw new Error(name + " must look like 18.5 - 22.5.");
     const low = Number(parts[0]); const high = Number(parts[1]);
     if (!Number.isFinite(low) || !Number.isFinite(high)) throw new Error(name + " must contain valid numbers.");
@@ -3828,11 +3693,6 @@ let g_clearDebug = {
     return { min: low, max: high, mid: (low + high) / 2, label: fmt(low) + " - " + fmt(high) };
   }
 
-  function directionFromRange(value, lineRange) {
-    if (value > lineRange.mid) return 1;
-    if (value < lineRange.mid) return -1;
-    return 0;
-  }
 
   function pickFromRange(projection, lineRange) {
     if (projection > lineRange.mid) return { pick: "OVER", edge: projection - lineRange.mid, atMid: false };
@@ -3843,19 +3703,19 @@ let g_clearDebug = {
     function weightedMean(values) {
     if (!Array.isArray(values) || !values.length) return null;
     
-    // WEAPONIZED DECAY: Exponential weighting constant.
-    // A factor of 0.75 means the most recent match is ~4x more influential 
-    // than a match played 5 games ago. Linear weighting is for amateurs.
+    
+    
+    
     const DECAY_FACTOR = 0.75; 
     let weightedTotal = 0;
     let weightSum = 0;
 
-    // AUDIT FIX #36: the loop's increment clause "i" is a bare expression, not "i++" — i never changes, so the
-    // condition "i < values.length" is permanently true and this is an infinite loop. Confirmed by execution: a
-    // bounded reproduction (bailing at 1,000,000 iterations) never terminated on its own before the bailout fired.
-    // Any call to weightedMean() would hang the browser tab indefinitely.
+    
+    
+    
+    
     for (let i = 0; i < values.length; i++) {
-      // i=0 is the most recent (weight = 1). As i increases, weight drops exponentially.
+      
       const weight = Math.pow(DECAY_FACTOR, i);
       weightedTotal += values[i] * weight;
       weightSum += weight;
@@ -3864,20 +3724,19 @@ let g_clearDebug = {
     return weightSum ? (weightedTotal / weightSum) : null;
   }
 
-
   function matchupKey(tour, playerAName, playerBName) {
     return [String(tour || "").trim().toUpperCase(), normalizeName(playerAName), normalizeName(playerBName)].join("|");
   }
 
   function getActiveFetchedContext(tour, playerAName, playerBName) {
     if (!latestFetchedContext) return null;
-    // AUDIT FIX #37: '=' instead of '===' — this parses fine ("latestFetchedContext.matchupKey" is a valid
-    // assignment target) but is a severe silent bug: it OVERWRITES latestFetchedContext.matchupKey with a
-    // self-reference to latestFetchedContext itself (a circular reference), and the function always returns
-    // latestFetchedContext regardless of whether tour/playerAName/playerBName actually match the cached data.
-    // Verified by execution: calling with completely different players than the cached context still returned
-    // the same (wrong) cached context, and latestFetchedContext.matchupKey === latestFetchedContext (circular).
-    // This means fetched match data could silently be reused for the wrong matchup.
+    
+    
+    
+    
+    
+    
+    
     return latestFetchedContext.matchupKey === matchupKey(tour, playerAName, playerBName) ? latestFetchedContext : null;
   }
 
@@ -3940,8 +3799,8 @@ let g_clearDebug = {
   function inferMatchFormat(tour, eventLevel) {
     const tourKey = String(tour || "").trim().toUpperCase();
     const level = String(eventLevel || "");
-    // AUDIT FIX #38: '=' instead of '===' twice — the second one's '=' would have to bind the whole preceding
-    // "&&" expression as target, invalid — SyntaxError (same mechanism as FIX #2/#26/#30).
+    
+    
     if (tourKey === "ATP" && level === "Grand Slam") return "BO5";
     return "BO3";
   }
@@ -3961,7 +3820,7 @@ let g_clearDebug = {
     let matches7 = 0, longLoad = 0;
     recent.forEach(function (entry) {
       const diff = daysBetween(nowish, entry.date);
-      // AUDIT FIX #39: '!' instead of '!==' — SyntaxError.
+      
       if (diff !== null && diff <= 7) matches7 += 1;
       if (Number(entry.totalGames) >= 30) longLoad += 1;
     });
@@ -3971,13 +3830,13 @@ let g_clearDebug = {
   function computeFatiguePenalty(profile, marketKey) {
     if (!profile) return 0;
     let fraction = 0;
-    // AUDIT FIX #40: '!' instead of '!==' — SyntaxError.
+    
     if (profile.daysRest !== null) {
       if (profile.daysRest <= 1) fraction += 0.055;
-      // AUDIT FIX #41: '=' instead of '===' — "profile.daysRest" is directly assignable (a plain member access
-      // with nothing before it), so this is NOT a SyntaxError. It silently MUTATES the caller's profile object,
-      // forcing daysRest to literal 2 and unconditionally adding the fraction every time this branch is reached —
-      // verified by execution: a profile with daysRest:5 came out with daysRest:2 after this line ran.
+      
+      
+      
+      
       else if (profile.daysRest === 2) fraction += 0.022;
     }
     if (profile.matches7 >= 3) fraction += 0.028;
@@ -3993,14 +3852,14 @@ let g_clearDebug = {
     const ctx = options.ctx;
     const marketKey = options.marketKey;
 
-    // Select data source once: prefer context series (weighted, per-set normalized) over manual entry
-    // AUDIT FIX #42: '=' instead of '===' — "marketKey" was declared "const marketKey = options.marketKey;"
-    // earlier in this function. Because the literal string "match" is always truthy, the inner ternary
-    // "\"match\" ? ctx.recentMatchA : ctx.recentSet1A" always resolved to ctx.recentMatchA, which this line then
-    // tried to ASSIGN to the const marketKey — verified by execution to throw
-    // "TypeError: Assignment to constant variable." on every call where ctx is truthy.
+    
+    
+    
+    
+    
+    
     const ctxSeriesA = ctx ? (marketKey === "match" ? ctx.recentMatchA : ctx.recentSet1A) : [];
-    // AUDIT FIX #43: identical bug/fix, mirrored for the B side.
+    
     const ctxSeriesB = ctx ? (marketKey === "match" ? ctx.recentMatchB : ctx.recentSet1B) : [];
     const useCtx = ctxSeriesA.length >= 3 && ctxSeriesB.length >= 3;
     const sourceA = useCtx ? ctxSeriesA : options.manualA;
@@ -4014,12 +3873,12 @@ let g_clearDebug = {
     const notes = [];
     if (useCtx) notes.push("Recency weighted");
 
-    // Opponent allowed blend: only meaningful on manual entry path; ctx path has opponent quality baked in via normalizeMatchGames
+    
     const ALLOWED_BLEND = 0.25;
     if (!useCtx) {
       if (options.manualAllowedA && options.manualAllowedA.length >= 3) {
         const avgAllowedA = mean(options.manualAllowedA);
-        // AUDIT FIX #44/#45: '!' instead of '!==' — SyntaxError, both A and B sides.
+        
         if (avgAllowedA !== null) avgA = avgA * (1 - ALLOWED_BLEND) + avgAllowedA * ALLOWED_BLEND;
       }
       if (options.manualAllowedB && options.manualAllowedB.length >= 3) {
@@ -4028,13 +3887,13 @@ let g_clearDebug = {
       }
     }
 
-    // TREND DETECTION: Significant moves only — requires >20% change or >2σ deviation from baseline
+    
     if (sourceA.length >= 5) {
       const recentA = mean(sourceA.slice(0, 3));
       const baseSliceA = sourceA.slice(3);
       const baseA = mean(baseSliceA);
       const baseStdA = stdDev(baseSliceA);
-      // AUDIT FIX #46: two '!' instead of '!==' — SyntaxError.
+      
       if (recentA !== null && baseA !== null && baseA > 0 && baseSliceA.length >= 2) {
         const trendA = (recentA - baseA) / baseA;
         const absMoveA = Math.abs(recentA - baseA);
@@ -4049,7 +3908,7 @@ let g_clearDebug = {
       const baseSliceB = sourceB.slice(3);
       const baseB = mean(baseSliceB);
       const baseStdB = stdDev(baseSliceB);
-      // AUDIT FIX #47: same as FIX #46, mirrored for the B side.
+      
       if (recentB !== null && baseB !== null && baseB > 0 && baseSliceB.length >= 2) {
         const trendB = (recentB - baseB) / baseB;
         const absMoveB = Math.abs(recentB - baseB);
@@ -4060,7 +3919,7 @@ let g_clearDebug = {
       }
     }
 
-    // FIX: Strictly obey the UI input for H2H. Do not secretly override it with context data.
+    
     let h2h = (options.manualH2H || []).slice();
     
     let projectionShift = 0;
@@ -4068,15 +3927,15 @@ let g_clearDebug = {
         const brutalA = ctx && ctx.brutalA ? ctx.brutalA : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
     const brutalB = ctx && ctx.brutalB ? ctx.brutalB : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
 
-    // AUDIT FIX #267: removed dead "WEAPONIZED DOMINANCE" block (eloA/eloB/dominanceA/dominanceB/pA_serve/pB_serve).
-    // Confirmed by full-file trace: pA_serve/pB_serve were computed here and NEVER read again — not returned by
-    // this function, not used to adjust avgA/avgB, not referenced anywhere else in the file. This is why avgA/avgB
-    // (and therefore baseProjection/projection/edge/pick) carry ZERO Elo influence despite a ~192-point Elo gap in
-    // the Fritz/Bergs matchup (avgB projected higher than avgA despite avgA being the much stronger player by Elo).
-    // Elo only reaches the engine later, indirectly, via the separate _eloExpectedA calc in buildMarketResult()
-    // (used solely for the Markov simPct simulation) — the primary games projection never sees it. Left removed
-    // rather than silently wired in: applying Elo to avgA/avgB is a modeling decision (what weight/coefficient?)
-    // that needs sign-off, not a mechanical fix. Flag for product decision before any coefficient is added back.
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     const avgGrind = (brutalA.grindRate + brutalB.grindRate) / 2;
     const avgTb = (brutalA.tiebreakIdx + brutalB.tiebreakIdx) / 2;
@@ -4084,46 +3943,45 @@ let g_clearDebug = {
 
     if (!ctx)     return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: notes, avgGrind, avgTb, avgS1Kill };
 
-
-    // Source selection is handled at function entry; declarations kept for format-scaling checks below
-    // AUDIT FIX #48/#49: same const-reassignment bug as FIX #42/#43 (marketKey is const; "match" is always
-    // truthy so this always tried to assign ctx.recentMatchA/B to it) — verified to throw
-    // "TypeError: Assignment to constant variable." Restored as a genuine comparison.
+    
+    
+    
+    
     const seriesA = marketKey === "match" ? ctx.recentMatchA : ctx.recentSet1A;
     const seriesB = marketKey === "match" ? ctx.recentMatchB : ctx.recentSet1B;
 
-        // WEAPONIZED DYNAMIC SHIFTS: Replacing "Magic Numbers" with Statistical Scaling
-    // BO5 (Grand Slams) are not just +2.75 games; they are historically ~1.45x the length of a BO3 match.
-    // 🎾 WEAPONIZED SCALING: Multiplicative vs Linear
-    // AUDIT FIX #50: same const-reassignment bug as FIX #48/49 — marketKey is const, this always threw.
+        
+    
+    
+    
     const isMatch = marketKey === "match";
-    // AUDIT FIX #51: '=' instead of '===' — "ctx.matchFormat" is directly assignable (plain member access, no
-    // OR/AND in front), so this is NOT a SyntaxError. It silently MUTATES the shared ctx object's matchFormat
-    // field to the literal string "BO5" on every call, regardless of the real format — verified by execution:
-    // a ctx with matchFormat:"BO3" came out with matchFormat:"BO5" after this line ran, and isBO5 was always
-    // truthy. Since ctx is shared/reused (built once per matchup and reused across match/set1/team-A/team-B market
-    // calls), this corruption could bleed into every subsequent market's format-scaling decision within the same run.
+    
+    
+    
+    
+    
+    
     const isBO5 = ctx.matchFormat === "BO5";
 
-    // 1. Format Scaling — data-driven expected sets replaces crude 1.45x linear multiplier.
-    // When auto-fetch data is present (seriesA populated), inputs are per-set normalized;
-    // scale back to full-match projection units. Falls back to 1.45x for manual BO5 entry.
+    
+    
+    
     if (isMatch && seriesA.length >= 3 && seriesB.length >= 3) {
-      // SURFACE-SPECIFIC SET COUNTS: Clay players go to 3 sets more often (2.47),
-      // grass serves dominate and sets finish faster (2.21). Hard is baseline (2.35).
+      
+      
       const expectedSets = isBO5 ? 3.82 :
-        // AUDIT FIX #52: '=' instead of '===', twice, nested. Both are directly-assignable member expressions
-        // (no SyntaxError). Verified by execution — and the actual behavior is more surprising than a simple
-        // "always Clay" bug: because "Clay" is a truthy string literal, "ctx.surface = \"Clay\" ? 2.47 : ..."
-        // evaluates its OWN right-hand ternary first, so ctx.surface gets overwritten with the NUMBER 2.47 (not
-        // the string "Clay") — silently changing ctx.surface's type from string to number. Any later code
-        // checking ctx.surface === "Clay"/"Grass" would now always be false. Restored to genuine comparisons.
+        
+        
+        
+        
+        
+        
         (ctx.surface === "Clay" ? 2.47 :
          ctx.surface === "Grass" ? 2.21 : 2.35);
       avgA *= expectedSets;
       avgB *= expectedSets;
-      // VARIANCE FIX: stdDev of sum of N independent vars scales by sqrt(N), not N.
-      // Linear scaling inflated combined volatility ~2x for BO5, causing false PASS.
+      
+      
       stdA *= Math.sqrt(expectedSets);
       stdB *= Math.sqrt(expectedSets);
       notes.push(isBO5 ? "Format: BO5 \u00d73.82 sets" : "Normalized: \u00d7" + expectedSets.toFixed(2) + " sets");
@@ -4135,19 +3993,19 @@ let g_clearDebug = {
       notes.push("Format: BO5 Multiplier (1.45x)");
     }
 
-    // 2. Surface Multipliers (Percentage-based)
-    // Fast surfaces (Grass) increase total games by ~3.5% due to higher hold rates.
-    // Slow surfaces (Clay) decrease total games by ~3.5% due to higher break rates.
-    // AUDIT FIX #53: '=' instead of '===' — "ctx.surface" directly assignable, not a SyntaxError. Verified by
-    // execution: a ctx with surface:"Hard" came out with surface:"Grass" after this ran, and the grass-bonus
-    // branch was always taken (the following "else if Clay" branch became permanently unreachable, since the
-    // truthy assignment always satisfies the first condition). Restored to a genuine comparison.
+    
+    
+    
+    
+    
+    
+    
     if (ctx.surface === "Grass") {
       const grassMult = 1.035;
       avgA *= grassMult;
       avgB *= grassMult;
       notes.push("Surface: Grass (+3.5%)");
-    // AUDIT FIX #54: same as FIX #53's mechanism, mirrored — restored to comparison (now reachable again).
+    
     } else if (ctx.surface === "Clay") {
       const clayMult = 0.965;
       avgA *= clayMult;
@@ -4155,7 +4013,7 @@ let g_clearDebug = {
       notes.push("Surface: Clay (-3.5%)");
     }
 
-    // 3. Fatigue Penalty (Proportional, Non-Zero-Sum — fatigue shortens matches, not gifts games)
+    
     const fatigueFracA = computeFatiguePenalty(ctx.fatigueA, marketKey);
     const fatigueFracB = computeFatiguePenalty(ctx.fatigueB, marketKey);
 
@@ -4176,20 +4034,6 @@ let g_clearDebug = {
       async function runTennisMarkovSimulation(pA_serve, pB_serve, lineMid, isBO5 = false, runs = 10000, set1Only = false) {
     return new Promise(resolve => {
       const workerCode = `
-        // AUDIT FIX #55: this entire embedded worker script contained ~20 corrupted-operator bugs (the same
-        // '='/'!' typo pattern found throughout the outer file) plus several missing increments. Because a
-        // Worker constructed from source with a SyntaxError fires its 'error' event rather than throwing
-        // synchronously, this was previously invisible: runTennisMarkovSimulation()'s worker.onerror handler
-        // (below) silently resolved every call to a neutral {overPct:50, underPct:50} instead of ever running a
-        // real simulation. Beyond the syntax errors, two runtime-only bugs were also present and would have
-        // surfaced once the syntax was fixed without this full correction: (a) "ptsA;"/"gA;"/"setsA;"/"overHits;"
-        // style bare-identifier statements throughout do nothing (missing ++), which would have made every score
-        // counter permanently stuck at 0 and caused simGame/simSet's while(true) loops to never terminate; and
-        // (b) "if (gA = 6 && gB <= 4)" silently corrupts gA from a number to a BOOLEAN (verified by execution),
-        // which would have propagated wrong-typed game scores into the caller. Fixed and verified as a whole: the
-        // corrected script was extracted and run standalone with realistic ATP serve probabilities
-        // (pA=0.65, pB=0.62), producing sane, non-degenerate output (59.0% over on a 22.5 match-games line,
-        // 55.7% over on a 9.5 set1-games line) with no infinite loop and no type corruption.
         function simGame(p_server) {
           let ptsA = 0, ptsB = 0;
           while (true) {
@@ -4281,22 +4125,21 @@ let g_clearDebug = {
     });
   }
 
-
   async function buildMarketResult(config) {
     const baseProjection = config.avgA + config.avgB;
     const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
     const h2hAvg = hasH2H ? mean(config.h2h) : null;
 
-    // DYNAMIC H2H WEIGHT: scales with number of meetings and surface correlation
+    
     let h2hWeight = 0.3;
     const h2hCount = config.h2h ? config.h2h.length : 0;
     if (h2hCount >= 5) h2hWeight = 0.35;
     else if (h2hCount >= 3) h2hWeight = 0.30;
     else if (h2hCount >= 2) h2hWeight = 0.20;
     else h2hWeight = 0.0;
-    // AUDIT FIX #56/#57: '=' instead of '===', both — "config.ctx.surface" directly assignable, not a SyntaxError.
-    // Same mutation mechanism as FIX #53/54: this would silently overwrite config.ctx.surface and always take the
-    // first true branch, corrupting the shared context and always applying the Clay H2H-weight bonus.
+    
+    
+    
     if (config.ctx && config.ctx.surface === "Clay") h2hWeight *= 1.2;
     else if (config.ctx && config.ctx.surface === "Grass") h2hWeight *= 0.9;
     h2hWeight = Math.min(0.45, Math.max(0.0, h2hWeight));
@@ -4304,35 +4147,35 @@ let g_clearDebug = {
         const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
     let projection = projectionCore + (config.projectionShift || 0);
 
-    // MARKET REGRESSION: Pull toward Vegas line, scaled by distance.
-    // When the line is far from our projection (>2σ), it is more likely a model outlier than edge — blend less.
+    
+    
     const preRegressionProjection = projection;
     const _regVol = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2)) || 1;
     const _lineZ = Math.abs(config.lineRange.mid - projection) / _regVol;
     const MARKET_PULL = _lineZ > 3.0 ? 0.0 : _lineZ > 2.0 ? 0.05 : 0.20;
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
 
-    // WEAPONIZED MATH: Variance Summation Rule
+    
     let volatility = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2));
     
-    // AUDIT FIX #58: same mechanism/fix as FIX #56/57.
+    
     if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15; 
 
     const lineDecision = pickFromRange(projection, config.lineRange);
 
             let pick = lineDecision.pick;
     let edge = lineDecision.edge;
-    // Record the line used for future memory
-    // AUDIT FIX #59: '!' for '!==' (SyntaxError) AND "pick = \"OVER\" ? \"over\" : \"under\"" inside the call
-    // below. The latter parses fine ("pick" is a plain "let", a valid target) but is a silent runtime bug:
-    // verified by execution that passing this exact construct as a function argument BOTH permanently reassigns
-    // the outer "pick" variable to the literal string "OVER" (destroying whatever the real pick was) AND always
-    // passes "over" as the memory-side argument to upsertLineMemory — regardless of whether the real pick was
-    // OVER or UNDER. Restored to a genuine comparison so the memory store records the actual side taken.
+    
+    
+    
+    
+    
+    
+    
     if (pick !== "PASS" && config.lineRange.mid) {
       upsertLineMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", pick === "OVER" ? "over" : "under", config.lineRange.mid);
     }
-    // Apply line memory if available
+    
     const lineMemoryResult = resolveLineWithMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", config.lineRange.mid, pick);
     let notes = [].concat(config.extraNotes || []);
     if (lineMemoryResult.usedMemory) {
@@ -4340,32 +4183,32 @@ let g_clearDebug = {
       notes.push("Line memory improved from " + config.lineRange.mid + " to " + lineMemoryResult.line);
     }
     let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx?.tour, config.marketKey, config.ctx?.surface, null);
-    // AUDIT FIX #268: gate was "Math.abs(preRegressionProjection - projection) >= 0.5" — a flat absolute-games
-    // threshold that does not scale across markets of different magnitude. The market-pull mechanism above (lines
-    // ~4296-4302) computes and applies the exact same proportional MARKET_PULL weight (0%, 5%, or 20%) for every
-    // market, but a 20% pull on a ~10-game set1 projection moves the number by roughly half as many raw games as
-    // the same 20% pull on a ~25-game full-match projection. Verified against this engine's own Fritz vs Bergs
-    // output: matchResult shifted 25.67 -> 24.84 (0.83 games, clears 0.5) and got the note; set1Result shifted
-    // 10.79 -> 10.54 (0.26 games, same 20% MARKET_PULL, does NOT clear 0.5) and silently got no note — even though
-    // the identical mechanism fired in both. Gate now keyed to whether MARKET_PULL actually fired, not to an
-    // absolute game count, so the notes trail is accurate regardless of market size.
+    
+    
+    
+    
+    
+    
+    
+    
+    
     if (MARKET_PULL > 0) {
       notes.push("Mkt pull: raw " + fmt(preRegressionProjection) + " \u2192 " + fmt(projection));
     }
     const filtersTriggered = [];
     let terminalVeto = false;
 
-    // 🏎️ MARKOV POINT CALIBRATION (Surface-Aware + Elo-Blended)
-    // RESEARCH-BACKED HOLD RATES: ATP Clay 61.5% | Grass 67.5% | Hard 64.5%
-    //                             WTA Clay 59.5% | Grass 65.0% | Hard 62.5%
-    // AUDIT FIX #60: '=' instead of '===' — "config.ctx?.tour" is an OPTIONAL CHAIN, which the ECMAScript spec
-    // explicitly forbids as an assignment target regardless of precedence — confirmed via node --check:
-    // SyntaxError: Invalid left-hand side in assignment.
+    
+    
+    
+    
+    
+    
     const _isATP = config.ctx?.tour === "ATP";
     const _surf  = config.ctx?.surface || "Hard";
-    // AUDIT FIX #61: '=' instead of '===', four places. "_surf" is const — verified by execution this throws
-    // "TypeError: Assignment to constant variable." (same class as FIX #14/42/43, not a SyntaxError, since _surf
-    // alone is a valid simple assignment target).
+    
+    
+    
     let baseHoldProb = _isATP
       ? (_surf === "Clay" ? 0.615 : _surf === "Grass" ? 0.675 : 0.645)
       : (_surf === "Clay" ? 0.595 : _surf === "Grass" ? 0.650 : 0.625);
@@ -4373,7 +4216,7 @@ let g_clearDebug = {
     const _eloA = config.ctx?.eloA || 1500;
     const _eloB = config.ctx?.eloB || 1500;
     const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
-    // Per-player serve proxy derived from game dominance ratio (logistic-like mapping)
+    
     const _gA = config.avgA || 5;
     const _gB = config.avgB || 5;
     const _gameDomA = (_gA - _gB) / (_gA + _gB + 2);
@@ -4383,34 +4226,32 @@ let g_clearDebug = {
     const _blendB = ((1 - _eloExpectedA) * 0.40) + (_rawServeB * 0.60);
     const pA = baseHoldProb + (_blendA - 0.5) * 0.28;
     const pB = baseHoldProb + (_blendB - 0.5) * 0.28;
-    // AUDIT FIX #62: same optional-chain SyntaxError mechanism as FIX #60.
+    
     const isBO5 = config.ctx?.matchFormat === "BO5";
 
-        // Run the point-by-point simulation
-    // AUDIT FIX #63: '=' instead of '===' in the 6th argument. "config.marketKey" is directly assignable (plain
-    // member access) — NOT a SyntaxError. Verified by execution: passing "config.marketKey = \"set1\"" as a call
-    // argument both evaluates to the truthy string "set1" (passed as the set1Only flag — which happens to work
-    // as a truthy value, masking the bug) AND permanently mutates config.marketKey itself to the literal "set1",
-    // corrupting the shared config object for the rest of this function regardless of the real market.
+        
+    
+    
+    
+    
+    
     const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 5000, config.marketKey === "set1");
-    // AUDIT FIX #64: '=' instead of '===', twice. "pick" is "let" — valid target, not a SyntaxError. Verified by
-    // execution (same mechanism as FIX #59): the first comparison "pick = \"OVER\"" is always truthy, so simPct
-    // always took the sim.overPct branch (and permanently corrupted "pick" to the literal string "OVER") — the
-    // sim-percentage used in this function's own "sim disagrees" veto logic further below was never actually
-    // reading the real pick.
+    
+    
+    
+    
+    
     const simPct = (pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50;
-
-
 
     if (lineDecision.atMid) { notes.push("Projection exactly on midpoint"); confidence = "PASS"; pick = "PASS"; }
 
-        // --- BRUTAL VETOES (Downgrade, not instant kill — preserves signal when confidence is already strong) ---
-    // AUDIT FIX #65-70: this whole veto block had the same two bug shapes repeated: (a) "pick = \"UNDER\" &&
-    // config.marketKey = \"match\""-style chained conditions are SyntaxErrors (the '=' would have to bind the
-    // entire preceding && expression as its target — same mechanism as FIX #2/26/30/38, confirmed via
-    // node --check); (b) standalone "if (confidence = \"PASS\")" checks parse fine ("confidence" is a plain
-    // "let") but always evaluate truthy, so every one of these terminal-veto branches always fired regardless of
-    // the actual confidence value. All six conditions restored to genuine comparisons below.
+        
+    
+    
+    
+    
+    
+    
     if (config.avgGrind >= 0.40 && pick === "UNDER" && config.marketKey === "match") {
       filtersTriggered.push("grind_veto");
       confidence = downgradeConfidence(confidence);
@@ -4430,12 +4271,12 @@ let g_clearDebug = {
       if (confidence === "PASS") { pick = "PASS"; terminalVeto = true; }
     }
 
-    // EDGE SANITY CAP: Edges above 18% after market regression are almost certainly
-    // outlier data artifacts, not real signal. Downgrade to protect the record.
+    
+    
     const _safeVolFinal = volatility > 0 ? volatility : 0.01;
     const _edgeZFinal = Math.abs(edge) / _safeVolFinal;
     const edgePctFinal = Math.min(100, _edgeZFinal * 15);
-    // AUDIT FIX #71: '!' for '!==' — SyntaxError.
+    
     if (edgePctFinal > 18.0 && confidence !== "PASS") {
       confidence = downgradeConfidence(confidence);
       notes.push("Edge cap: Z=" + fmt(_edgeZFinal) + " > 1.2 ceiling");
@@ -4444,33 +4285,32 @@ let g_clearDebug = {
     const isRescueEligible = simPct >= 62 || Math.abs(edge) >= 4.0;
     if (!hasH2H) {
       if (isRescueEligible) notes.push("No H2H, but rescued by extreme edge/sim");
-      // AUDIT FIX #72/#73: '!' for '!==' (SyntaxError) and the nested "confidence = \"PASS\"" always-true bug.
+      
       else { filtersTriggered.push("missingH2H"); notes.push("No H2H support"); if (confidence !== "PASS") { confidence = downgradeConfidence(confidence); if (confidence === "PASS") pick = "PASS"; } }
     } else {
-      // FIX: Tell the user exactly how much H2H was blended in so you know it worked.
+      
       notes.push(`H2H Blended (${Math.round(h2hWeight * 100)}% weight)`);
     }
 
     if (volatility > 5.0 && volatility <= 7.0) {
       filtersTriggered.push("chaos");
-      // AUDIT FIX #74: 'confidence = "PASS"' always-true bug, same mechanism as FIX #65-70.
+      
       if (!isRescueEligible) { confidence = downgradeConfidence(confidence); if (confidence === "PASS") pick = "PASS"; }
       else notes.push("Volatility rescued by math strength");
     }
     if (volatility > 7.0) { filtersTriggered.push("chaos"); notes.push("Extreme volatility / skip zone"); confidence = "PASS"; pick = "PASS"; }
 
-    // AUDIT FIX #75/#76: '!' for '!==' (SyntaxError) and the nested always-true 'confidence = "PASS"' bug.
+    
     if (simPct < 45 && pick !== "PASS") {
       notes.push("Sim strongly disagrees: " + simPct.toFixed(1) + "%");
       confidence = downgradeConfidence(confidence);
       if (confidence === "PASS") pick = "PASS";
-    // AUDIT FIX #77/#78: same as FIX #75/76, mirrored for the "Sim Warning" branch.
+    
     } else if (simPct < 53 && pick !== "PASS") {
       notes.push("Sim Warning: " + simPct.toFixed(1) + "%");
       confidence = downgradeConfidence(confidence);
       if (confidence === "PASS") pick = "PASS";
     }
-
 
     const finalNotes = uniqueNotes(notes);
     if (!finalNotes.length) finalNotes.push("Clean read");
@@ -4482,10 +4322,6 @@ let g_clearDebug = {
       notes: finalNotes, filtersTriggered: filtersTriggered, simPct: simPct 
     };
   }
-
-
-
-
 
   async function buildEngineResults() {
   const tour = String(qs("leagueSelect").value || "").trim();
@@ -4601,12 +4437,11 @@ let g_clearDebug = {
   };
 }
 
-
   function getPickCellClass(pick, confidence) {
-    // AUDIT FIX #79/#80/#81: same bug family as BUG-029/downgradeConfidence. Line 1 is a SyntaxError (chained ||
-    // with '='). Lines 2/3 parse fine ("pick" is a plain parameter) but are always-truthy — verified by the same
-    // mechanism already proven for downgradeConfidence: this function would have always returned "pred-over" for
-    // every pick/confidence combination, since the first truthy-assignment branch always fires.
+    
+    
+    
+    
     if (confidence === "PASS" || pick === "PASS") return "pred-noplay";
     if (pick === "OVER") return "pred-over";
     if (pick === "UNDER") return "pred-under";
@@ -4614,8 +4449,8 @@ let g_clearDebug = {
   }
 
   function getConfidenceCellClass(confidence) {
-    // AUDIT FIX #82: same always-truthy mechanism as downgradeConfidence (BUG-029) — this always returned "conf-a"
-    // regardless of the real confidence grade.
+    
+    
     if (confidence === "A") return "conf-a";
     if (confidence === "B") return "conf-b";
     if (confidence === "C") return "conf-c";
@@ -4633,10 +4468,10 @@ let g_clearDebug = {
   }
 
   function getPredictionText(result) {
-    // AUDIT FIX #83: '=' instead of '===', chained with || — SyntaxError.
+    
     if (!result || result.pick === "PASS" || result.confidence === "PASS") return "NO PLAY";
     const shownLine = getShownLineForResult(result);
-    // AUDIT FIX #84: '=' instead of '==='/'==', chained with || — SyntaxError.
+    
     if (shownLine == null || Number.isNaN(shownLine)) {
       return result.pick;
     }
@@ -4647,7 +4482,7 @@ let g_clearDebug = {
     const actionable = results
       .map(function (result, idx) { return { result: result, idx: idx }; })
       .filter(function (item) {
-        // AUDIT FIX #85/#86: '!' instead of '!==' — SyntaxError, both lines.
+        
         return item.result &&
           item.result.pick !== "PASS" &&
           item.result.confidence !== "PASS";
@@ -4662,7 +4497,7 @@ let g_clearDebug = {
   }
 
   function pickBestResult(match, set1) {
-    // Filter out nulls if Set 1 was left blank
+    
     const valid = [match, set1].filter(Boolean); 
     const ranked = valid.sort(function (a, b) {
       const scoreA = confidenceScore(a.confidence, a.edge);
@@ -4671,7 +4506,6 @@ let g_clearDebug = {
     });
     return ranked[0];
   }
-
 
   function showResults() {
     const results = qs("results");
@@ -4693,8 +4527,8 @@ let g_clearDebug = {
     const overlay = document.createElement('div');
     overlay.className = 'lock-celebration';
     const particleCount = 50;
-    // AUDIT FIX #87: missing increment — 'i' never changed, so this was an infinite loop (same bug class as
-    // FIX #36/weightedMean). Any call to showLockCelebration() would have hung the tab.
+    
+    
     for (let i = 0; i < particleCount; i++) {
       const particle = document.createElement('div');
       particle.className = 'particle';
@@ -4716,18 +4550,18 @@ let g_clearDebug = {
     const body = qs("resultsBody");
     if (!body) return;
 
-    // Filter out nulls so we only draw rows for markets that were actually calculated
+    
     const results = [resultBundle.matchResult, resultBundle.set1Result, resultBundle.teamAResult, resultBundle.teamBResult].filter(Boolean);
     const lockIdx = selectLockIndex(results);
-    // AUDIT FIX #88: '!' instead of '!==' — SyntaxError.
+    
     if (lockIdx !== -1) showLockCelebration();
 
         const rows = results.map(function (result, idx) {
-      // AUDIT FIX #89: '=' instead of '===', chained with || — SyntaxError.
+      
       const isNoPlay = result.pick === "PASS" || result.confidence === "PASS";
       const winProb = isNoPlay ? 0 : result.simPct;
       
-      // WEAPONIZED CALCULATION: Probability to American Odds Conversion
+      
       const getFairOdds = (p) => {
         if (!p || p <= 0 || p >= 100) return "—";
         const dec = p / 100;
@@ -4739,13 +4573,13 @@ let g_clearDebug = {
       const probText = fmt(result.simPct) + "%";
       const fairOdds = isNoPlay ? "—" : getFairOdds(winProb);
       const predictionText = getPredictionText(result);
-      // AUDIT FIX #90: '=' instead of '===' — "idx" is a plain map-callback parameter (valid target, not a
-      // SyntaxError), but this never compared idx to lockIdx at all: it evaluated "lockIdx && !isNoPlay" as a
-      // bare boolean and assigned it straight to idx, then to isLock. Verified by execution: with lockIdx=2,
-      // EVERY row (0, 1, 2, 5 — not just row 2) got isLock=true; and when lockIdx=0 (row 0 is the real lock),
-      // isLock came out as 0/falsy for that row specifically, since "0 && ..." short-circuits to 0. So the 🔒
-      // icon was rendered on every actionable row instead of just the actual best pick, and would silently
-      // vanish entirely whenever the real lock happened to be the first row.
+      
+      
+      
+      
+      
+      
+      
       const isLock = idx === lockIdx && !isNoPlay;
 
                               return (
@@ -4764,11 +4598,7 @@ let g_clearDebug = {
         '</tr>'
       );
 
-
-
-
     }).join("");
-
 
     body.innerHTML = rows;
     showResults();
@@ -4790,7 +4620,7 @@ let g_clearDebug = {
 
     if (ctx && Number.isFinite(ctx.rankA)) rightMeta.push("A #" + ctx.rankA);
     if (ctx && Number.isFinite(ctx.rankB)) rightMeta.push("B #" + ctx.rankB);
-    // AUDIT FIX #91/#92: '!' instead of '!==' — SyntaxError, both lines.
+    
     if (ctx && ctx.fatigueA && ctx.fatigueA.daysRest !== null) rightMeta.push("A rest " + ctx.fatigueA.daysRest + "d");
     if (ctx && ctx.fatigueB && ctx.fatigueB.daysRest !== null) rightMeta.push("B rest " + ctx.fatigueB.daysRest + "d");
 
@@ -4820,7 +4650,6 @@ let g_clearDebug = {
         const allNotes = Array.from(new Set(match.notes.concat(set1 ? set1.notes : [])));
     qs("aHitIntel").value = allNotes.join(" | ");
 
-
     const preferred = pickBestResult(match, set1);
     qs("bHitIntel").value = preferred ? (
       preferred.market + ' -> ' +
@@ -4829,7 +4658,6 @@ let g_clearDebug = {
       ' | Sim ' + preferred.simPct.toFixed(1) + '%'
     ) : "—";
   }
-
 
   function clearReadOnlyFields() {
     ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel"].forEach(function (id) {
@@ -4894,7 +4722,7 @@ let g_clearDebug = {
     fieldIds.forEach(function (id) {
       const el = qs(id);
       if (!el) return;
-      // AUDIT FIX #93: same deleted-operator corruption as FIX #21/22/23 — restored as loose "== null".
+      
       const value = (el.value == null ? "" : String(el.value)).trim();
       if (value) nonEmpty += 1;
     });
@@ -4921,7 +4749,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       diagnosis = "Clear reset error: " + g_clearDebug.lastError;
     } else if (g_clearDebug.lastNonEmptyFields > 0) {
       diagnosis = "Fields are not fully clearing after reset.";
-    // AUDIT FIX #94: '!' instead of '!==' — SyntaxError.
+    
     } else if (g_clearDebug.lastCollapsedMap && g_clearDebug.lastCollapsedMap.indexOf("open") !== -1) {
       diagnosis = "Some sections are still open after reset.";
     } else if (g_clearDebug.lastApplyAt) {
@@ -4940,16 +4768,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       'Error: ' + htmlEscape(g_clearDebug.lastError || "—");
   }
 
-  function toggleClearDebug() {
-    const panel = qs("clearDebugPanel");
-    if (!panel) return;
-    // AUDIT FIX #95: '=' instead of '===' — this parsed fine (both are the same directly-assignable member
-    // expression, chained) but never actually toggled: because "none" (string literal) is always truthy, the
-    // inner ternary always resolved to "block", so both assignments always set display to "block" — verified by
-    // execution: calling toggle() repeatedly left display stuck at "block" every time instead of alternating.
-    panel.style.display = panel.style.display === "none" ? "block" : "none";
-    renderClearDebug();
-  }
 
   function closeDrops() {
     ["dropA", "dropB"].forEach(function (id) {
@@ -4994,7 +4812,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     fixtureLoadToken += 1;
 
     const form = document.querySelector(".container");
-    // AUDIT FIX #96: '=' instead of '===' after typeof is an invalid assignment target — SyntaxError.
+    
     if (form && typeof form.reset === "function") {
       try { form.reset(); } catch (err) {}
     }
@@ -5117,7 +4935,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       finalizeClear("raf");
       setTimeout(function () {
         finalizeClear("t60");
-        // Reset the explicit clear flag after all clearing actions are done
+        
         setTimeout(() => { window._explicitClear = false; }, 500);
         try {
           window.scrollTo(0, 0);
@@ -5132,13 +4950,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 }
 
-
-  // 🚨 PRISON MODEL: STATE HIERARCHY
+  
   function getPickStateWeight(status) {
     const s = String(status || "PENDING").toUpperCase();
-    // AUDIT FIX #97: '=' instead of '===', chained with || — SyntaxError. This function decides whether a
-    // tracked pick counts as "settled" for local-vs-server merge priority (RULE 1/2 below) — while it was
-    // unparseable, no tracked pick could ever be merged or patched from the server at all.
+    
+    
+    
     return (s === "WIN" || s === "LOSS" || s === "PUSH") ? 1 : 0;
   }
 
@@ -5146,18 +4963,17 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const lWeight = getPickStateWeight(local.status);
     const sWeight = getPickStateWeight(server.status);
 
-    // RULE 1: Server Patching. If server is settled and local isn't, take server.
+    
     if (sWeight > lWeight) return server;
 
-    // RULE 2: Local Authority. If local is settled, server CANNOT revert it.
+    
     if (lWeight > sWeight) return local;
 
-    // RULE 3: Tiebreaker. If both are same weight, newest update wins.
+    
     const lTs = Date.parse(local.savedAt || 0);
     const sTs = Date.parse(server.savedAt || 0);
     return sTs > lTs ? server : local;
   }
-
 
   function trackerItemMergeKey(item) {
     return [item.tour, item.match, item.market, item.line].join("|");
@@ -5168,13 +4984,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const server = serverState && serverState.items ? serverState.items : [];
     const map = new Map();
 
-    // Map local first as authority
+    
     local.forEach(item => {
       const key = trackerItemMergeKey(item);
       map.set(key, item);
     });
 
-    // Merge server as a patch
+    
     server.forEach(item => {
       const key = trackerItemMergeKey(item);
       if (!map.has(key)) {
@@ -5192,7 +5008,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   
-
 
   function withTrackerCacheBust(url) {
     try {
@@ -5213,9 +5028,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     try {
       const method = String(options && options.method || "GET").toUpperCase();
-      // AUDIT FIX #98: '=' instead of '===' — "method" is declared const two lines above. Since "GET" (string
-      // literal) is always truthy, this always tried to assign withTrackerCacheBust(url)'s return value to the
-      // const "method", which throws "TypeError: Assignment to constant variable." on every tracker fetch.
+      
+      
+      
       const finalUrl = method === "GET" ? withTrackerCacheBust(url) : url;
       const res = await fetch(finalUrl, Object.assign({}, options || {}, {
         cache: "no-store",
@@ -5251,19 +5066,19 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   async function pushTrackerStateToServer(stateSnapshot) {
-    // AUDIT FIX #99: '=' instead of '===', chained with || — SyntaxError (same OR-expression-as-target mechanism
-    // as FIX #26).
+    
+    
     if (!stateSnapshot || !stateSnapshot.items || stateSnapshot.items.length === 0) {
       return { ok: true };
     }
 
-    // Weaponized Versioning
+    
     stateSnapshot.vId = (Number(stateSnapshot.vId) || 0) + 1;
     stateSnapshot.sId = window.__BETCEO_SESSION_ID;
     stateSnapshot.updatedAt = new Date().toISOString();
 
     try {
-      // 1. Pre-sync check
+      
       const pre = await fetchTrackerJson(TRACKER_API_URL, {
         method: "GET",
         headers: getTrackerHeaders(false)
@@ -5271,14 +5086,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
       let finalState = stateSnapshot;
       if (pre.res.ok && pre.data?.state) {
-        // If server is further ahead, merge into local before pushing
+        
         if ((pre.data.state.vId || 0) > stateSnapshot.vId) {
           finalState = mergeTrackerStates(stateSnapshot, pre.data.state);
           finalState.vId = pre.data.state.vId + 1;
         }
       }
 
-      // 2. Final Push
+      
       const pushed = await fetchTrackerJson(TRACKER_API_URL, {
         method: "POST",
         headers: getTrackerHeaders(true),
@@ -5294,8 +5109,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       }
   }
 
-  window.forceTrackerSaveNow = async function() { // Added window. to make it global
-    // AUDIT FIX #100: '!' instead of '!==' after typeof — SyntaxError.
+  window.forceTrackerSaveNow = async function() { 
+    
     if (typeof g_trackerSaveTimer !== "undefined" && g_trackerSaveTimer) {
       clearTimeout(g_trackerSaveTimer);
       g_trackerSaveTimer = null;
@@ -5304,7 +5119,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     g_trackerDebug.lastSaveDiagnosis = "Forcing hard sync to cloud...";
     g_trackerState.updatedAt = new Date().toISOString();
     
-    // Explicitly increment version for the hard push
+    
     g_trackerState.vId = (Number(g_trackerState.vId) || 0) + 1;
     
     saveTrackerStateToLocal(g_trackerState);
@@ -5324,13 +5139,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   return new Promise((resolve) => {
     g_trackerSyncDebounceTimer = setTimeout(async () => {
       g_trackerSyncDebounceTimer = null;
-      // Always use the current global tracker state, not the potentially stale snapshot
+      
       const currentState = g_trackerState;
       const snapshot = normalizeTrackerState(currentState);
 
-      // Prevent syncing an empty state over a non‑empty one (unless explicitly cleared)
-      // AUDIT FIX #101/#102/#103: three operators corrupted on one line ('=' x2, '!' x1), all chained with '&&' —
-      // SyntaxError.
+      
+      
+      
       if (snapshot.items.length === 0 && currentState.items.length === 0 && window._explicitClear !== true) {
         console.warn("[Tracker] Skipping sync of empty state – no data loss.");
         resolve(currentState);
@@ -5458,7 +5273,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return "2.5+";
   }
 
-
   function formatTrackerDate(iso) {
     if (!iso) return "—";
     const d = new Date(iso);
@@ -5471,19 +5285,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     });
   }
 
-  function ageHoursSince(iso) {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return (Date.now() - d.getTime()) / 3600000;
-  }
 
   function getTrackerItemTimeMs(item) {
     if (!item) return 0;
     const candidates = [item.fixtureDate, item.savedAt, item.settledAt];
-    // AUDIT FIX #104: missing increment — 'i' never changed. If none of the three date candidates were valid
-    // (all null/unparseable), this loop would spin forever re-checking candidates[0] — same bug class as
-    // FIX #36/87.
+    
+    
+    
     for (let i = 0; i < candidates.length; i++) {
       if (candidates[i]) {
         const ms = Date.parse(candidates[i]);
@@ -5501,25 +5309,25 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const hoursOld = (Date.now() - ts) / (1000 * 60 * 60);
     const status = String(item.status || "PENDING").toLowerCase();
 
-    // Give pending matches 24 hours (for rain delays/overnight saves)
-    // AUDIT FIX #105: '=' instead of '===' — "status" is const two lines above; verified this throws
-    // "TypeError: Assignment to constant variable." (same class as FIX #14).
+    
+    
+    
     if (status === "pending") return hoursOld < 24;
-    // Hide settled matches after 10 hours
+    
     return hoursOld < 10;
   }
 
     function shouldArchiveTrackerItem(item) {
     if (!item || item.archived) return false;
     
-    // We anchor purely to the settlement time
+    
     const settleTs = item.settledAt ? Date.parse(item.settledAt) : 0;
     if (!settleTs) return false;
 
     const hoursSinceSettlement = (Date.now() - settleTs) / (1000 * 60 * 60);
     
-    // 🚨 THE 10-HOUR LOCK: 
-    // Do not hide the result from the UI until 10 hours have passed.
+    
+    
     return hoursSinceSettlement >= 10;
   }
 
@@ -5528,7 +5336,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const updated = items.map(item => {
       if (shouldArchiveTrackerItem(item)) {
         changed = true;
-        // Strip heavy data before archiving to keep storage light
+        
         const lean = Object.assign({}, item, { archived: true, archivedAt: new Date().toISOString() });
         delete lean.context;
         return lean;
@@ -5538,29 +5346,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return { changed, items: updated };
   }
 
-  function formatTrackerWinRate(items) {
-    // AUDIT FIX #106: '=' instead of '===', both filters — NOT a SyntaxError ("item.status" is a directly
-    // assignable member expression). This is the most severe bug class found in this audit: verified by
-    // execution with realistic tracked-pick data (statuses WIN/WIN/LOSS/PUSH/PENDING) that this permanently
-    // overwrites every item's .status field — first the "wins" filter sets ALL items' status to "WIN", then the
-    // "losses" filter immediately overwrites all of them again to "LOSS" (since it runs on the same live item
-    // objects, not copies) — leaving every tracked pick's real result destroyed and replaced with "LOSS",
-    // and reporting a wrong win rate (50% instead of the real 2-of-3 = 67%) on top of the data corruption.
-    // Steelman: searched the entire file for call sites of formatTrackerWinRate — there are none; this function
-    // is currently dead code, so today it causes zero real-world damage. It is fixed anyway because (a) leaving
-    // destructive logic like this in the codebase is a live landmine the moment anyone wires it up, and (b) its
-    // name and clear intent indicate it was meant to be used somewhere.
-    const wins = items.filter(function (item) { return item.status === "WIN"; }).length;
-    const losses = items.filter(function (item) { return item.status === "LOSS"; }).length;
-    const decisions = wins + losses;
-    if (!decisions) return "—";
-    return Math.round((wins / decisions) * 100) + "%";
-  }
 
   function parseTrackerMatchNames(matchText) {
     const text = String(matchText || "");
     const parts = text.split(" vs ");
-    // AUDIT FIX #116: '!' instead of '!==' — SyntaxError.
+    
     if (parts.length !== 2) {
       return { playerAName: "", playerBName: "" };
     }
@@ -5576,9 +5366,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const targetA = normalizeName(playerAName);
     const targetB = normalizeName(playerBName);
 
-    // AUDIT FIX #117: '=' instead of '===', four places, chained with && — SyntaxError. This function matches a
-    // tracked pick's saved player names to a settlement record — while unparseable, no tracked pick could ever
-    // be automatically settled by exact name match.
+    
+    
+    
     return (recA === targetA && recB === targetB) || (recA === targetB && recB === targetA);
   }
 
@@ -5613,14 +5403,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       { s: getSurnameToken(playerBName), g: getGivenToken(playerBName) }
     ];
 
-    // AUDIT FIX #118: '=' instead of '===', twice. The first ("a.s = b.s" chained with &&) is a SyntaxError (same
-    // OR/AND-expression-as-target mechanism used throughout). The second ("a.g = b.g" inside the ternary's true
-    // branch) is NOT chained with && immediately before it, so it would NOT itself be a SyntaxError — it's a
-    // plain object property, directly assignable — meaning it would have silently overwritten a.g with b.g
-    // (mutating the surname/given-name pair object) rather than comparing them, on top of always evaluating
-    // truthy. This function is part of the fuzzy settlement-matching fallback (used when exact name matching in
-    // sameTrackerMatchRecord fails), so a broken version here would have caused false-positive/false-negative
-    // settlement matches for picks with slightly different name formatting.
+    
+    
+    
+    
+    
+    
+    
+    
     function pairMatch(a, b) {
       return !!a.s && !!b.s && a.s === b.s && (!!a.g && !!b.g ? a.g === b.g : true);
     }
@@ -5631,37 +5421,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     );
   }
 
-  function buildSettlementDateQueries(savedAtIso) {
-    const savedDate = savedAtIso ? new Date(savedAtIso) : new Date();
-    const today = new Date();
-    const start = addDays(new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate()), -1);
-    const end = addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), 1);
 
-    const days = [];
-    let cursor = new Date(start.getTime());
-    while (cursor <= end) {
-      days.push(dateKeyFromDate(cursor));
-      cursor = addDays(cursor, 1);
-    }
-    return days;
-  }
-
-  function buildSettlementRangeQueries(savedAtIso) {
-    const savedDate = savedAtIso ? new Date(savedAtIso) : new Date();
-    const today = new Date();
-    const start = addDays(new Date(savedDate.getFullYear(), savedDate.getMonth(), savedDate.getDate()), -3);
-    const end = addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), 2);
-    return [dateKeyFromDate(start) + "-" + dateKeyFromDate(end)];
-  }
 
   function relaxedSameTrackerMatchRecord(record, playerAName, playerBName) {
     const recAName = record && record.playerAName || "";
     const recBName = record && record.playerBName || "";
     const recSurnames = [getSurnameToken(recAName), getSurnameToken(recBName)].filter(Boolean).sort().join("|");
     const targetSurnames = [getSurnameToken(playerAName), getSurnameToken(playerBName)].filter(Boolean).sort().join("|");
-    // AUDIT FIX #119: '=' instead of '===', chained with && — SyntaxError. This is the last-resort fallback in
-    // the settlement-matching chain (exact -> fuzzy -> relaxed surname-only) — while unparseable, this fallback
-    // could never fire either.
+    
+    
+    
     return !!recSurnames && recSurnames === targetSurnames;
   }
 
@@ -5695,7 +5464,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         return { record: record, diff: diff, ts: ts };
       })
       .sort(function (a, b) {
-        // AUDIT FIX #120: '!' instead of '!==' — SyntaxError.
+        
         if (a.diff !== b.diff) return a.diff - b.diff;
         return (b.ts || 0) - (a.ts || 0);
       })[0].record;
@@ -5726,120 +5495,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     };
   }
 
-  async function fetchSettlementRecordFromEventSummary(item, names) {
-    const eventId = item.eventId || item.competitionId || "";
-    if (!eventId) {
-      return {
-        record: null,
-        debug: {
-          reason: "no saved event id on tracker item",
-          checks: []
-        }
-      };
-    }
 
-    const payload = await fetchTennisSummaryByEvent(item.tour, eventId);
-    const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
-      return record.status &&
-        record.status.completed &&
-        Number.isFinite(record.totalGames) &&
-        Number.isFinite(record.set1Total);
-    });
-
-    const summary = summarizeSettlementProbe(records, names);
-    const exact = records.filter(function (record) {
-      return sameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-    });
-    const fuzzy = records.filter(function (record) {
-      return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-    });
-    const picked = exact[0] || fuzzy[0] || null;
-
-    return {
-      record: picked,
-      debug: {
-        reason: picked ? "matched from saved event summary" : "saved event summary returned no completed matching record",
-        checks: [{
-          label: "event-summary",
-          query: "event=" + eventId,
-          records: summary.records,
-          exact: summary.exact,
-          fuzzy: summary.fuzzy,
-          relaxed: summary.relaxed,
-          sample: summary.sample
-        }]
-      }
-    };
-  }
-
-  async function fetchSettlementRecordFromPlayerHistory(item, names) {
-    const resolved = await resolveSettlementPlayerIds(item, names);
-    const checks = [{
-      label: "resolve-ids",
-      query: resolved.source,
-      records: 0,
-      exact: resolved.playerAId ? 1 : 0,
-      fuzzy: resolved.playerBId ? 1 : 0,
-      relaxed: 0,
-      sample: "A=" + (resolved.playerAId || "missing") + " B=" + (resolved.playerBId || "missing")
-    }];
-
-    if (!resolved.playerAId || !resolved.playerBId) {
-      return {
-        record: null,
-        debug: {
-          reason: "player-history fallback could not resolve both player ids",
-          checks: checks
-        }
-      };
-    }
-
-    const histA = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerAId, item.fixtureDate || item.savedAt);
-    const histB = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerBId, item.fixtureDate || item.savedAt);
-
-    const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
-    const h2h = buildH2HSeries(
-      allRecords,
-      resolved.playerAId,
-      resolved.playerBId,
-      item.playerAName || names.playerAName,
-      item.playerBName || names.playerBName
-    );
-
-    const targetTs = item.fixtureDate
-      ? Date.parse(item.fixtureDate)
-      : (item.savedAt ? Date.parse(item.savedAt) : NaN);
-
-    const nearby = h2h.filter(function (record) {
-      const ts = Date.parse(record.date || "");
-      if (!Number.isFinite(ts) || !Number.isFinite(targetTs)) return true;
-      return Math.abs(ts - targetTs) <= (14 * 86400000);
-    });
-
-    const chosen = chooseBestHistorySettlementCandidate(nearby.length ? nearby : h2h, item.fixtureDate || item.savedAt);
-    const sample = (nearby.length ? nearby : h2h).slice(0, 5).map(function (record) {
-      return (record.playerAName || "?") + " vs " + (record.playerBName || "?") +
-        " @ " + (record.date || "?") +
-        " total=" + (Number.isFinite(record.totalGames) ? record.totalGames : "?") +
-        " set1=" + (Number.isFinite(record.set1Total) ? record.set1Total : "?");
-    }).join(" | ");
-
-    return {
-      record: chosen || null,
-      debug: {
-        reason: chosen ? "matched from player-history fallback" : "player-history fallback found no H2H candidate",
-        checks: checks.concat(histA.checks || [], histB.checks || [], [{
-          label: "player-history-h2h",
-          query: "merged-athlete-history",
-          records: allRecords.length,
-          exact: h2h.length,
-          fuzzy: nearby.length,
-          relaxed: chosen ? 1 : 0,
-          sample: sample
-        }])
-      }
-    };
-  }
 
   async function fetchSettlementRecordForItem(item) {
   if (!item || !item.tour || !item.match) {
@@ -5870,9 +5526,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   const checks = [];
 
         try {
-        // =
-        // PLAYER HISTORY PROBE - RESOLVING IDs & DUAL PROBE
-        // =
+        
+        
+        
         const resolved = await resolveSettlementPlayerIds(item, names);
         const histA = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerAId, item.fixtureDate || item.savedAt);
         const histB = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerBId, item.fixtureDate || item.savedAt);
@@ -5909,7 +5565,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           };
         }
 
-
     return {
       record: null,
       debug: {
@@ -5934,18 +5589,18 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     function settleTrackerItemFromRecord(item, record) {
     if (!item || !record) return item;
 
-    // AUDIT FIX #121 through #126: this statement had SIX corrupted operators and was, along with FIX #127/128
-    // below, the single most consequential bug found in this audit — it decides which real-world stat a bet gets
-    // graded against. Two distinct bug mechanisms are stacked here, verified separately by execution:
-    // (a) "item.market = \"Set 1 Total Games\" ? A : B" is NOT a SyntaxError (item.market is a directly-assignable
-    // member expression) — verified in isolation that it always resolves truthy (since the string literal is
-    // always truthy) and takes the FIRST branch every time, so actualValue was ALWAYS set to record.set1Total
-    // regardless of the item's real market — AND it corrupts item.market itself, overwriting it with whatever
-    // value the ternary resolved to (e.g. a games-count number), destroying the market label entirely.
-    // (b) the inner "item.playerAId && record.playerAId = item.playerAId ? ... : ..." expressions ARE SyntaxErrors
-    // (the '=' would have to bind the whole preceding && expression as target — same mechanism as FIX #2/26/30).
-    // Net effect once (a) and (b) are both fixed: every market other than "Set 1 Total Games" was being settled
-    // against entirely the wrong number.
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     const actualValue = item.market === "Set 1 Total Games"
       ? record.set1Total
       : item.market === "Player A Total Games"
@@ -5960,17 +5615,17 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     if (!Number.isFinite(actualValue)) return item;
 
-    // SYNDICATE FIX: Strip invisible characters from line to prevent fake PUSHes
+    
     const cleanLineStr = String(item.line || "").replace(/[^0-9.]/g, "");
     const line = Number(cleanLineStr);
     let status = "PENDING";
 
-    // AUDIT FIX #127: '=' instead of '===', chained with || — SyntaxError.
+    
     if (Number.isNaN(line) || cleanLineStr === "") {
-      return item; // Keep pending if line is utterly corrupted
+      return item; 
     }
 
-        // Safety fallback for pick direction
+        
     let pickDir = String(item.rawPick || "").toUpperCase();
     if (!pickDir) {
       const displayPick = String(item.pick || "").toUpperCase();
@@ -5978,21 +5633,21 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       else if (displayPick.includes("UNDER")) pickDir = "UNDER";
     }
 
-    // TERMINAL GUARD: Prevent "Ghost Losses" due to parsing errors.
-    // If direction is unknown, keep it PENDING for manual review.
+    
+    
     if (!pickDir || (pickDir !== "OVER" && pickDir !== "UNDER")) {
       return item;
     }
 
-    // AUDIT FIX #129/#130: '=' instead of '===', both branches. THIS IS THE SINGLE MOST SEVERE BUG IN THIS AUDIT.
-    // "pickDir" is a plain "let" (valid assignment target, not a SyntaxError). Verified by execution: in the
-    // "actualValue > line" branch, "(pickDir = \"OVER\")" unconditionally assigns "OVER" and evaluates truthy —
-    // so status was ALWAYS "WIN" whenever the real total exceeded the line, REGARDLESS of whether the actual
-    // tracked pick was OVER or UNDER. The "actualValue < line" branch has the exact same bug mirrored for
-    // "UNDER". Combined, once the file's parse-time errors are fixed without this specific correction, this
-    // function would mark every single settled pick as a WIN — a genuine UNDER pick that should have LOST
-    // (because the total went over the line) would be recorded as a WIN, and vice versa. Given this directly
-    // determines the recorded outcome of real tracked bets, this is flagged as the audit's highest-priority fix.
+    
+    
+    
+    
+    
+    
+    
+    
+    
     if (actualValue > line) {
       status = (pickDir === "OVER") ? "WIN" : "LOSS";
     } else if (actualValue < line) {
@@ -6001,14 +5656,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       status = "PUSH";
     }
 
-
     return Object.assign({}, item, {
       status: status,
       settledAt: new Date().toISOString(),
       actualTotal: round2(actualValue)
     });
   }
-
 
   async function fetchCompletedMatchesForSettlement(league, dateOffsets) {
     const all = [];
@@ -6023,7 +5676,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             Number.isFinite(r.set1Total);
         });
         all.push(...records);
-      } catch (err) { /* silent — try next date */ }
+      } catch (err) {  }
     }
     return dedupeRecords(all);
   }
@@ -6053,14 +5706,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return;
     }
 
-    // ── PHASE 1: Fast scoreboard settlement (today, yesterday, day before) ──
-    // AUDIT FIX #131: '=' instead of '===' — NOT a SyntaxError ("i.status" directly assignable). Verified by
-    // execution with realistic data (statuses WIN/LOSS/PENDING): this both included ALL items in the "pending"
-    // set (not just the actually-pending one) and permanently overwrote every item's real status — including
-    // already-settled WIN/LOSS results — back to "PENDING". Since autoSettleTracker is the entry point for the
-    // whole settlement pass, this would have erased a tracked pick's entire settlement history on every run,
-    // immediately before re-settling everything (incorrectly, per FIX #121-130) as if nothing had ever been
-    // decided.
+    
+    
+    
+    
+    
+    
+    
+    
     const pendingItems = items.filter(function (i) { return i.status === "PENDING"; });
     const tourGroups = {};
     pendingItems.forEach(function (item) {
@@ -6081,20 +5734,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       scoreboardCache.set(tour, completedRecords);
     }
     window.engineDebug("SETTLE P1: " + tour + " scoreboard", { completedFound: completedRecords.length });
-    // AUDIT FIX #132: missing loop increment — same infinite-loop mechanism as FIX #36/87/104. Note that PHASE 2
-    // below (line ~6093) has the correct "i += 1" — this loop and its sibling drifted apart, one of several such
-    // asymmetries flagged in the DESIGN CONCERN section.
+    
+    
+    
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      // AUDIT FIX #133/#134: '!' instead of '!==', two comparisons on one line — SyntaxError.
+      
       if (item.status !== "PENDING" || String(item.tour || "ATP").toUpperCase() !== tour) continue;
       const record = trySettleItemFromScoreboard(item, completedRecords);
       if (record) {
         const settled = settleTrackerItemFromRecord(item, record);
-        // AUDIT FIX #135: '!' instead of '!==' — SyntaxError.
+        
         if (settled.status !== item.status) {
-          // AUDIT FIX #136: bare "settledCount;" does nothing (missing increment) — same bug class as FIX #15's
-          // win/loss/push tally. Note Phase 2's equivalent line already correctly uses "settledCount += 1".
+          
+          
           settledCount += 1;
           window.engineDebug("SETTLED via scoreboard", {
             match: item.match, market: item.market,
@@ -6115,20 +5768,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     }
   }
 
-    // ── PHASE 2: Fallback — athlete-history for anything still pending ──
+    
     const recordCache = new Map();
     for (let i = 0; i < items.length; i += 1) {
       const item = items[i];
-      // AUDIT FIX #137: '!' instead of '!==' — SyntaxError.
+      
       if (item.status !== "PENDING") continue;
 
       const cacheKey = [item.tour, item.match, item.savedAt ? item.savedAt.slice(0, 10) : ""].join("|");
       let probe = recordCache.get(cacheKey);
 
-      // AUDIT FIX #138: '=' instead of '===' — "probe" is a plain "let" (valid target, not a SyntaxError).
-      // Verified by execution: this unconditionally overwrote "probe" with the literal value undefined and
-      // evaluated falsy every time, so the refetch block inside never ran — meaning probe was ALWAYS undefined
-      // (whether or not a cached value existed), permanently breaking Phase 2's athlete-history fallback.
+      
+      
+      
+      
       if (probe === undefined) {
         try {
           probe = await fetchSettlementRecordForItem(item);
@@ -6156,7 +5809,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
       if (probe && probe.record) {
         const settledItem = settleTrackerItemFromRecord(item, probe.record);
-        // AUDIT FIX #139: '!' instead of '!==' — SyntaxError.
+        
         if (settledItem.status !== item.status) {
           settledCount += 1;
           updateBucketPerformance(item, settledItem.status, settledItem.actualTotal, null);
@@ -6174,15 +5827,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       }
     }
 
-    // ── PHASE 3: Archive old settled picks ──
+    
     const archiveResult = archiveOldTrackerItems(items);
     const finalItems = archiveResult.items;
-    // AUDIT FIX #160: '=' instead of '===' — NOT a SyntaxError ("item.status" directly assignable, chained with
-    // && but that's fine since it's the second operand). Verified mechanism matches BUG-131/141: this would have
-    // corrupted every archived item's status to "PENDING" while counting them. Caught by a full-script
-    // cumulative node --check sweep after the chunk 4 pass had already moved on — logged here as its own entry
-    // per the audit's "no re-litigating, but no skipping real misses either" rule; this belongs to Phase 3 of
-    // autoSettleTracker (chunk 4's territory) and is recorded as a chunk-4 addendum rather than renumbering.
+    
+    
+    
+    
+    
+    
     const archivedPending = finalItems.filter(function (item) {
       return !!item.archived && item.status === "PENDING";
     }).length;
@@ -6217,7 +5870,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return [];
     }
 
-    // Include ALL four markets, not just match + set1
+    
     const allResults = [
       bundle.matchResult,
       bundle.set1Result,
@@ -6229,9 +5882,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     const built = allResults
       .map(function (result, idx) {
-        // AUDIT FIX #213: '=' instead of '===', chained with || — SyntaxError. Missed during the original pass
-        // over this function (which focused on the duplicate-detection block, BUG-146/147); caught by a
-        // full-script cumulative node --check re-run, same as BUG-160.
+        
+        
+        
         if (!result || result.pick === "PASS" || result.confidence === "PASS") return null;
 
         return {
@@ -6278,20 +5931,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const panel = qs("trackerAnalyticsPanel");
     if (!panel) return;
 
-    // AUDIT FIX #107: '!' instead of '!==' — SyntaxError.
+    
     const settled = items.filter(function (item) { return item.status !== "PENDING"; });
     const activeCount = items.filter(function (item) { return !item.archived; }).length;
-    // AUDIT FIX #108/#109/#110: '=' instead of '===', three filters. THIS IS THE HIGHEST-SEVERITY FINDING IN THE
-    // ENTIRE AUDIT. Unlike FIX #106's dead-code twin, renderTrackerAnalytics() is called from updateTrackerUI(),
-    // which has 10+ call sites throughout the file (fired after essentially every tracker interaction: saving a
-    // pick, hydrating from the server, settling a pick, etc.) — this is live, frequently-executed code. Verified
-    // by execution with realistic tracked-pick data: after a single call, every settled item's real .status
-    // (WIN/LOSS/PUSH) was overwritten to "PUSH" (the last filter in the chain always wins, since all three
-    // assignments are unconditionally truthy), and the reported win rate showed 100% regardless of the real
-    // results. Because these are the live item objects inside g_trackerState (not copies), and this state is
-    // subsequently persisted via saveTrackerStateToLocal/queueTrackerSync, this bug — once the file's parse-time
-    // errors are fixed — would silently overwrite every real win/loss/push result in a user's entire tracked-pick
-    // history with "PUSH" on the very next UI update, and push that corruption to the server.
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     const wins = settled.filter(function (item) { return item.status === "WIN"; }).length;
     const losses = settled.filter(function (item) { return item.status === "LOSS"; }).length;
     const pushes = settled.filter(function (item) { return item.status === "PUSH"; }).length;
@@ -6426,13 +6079,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
                 </thead>
                 <tbody>
                   ${settled.length ? settled.sort((a,b) => getTrackerItemTimeMs(b) - getTrackerItemTimeMs(a)).slice(0, 40).map(p => {
-                    // AUDIT FIX #140: '=' instead of '===', both comparisons — NOT a SyntaxError ("p.status" is
-                    // directly assignable). This is the fourth independent instance in this file of the same
-                    // destructive status-mutation pattern (see BUG-106/107-115/131). Verified by execution: a
-                    // real pick with status "LOSS" had its .status field overwritten to the literal CSS string
-                    // "color: #3a9c35;" — and since this corrupted field is then rendered via
-                    // "${htmlEscape(p.status)}" in the Result column just below, the post-mortem log would have
-                    // displayed the literal text "color: #3a9c35;" instead of WIN/LOSS/PUSH.
+                    
+                    
+                    
+                    
+                    
+                    
+                    
                     const statusClass = p.status === 'WIN' ? 'color: #3a9c35;' : p.status === 'LOSS' ? 'color: #c91920;' : 'color: #888;';
                     const edge = p.edge ? (p.edge > 0 ? '+' : '') + p.edge.toFixed(2) : '—';
                     const simNote = p.notes.includes("Sim ") ? p.notes.split("|").find(n => n.includes("Sim ")) : "Sim: N/A";
@@ -6464,7 +6117,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     `;
   }
 
-
   function updateTrackerUI() {
     const items = getTrackerItems();
     const summary = qs("trackerSummary");
@@ -6474,22 +6126,22 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const tableWrap = document.querySelector(".tracker-table-wrap");
     const archiveWrap = qs("trackerArchiveWrap");
 
-    // Filter to visible items exactly like the BB Tracker
+    
     const activeItems = items.filter(isTrackerItemVisibleOnPage);
     
-    // Sort newest first
+    
     const displayPicks = activeItems.slice().sort(function(a, b) {
       return getTrackerItemTimeMs(b) - getTrackerItemTimeMs(a);
     });
 
     renderTrackerAnalytics(items);
 
-    // AUDIT FIX #111 through #115: identical corruption to FIX #107-110, independently duplicated in this
-    // function (this block recomputes wins/losses/pushes from scratch rather than reusing renderTrackerAnalytics's
-    // now-safe result — see the DESIGN CONCERN entry in the report about this duplication). Same fix, same
-    // verification basis (execution-confirmed to overwrite every settled item's real status to "PUSH" and
-    // pendingCount's own '=' typo would have additionally overwritten every ACTIVE item's status to "PENDING"
-    // on top of that, undoing even the corruption from the wins/losses/pushes filters above it).
+    
+    
+    
+    
+    
+    
     const settled = items.filter(function (item) { return item.status !== "PENDING"; });
     const wins = settled.filter(function (item) { return item.status === "WIN"; }).length;
     const losses = settled.filter(function (item) { return item.status === "LOSS"; }).length;
@@ -6502,9 +6154,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     if (marketSummary) {
       const byMarket = activeItems.reduce(function (acc, item) {
-        // AUDIT FIX #141: '=' instead of '===' — same mutation mechanism as BUG-131: this would have overwritten
-        // every item's status to "PENDING" as it accumulated market counts, and included every item (not just
-        // truly-pending ones) in the market-chip counts.
+        
+        
+        
         if (item.status === "PENDING") acc[item.market] = (acc[item.market] || 0) + 1;
         return acc;
       }, {});
@@ -6521,35 +6173,35 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         empty.textContent = "No live/recent picks. Older picks moved to record.";
       }
       if (tableWrap) tableWrap.style.display = "none";
-      if (archiveWrap) archiveWrap.style.display = "none"; // Hide archive table permanently
+      if (archiveWrap) archiveWrap.style.display = "none"; 
       if (body) body.innerHTML = "";
       return;
     }
 
     if (empty) empty.style.display = "none";
     if (tableWrap) tableWrap.style.display = "block";
-    if (archiveWrap) archiveWrap.style.display = "none"; // Hide archive table permanently
+    if (archiveWrap) archiveWrap.style.display = "none"; 
 
                 function rowHtml(item) {
     const status = String(item.status || "PENDING").toUpperCase();
-    // AUDIT FIX #142: '=' instead of '===', three chained — "status" is const two lines above; verified this
-    // throws "TypeError: Assignment to constant variable." on the very first row rendered (same class as BUG-014).
+    
+    
     const statusClass = status === "WIN" ? "track-win" : status === "LOSS" ? "track-loss" : status === "PUSH" ? "track-push" : "track-pending";
     const pId = String(item.id || "").replace(/[^a-z0-9]/gi, "_");
     const encId = htmlEscape(item.id || "");
 
     const _liveEid = item.eventId || item.competitionId || "";
-    // AUDIT FIX #143: same const-reassignment mechanism as FIX #142.
+    
     const _liveInfo = (status === "PENDING" && _liveEid) ? g_liveGameStatus.get(_liveEid) : null;
 
     const _conf = String(item.confidence || "—").toUpperCase();
     const _confClass = "conf-none";
     const _edgeNum = isFinite(Number(item.edge)) ? Number(item.edge) : null;
-    // AUDIT FIX #144: '!' instead of '!==' — SyntaxError.
+    
     const _edgeTxt = _edgeNum !== null ? ((_edgeNum > 0 ? "+" : "") + _edgeNum.toFixed(2)) : "—";
 
     let statusHtml = "";
-    // AUDIT FIX #145: '!' instead of '!==' — SyntaxError.
+    
     if (status !== "PENDING") {
       statusHtml =
         '<div class="tracker-settled-edit-btn" data-id="' + encId + '" style="cursor:pointer;" title="Click to edit or revert">' +
@@ -6594,9 +6246,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     }
   }
 
-
     function autoSaveCurrentRunToTracker() {
-    // Basketball-style: save every pick that passed runEngine, regardless of notes
+    
     if (!latestRunBundle || latestRunBundle._trackerSaved) {
       engineDebug("Tracker save: no new run bundle");
       return 0;
@@ -6613,10 +6264,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     let inserted = 0;
 
     entries.forEach(entry => {
-      // Skip duplicates exactly like basketball does
-      // AUDIT FIX #146: four '=' instead of '===', chained with && — SyntaxError (same OR/AND-as-target
-      // mechanism used throughout). This is the guard that prevents the same pick being saved to the tracker
-      // twice — while unparseable, it could never correctly detect a duplicate.
+      
+      
+      
+      
       const duplicate = items.some(item =>
         item.market === entry.market &&
         item.line === entry.line &&
@@ -6625,7 +6276,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       );
       if (!duplicate) {
         items.unshift(entry);
-        // AUDIT FIX #147: bare "inserted;" does nothing (missing increment) — same bug class as BUG-015/136.
+        
         inserted++;
       }
     });
@@ -6641,18 +6292,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
 
-  function isTrackerModalOpen() {
-    const modal = qs("trackerModal");
-    return !!(modal && modal.classList.contains("open"));
-  }
-
   async function refreshTrackerNow(isSilent) {
     if (g_trackerRefreshPromise) return g_trackerRefreshPromise;
 
     g_trackerDebug.lastSettlementSummary = "Running settlement...";
     renderTrackerDebug();
     updateTrackerUI();
-    // Show loading spinner in tracker header
+    
     const summaryEl = qs("trackerSummary");
     if (summaryEl && !isSilent) {
       const originalText = summaryEl.textContent;
@@ -6679,19 +6325,19 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const panel = trackerModal ? trackerModal.querySelector(".tracker-panel") : null;
     if (!panel) return;
 
-    // AUDIT FIX #148: '=' instead of '===' — "mode" is a reassignable parameter (not const, so this doesn't throw
-    // here), but verified by execution that finalMode was ALWAYS "report" regardless of the mode argument
-    // actually passed in (e.g. calling setTrackerView("list") still computed finalMode="report") — since the
-    // string literal "report" is always truthy.
+    
+    
+    
+    
     const finalMode = mode === "report" ? "report" : "list";
-    // AUDIT FIX #149: '=' instead of '===' — "finalMode" IS const (declared just above), so this one DOES throw:
-    // verified by execution to raise "TypeError: Assignment to constant variable." — meaning this function would
-    // have crashed here before ever reaching the reportBtn updates below.
+    
+    
+    
     panel.classList.toggle("analytics-view", finalMode === "report");
 
     const reportBtn = qs("trackerInsightsBtn");
     if (reportBtn) {
-      // AUDIT FIX #150/#151/#152: same const-reassignment mechanism as FIX #149, three more sites.
+      
       reportBtn.classList.toggle("active", finalMode === "report");
       reportBtn.textContent = finalMode === "report" ? "📋 List" : "📊 Report";
       reportBtn.title = finalMode === "report" ? "Show tracked picks" : "Open report";
@@ -6699,13 +6345,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     }
   }
 
-  // ── LIVE MATCH STATUS ENGINE ─────────────────────────────────────────────
+  
   function _tickLiveClocks() {
     if (document.hidden) return;
-    // AUDIT FIX #153: '=' instead of '===' — NOT a SyntaxError, and NOT a mutation either: verified by execution
-    // that assigning to Map.prototype.size (a getter-only accessor) silently no-ops in this non-strict script
-    // (no throw, no change), and the assignment expression itself evaluates to the falsy value 0 — so this guard
-    // NEVER fired, meaning the live-clock ticker never auto-stopped once the tracked-live-matches map emptied out.
+    
+    
+    
+    
     if (g_liveGameStatus.size === 0) { stopLiveClockTicker(); return; }
     document.querySelectorAll("[data-live-clk]").forEach(function (el) {
       const eid = el.dataset.liveClk;
@@ -6717,8 +6363,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
   function startLiveClockTicker() {
     stopLiveClockTicker();
-    // AUDIT FIX #154: same mechanism as FIX #153 — this guard never fired, so a ticker interval was always
-    // started even when there was nothing live to track.
+    
+    
     if (g_liveGameStatus.size === 0) return;
     _liveTickTimer = setInterval(_tickLiveClocks, 3000);
   }
@@ -6730,7 +6376,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   function scheduleLiveClockPoll() {
     clearTimeout(_liveClockPollTimer);
     _liveClockPollTimer = null;
-    // AUDIT FIX #155: same mechanism as FIX #153/154.
+    
     if (g_liveGameStatus.size === 0) return;
     _liveClockPollTimer = setTimeout(async function () {
       _liveClockPollTimer = null;
@@ -6740,10 +6386,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
   async function seedAndPollLiveStatus() {
     const items = Array.isArray(g_trackerState.items) ? g_trackerState.items : [];
-    // AUDIT FIX #156: '=' instead of '===' — like FIX #18 (applySavedTheme), a call expression on the left of
-    // '=' is not a parse-time SyntaxError but a RUNTIME ReferenceError ("Invalid left-hand side in assignment"),
-    // confirmed by execution. This would have thrown immediately on the very first line of this function once
-    // the file's earlier parse-time errors are fixed, aborting all live-match polling.
+    
+    
+    
+    
     const pending = items.filter(function (p) {
       return String(p.status || "PENDING").toUpperCase() === "PENDING" && (p.eventId || p.competitionId);
     });
@@ -6782,7 +6428,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         const comp = ev.competitions && ev.competitions[0];
         if (!comp) return;
 
-        // AUDIT FIX #157: '=' instead of '===', chained with || — SyntaxError.
+        
         const completed = !!(
           comp.status && comp.status.type && (
             comp.status.type.completed ||
@@ -6798,12 +6444,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
         const state = String((comp.status && comp.status.type && comp.status.type.state) || "");
         const statusName = String((comp.status && comp.status.type && comp.status.type.name) || "");
-        // AUDIT FIX #158: '=' instead of '===' — "state" is const two lines above; verified this throws
-        // "TypeError: Assignment to constant variable." (same class as FIX #14).
+        
+        
         const isLive = state === "in" || statusName.toUpperCase().includes("PROGRESS");
 
         if (!isLive) {
-          // AUDIT FIX #159: same const-reassignment mechanism as FIX #158.
+          
           if (state === "pre") { g_liveGameStatus.delete(eid); didChange = true; }
           return;
         }
@@ -6844,7 +6490,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     scheduleLiveClockPoll();
     startLiveClockTicker();
   }
-  // ── END LIVE MATCH STATUS ENGINE ─────────────────────────────────────────
+  
 
   function openTrackerModal() {
     const modal = qs("trackerModal");
@@ -6905,12 +6551,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 }
 
-
-  function sleep(ms) {
-    return new Promise(function (resolve) {
-      setTimeout(resolve, ms);
-    });
-  }
 
   function normalizeName(name) {
     return String(name || "")
@@ -7044,7 +6684,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     }
 
     function walk(node, parentEvent) {
-      // AUDIT FIX #161: '!' instead of '!==' after typeof — SyntaxError.
+      
       if (!node || typeof node !== "object") return;
       if (seenNodes.has(node)) return;
       seenNodes.add(node);
@@ -7077,8 +6717,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             walk(entry, parentEvent);
           });
         } else if (value && typeof value === "object" && key !== "events" && key !== "competitions" && key !== "items") {
-          // AUDIT FIX #162-165: '=' instead of '===' after typeof, plus three '!' instead of '!==' — SyntaxError
-          // (any one of these four alone would have killed the whole script's parse).
+          
+          
           walk(value, parentEvent);
         }
       });
@@ -7125,9 +6765,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         refKeys.forEach(function (key) {
           const value = athletePayload && athletePayload[key];
           if (!value) return;
-          // AUDIT FIX #166: '=' instead of '===' after typeof — SyntaxError.
+          
           if (typeof value === "string" && /^https?:/i.test(value)) urls.push(value);
-          // AUDIT FIX #167/#168: '=' instead of '===' after typeof, twice on one line — SyntaxError.
+          
           if (value && typeof value === "object" && typeof value.$ref === "string") urls.push(value.$ref);
         });
 
@@ -7229,8 +6869,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
   function isSinglesLabel(text) {
     const value = normalizeName(text);
-    // If ESPN returns no type label, allow it through — we are already scoped to the ATP/WTA endpoint.
-    // Doubles are caught downstream by the competitors.length ! 2 guard in buildCompetitionRecord.
+    
+    
     if (!value) return true;
     return value.includes("singles") && !value.includes("doubles") && !value.includes("mixed");
   }
@@ -7257,9 +6897,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const detail = String(type.shortDetail || type.detail || type.description || "").trim();
     const dl = detail.toLowerCase();
     const retired = dl.includes("ret") || dl.includes("walkover") || dl.includes("w/o") || dl.includes("default") || dl.includes("abandoned");
-    // AUDIT FIX #170/#171: '=' instead of '===', chained with || — SyntaxError. This determines whether a fetched
-    // ESPN record counts as "completed" for settlement purposes — while unparseable, no record could ever be
-    // used to settle a tracked pick via this status check.
+    
+    
+    
     return {
       completed: !!type.completed || state === "post" || name === "STATUS_FINAL",
       retired: retired,
@@ -7300,8 +6940,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     const status = getCompetitionStatus(comp);
     const competitors = orderCompetitors(comp.competitors || []);
-    // AUDIT FIX #172: '!' instead of '!==' — SyntaxError. This is the doubles-detection guard referenced in the
-    // isSinglesLabel comment above.
+    
+    
     if (competitors.length !== 2) return null;
 
     let surface = extractSurfaceText(comp, parentEvent);
@@ -7319,7 +6959,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const eventLevel = classifyEventLevel(tournamentName);
     if (!surface) surface = inferSurfaceFromText(surface, tournamentName);
     
-    // --- SYNDICATE FIX: DETECT GENDER TO PREVENT MIXING ---
+    
     let gender = "UNKNOWN";
     const combinedSearch = (labelText + " " + tournamentName).toLowerCase();
     if (combinedSearch.includes("women") || combinedSearch.includes("wta")) gender = "WTA";
@@ -7354,11 +6994,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       totalGames: totalGames, playerASet1Games: playerASet1Games, playerBSet1Games: playerBSet1Games,
       set1Total: set1Total,
       aSets: aSets, bSets: bSets, setCount: setCount,
-      gender: gender // Added to stop ATP/WTA mixups
+      gender: gender 
     };
   }
-
-
 
   function extractCompetitionRecords(payload) {
     const events = Array.isArray(payload && payload.events) ? payload.events : [];
@@ -7451,7 +7089,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     try {
       const payload = await fetchTennisScoreboard(league, dateQuery);
-      // AUDIT FIX #173: '!' instead of '!==' — SyntaxError.
+      
       if (token !== fixtureLoadToken) return;
 
       const now = new Date();
@@ -7460,7 +7098,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         const statusObj = record.status || {};
         const state = String(statusObj.state || "").toLowerCase();
         const name = String(statusObj.name || "").toUpperCase();
-        // AUDIT FIX #174/#175: '=' instead of '===', chained with || — SyntaxError.
+        
         const completed = !!statusObj.completed || state === "post" || name === "STATUS_FINAL";
         const aName = String(record.playerAName || "").trim();
         const bName = String(record.playerBName || "").trim();
@@ -7469,43 +7107,43 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         const scheduledAt = new Date(record.date);
         const hasValidDate = !Number.isNaN(scheduledAt.getTime());
 
-        // --- SYNDICATE FIX: STRICT LEAGUE FILTERING ---
-        // AUDIT FIX #176/#177/#178/#179: '=' instead of '===', four places chained with && — SyntaxError. This is
-        // the strict ATP/WTA cross-tour filter — while unparseable, no fixture list could ever load.
+        
+        
+        
         if (league === "ATP" && record.gender === "WTA") return false;
         if (league === "WTA" && record.gender === "ATP") return false;
 
                 function invalidName(value) {
-          // AUDIT FIX #180-184: five '=' instead of '===', chained with || — SyntaxError. This is the
-          // placeholder-name filter (TBD/BYE/qualifier/winner/loser) used to exclude not-yet-determined fixtures.
+          
+          
           return !value || value === "tbd" || value === "bye" || value === "qualifier" || value === "winner" || value === "loser";
         }
 
-        // --- STRICT PRE-MATCH FILTERING ---
-        // AUDIT FIX #185: '=' instead of '===' — "state" is const above; this throws
-        // "TypeError: Assignment to constant variable." (same class as FIX #14), distinct from the chained-OR
-        // SyntaxError mechanism used elsewhere, since "state" alone (not an OR-expression) is the target here.
+        
+        
+        
+        
         const isLive = state === "in" || name.includes("IN_PROGRESS") || name.includes("HALFTIME");
-        // AUDIT FIX #186: same mechanism as FIX #185.
+        
         const isScheduled = state === "pre" || name.includes("SCHEDULED") || name.includes("TBD") || name.includes("DELAYED");
         const isActuallyCompleted = completed || name.includes("FINAL") || name.includes("CANCELED") || name.includes("POSTPONED");
 
         const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
         const notPlaceholderPair = !aNorm.includes(" tbd") && !bNorm.includes(" tbd") && !aNorm.startsWith("tbd ") && !bNorm.startsWith("tbd ") && !aNorm.includes(" winner") && !bNorm.includes(" winner") && !aNorm.includes(" qualifier") && !bNorm.includes(" qualifier") && !aNorm.includes(" bye") && !bNorm.includes(" bye");
 
-        // 1. Instantly drop finished matches AND matches that have already started playing
+        
         if (isActuallyCompleted || isLive) return false;
         
         if (!hasRealPlayers || !notPlaceholderPair) return false;
         if (!hasValidDate) return false;
-        // AUDIT FIX #199: '!' instead of '!==' — SyntaxError.
+        
         if (dateKeyFromDate(scheduledAt) !== targetDayKey) return false;
 
-        // 2. For today's matches, only show them if their start time is still in the future
-        // AUDIT FIX #200: '=' instead of '===' — "offset" is a reassignable parameter (not a SyntaxError), but
-        // verified mechanism: "offset = 0" assigns 0 and evaluates falsy, so this branch NEVER ran — meaning
-        // today's already-started matches were never filtered out by their start time, only by their live/final
-        // status checks elsewhere.
+        
+        
+        
+        
+        
         if (offset === 0) {
           return isScheduled && scheduledAt.getTime() > now.getTime();
         }
@@ -7513,26 +7151,25 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         return isScheduled;
 
       }).sort(function (a, b) {
-        // --- SYNDICATE FIX: BULLETPROOF TIME SORTING ---
+        
         const tA = new Date(a.date).getTime();
         const tB = new Date(b.date).getTime();
-        // AUDIT FIX #201: '=' instead of '===' — "tA" is const two lines above; throws
-        // "TypeError: Assignment to constant variable." (same class as FIX #14) on the very first sort comparison
-        // where two fixtures share an identical timestamp.
-        if (tA === tB) return a.playerAName.localeCompare(b.playerAName); // Fallback to alphabet if same time
+        
+        
+        
+        if (tA === tB) return a.playerAName.localeCompare(b.playerAName); 
         return tA - tB;
       });
 
       renderFixtureOptions(records);
       setFetchStatus(records.length ? "Loaded " + records.length + " real future singles matches." : "No real future singles matches found for this day.", records.length ? "ok" : "");
     } catch (err) {
-      // AUDIT FIX #202: '!' instead of '!==' — SyntaxError. Same pattern as FIX #173.
+      
       if (token !== fixtureLoadToken) return;
       select.innerHTML = '<option value="">Unable to load matches</option>';
       setFetchStatus("Unable to load ESPN fixtures right now.", "err");
     }
   }
-
 
   function onFixtureSelect() {
     const select = qs("fixtureSelect");
@@ -7555,7 +7192,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       roundName: record && record.roundName ? record.roundName : ""
     });
 
-    // Auto-detect surface — ESPN surface field first, tournament name as fallback
+    
     const surfaceSelect = qs("surfaceSelect");
     if (surfaceSelect) {
       const autoSurface = inferSurfaceFromText(
@@ -7565,14 +7202,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       if (autoSurface) surfaceSelect.value = autoSurface;
     }
 
-    // Ensure surface is reset on clear
+    
     window.__surfaceSelectRef = surfaceSelect;
-
 
     accordionToggle("marketSection");
     fetchESPNTennis();
   }
-
 
   function getChunkedHistoryRanges(totalDays, chunkSize) {
     const chunks = [];
@@ -7610,7 +7245,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     }
 
     const promise = (async function () {
-      // Reduced to 60 days for faster initial load — enough for recent form + H2H
+      
       const chunks = getChunkedHistoryRanges(60, 60);
 
       const settled = await Promise.all(chunks.map(async function(datesQuery) {
@@ -7642,8 +7277,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const tourLower = (tour || "").toLowerCase();
 
     records.forEach(function (record) {
-      // Gender filter: prevent ATP/WTA cross‑tour false positives
-      // AUDIT FIX #187/#188: '=' instead of '===', four places chained with && — SyntaxError.
+      
+      
       if (tourLower === "atp" && record.gender === "WTA") return;
       if (tourLower === "wta" && record.gender === "ATP") return;
       [
@@ -7663,24 +7298,24 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     });
 
     const all = Array.from(map.values());
-    // AUDIT FIX #189: '=' instead of '===' — NOT a SyntaxError ("entry.norm" directly assignable). This is one of
-    // this audit's most severe findings in this section: verified by execution with two candidates (one real
-    // match for "novak djokovic", one non-match "carlos alcaraz") that this filter returned BOTH as "exact"
-    // matches (2 instead of the correct 1), and permanently overwrote the non-matching candidate's .norm field to
-    // the search target string itself — corrupting that player's identity data for any later comparison.
+    
+    
+    
+    
+    
     const exact = all.filter(function (entry) {
       return entry.norm === target;
     });
-    // AUDIT FIX #190: '=' instead of '===' — "exact.length" is directly assignable (array .length is writable in
-    // JS), NOT a SyntaxError. This would have force-truncated (or force-extended-with-undefined, if exact.length
-    // was 0) the exact array to length 1 and then unconditionally returned exact[0] — silently discarding any
-    // additional genuine exact matches, or returning undefined as if a match had been "found" when none existed.
+    
+    
+    
+    
     if (exact.length === 1) return exact[0];
 
     const includes = all.filter(function (entry) {
       return entry.norm.includes(target) || target.includes(entry.norm);
     });
-    // AUDIT FIX #191: same mechanism/fix as FIX #190, for the fuzzy fallback.
+    
     if (includes.length === 1) return includes[0];
 
     return null;
@@ -7688,16 +7323,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     function buildRecentSeries(records, playerId) {
     return records.filter(function (record) {
-      // AUDIT FIX #192: '=' instead of '===', chained with || — SyntaxError.
+      
       return record.playerAId === playerId || record.playerBId === playerId;
     }).map(function (record) {
-      // AUDIT FIX #193: '=' instead of '===' — "record.playerAId" directly assignable (not chained with ||/&&
-      // immediately before it here, so NOT a SyntaxError). This is one of the most severe findings in this
-      // section: verified by execution that looking up a player who is actually "playerB" in a given record
-      // computed isA as the truthy string playerId (instead of the correct false), AND permanently overwrote
-      // record.playerAId with that playerId — corrupting the shared record's identity. Net effect: this function
-      // could silently attribute an opponent's games/stats to the wrong player when building "recent form" data,
-      // and corrupt the underlying record for any other code that reads it afterward.
+      
+      
+      
+      
+      
+      
+      
       const isA = record.playerAId === playerId;
       return {
         competitionId: record.competitionId,
@@ -7725,7 +7360,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     });
   }
 
-  // --- SYNDICATE LEVEL: BRUTAL METRICS CALCULATOR ---
+  
   function computeBrutalMetrics(series, currentSurface) {
     const recent = Array.isArray(series) ? series.slice(0, 10) : [];
     if (!recent.length) return { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
@@ -7738,21 +7373,21 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const bSets = match.bSets || [];
       const setsPlayed = match.setCount || 0;
       
-      // AUDIT FIX #194: bare "grindMatches;" does nothing (missing increment) — same bug class as BUG-015/136/147.
+      
       if (setsPlayed >= 3) grindMatches++;
       
       if (aSets.length > 0 && bSets.length > 0) {
-        // AUDIT FIX #195: bare "set1Kills;" does nothing (missing increment).
-        if ((aSets[0] + bSets[0]) <= 8) set1Kills++; // 6-1 or 6-2 blowouts
+        
+        if ((aSets[0] + bSets[0]) <= 8) set1Kills++; 
       }
 
-            // AUDIT FIX #196: missing loop increment — infinite loop, same mechanism as BUG-036/87/104/132.
+            
             for (let i = 0; i < setsPlayed; i++) {
-        // AUDIT FIX #197: bare "totalSets;" does nothing (missing increment).
+        
         totalSets++;
-        // WEAPONIZED LOGIC: A tiebreak set (7-6) always has exactly 13 games. 
-        // 7-5 sets (12 games) are standard breaks and should NOT count toward the TB Index.
-        // AUDIT FIX #198: bare "tbSets;" does nothing (missing increment).
+        
+        
+        
         if ((aSets[i] + bSets[i]) >= 13) tbSets++; 
       }
 
@@ -7785,39 +7420,38 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return 0.92;
   }
 
-
   function buildH2HSeries(records, playerAId, playerBId, playerAName, playerBName) {
     const normA = normalizeName(playerAName);
     const normB = normalizeName(playerBName);
     const surnameA = getSurnameToken(playerAName);
     const surnameB = getSurnameToken(playerBName);
 
-    // Also build single-ID sets so a record from athlete-history
-    // (which only contains one player's ID) still matches
-    // AUDIT FIX #203 through #212: this entire function had every comparison corrupted (10 operators across 6
-    // lines) via the chained-&&/||-as-assignment-target SyntaxError mechanism used throughout this file (same
-    // class as FIX #2/26/30/38 etc. — confirmed via node --check on the exact original text). Given the density,
-    // this function was fixed and verified as one unit rather than piecemeal. This is the head-to-head record
-    // matcher that feeds directly into buildMarketResult's h2hWeight/h2hAvg blend — while unparseable, no H2H
-    // data could ever be found for any matchup, meaning hasH2H was always false and every pick fell back to the
-    // "missing H2H" downgrade path (BUG-072/073) instead of ever getting a real H2H blend.
+    
+    
+    
+    
+    
+    
+    
+    
+    
     return records.filter(function (record) {
-      // Primary: both IDs present in the record
+      
       const byIdA = record.playerAId === playerAId || record.playerBId === playerAId;
       const byIdB = record.playerAId === playerBId || record.playerBId === playerBId;
       if (byIdA && byIdB) return true;
 
-      // Secondary: one ID matches + name cross-check for the other
+      
       const recA = normalizeName(record.playerAName);
       const recB = normalizeName(record.playerBName);
       if (byIdA && (recA === normB || recB === normB)) return true;
       if (byIdB && (recA === normA || recB === normA)) return true;
 
-      // Tertiary: full normalized name match (no IDs needed)
+      
       const byName = (recA === normA && recB === normB) || (recA === normB && recB === normA);
       if (byName) return true;
 
-      // Quaternary: surname-pair fallback
+      
       if (surnameA && surnameB) {
         const recSurnameA = getSurnameToken(record.playerAName);
         const recSurnameB = getSurnameToken(record.playerBName);
@@ -7834,8 +7468,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
-    // Extended window to 1095 days (3 years) to cover older H2H meetings.
-    // Runs scoreboard chunks + both player athlete-history APIs fully in parallel.
+    
+    
     const extraRanges = getChunkedHistoryRanges(1095, 90);
     const all = existingRecords.slice();
 
@@ -7955,11 +7589,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   let espnFetchToken = 0;
 
   async function fetchESPNTennis() {
-    // AUDIT FIX #267 (cross-cutting pass, RISK-001): this token was declared and read but never incremented
-    // anywhere in the file, so the "if (myToken !== espnFetchToken) return;" stale-request guards later in this
-    // function could never actually fire — verified by grepping every reference to espnFetchToken. Added the
-    // increment here, matching the file's own correctly-implemented analog for the same purpose
-    // (fixtureLoadToken, which does "fixtureLoadToken += 1;" at its own call site).
+    
+    
+    
+    
+    
     espnFetchToken += 1;
     const league = String(qs("leagueSelect").value || "").trim();
     const playerAName = String(qs("teamAName").value || "").trim();
@@ -7983,8 +7617,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     try {
       const records = await fetchHistoryPool(league);
-      // AUDIT FIX #214: '!' instead of '!==' — SyntaxError.
-      if (myToken !== espnFetchToken) return; // stale — user changed selection
+      
+      if (myToken !== espnFetchToken) return; 
       if (!records.length) {
         throw new Error("No completed singles results were returned from ESPN.");
       }
@@ -8006,8 +7640,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         qs("teamBName").value = candidateB.name;
       }
 
-      // AUDIT FIX #215: '=' instead of '===' — a call expression (String(...)) on the left of '=' is a RUNTIME
-      // ReferenceError, not a parse-time SyntaxError (same mechanism as BUG-018/156).
+      
+      
       if (String(playerAId) === String(playerBId)) {
         throw new Error("Player A and Player B cannot be the same player.");
       }
@@ -8039,7 +7673,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const recentA10 = recentA.slice(0, sharedSampleSize);
       const recentB10 = recentB.slice(0, sharedSampleSize);
 
-      // WEAPONIZED ELO: Dynamically calculating Surface-Specific Bayesian Elo
+      
       const fixtureSelect = qs("fixtureSelect");
       const selectedFixtureKey = fixtureSelect ? fixtureSelect.value : "";
       const selectedFixtureRecord = selectedFixtureKey ? fixtureRecordMap.get(selectedFixtureKey) : null;
@@ -8048,13 +7682,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const surfaceKey = currentSurface.toLowerCase();
       
       const eloMap = new Map();
-      // K-factor scaled by event level: Grand Slam results are more informative than Challengers
+      
       const K_MAP = { "Grand Slam": 40, "Masters / 1000": 32, "Finals": 36, "Olympics": 32, "500": 28, "250": 24, "Tour": 28, "Challenger": 20 };
 
-      // Bayesian Surface Filter: Process matches on target surface in chronological order
+      
       workingRecords.filter(r => {
         if (!surfaceKey) return true;
-        // AUDIT FIX #216: '=' instead of '===' — same call-expression ReferenceError mechanism as FIX #215.
+        
         return inferSurfaceFromRecord(r).toLowerCase() === surfaceKey;
       })
         .sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -8063,7 +7697,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           if (!eloMap.has(r.playerBId)) eloMap.set(r.playerBId, 1500);
           const rA = eloMap.get(r.playerAId), rB = eloMap.get(r.playerBId);
           const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
-          // Determine winner by sets won, not total games (a player can win more games and still lose the match)
+          
           const aSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.aSets.filter((g, i) => g > (r.bSets[i] || 0)).length : (r.playerAGames > r.playerBGames ? 1 : 0);
           const bSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.bSets.filter((g, i) => g > (r.aSets[i] || 0)).length : 0;
           const scoreA = aSetsWon > bSetsWon ? 1 : aSetsWon < bSetsWon ? 0 : 0.5;
@@ -8083,25 +7717,25 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const bSet1Games = recentB10.map(m => m.playerSet1Games).filter(Number.isFinite);
       const h2hMatchTotals = h2h.slice(0, 5).map(m => m.totalGames).filter(Number.isFinite);
       const h2hSet1Totals = h2h.slice(0, 5).map(m => m.set1Total).filter(Number.isFinite);
-      // Per-player H2H games: check both record orientations so bidirectional records resolve correctly
-      // AUDIT FIX #217/#218: '=' instead of '===' — NOT SyntaxErrors ("m.playerAId"/"m.playerBId" directly
-      // assignable, not chained with && before the '=' itself). Verified by execution: this permanently corrupts
-      // each H2H record's .playerAId field to a plain boolean (true/false) as a side effect of checking it,
-      // destroying that record's player identity for any other code that reads the same h2h array afterward.
+      
+      
+      
+      
+      
       const h2hPlayerAGames = h2h.slice(0, 5).map(function(m) {
         if (m.playerAId === playerAId && Number.isFinite(m.playerAGames)) return m.playerAGames;
         if (m.playerBId === playerAId && Number.isFinite(m.playerBGames)) return m.playerBGames;
         return null;
       }).filter(Number.isFinite);
-      // AUDIT FIX #219/#220: same mechanism as FIX #217/218, mirrored for player B.
+      
       const h2hPlayerBGames = h2h.slice(0, 5).map(function(m) {
         if (m.playerBId === playerBId && Number.isFinite(m.playerBGames)) return m.playerBGames;
         if (m.playerAId === playerBId && Number.isFinite(m.playerAGames)) return m.playerAGames;
         return null;
       }).filter(Number.isFinite);
 
-      // Per-set normalization + opponent quality weighting for internal context.
-      // Display fields keep raw totals so the UI stays readable for manual edits.
+      
+      
       const normalizeMatchGames = (series) => series.map(function(m) {
         if (!Number.isFinite(m.playerGames)) return null;
         const sets = Number.isFinite(m.setCount) && m.setCount > 0 ? m.setCount : 2;
@@ -8113,11 +7747,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const aGamesNorm = normalizeMatchGames(recentA10);
       const bGamesNorm = normalizeMatchGames(recentB10);
 
-      // WEAPONIZED BAYESIAN PRIORS: Protecting against small-sample-size bias.
-      // If a player has < 5 matches, we inject "Phantom" matches representing the Tour Average.
-      // This prevents the engine from overreacting to "Challenger-level" stars with thin data.
+      
+      
+      
       const TOUR_AVG_GAMES = 10.2;
-      const TOUR_AVG_GAMES_NORM = 4.35; // Per-set normalized tour average (games per player per set)
+      const TOUR_AVG_GAMES_NORM = 4.35; 
       const TOUR_AVG_S1 = 4.7;
       const MIN_SAMPLE_SIZE = 5;
 
@@ -8138,7 +7772,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const bayesianS1A = aSet1Games.length < MIN_SAMPLE_SIZE ? applyPrior(aSet1Games, TOUR_AVG_S1) : aSet1Games;
       const bayesianS1B = bSet1Games.length < MIN_SAMPLE_SIZE ? applyPrior(bSet1Games, TOUR_AVG_S1) : bSet1Games;
 
-      // Ensure we have at least 1 real match before even attempting a prior-based run
+      
       if (aGames.length < 1 || bGames.length < 1) {
         throw new Error("Zero match history found. Bayesian anchor requires at least one real data point.");
       }
@@ -8161,7 +7795,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         h2hSet1Totals
       });
 
-
       const tournamentName = (selectedFixtureRecord?.tournamentName) || (recentA[0]?.tournamentName) || "";
       const eventLevel = (selectedFixtureRecord?.eventLevel) || classifyEventLevel(tournamentName);
       const roundName = (selectedFixtureRecord?.roundName) || "";
@@ -8180,13 +7813,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         fixtureDate: selectedFixtureRecord?.date || "",
         tournamentName, eventLevel, roundName, matchFormat,
         fatigueA, fatigueB, brutalA, brutalB,
-        eloA, eloB, // INJECTED WEAPONIZED DATA
+        eloA, eloB, 
         recentMatchA: bayesianANorm, recentMatchB: bayesianBNorm,
         recentSet1A: bayesianS1A, recentSet1B: bayesianS1B,
         h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals,
         h2hPlayerA: h2hPlayerAGames, h2hPlayerB: h2hPlayerBGames
       };
-
 
       populateFetchedContext({
 
@@ -8217,9 +7849,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       openSection("teamBSection");
       openSection("h2hSection");
     } catch (err) {
-      // AUDIT FIX #234: '!' instead of '!==' — SyntaxError. Second occurrence of this exact pattern (see FIX
-      // #214), caught during the range sweep rather than missed.
-      if (myToken !== espnFetchToken) return; // stale
+      
+      
+      if (myToken !== espnFetchToken) return; 
       latestFetchedContext = null;
       setHeaderError(true, err.message || "Fetch failed.");
       setFetchStatus(err.message || "Fetch failed.", "err");
@@ -8253,23 +7885,21 @@ document.addEventListener("DOMContentLoaded", function () {
     const trackedPicksBody = qs("trackedPicksBody");
     if (trackedPicksBody) trackedPicksBody.addEventListener("click", handleTrackedPicksActionClick);
 
-
-
     const trackerModal = qs("trackerModal");
     if (trackerModal) {
       trackerModal.addEventListener("click", function (e) {
-        // AUDIT FIX #221: '=' instead of '===' — NOT a SyntaxError, and NOT a true mutation either: verified by
-        // execution that assigning to Event.prototype.target (a getter-only accessor) silently no-ops in this
-        // non-strict script, and the assignment expression itself evaluates to the truthy element reference —
-        // so this check ALWAYS passed regardless of what was actually clicked, meaning any click anywhere inside
-        // the modal (buttons, table rows, etc.) — not just the backdrop — would immediately close it.
+        
+        
+        
+        
+        
         if (e.target === trackerModal) closeTrackerModal();
       });
     }
 
-  // The helper functions have been moved to the top-level scope.
-  // This block is intentionally left empty to remove the duplicate definitions.
-  // No action needed here.
+  
+  
+  
 
   window.engineDebug = function(msg, detail) {
     const stamp = new Date().toLocaleTimeString();
@@ -8279,7 +7909,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const msgLower = line.toLowerCase();
     const isErr = msgLower.includes("error") || msgLower.includes("fail") || msgLower.includes("critical");
     const isWarn = msgLower.includes("warn") || msgLower.includes("missing");
-    // AUDIT FIX #222: '!' instead of '!==' after typeof — SyntaxError.
+    
     if (typeof AFDB !== "undefined") {
       AFDB.log(isErr ? "ERROR" : isWarn ? "WARN" : "ENGINE", "ENGINE", msg, detail != null ? detail : undefined);
     }
@@ -8291,23 +7921,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
     async function settleTrackedPick(id, result) {
       const items = getTrackerItems();
-      // AUDIT FIX #223: '=' instead of '===' — NOT a SyntaxError ("i.id" directly assignable). This is one of
-      // the most severe findings in this section: verified by execution that this both permanently corrupted
-      // the FIRST item's .id field to the searched-for id (creating a duplicate id in the array) AND caused
-      // findIndex to always resolve to index 0 — meaning a request to settle one specific pick would silently
-      // settle a completely different (always the first) pick instead, regardless of which one was actually
-      // clicked.
+      
+      
+      
+      
+      
+      
       const index = items.findIndex(i => i.id === id);
-      // AUDIT FIX #224: '=' instead of '===' — "index" is const; verified this throws
-      // "TypeError: Assignment to constant variable." (same class as FIX #14) on every call, whether or not a
-      // match was found.
+      
+      
+      
       if (index === -1) return;
       const item = items[index];
       if (!item) return;
       const finalStatus = String(result || "").toUpperCase();
       if (!["WIN", "LOSS", "PUSH", "PENDING"].includes(finalStatus)) return;
       item.status = finalStatus;
-      // AUDIT FIX #225: '!' instead of '!==' — SyntaxError.
+      
       item.settledAt = finalStatus !== "PENDING" ? new Date().toISOString() : null;
       updateBucketPerformance(item, finalStatus, item.actualTotal || null, null);
       saveTrackerItems(items);
@@ -8317,8 +7947,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function settleTrackedPickManualFull(id) {
       const items = getTrackerItems();
-      // AUDIT FIX #226: same mistargeting mechanism as FIX #223, using .find() instead of .findIndex() — always
-      // resolved to the first item and corrupted its .id to the searched-for value.
+      
+      
       const item = items.find(i => i.id === id);
       if (!item) return;
       const matchName = item.match;
@@ -8326,14 +7956,14 @@ document.addEventListener("DOMContentLoaded", function () {
         "Enter actual total games for " + matchName + "\n(e.g. 24 — or leave blank to skip):",
         isFinite(item.actualTotal) ? String(item.actualTotal) : ""
       );
-      // AUDIT FIX #227: '=' instead of '===' — "score" is const; throws "TypeError: Assignment to constant
-      // variable." (same class as FIX #14) the moment the user submits the prompt (even a blank one).
+      
+      
       if (score === null) return;
       const closingLineInput = prompt(
         "Optional — Closing line for CLV tracking (leave blank to skip).\nPick line was: " + item.line,
         item.closingLine || ""
       );
-      // AUDIT FIX #228/#229: '!' instead of '!==', twice — SyntaxError.
+      
       if (closingLineInput !== null && closingLineInput.trim() !== "") {
         const cl = parseFloat(closingLineInput.trim());
         if (isFinite(cl) && cl > 0) {
@@ -8341,8 +7971,8 @@ document.addEventListener("DOMContentLoaded", function () {
           const lp = Number(item.line);
           const side = String(item.rawPick || "").toUpperCase().includes("OVER") ? "over" : "under";
           if (isFinite(lp) && lp > 0) {
-            // AUDIT FIX #230: '=' instead of '===' — "side" is const; throws "TypeError: Assignment to constant
-            // variable." (same class as FIX #14) any time the user enters a valid closing line.
+            
+            
             item.clv = side === "under"
               ? Math.round((lp - cl) * 100) / 100
               : Math.round((cl - lp) * 100) / 100;
@@ -8353,7 +7983,7 @@ document.addEventListener("DOMContentLoaded", function () {
         "Type 'W' for Win, 'L' for Loss, 'P' for Push, or 'PENDING' to revert a mistake:",
         item.status || "PENDING"
       );
-      // AUDIT FIX #231: '=' instead of '===' — "rawResult" is const; same mechanism as FIX #227.
+      
       if (rawResult === null) return;
       const result = rawResult.trim().toLowerCase();
       if (!result) return;
@@ -8412,17 +8042,14 @@ document.addEventListener("DOMContentLoaded", function () {
         g_engineAlertNeedsReview = false;
         document.body.classList.remove("engine-alert");
         renderHeaderErrorState();
-        // AUDIT FIX #233: '!' instead of '!==' after typeof — SyntaxError.
+        
         if (typeof AFDB !== "undefined") AFDB.open();
       });
     }
 
-    // Report button moved to AFDB 📊 icon — no tracker insights btn handler needed
+    
 
-    /* trackerDebugBtn removed — use 🔬 in the header to open AFDB */
-
-
-
+    
 
     const fixturesTodayBtn = qs("fixturesTodayBtn");
     const fixturesTomorrowBtn = qs("fixturesTomorrowBtn");
@@ -8456,7 +8083,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (leagueSelect.value) {
           openSection("espnSection");
           loadFixtures(currentFixtureOffset);
-          fetchHistoryPool(leagueSelect.value); // Pre-warm cache immediately for instant H2H resolution
+          fetchHistoryPool(leagueSelect.value); 
         } else {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
           setFetchStatus("Select ATP or WTA first.", "");
@@ -8495,8 +8122,8 @@ document.addEventListener("DOMContentLoaded", function () {
     window.addEventListener("pageshow", function (event) {
       g_clearDebug.lastPageshowPersisted = String(!!(event && event.persisted));
       try {
-        // AUDIT FIX #235: '=' instead of '===' — call expression on the left of '=' is a RUNTIME ReferenceError,
-        // not a parse-time SyntaxError (same mechanism as BUG-018/156/215/216).
+        
+        
         if (sessionStorage.getItem(HARD_RESET_FLAG_KEY) === "1") {
           sessionStorage.removeItem(HARD_RESET_FLAG_KEY);
           applyHardResetState();
@@ -8514,7 +8141,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     try {
-      // AUDIT FIX #236: same mechanism/fix as FIX #235, mirrored for the init-time reset check.
+      
       if (sessionStorage.getItem(HARD_RESET_FLAG_KEY) === "1") {
         sessionStorage.removeItem(HARD_RESET_FLAG_KEY);
         applyHardResetState();
@@ -8546,24 +8173,24 @@ document.addEventListener("DOMContentLoaded", function () {
     }, 300000);
     setTrackerView("list");
 
-    // 🔥 TENNIS BRUTAL AUTO-SYNC
-    // Slams local data to the cloud the millisecond the DOM is ready.
+    
+    
     setTimeout(() => {
       g_trackerSaveFailureCount = 0;
-      // AUDIT FIX #237: '=' instead of '===' after typeof — SyntaxError.
+      
       if (typeof forceTrackerSaveNow === "function") {
         forceTrackerSaveNow();
         refreshTrackerNow(true);
       }
     }, 50);
 
-        // Tab-Wake Auto-Sync: Hard sync whenever you switch back to this tab
+        
     window.addEventListener("focus", () => {
-       // AUDIT FIX #238: same mechanism/fix as FIX #237.
+       
        if (typeof forceTrackerSaveNow === "function") forceTrackerSaveNow();
     });
 
-    // Exit Keepalive: Push tracker state to cloud when tab/window closes (mirrors BB engine)
+    
     window.addEventListener("beforeunload", function() {
       if (g_trackerState && Array.isArray(g_trackerState.items) && g_trackerState.items.length > 0) {
         try {
@@ -8581,8 +8208,8 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
 
-    // Autocomplete — wired inside IIFE for direct closure access to historyPoolCache and selectedPlayerIds.
-    // historyPoolCache stores Promises; the async handler awaits them so resolved arrays are iterated correctly.
+    
+    
     [["teamAName", "dropA", "A"], ["teamBName", "dropB", "B"]].forEach(function(cfg) {
       var acInputId = cfg[0], acDropId = cfg[1], acKey = cfg[2];
       var acInput = qs(acInputId);
@@ -8647,7 +8274,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
   });
-    // 🔥 BOSS EXPORTS
+    
     window.copyEngineJson = function(btn) {
       if (!latestRunBundle) {
         if (btn) { btn.textContent = '❌'; setTimeout(function() { btn.textContent = '📋'; }, 1500); }
@@ -8715,22 +8342,18 @@ document.addEventListener("DOMContentLoaded", function () {
           setTimeout(function() { statusEl.textContent = ""; statusEl.style.color = ""; }, 2000);
         }
         if (btn) btn.style.opacity = "1";
-        // AUDIT FIX #239: '=' instead of '===' after typeof — SyntaxError.
+        
         if (typeof engineDebug === "function") engineDebug("MILITARY RAID FAIL", err && err.message ? err.message : String(err));
       });
     };
 
-
-
 })();
+
 </script>
-
-
 
 <div id="afdbOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,0.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
   <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;"></div>
 </div>
-
 
 <script>
 const AFDB = (function() {
@@ -8744,7 +8367,7 @@ const AFDB = (function() {
   }
 
   function log(level, section, msg, data) {
-    // AUDIT FIX #240: '!' instead of '!==' — SyntaxError.
+    
     const entry = { ts: new Date().toLocaleTimeString([],{hour12:false}), level: level||'INFO', section: section||'CORE', msg: String(msg||''), data: data !== undefined ? data : null };
     _log.unshift(entry);
     if (_log.length > LOG_LIMIT) _log = _log.slice(0, LOG_LIMIT);
@@ -8762,7 +8385,7 @@ const AFDB = (function() {
   function copy(btnEl) {
     const text = _log.slice().reverse().map(function(e) {
       var line = '[' + e.ts + '] [' + e.level + '] [' + e.section + '] ' + e.msg;
-      // AUDIT FIX #241: '!' instead of '!==' — SyntaxError.
+      
       if (e.data !== null) { try { line += ' | ' + JSON.stringify(e.data); } catch(x) { line += ' | ' + String(e.data); } }
       return line;
     }).join('\n\n');
@@ -8775,22 +8398,21 @@ const AFDB = (function() {
   function _render() {
     var panel = document.getElementById('afdbPanel');
     if (!panel) return;
-    // AUDIT FIX #242 through #245: four corrupted operators in one line. "_currentLogLevel = 'ALL' ? _log : ..."
-    // is NOT a SyntaxError ("_currentLogLevel" is a plain "let", not chained with &&/|| before this '=') but
-    // verified mechanism: since 'ALL' is always truthy, this always took the unfiltered branch AND permanently
-    // reset _currentLogLevel back to the literal "ALL" every single render, silently undoing whatever filter
-    // toggleFilter() had just cycled to. The nested filter callback had three more corrupted comparisons.
+    
+    
+    
+    
+    
     var visible = _currentLogLevel === 'ALL' ? _log : _log.filter(function(e) { return e.level === _currentLogLevel || (_currentLogLevel === 'ERROR' && e.level === 'WARN'); });
     var COLORS = { ERROR:'#ff5c61', WARN:'#ffcf73', SUCCESS:'#49d45f', INFO:'#aaa', ENGINE:'#d4af37', TRACKER:'#4ea9ff' };
     var rows = visible.map(function(e) {
       var color = COLORS[e.level] || '#ccc';
       var dataHtml = '';
-      // AUDIT FIX #246: '!' instead of '!==' — SyntaxError.
+      
       if (e.data !== null) {
-        // AUDIT FIX #247: '=' instead of '===' after typeof — SyntaxError.
+        
         var ds; try { ds = typeof e.data === 'object' ? JSON.stringify(e.data, null, 2) : String(e.data); } catch(x) { ds = String(e.data); }
         dataHtml = '<pre style="color:#888;font-size:9px;margin:4px 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;word-break:break-all;">' + esc(ds) + '</pre>';
-
 
   }
   return '<div style="padding:8px;border-bottom:1px solid #151515;"><div style="display:flex;gap:8px;flex-wrap:wrap;">' +
@@ -8836,21 +8458,18 @@ if (ov) ov.style.display = 'none';
 }
 
 function runPhase2Simulator() { 
-// AUDIT FIX #248: '=' instead of '===' after typeof — SyntaxError.
+
 const items = typeof window.getTrackerItems === 'function' ? window.getTrackerItems() : []; 
-// AUDIT FIX #249: '=' instead of '===', chained with || — SyntaxError.
+
 const settled = items.filter(i => i.status === "WIN" || i.status === "LOSS"); 
 if (settled.length < 50) { 
-// AUDIT FIX #250: this line was missing its template-literal backticks entirely ("Only ${...}" was being parsed
-// as a bare, invalid expression) — confirmed via node --check: "SyntaxError: missing ) after argument list".
+
 log('WARN', 'PHASE2', `Only ${settled.length} settled picks — need 50 to calibrate.`); 
 return; 
 } 
-// Wilson lower bound for 95% confidence 
+
 const wilsonLower = (wins, total, z = 1.96) => { 
-// AUDIT FIX #251: '=' instead of '===' — "total" is a reassignable arrow-function parameter (not a SyntaxError),
-// but the assignment always evaluates falsy (0), so this guard NEVER returned early even when total genuinely
-// was 0 — which would have produced a division-by-zero (NaN/Infinity) a few lines below instead of a clean 0.
+
 if (total === 0) return 0; 
 const p = wins / total; 
 const denominator = 1 + z * z / total; 
@@ -8873,9 +8492,9 @@ const side = predText.includes("OVER") ? "over" : "under";
 const actual = pick.actualTotal; 
 const line = parseFloat(pick.line); 
 if (!actual || !line) continue; 
-// AUDIT FIX #252: '=' instead of '===', chained with && — SyntaxError.
+
 const correct = (side === "over" && actual > line) || (side === "under" && actual < line); 
-// AUDIT FIX #253/#254: bare "wins;"/"total;" do nothing (missing increment) — same bug class as BUG-015/136/147.
+
 if (correct) wins++; 
 total++; 
 } 
@@ -8887,7 +8506,7 @@ best = cfg;
 } 
 if (best && bestLower > 0.50) { 
 localStorage.setItem("tennis_phase2_config", JSON.stringify(best)); 
-// AUDIT FIX #255: missing template-literal backticks, same issue as FIX #250.
+
 log('SUCCESS', 'PHASE2', `Best config: ${best.label} with Wilson lower bound ${(bestLower*100).toFixed(1)}%`); 
 } else { 
 log('WARN', 'PHASE2', 'No config with >50% Wilson lower bound'); 
@@ -8896,7 +8515,7 @@ log('WARN', 'PHASE2', 'No config with >50% Wilson lower bound');
 
 function runTestSweep() { 
 log('INFO', 'SWEEP', 'Starting Military Raid diagnostic sweep...'); 
-// AUDIT FIX #256: '=' instead of '===' after typeof — SyntaxError.
+
 if (typeof runPhase2Simulator === 'function') runPhase2Simulator(); 
 var suspects = 0; 
 var tour = (document.getElementById('leagueSelect') || {}).value || ''; 
@@ -8905,40 +8524,34 @@ var pB = ((document.getElementById('teamBName') || {}).value || '').trim();
 var ft = ((document.getElementById('ftMarket') || {}).value || '').trim(); 
 var freshPage = !tour && !pA && !pB && !ft; 
 if (!freshPage) { 
-// AUDIT FIX #257/#258/#259: bare "suspects;" does nothing (missing increment), three sites.
+
 if (!tour) { log('ERROR', 'INPUT', 'No tour selected (ATP/WTA) — fetch is blocked.'); suspects++; } 
 if (tour && (!pA || !pB)) { log('WARN', 'INPUT', 'Player name(s) missing — fetch will fail.'); suspects++; } 
 if (!ft) { log('WARN', 'MARKETS', 'Match total line is empty.'); suspects++; } 
 } 
 try { 
-// AUDIT FIX #260: '=' instead of '===' after typeof — SyntaxError.
+
 var items = typeof getTrackerItems === 'function' ? getTrackerItems() : []; 
-// AUDIT FIX #261: '=' instead of '===' — call expression on the left of '=' is a RUNTIME ReferenceError, not a
-// parse-time SyntaxError (same mechanism as BUG-018/156/215/216/235/236).
+
 var pending = items.filter(function(p) { return String(p.status||'PENDING').toUpperCase() === 'PENDING'; }).length; 
 log('INFO', 'TRACKER', items.length + ' items — ' + pending + ' pending settlement.'); 
-// AUDIT FIX #262: bare "suspects;" does nothing (missing increment).
+
 if (items.length > 490) { log('ERROR', 'STORAGE', 'Tracker near capacity (>490 items).'); suspects++; } 
 } catch(e) { log('WARN', 'TRACKER', 'Could not read tracker: ' + e.message); } 
 try { 
 var sv = window.g_trackerSaveVersion || 0; 
 var pv = window.g_trackerPersistedVersion || 0; 
-// AUDIT FIX #263: bare "suspects;" does nothing (missing increment).
+
 if (sv > pv) { log('WARN', 'SYNC', 'Local version (' + sv + ') ahead of cloud (' + pv + ') — force save recommended.'); suspects++; } 
 } catch(e) {} 
-// AUDIT FIX #264/#265: '=' instead of '===', two sites. "suspects = 0 ? A : B" is NOT a SyntaxError ("suspects"
-// is a plain "var"), but here the ternary's condition is the literal NUMBER 0 (always falsy) rather than a
-// truthy string like elsewhere in this file — so this ALWAYS took the pessimistic "issue(s) detected" branch,
-// even when suspects genuinely was 0 (a perfectly healthy sweep) — verified by execution: a sweep with
-// suspects=0 produced the self-contradictory verdict "issues: 0" instead of the healthy message, and permanently
-// corrupted "suspects" from a number into that verdict string.
+
 var verdict = suspects === 0 ? 'Military Raid complete. Tennis engine is healthy.' : 'Military Raid complete. ' + suspects + ' issue(s) detected.'; 
 log(suspects === 0 ? 'SUCCESS' : 'ERROR', 'SWEEP', verdict); 
 }
 
 function openReport() { 
 close(); 
-// AUDIT FIX #266: '=' instead of '===' after typeof — SyntaxError.
+
 if (typeof window.openTrackerModal === 'function') window.openTrackerModal(); 
 setTimeout(function() { 
 if (typeof window.setTrackerView === 'function') window.setTrackerView('report'); 
@@ -8961,4 +8574,7 @@ if (btnEl) { btnEl.innerHTML = orig; btnEl.disabled = false; }
 } 
 return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, get logs() { return _log; } }; 
 })(); 
+
 </script>
+</body>
+</html>
