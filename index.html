@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5586,32 +5585,62 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 }
 
-    function settleTrackerItemFromRecord(item, record) {
+  function settleTrackerItemFromRecord(item, record) {
     if (!item || !record) return item;
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    const actualValue = item.market === "Set 1 Total Games"
-      ? record.set1Total
-      : item.market === "Player A Total Games"
-      ? (item.playerAId && record.playerAId === item.playerAId ? record.playerAGames
-         : item.playerAId && record.playerBId === item.playerAId ? record.playerBGames
-         : record.playerAGames)
-      : item.market === "Player B Total Games"
-      ? (item.playerBId && record.playerBId === item.playerBId ? record.playerBGames
-         : item.playerBId && record.playerAId === item.playerBId ? record.playerAGames
-         : record.playerBGames)
-      : record.totalGames;
+    // Determine actual value based on market.
+    // First, identify which player in the record corresponds to item's player A and B.
+    const normItemA = normalizeName(item.playerAName || "");
+    const normItemB = normalizeName(item.playerBName || "");
+    const normRecA = normalizeName(record.playerAName || "");
+    const normRecB = normalizeName(record.playerBName || "");
+
+    // Determine mapping: which record side is A and B?
+    let recAIsItemA = false, recBIsItemA = false;
+    if (normRecA === normItemA) recAIsItemA = true;
+    if (normRecB === normItemA) recBIsItemA = true;
+    let recAIsItemB = false, recBIsItemB = false;
+    if (normRecA === normItemB) recAIsItemB = true;
+    if (normRecB === normItemB) recBIsItemB = true;
+
+    // Use IDs if available and matching, else fallback to name mapping.
+    let playerAGames, playerBGames;
+    if (item.playerAId && record.playerAId === item.playerAId) {
+      playerAGames = record.playerAGames;
+    } else if (item.playerAId && record.playerBId === item.playerAId) {
+      playerAGames = record.playerBGames;
+    } else if (recAIsItemA) {
+      playerAGames = record.playerAGames;
+    } else if (recBIsItemA) {
+      playerAGames = record.playerBGames;
+    } else {
+      // fallback: assume record.playerAGames is for player A
+      playerAGames = record.playerAGames;
+    }
+
+    if (item.playerBId && record.playerBId === item.playerBId) {
+      playerBGames = record.playerBGames;
+    } else if (item.playerBId && record.playerAId === item.playerBId) {
+      playerBGames = record.playerAGames;
+    } else if (recAIsItemB) {
+      playerBGames = record.playerAGames;
+    } else if (recBIsItemB) {
+      playerBGames = record.playerBGames;
+    } else {
+      // fallback: assume record.playerBGames is for player B
+      playerBGames = record.playerBGames;
+    }
+
+    let actualValue;
+    if (item.market === "Set 1 Total Games") {
+      actualValue = record.set1Total;
+    } else if (item.market === "Player A Total Games") {
+      actualValue = playerAGames;
+    } else if (item.market === "Player B Total Games") {
+      actualValue = playerBGames;
+    } else {
+      actualValue = record.totalGames;
+    }
 
     if (!Number.isFinite(actualValue)) return item;
 
