@@ -1,5 +1,6 @@
-S
+H
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -978,7 +979,7 @@ body.dark-mode.engine-alert .section {
   display: flex;
 }
 .tracker-panel {
-  width: min(96vw, 520px);
+  width: min(100%, 520px);
   height: 100%;
   max-height: 100%;
   background: var(--panel);
@@ -6257,7 +6258,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           rawPick: result.pick,
           confidence: result.confidence,
           status: "PENDING",
-         isLock: idx = lockIdx,
+         isLock: idx === lockIdx,
          notes: Array.isArray(result.notes) ? result.notes.join(" | ") : "",
          simPct: result.simPct,
          manualSurface: (bundle.context && bundle.context.surface) ? bundle.context.surface : "unknown"
@@ -6304,10 +6305,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         const key = keyFn(item);
         if (!map.has(key)) map.set(key, { wins: 0, losses: 0, pushes: 0, total: 0 });
         const b = map.get(key);
-        b.total;
-        if (item.status = "WIN") b.wins;
-        else if (item.status = "LOSS") b.losses;
-        else if (item.status = "PUSH") b.pushes;
+        b.total++;
+        if (item.status === "WIN") b.wins++;
+        else if (item.status === "LOSS") b.losses++;
+        else if (item.status === "PUSH") b.pushes++;
       });
       const rows = Array.from(map.entries()).sort(function(a, b) { return b[1].total - a[1].total; }).map(function(e) {
         const r = e[1].total ? Math.round((e[1].wins / e[1].total) * 100) + "%" : "—";
