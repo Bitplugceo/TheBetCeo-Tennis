@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7665,7 +7666,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     }
 
     clearHeaderError();
-    setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
+    setFetchStatus("Loading stats...", "loading");
     const myToken = espnFetchToken;
 
     try {
@@ -7707,8 +7708,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const recentB = buildRecentSeries(workingRecords, playerBId);
       let h2h = buildH2HSeries(workingRecords, playerAId, playerBId, qs("teamAName").value, qs("teamBName").value);
 
-      if (h2h.length < 5) {
-        setFetchStatus("Recent stats found. Searching older windows for more H2H...", "loading");
+    if (h2h.length < 5) {
+        setFetchStatus("Loading stats...", "loading");
         const extraBundle = await fetchExtraH2HRecords(
           league,
           workingRecords,
@@ -7888,10 +7889,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const h2hNote = h2hMatchTotals.length
         ? ("<br>H2H found: " + h2hMatchTotals.length + " meeting(s).")
         : "<br>H2H found: 0 meetings in fetched records.";
-      setFetchNotes(
-        buildFetchNotes(qs("teamAName").value, recentA) + h2hNote,
-        buildFetchNotes(qs("teamBName").value, recentB) + h2hNote
-      );
+      // Fetch notes boxes intentionally suppressed — status line under button is enough
 
       const statusParts = [
         "Team A: " + aGames.length + " matches",
@@ -7916,6 +7914,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       latestFetchedContext = null;
       setHeaderError(true, err.message || "Fetch failed.");
       setFetchStatus(err.message || "Fetch failed.", "err");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Fetch Stats";
+      }
     }
   }
 
