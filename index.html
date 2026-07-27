@@ -1,4 +1,3 @@
-F
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2672,12 +2671,12 @@ title="Show issues">
   <div id="fetchStatus" style="margin-top:4px; font-size:10px;">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
 </div>
 
-<div class="fetch-note-box" id="fetchNoteBoxA">
+<div class="fetch-note-box" id="fetchNoteBoxA" style="display:none !important;">
   <div class="fetch-note-title">Player A Fetch Notes</div>
   <div id="fetchNoteContentA">No fetch notes yet.</div>
 </div>
 
-<div class="fetch-note-box" id="fetchNoteBoxB">
+<div class="fetch-note-box" id="fetchNoteBoxB" style="display:none !important;">
   <div class="fetch-note-title">Player B Fetch Notes</div>
   <div id="fetchNoteContentB">No fetch notes yet.</div>
 </div>
@@ -7668,25 +7667,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     clearHeaderError();
     setFetchStatus("Fetching recent tennis scorelines from ESPN...", "loading");
     const myToken = espnFetchToken;
-    try {
-      // ... existing fetch logic ...
-      // After successful population, open relevant sections like basketball does.
-      openSection("marketSection");
-      openSection("teamASection");
-      openSection("teamBSection");
-      openSection("h2hSection");
-      // Also update fetch status to show success with summary.
-      setFetchStatus("Stats loaded successfully. Ready to run engine.", "ok");
-    } catch (err) {
-      // error handling
-      setFetchStatus(err.message || "Fetch failed.", "err");
-      setHeaderError(true, err.message || "Fetch failed.");
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Fetch Stats';
-      }
-    }
 
     try {
       const records = await fetchHistoryPool(league);
@@ -7827,9 +7807,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       
       
       
-      const TOUR_AVG_GAMES = 10.2;
+      const TOUR_AVG_GAMES = 10;
       const TOUR_AVG_GAMES_NORM = 4.35; 
-      const TOUR_AVG_S1 = 4.7;
+      const TOUR_AVG_S1 = 5;
       const MIN_SAMPLE_SIZE = 5;
 
       const applyPrior = (dataArray, priorValue) => {
@@ -7837,7 +7817,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         while (result.length < MIN_SAMPLE_SIZE) {
           result.push(priorValue);
         }
-        return result;
+        return result.map(function (v) { return Math.round(v); });
       };
 
       const bayesianA = aGames.length < MIN_SAMPLE_SIZE ? applyPrior(aGames, TOUR_AVG_GAMES) : aGames;
@@ -7860,14 +7840,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const bayesianBS1Allowed = bSet1GamesAllowed.length < MIN_SAMPLE_SIZE ? applyPrior(bSet1GamesAllowed, TOUR_AVG_S1) : bSet1GamesAllowed;
 
       applyAutofillData({
-        aGames: bayesianA,
-        bGames: bayesianB,
-        aGamesAllowed: bayesianAAllowed,
-        bGamesAllowed: bayesianBAllowed,
-        aSet1Games: bayesianS1A,
-        bSet1Games: bayesianS1B,
-        aSet1GamesAllowed: bayesianAS1Allowed,
-        bSet1GamesAllowed: bayesianBS1Allowed,
+        aGames: bayesianA.map(function (v) { return Math.round(v); }),
+        bGames: bayesianB.map(function (v) { return Math.round(v); }),
+        aGamesAllowed: bayesianAAllowed.map(function (v) { return Math.round(v); }),
+        bGamesAllowed: bayesianBAllowed.map(function (v) { return Math.round(v); }),
+        aSet1Games: bayesianS1A.map(function (v) { return Math.round(v); }),
+        bSet1Games: bayesianS1B.map(function (v) { return Math.round(v); }),
+        aSet1GamesAllowed: bayesianAS1Allowed.map(function (v) { return Math.round(v); }),
+        bSet1GamesAllowed: bayesianBS1Allowed.map(function (v) { return Math.round(v); }),
         h2hMatchTotals,
         h2hSet1Totals
       });
