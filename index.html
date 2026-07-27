@@ -1,5 +1,5 @@
+A
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -915,15 +915,15 @@ body.dark-mode.engine-alert .section {
 }
 .tracker-modal.open {
   display: flex;
-}
-.tracker-panel {
-  width: min(100%, 520px);
-  height: 100%;
-  max-height: 100%;
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--panel-border);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  }
+  .tracker-panel {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -5684,12 +5684,17 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   function trySettleItemFromScoreboard(item, completedRecords) {
     const names = parseTrackerMatchNames(item.match);
     if (!names.playerAName || !names.playerBName) return null;
-    return (
-      completedRecords.find(function (r) { return sameTrackerMatchRecord(r, names.playerAName, names.playerBName); }) ||
-      completedRecords.find(function (r) { return fuzzySameTrackerMatchRecord(r, names.playerAName, names.playerBName); }) ||
-      completedRecords.find(function (r) { return relaxedSameTrackerMatchRecord(r, names.playerAName, names.playerBName); }) ||
-      null
-    );
+    // Use only exact match with date proximity to avoid wrong matches.
+    const targetDate = item.fixtureDate ? new Date(item.fixtureDate) : null;
+    const exactMatch = completedRecords.find(function (r) {
+        if (!sameTrackerMatchRecord(r, names.playerAName, names.playerBName)) return false;
+        if (!targetDate) return true;
+        const rDate = new Date(r.date);
+        const diff = Math.abs(rDate.getTime() - targetDate.getTime());
+        // Allow up to 2 days difference to account for timezone/display variations.
+        return diff <= 2 * 86400000;
+    });
+    return exactMatch || null;
   }
 
   async function autoSettleTracker(isSilent) {
