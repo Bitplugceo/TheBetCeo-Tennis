@@ -3841,7 +3841,7 @@ let g_clearDebug = {
       else if (profile.daysRest === 2) fraction += 0.022;
     }
     if (profile.matches7 >= 3) fraction += 0.028;
-    if (profile.longLoad >= 2) fraction += 0.028;
+    if (profile.longLoad >= 2 && profile.daysRest !== null && profile.daysRest <= 14) fraction += 0.028;
     return fraction;
   }
 
@@ -4180,8 +4180,7 @@ let g_clearDebug = {
     const lineMemoryResult = resolveLineWithMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", config.lineRange.mid, pick);
     let notes = [].concat(config.extraNotes || []);
     if (lineMemoryResult.usedMemory) {
-      config.lineRange = { ...config.lineRange, mid: lineMemoryResult.line };
-      notes.push("Line memory improved from " + config.lineRange.mid + " to " + lineMemoryResult.line);
+      notes.push("Line memory suggests " + config.lineRange.mid + " to " + lineMemoryResult.line + " (informational only, not applied to grading/display)");
     }
     let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx?.tour, config.marketKey, config.ctx?.surface, null);
     
@@ -7766,7 +7765,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const bGamesAllowed = recentB10.map(m => m.opponentGames).filter(Number.isFinite);
       const aSet1Games = recentA10.map(m => m.playerSet1Games).filter(Number.isFinite);
       const bSet1Games = recentB10.map(m => m.playerSet1Games).filter(Number.isFinite);
-      const h2hMatchTotals = h2h.slice(0, 5).map(m => m.totalGames).filter(Number.isFinite);
+      const h2hEventLevelForFormat = (selectedFixtureRecord && selectedFixtureRecord.eventLevel) || classifyEventLevel((selectedFixtureRecord && selectedFixtureRecord.tournamentName) || (recentA[0] && recentA[0].tournamentName) || "");
+      const h2hMatchFormatForScale = inferMatchFormat(league, h2hEventLevelForFormat);
+      const h2hExpectedSets = h2hMatchFormatForScale === "BO5" ? 3.82 : (currentSurface === "Clay" ? 2.47 : currentSurface === "Grass" ? 2.21 : 2.35);
+      const h2hMatchTotals = h2h.slice(0, 5).map(function (m) {
+        if (!Number.isFinite(m.totalGames)) return null;
+        const setsPlayed = Number.isFinite(m.setCount) && m.setCount > 0 ? m.setCount : 2;
+        return (m.totalGames / setsPlayed) * h2hExpectedSets;
+      }).filter(Number.isFinite);
       const h2hSet1Totals = h2h.slice(0, 5).map(m => m.set1Total).filter(Number.isFinite);
       
       
