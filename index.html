@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7291,7 +7292,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     const promise = (async function () {
       
-      const chunks = getChunkedHistoryRanges(60, 60);
+      const chunks = getChunkedHistoryRanges(180, 60);
 
       const settled = await Promise.all(chunks.map(async function(datesQuery) {
         try {
@@ -7470,6 +7471,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const normB = normalizeName(playerBName);
     const surnameA = getSurnameToken(playerAName);
     const surnameB = getSurnameToken(playerBName);
+    const givenA = getGivenToken(playerAName);
+    const givenB = getGivenToken(playerBName);
 
     
     
@@ -7482,8 +7485,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     
     return records.filter(function (record) {
       
-      const byIdA = record.playerAId === playerAId || record.playerBId === playerAId;
-      const byIdB = record.playerAId === playerBId || record.playerBId === playerBId;
+      const byIdA = playerAId && (record.playerAId === playerAId || record.playerBId === playerAId);
+      const byIdB = playerBId && (record.playerAId === playerBId || record.playerBId === playerBId);
       if (byIdA && byIdB) return true;
 
       
@@ -7503,7 +7506,22 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         const bySurname =
           (recSurnameA === surnameA && recSurnameB === surnameB) ||
           (recSurnameA === surnameB && recSurnameB === surnameA);
-        if (bySurname) return true;
+        if (bySurname) {
+          
+          if (!givenA && !givenB) return true;
+          const recGivenA = getGivenToken(record.playerAName);
+          const recGivenB = getGivenToken(record.playerBName);
+          const givenOk =
+            (!givenA || recGivenA.charAt(0) === givenA.charAt(0) || recGivenB.charAt(0) === givenA.charAt(0)) &&
+            (!givenB || recGivenA.charAt(0) === givenB.charAt(0) || recGivenB.charAt(0) === givenB.charAt(0));
+          if (givenOk) return true;
+        }
+      }
+
+      
+      if (surnameA && surnameB) {
+        const hay = recA + " " + recB;
+        if (hay.includes(surnameA) && hay.includes(surnameB) && surnameA !== surnameB) return true;
       }
 
       return false;
@@ -7515,7 +7533,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
     
     
-    const extraRanges = getChunkedHistoryRanges(1095, 90);
+    const extraRanges = getChunkedHistoryRanges(1460, 60);
     const all = existingRecords.slice();
 
     const [scoreboardBatch, histA, histB] = await Promise.all([
@@ -7523,14 +7541,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         try {
           const payload = await fetchTennisScoreboard(league, datesQuery);
           return extractCompetitionRecords(payload).filter(function(record) {
-            return record.status.completed &&
-              !record.retired &&
-              Number.isFinite(record.totalGames) &&
+            const hasScores = Number.isFinite(record.totalGames) &&
               Number.isFinite(record.set1Total) &&
               Number.isFinite(record.playerAGames) &&
               Number.isFinite(record.playerBGames) &&
               Number.isFinite(record.playerASet1Games) &&
               Number.isFinite(record.playerBSet1Games);
+            if (!hasScores) return false;
+            if (record.status && record.status.completed) return true;
+            return !!(record.setCount && record.setCount >= 1);
           });
         } catch(e) { return []; }
       })),
@@ -7716,7 +7735,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       let h2h = buildH2HSeries(workingRecords, playerAId, playerBId, qs("teamAName").value, qs("teamBName").value);
 
       if (h2h.length < 5) {
-        setFetchStatus("Recent stats found. Searching older windows for more H2H...", "loading");
+        setFetchStatus("Recent stats found. Searching older windows + athlete history for H2H...", "loading");
         const extraBundle = await fetchExtraH2HRecords(
           league,
           workingRecords,
@@ -7728,6 +7747,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         );
         workingRecords = extraBundle.records;
         h2h = extraBundle.h2h;
+        if (!h2h.length && playerAId && playerBId) {
+          const retryA = await fetchPlayerHistorySettlementRecords(league, playerAId, null).catch(function () { return { records: [] }; });
+          const retryB = await fetchPlayerHistorySettlementRecords(league, playerBId, null).catch(function () { return { records: [] }; });
+          const retryAll = dedupeRecords([].concat(workingRecords, retryA.records || [], retryB.records || []));
+          workingRecords = retryAll;
+          h2h = buildH2HSeries(retryAll, playerAId, playerBId, qs("teamAName").value, qs("teamBName").value);
+        }
       }
 
             const sharedSampleSize = Math.min(10, recentA.length, recentB.length);
