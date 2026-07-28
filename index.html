@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7668,6 +7667,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     clearHeaderError();
     setFetchStatus("Loading stats...", "loading");
     const myToken = espnFetchToken;
+
+    document.querySelectorAll(".section").forEach(function (section) {
+      if (section.id !== "espnSection") {
+        section.classList.add("collapsed");
+        if (typeof syncSectionBodyDisplay === "function") syncSectionBodyDisplay(section);
+      }
+    });
+    if (typeof openSection === "function") openSection("espnSection");
 
     try {
       const records = await fetchHistoryPool(league);
