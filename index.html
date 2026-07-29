@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3702,13 +3701,39 @@ let g_clearDebug = {
     return { pick: "PASS", edge: 0, atMid: true };
   }
 
-    function weightedMean(values) {
+  // PHASE 1: single source of truth for live defaults. Backtest/search may
+  // pass overrides; live path uses getDefaultTennisConfig() unchanged.
+  function getDefaultTennisConfig() {
+    return {
+      decay: 0.75,
+      clayMult: 0.965,
+      grassMult: 1.035,
+      hardMult: 1.0,
+      expectedSetsBO5: 3.82,
+      expectedSetsClay: 2.47,
+      expectedSetsGrass: 2.21,
+      expectedSetsHard: 2.35,
+      bo5FallbackMult: 1.45,
+      allowedBlend: 0.25,
+      hotColdTrendThreshold: 0.20,
+      hotColdFactor: 0.12,
+      surfaceDeltaCap: 1.25,
+      h2hWeightGe5: 0.35,
+      h2hWeightGe3: 0.30,
+      h2hWeightGe2: 0.20,
+      h2hClayFactor: 1.2,
+      h2hGrassFactor: 0.9,
+      h2hWeightCap: 0.45
+    };
+  }
+
+    function weightedMean(values, decayFactor) {
     if (!Array.isArray(values) || !values.length) return null;
     
     
     
     
-    const DECAY_FACTOR = 0.75; 
+    const DECAY_FACTOR = (typeof decayFactor === "number" && isFinite(decayFactor)) ? decayFactor : 0.75; 
     let weightedTotal = 0;
     let weightSum = 0;
 
@@ -3853,6 +3878,7 @@ let g_clearDebug = {
     function buildDerivedMarketInputs(options) {
     const ctx = options.ctx;
     const marketKey = options.marketKey;
+    const tennisConfig = options.tennisConfig || getDefaultTennisConfig();
 
     
     
@@ -3867,8 +3893,8 @@ let g_clearDebug = {
     const sourceA = useCtx ? ctxSeriesA : options.manualA;
     const sourceB = useCtx ? ctxSeriesB : options.manualB;
 
-    let avgA = weightedMean(sourceA) || mean(sourceA) || 0;
-    let avgB = weightedMean(sourceB) || mean(sourceB) || 0;
+    let avgA = weightedMean(sourceA, tennisConfig.decay) || mean(sourceA) || 0;
+    let avgB = weightedMean(sourceB, tennisConfig.decay) || mean(sourceB) || 0;
     let stdA = stdDev(sourceA);
     let stdB = stdDev(sourceB);
 
@@ -3876,7 +3902,7 @@ let g_clearDebug = {
     if (useCtx) notes.push("Recency weighted");
 
     
-    const ALLOWED_BLEND = 0.25;
+    const ALLOWED_BLEND = tennisConfig.allowedBlend;
     if (!useCtx) {
       if (options.manualAllowedA && options.manualAllowedA.length >= 3) {
         const avgAllowedA = mean(options.manualAllowedA);
@@ -3899,8 +3925,8 @@ let g_clearDebug = {
       if (recentA !== null && baseA !== null && baseA > 0 && baseSliceA.length >= 2) {
         const trendA = (recentA - baseA) / baseA;
         const absMoveA = Math.abs(recentA - baseA);
-        if (Math.abs(trendA) > 0.20 || (baseStdA > 0 && absMoveA > 2 * baseStdA)) {
-          avgA *= (1 + trendA * 0.12);
+        if (Math.abs(trendA) > tennisConfig.hotColdTrendThreshold || (baseStdA > 0 && absMoveA > 2 * baseStdA)) {
+          avgA *= (1 + trendA * tennisConfig.hotColdFactor);
           notes.push("A " + (trendA > 0 ? "hot" : "cold") + " " + (trendA > 0 ? "+" : "") + Math.round(trendA * 100) + "%");
         }
       }
@@ -3914,8 +3940,8 @@ let g_clearDebug = {
       if (recentB !== null && baseB !== null && baseB > 0 && baseSliceB.length >= 2) {
         const trendB = (recentB - baseB) / baseB;
         const absMoveB = Math.abs(recentB - baseB);
-        if (Math.abs(trendB) > 0.20 || (baseStdB > 0 && absMoveB > 2 * baseStdB)) {
-          avgB *= (1 + trendB * 0.12);
+        if (Math.abs(trendB) > tennisConfig.hotColdTrendThreshold || (baseStdB > 0 && absMoveB > 2 * baseStdB)) {
+          avgB *= (1 + trendB * tennisConfig.hotColdFactor);
           notes.push("B " + (trendB > 0 ? "hot" : "cold") + " " + (trendB > 0 ? "+" : "") + Math.round(trendB * 100) + "%");
         }
       }
@@ -3971,28 +3997,28 @@ let g_clearDebug = {
     if (isMatch && seriesA.length >= 3 && seriesB.length >= 3) {
       
       
-      const expectedSets = isBO5 ? 3.82 :
+      const expectedSets = isBO5 ? tennisConfig.expectedSetsBO5 :
         
         
         
         
         
         
-        (ctx.surface === "Clay" ? 2.47 :
-         ctx.surface === "Grass" ? 2.21 : 2.35);
+        (ctx.surface === "Clay" ? tennisConfig.expectedSetsClay :
+         ctx.surface === "Grass" ? tennisConfig.expectedSetsGrass : tennisConfig.expectedSetsHard);
       avgA *= expectedSets;
       avgB *= expectedSets;
       
       
       stdA *= Math.sqrt(expectedSets);
       stdB *= Math.sqrt(expectedSets);
-      notes.push(isBO5 ? "Format: BO5 \u00d73.82 sets" : "Normalized: \u00d7" + expectedSets.toFixed(2) + " sets");
+      notes.push(isBO5 ? "Format: BO5 \u00d7" + tennisConfig.expectedSetsBO5 + " sets" : "Normalized: \u00d7" + expectedSets.toFixed(2) + " sets");
     } else if (isMatch && isBO5) {
-      avgA *= 1.45;
-      avgB *= 1.45;
-      stdA *= Math.sqrt(1.45);
-      stdB *= Math.sqrt(1.45);
-      notes.push("Format: BO5 Multiplier (1.45x)");
+      avgA *= tennisConfig.bo5FallbackMult;
+      avgB *= tennisConfig.bo5FallbackMult;
+      stdA *= Math.sqrt(tennisConfig.bo5FallbackMult);
+      stdB *= Math.sqrt(tennisConfig.bo5FallbackMult);
+      notes.push("Format: BO5 Multiplier (" + tennisConfig.bo5FallbackMult + "x)");
     }
 
     
@@ -4003,25 +4029,25 @@ let g_clearDebug = {
     
     
     if (ctx.surface === "Grass") {
-      const grassMult = 1.035;
+      const grassMult = tennisConfig.grassMult;
       avgA *= grassMult;
       avgB *= grassMult;
       notes.push("Surface: Grass (+3.5%)");
     
     } else if (ctx.surface === "Clay") {
-      const clayMult = 0.965;
+      const clayMult = tennisConfig.clayMult;
       avgA *= clayMult;
       avgB *= clayMult;
       notes.push("Surface: Clay (-3.5%)");
     } else if (ctx.surface === "Hard") {
-      const hardMult = 1.0;
+      const hardMult = tennisConfig.hardMult;
       avgA *= hardMult;
       avgB *= hardMult;
     }
 
     const _sdA = (brutalA && Number.isFinite(brutalA.surfaceDelta)) ? brutalA.surfaceDelta : 0;
     const _sdB = (brutalB && Number.isFinite(brutalB.surfaceDelta)) ? brutalB.surfaceDelta : 0;
-    const _sdCap = 1.25;
+    const _sdCap = tennisConfig.surfaceDeltaCap;
     if (_sdA !== 0) {
       const clampedA = Math.max(-_sdCap, Math.min(_sdCap, _sdA));
       avgA = Math.max(0, avgA + clampedA);
@@ -4146,23 +4172,24 @@ let g_clearDebug = {
   }
 
   async function buildMarketResult(config) {
+    const tennisConfig = config.tennisConfig || getDefaultTennisConfig();
     const baseProjection = config.avgA + config.avgB;
     const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
     const h2hAvg = hasH2H ? mean(config.h2h) : null;
 
     
-    let h2hWeight = 0.3;
+    let h2hWeight = tennisConfig.h2hWeightGe3;
     const h2hCount = config.h2h ? config.h2h.length : 0;
-    if (h2hCount >= 5) h2hWeight = 0.35;
-    else if (h2hCount >= 3) h2hWeight = 0.30;
-    else if (h2hCount >= 2) h2hWeight = 0.20;
+    if (h2hCount >= 5) h2hWeight = tennisConfig.h2hWeightGe5;
+    else if (h2hCount >= 3) h2hWeight = tennisConfig.h2hWeightGe3;
+    else if (h2hCount >= 2) h2hWeight = tennisConfig.h2hWeightGe2;
     else h2hWeight = 0.0;
     
     
     
-    if (config.ctx && config.ctx.surface === "Clay") h2hWeight *= 1.2;
-    else if (config.ctx && config.ctx.surface === "Grass") h2hWeight *= 0.9;
-    h2hWeight = Math.min(0.45, Math.max(0.0, h2hWeight));
+    if (config.ctx && config.ctx.surface === "Clay") h2hWeight *= tennisConfig.h2hClayFactor;
+    else if (config.ctx && config.ctx.surface === "Grass") h2hWeight *= tennisConfig.h2hGrassFactor;
+    h2hWeight = Math.min(tennisConfig.h2hWeightCap, Math.max(0.0, h2hWeight));
 
         const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
     let projection = projectionCore + (config.projectionShift || 0);
@@ -4370,9 +4397,10 @@ let g_clearDebug = {
   const set1H2H = qs("use1HH2H").checked ? parseNumericList(qs("a1HH2H").value, "Set 1 H2H totals", 0, 5, true) : [];
 
   const ctx = getEffectiveContext(tour, playerAName, playerBName);
+  const tennisConfig = getDefaultTennisConfig();
 
-  const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: matchRecentA, manualB: matchRecentB, manualAllowedA: matchAllowedA, manualAllowedB: matchAllowedB, manualH2H: matchH2H, ctx: ctx });
-  const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: set1RecentA, manualB: set1RecentB, manualAllowedA: [], manualAllowedB: [], manualH2H: set1H2H, ctx: ctx });
+  const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: matchRecentA, manualB: matchRecentB, manualAllowedA: matchAllowedA, manualAllowedB: matchAllowedB, manualH2H: matchH2H, ctx: ctx, tennisConfig: tennisConfig });
+  const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: set1RecentA, manualB: set1RecentB, manualAllowedA: [], manualAllowedB: [], manualH2H: set1H2H, ctx: ctx, tennisConfig: tennisConfig });
 
   const matchResult = await buildMarketResult({
     marketLabel: "Match Total Games",
@@ -4388,7 +4416,8 @@ let g_clearDebug = {
     avgS1Kill: matchDerived.avgS1Kill,
     projectionShift: matchDerived.projectionShift,
     extraNotes: matchDerived.extraNotes,
-    ctx: ctx
+    ctx: ctx,
+    tennisConfig: tennisConfig
   });
 
   const set1Result = set1LineRange ? await buildMarketResult({
@@ -4405,7 +4434,8 @@ let g_clearDebug = {
     avgS1Kill: set1Derived.avgS1Kill,
     projectionShift: set1Derived.projectionShift,
     extraNotes: set1Derived.extraNotes,
-    ctx: ctx
+    ctx: ctx,
+    tennisConfig: tennisConfig
   }) : null;
 
   const teamAResult = teamALineRange ? await buildMarketResult({
@@ -4422,7 +4452,8 @@ let g_clearDebug = {
     avgS1Kill: matchDerived.avgS1Kill,
     projectionShift: 0,
     extraNotes: matchDerived.extraNotes,
-    ctx: ctx
+    ctx: ctx,
+    tennisConfig: tennisConfig
   }) : null;
 
   const teamBResult = teamBLineRange ? await buildMarketResult({
@@ -4439,7 +4470,8 @@ let g_clearDebug = {
     avgS1Kill: matchDerived.avgS1Kill,
     projectionShift: 0,
     extraNotes: matchDerived.extraNotes,
-    ctx: ctx
+    ctx: ctx,
+    tennisConfig: tennisConfig
   }) : null;
 
   return {
@@ -8412,6 +8444,9 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     };
     window.runTennisMarkovSimulation = runTennisMarkovSimulation;
+    window.getDefaultTennisConfig = getDefaultTennisConfig;
+    window.buildDerivedMarketInputs = buildDerivedMarketInputs;
+    window.buildMarketResult = buildMarketResult;
     window.autoSettleTracker = autoSettleTracker;
     window.getTrackerItems = getTrackerItems;
     window.selectedPlayerIds = selectedPlayerIds;
