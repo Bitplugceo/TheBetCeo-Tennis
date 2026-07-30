@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8814,26 +8815,52 @@ document.addEventListener("DOMContentLoaded", function () {
       throw new Error("No cached season data for " + tourKey + " " + year + " — run fetchTennisSeasonMatchLog first (Phase 1).");
     }
 
-    const records = pull.records;
+    // Optional H2H lookback buffer: if year-1 / year-2 pulls are already cached
+    // (via the H2H BUFFER button), merge them in purely as extra prior-history
+    // context for recent-form/H2H — they are never scored themselves. Backward
+    // compatible: with no lookback years cached, this behaves exactly like the
+    // original within-year-only harness.
+    const scoreRecords = pull.records;
+    const scoreIds = new Set(scoreRecords.map(function (r) { return r.competitionId; }));
+    let historyPool = scoreRecords.slice();
+    const lookbackYearsFound = [];
+    for (let ly = year - 1; ly >= year - 2; ly--) {
+      const lk = tourKey + "_" + ly;
+      const lp = window.__tennisSeasonDataCache && window.__tennisSeasonDataCache[lk];
+      if (lp && lp.records && lp.records.length) {
+        historyPool = historyPool.concat(lp.records);
+        lookbackYearsFound.push(ly);
+      }
+    }
+    historyPool = dedupeRecords(historyPool);
+    historyPool.forEach(function (r) { r._btMs = new Date(r.date).getTime(); });
+    historyPool.sort(function (a, b) { return a._btMs - b._btMs; });
+
     const eloState = { all: new Map(), hard: new Map(), clay: new Map(), grass: new Map() };
     const results = [];
     let skippedNoHistory = 0;
 
-    for (let i = 0; i < records.length; i++) {
-      const match = records[i];
-      const priorRecords = records.slice(0, i);
+    const seasonStartMs = scoreRecords.length ? new Date(scoreRecords[0].date).getTime() : 0;
+    historyPool.forEach(function (r) {
+      if (r._btMs < seasonStartMs && !scoreIds.has(r.competitionId)) btUpdateElo(eloState, r);
+    });
+
+    for (let i = 0; i < scoreRecords.length; i++) {
+      const match = scoreRecords[i];
+      const cutoffMs = new Date(match.date).getTime();
+      const priorRecords = historyPool.filter(function (r) { return r._btMs < cutoffMs; });
       const outcome = btPredictOneMatch(tourKey, match, priorRecords, eloState, tennisConfig);
       if (!outcome) skippedNoHistory++;
       else results.push(outcome);
       btUpdateElo(eloState, match);
 
-      if (typeof onProgress === "function" && (i % 300 === 0 || i === records.length - 1)) {
-        try { onProgress(i + 1, records.length); } catch (e) {}
+      if (typeof onProgress === "function" && (i % 300 === 0 || i === scoreRecords.length - 1)) {
+        try { onProgress(i + 1, scoreRecords.length); } catch (e) {}
       }
       if (i % 100 === 0) { await new Promise(function (r) { setTimeout(r, 0); }); }
     }
 
-    return { tour: tourKey, year: year, tennisConfig: tennisConfig, results: results, totalMatches: records.length, skippedNoHistory: skippedNoHistory };
+    return { tour: tourKey, year: year, tennisConfig: tennisConfig, results: results, totalMatches: scoreRecords.length, skippedNoHistory: skippedNoHistory, lookbackYearsUsed: lookbackYearsFound };
   }
 
   function summarizeTennisBacktest(backtestResult) {
@@ -8874,7 +8901,8 @@ document.addEventListener("DOMContentLoaded", function () {
       avgSharedSampleDepth: avgSampleDepth, avgH2HDepth: avgH2HDepth,
       surfaceKnownMatches: surfaceKnown, surfaceUnknownMatches: surfaceUnknown,
       matchMaeSurfaceKnown: matchMaeKnownN ? +(matchMaeKnownSum / matchMaeKnownN).toFixed(3) : null,
-      matchMaeSurfaceUnknown: matchMaeUnknownN ? +(matchMaeUnknownSum / matchMaeUnknownN).toFixed(3) : null
+      matchMaeSurfaceUnknown: matchMaeUnknownN ? +(matchMaeUnknownSum / matchMaeUnknownN).toFixed(3) : null,
+      lookbackYearsUsed: (backtestResult && backtestResult.lookbackYearsUsed) || []
     };
   }
 
@@ -8965,6 +8993,7 @@ panel.innerHTML =
       '<button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ Clear</button>' +
       '<button onclick="AFDB.runTestSweep()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>' +
       '<button onclick="AFDB.runSeasonPull()" style="background:#0a1a2a;border:1px solid #4ea9ff;color:#4ea9ff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📅 SEASON PULL</button>' +
+      '<button onclick="AFDB.runH2HBufferPull()" style="background:#1a1400;border:1px solid #e0b84a;color:#e0b84a;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📚 H2H BUFFER</button>' +
       '<button onclick="AFDB.runProjectionBacktest()" style="background:#1a0a2a;border:1px solid #b478ff;color:#b478ff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🧪 RUN BACKTEST</button>' +
       '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
       '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
@@ -9127,6 +9156,27 @@ async function runSeasonPull(year) {
   log('SUCCESS', 'SEASON_PULL', `Phase 1 pull complete for both tours. Tap "Copy Log" above and send it back.`);
 }
 
+async function runH2HBufferPull() {
+  const primaryYear = new Date().getFullYear() - 1;
+  const lookbackYears = [primaryYear - 1, primaryYear - 2];
+  log('INFO', 'H2H_BUFFER', `Starting H2H lookback buffer pull: ATP + WTA for ${lookbackYears.join(', ')}. These years are NOT scored — they only add prior-history context for H2H/recent form on the ${primaryYear} backtest.`);
+  for (const yr of lookbackYears) {
+    for (const tour of ['ATP', 'WTA']) {
+      try {
+        log('INFO', 'H2H_BUFFER', `${tour} ${yr}: fetching...`);
+        const pull = await window.fetchTennisSeasonMatchLog(tour, yr, function(done, total) {
+          log('INFO', 'H2H_BUFFER', `${tour} ${yr}: chunk ${done}/${total} done.`);
+        });
+        const summary = window.summarizeTennisSeasonPull(pull);
+        log('SUCCESS', 'H2H_BUFFER', `${tour} ${yr} summary:`, summary);
+      } catch (e) {
+        log('ERROR', 'H2H_BUFFER', `${tour} ${yr} pull failed: ` + (e && e.message || String(e)));
+      }
+    }
+  }
+  log('SUCCESS', 'H2H_BUFFER', `H2H buffer pull complete. Tap 🧪 RUN BACKTEST next, still in this same session — it will automatically pick up this extra history.`);
+}
+
 async function runProjectionBacktest(year) {
   const targetYear = Number.isFinite(year) ? year : (new Date().getFullYear() - 1);
   log('INFO', 'BACKTEST', `Starting Phase 2 walk-forward replay for ATP + WTA ${targetYear}. This runs a lot of computation on-device — can take a couple minutes per tour, stay on this screen.`);
@@ -9150,7 +9200,7 @@ async function runProjectionBacktest(year) {
   log('SUCCESS', 'BACKTEST', `Phase 2 replay complete for both tours. Tap "Copy Log" above and send it back.`);
 }
 
-return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, runSeasonPull: runSeasonPull, runProjectionBacktest: runProjectionBacktest, get logs() { return _log; } }; 
+return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, runSeasonPull: runSeasonPull, runH2HBufferPull: runH2HBufferPull, runProjectionBacktest: runProjectionBacktest, get logs() { return _log; } }; 
 })(); 
 
 </script>
