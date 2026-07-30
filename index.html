@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7348,6 +7349,160 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     historyPoolCache.set(key, promise);
     return promise;
   }
+
+  // ===== PHASE 1 (backtest roadmap): season-scoped historical match log =====
+  // fetchHistoryPool above is a rolling "last 180 days from now" cache for
+  // the LIVE engine's recent-form lookups — it is not season-scoped and is
+  // deliberately left untouched. Everything below is a separate, additive
+  // acquisition path for one completed calendar year (ATP/WTA "season" =
+  // full calendar year; the tour has no NBA-style season boundary). Nothing
+  // here is wired into buildEngineResults() / the live prediction path —
+  // this is data acquisition only. Walk-forward replay is Phase 2.
+
+  // Chunked YYYYMMDD-YYYYMMDD windows spanning Jan 1 - Dec 31 of `year`,
+  // ascending. Mirrors getChunkedHistoryRanges' chunk size, but anchored to
+  // a fixed calendar year instead of counting backward from "now", and
+  // clamps the final window so it never requests dates in the future.
+  function getSeasonDateRanges(year, chunkDays) {
+    const step = Number.isFinite(chunkDays) && chunkDays > 0 ? chunkDays : 60;
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31);
+    const today = new Date();
+    const hardEnd = yearEnd.getTime() > today.getTime() ? today : yearEnd;
+
+    const ranges = [];
+    let cursor = yearStart;
+    while (cursor.getTime() <= hardEnd.getTime()) {
+      const chunkEnd = addDays(cursor, step - 1);
+      const clampedEnd = chunkEnd.getTime() > hardEnd.getTime() ? hardEnd : chunkEnd;
+      ranges.push(dateKeyFromDate(cursor) + "-" + dateKeyFromDate(clampedEnd));
+      cursor = addDays(clampedEnd, 1);
+    }
+    return ranges;
+  }
+
+  // Pulls every completed singles match for `league` (ATP/WTA) across
+  // `year`, resumable via a localStorage checkpoint (mirrors the NBA
+  // backtest's h1ByEvent progress-save pattern) so an interrupted pull
+  // doesn't restart from chunk 0. Filters mirror fetchHistoryPool's
+  // completeness check plus the same-tour gender guard loadFixtures uses.
+  async function fetchTennisSeasonMatchLog(league, year, onProgress) {
+    const key = String(league || "").trim().toUpperCase();
+    const seasonYear = Number.isFinite(year) ? year : (new Date().getFullYear() - 1);
+    if (!window.__tennisSeasonDataCache) window.__tennisSeasonDataCache = {};
+    const cacheKey = key + "_" + seasonYear;
+    const cached = window.__tennisSeasonDataCache[cacheKey];
+    if (cached && cached.records) {
+      if (typeof onProgress === "function") { try { onProgress(cached.records.length, cached.records.length); } catch (e) {} }
+      return cached;
+    }
+
+    const progressKey = "TENNIS_SEASON_PROGRESS_" + cacheKey;
+    const ranges = getSeasonDateRanges(seasonYear, 60);
+    let startAt = 0;
+    let accumulated = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem(progressKey) || "null");
+      if (saved && saved.league === key && saved.year === seasonYear && Array.isArray(saved.records)) {
+        accumulated = saved.records;
+        startAt = Number(saved.chunkIndex) || 0;
+      }
+    } catch (e) {}
+
+    for (let i = startAt; i < ranges.length; i++) {
+      let chunkRecords = [];
+      try {
+        const payload = await fetchTennisScoreboard(key, ranges[i]);
+        chunkRecords = extractCompetitionRecords(payload).filter(function (record) {
+          if (key === "ATP" && record.gender === "WTA") return false;
+          if (key === "WTA" && record.gender === "ATP") return false;
+          return record.status.completed &&
+            !record.retired &&
+            Number.isFinite(record.totalGames) &&
+            Number.isFinite(record.set1Total) &&
+            Number.isFinite(record.playerAGames) &&
+            Number.isFinite(record.playerBGames) &&
+            Number.isFinite(record.playerASet1Games) &&
+            Number.isFinite(record.playerBSet1Games);
+        });
+      } catch (e) {
+        if (typeof window.engineDebug === "function") window.engineDebug("TENNIS_SEASON_FETCH chunk failed", ranges[i] + " | " + (e && e.message || String(e)));
+      }
+      accumulated = accumulated.concat(chunkRecords);
+      try { localStorage.setItem(progressKey, JSON.stringify({ league: key, year: seasonYear, chunkIndex: i + 1, records: accumulated })); } catch (e) {}
+      if (typeof onProgress === "function") { try { onProgress(i + 1, ranges.length); } catch (e) {} }
+      await new Promise(function (r) { setTimeout(r, 20); });
+    }
+
+    const deduped = dedupeRecords(accumulated).sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
+    try { localStorage.removeItem(progressKey); } catch (e) {}
+
+    const result = {
+      league: key, year: seasonYear, records: deduped,
+      playerIndex: buildTennisPlayerIndex(deduped, key),
+      fetchedAt: new Date().toISOString()
+    };
+    window.__tennisSeasonDataCache[cacheKey] = result;
+    return result;
+  }
+
+  // Reshapes the flat match list into a per-player log (mirrors NBA's
+  // gameLogs[teamId] shape) so Phase 2's rolling-window walk can pull
+  // "this player's last N matches before date X" directly, from either
+  // side of the matchup.
+  function buildTennisPlayerIndex(records, tour) {
+    const index = {};
+    (records || []).forEach(function (r) {
+      const fmt = inferMatchFormat(tour, r.eventLevel);
+      if (!index[r.playerAId]) index[r.playerAId] = [];
+      if (!index[r.playerBId]) index[r.playerBId] = [];
+      index[r.playerAId].push({
+        date: r.date, competitionId: r.competitionId, oppId: r.playerBId, oppName: r.playerBName,
+        selfGames: r.playerAGames, oppGames: r.playerBGames,
+        selfSet1Games: r.playerASet1Games, oppSet1Games: r.playerBSet1Games,
+        surface: r.surface, eventLevel: r.eventLevel, matchFormat: fmt
+      });
+      index[r.playerBId].push({
+        date: r.date, competitionId: r.competitionId, oppId: r.playerAId, oppName: r.playerAName,
+        selfGames: r.playerBGames, oppGames: r.playerAGames,
+        selfSet1Games: r.playerBSet1Games, oppSet1Games: r.playerASet1Games,
+        surface: r.surface, eventLevel: r.eventLevel, matchFormat: fmt
+      });
+    });
+    Object.keys(index).forEach(function (id) {
+      index[id].sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
+    });
+    return index;
+  }
+
+  // Spot-check summary so Phase 1 can be verified before Phase 2 is built
+  // on top of it — matches the roadmap's "spot-checked" requirement.
+  function summarizeTennisSeasonPull(pullResult) {
+    const records = (pullResult && pullResult.records) || [];
+    const bySurface = {};
+    const byMonth = {};
+    let missingSet1 = 0, missingTotals = 0;
+    records.forEach(function (r) {
+      const surf = r.surface || "Unknown";
+      bySurface[surf] = (bySurface[surf] || 0) + 1;
+      const month = String(r.date || "").slice(0, 7) || "unknown";
+      byMonth[month] = (byMonth[month] || 0) + 1;
+      if (!Number.isFinite(r.set1Total)) missingSet1++;
+      if (!Number.isFinite(r.totalGames)) missingTotals++;
+    });
+    const dates = records.map(function (r) { return r.date; }).filter(Boolean).sort();
+    return {
+      league: pullResult && pullResult.league, year: pullResult && pullResult.year,
+      totalMatches: records.length,
+      dateRange: dates.length ? (dates[0] + " to " + dates[dates.length - 1]) : null,
+      bySurface: bySurface, byMonth: byMonth,
+      missingSet1Total: missingSet1, missingMatchTotal: missingTotals
+    };
+  }
+
+  window.fetchTennisSeasonMatchLog = fetchTennisSeasonMatchLog;
+  window.buildTennisPlayerIndex = buildTennisPlayerIndex;
+  window.summarizeTennisSeasonPull = summarizeTennisSeasonPull;
 
   function findPlayerCandidatesByName(name, records, tour) {
     const target = normalizeName(name);
