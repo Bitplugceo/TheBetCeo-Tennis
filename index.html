@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7403,6 +7404,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     let rawSeenTotal = 0;
     let rejectedTotal = 0;
     const reasonCounts = { wrongGender: 0, notCompleted: 0, retired: 0, noLinescores: 0, noSet1Only: 0, noLinescoresByLevel: {} };
+    let acceptedUnknownGender = 0;
     try {
       const saved = JSON.parse(localStorage.getItem(progressKey) || "null");
       if (saved && saved.league === key && saved.year === seasonYear && Array.isArray(saved.records)) {
@@ -7432,6 +7434,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             reasonCounts.noSet1Only++;
             return;
           }
+          if (record.gender === "UNKNOWN") acceptedUnknownGender++;
           chunkRecords.push(record);
         });
         rejectedTotal += (rawRecords.length - chunkRecords.length);
@@ -7451,6 +7454,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       league: key, year: seasonYear, records: deduped,
       playerIndex: buildTennisPlayerIndex(deduped, key),
       rawSeenTotal: rawSeenTotal, rejectedTotal: rejectedTotal, reasonCounts: reasonCounts,
+      acceptedUnknownGender: acceptedUnknownGender,
       fetchedAt: new Date().toISOString()
     };
     window.__tennisSeasonDataCache[cacheKey] = result;
@@ -7511,7 +7515,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       bySurface: bySurface, byMonth: byMonth,
       rejectedRecords: rejected, rawSeenTotal: rawSeen,
       acceptRate: rawSeen ? +((records.length / rawSeen) * 100).toFixed(1) : null,
-      rejectReasons: (pullResult && pullResult.reasonCounts) || null
+      rejectReasons: (pullResult && pullResult.reasonCounts) || null,
+      acceptedUnknownGender: (pullResult && pullResult.acceptedUnknownGender) || 0
     };
   }
 
