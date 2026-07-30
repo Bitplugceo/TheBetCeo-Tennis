@@ -1,4 +1,3 @@
-Z
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7403,6 +7402,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     let accumulated = [];
     let rawSeenTotal = 0;
     let rejectedTotal = 0;
+    const reasonCounts = { wrongGender: 0, notCompleted: 0, retired: 0, noLinescores: 0, noSet1Only: 0, noLinescoresByLevel: {} };
     try {
       const saved = JSON.parse(localStorage.getItem(progressKey) || "null");
       if (saved && saved.league === key && saved.year === seasonYear && Array.isArray(saved.records)) {
@@ -7417,17 +7417,22 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         const payload = await fetchTennisScoreboard(key, ranges[i]);
         const rawRecords = extractCompetitionRecords(payload);
         rawSeenTotal += rawRecords.length;
-        chunkRecords = rawRecords.filter(function (record) {
-          if (key === "ATP" && record.gender === "WTA") return false;
-          if (key === "WTA" && record.gender === "ATP") return false;
-          return record.status.completed &&
-            !record.retired &&
-            Number.isFinite(record.totalGames) &&
-            Number.isFinite(record.set1Total) &&
-            Number.isFinite(record.playerAGames) &&
-            Number.isFinite(record.playerBGames) &&
-            Number.isFinite(record.playerASet1Games) &&
-            Number.isFinite(record.playerBSet1Games);
+        rawRecords.forEach(function (record) {
+          if (key === "ATP" && record.gender === "WTA") { reasonCounts.wrongGender++; return; }
+          if (key === "WTA" && record.gender === "ATP") { reasonCounts.wrongGender++; return; }
+          if (!record.status.completed) { reasonCounts.notCompleted++; return; }
+          if (record.retired) { reasonCounts.retired++; return; }
+          if (!record.setCount || !Number.isFinite(record.totalGames) || !Number.isFinite(record.playerAGames) || !Number.isFinite(record.playerBGames)) {
+            reasonCounts.noLinescores++;
+            const lvl = record.eventLevel || "(blank)";
+            reasonCounts.noLinescoresByLevel[lvl] = (reasonCounts.noLinescoresByLevel[lvl] || 0) + 1;
+            return;
+          }
+          if (!Number.isFinite(record.set1Total) || !Number.isFinite(record.playerASet1Games) || !Number.isFinite(record.playerBSet1Games)) {
+            reasonCounts.noSet1Only++;
+            return;
+          }
+          chunkRecords.push(record);
         });
         rejectedTotal += (rawRecords.length - chunkRecords.length);
       } catch (e) {
@@ -7445,7 +7450,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const result = {
       league: key, year: seasonYear, records: deduped,
       playerIndex: buildTennisPlayerIndex(deduped, key),
-      rawSeenTotal: rawSeenTotal, rejectedTotal: rejectedTotal,
+      rawSeenTotal: rawSeenTotal, rejectedTotal: rejectedTotal, reasonCounts: reasonCounts,
       fetchedAt: new Date().toISOString()
     };
     window.__tennisSeasonDataCache[cacheKey] = result;
@@ -7504,9 +7509,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       totalMatches: records.length,
       dateRange: dates.length ? (dates[0] + " to " + dates[dates.length - 1]) : null,
       bySurface: bySurface, byMonth: byMonth,
-      missingSet1Total: missingSet1, missingMatchTotal: missingTotals,
       rejectedRecords: rejected, rawSeenTotal: rawSeen,
-      acceptRate: rawSeen ? +((records.length / rawSeen) * 100).toFixed(1) : null
+      acceptRate: rawSeen ? +((records.length / rawSeen) * 100).toFixed(1) : null,
+      rejectReasons: (pullResult && pullResult.reasonCounts) || null
     };
   }
 
