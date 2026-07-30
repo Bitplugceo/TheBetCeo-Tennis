@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8909,6 +8908,119 @@ document.addEventListener("DOMContentLoaded", function () {
   window.runTennisSeasonBacktest = runTennisSeasonBacktest;
   window.summarizeTennisBacktest = summarizeTennisBacktest;
 
+  // ===== PHASE 3 (backtest roadmap): scoring & diagnostics =====
+  // Turns Phase 2's raw predicted-vs-actual rows into a 0-100 composite
+  // Accuracy Score, a chronological train/holdout split, and the two
+  // carried-forward Phase 2 findings (H2H depth, surface-known-vs-unknown).
+  // Read-only over backtestResult.results — never touches Phase 1/2 code.
+
+  const TENNIS_ACCURACY_TARGET_FRACTION = 0.65;
+
+  function btNaiveBaselineMAE(results, market) {
+    const actuals = results.map(function (r) { return r.actual[market]; }).filter(Number.isFinite);
+    if (!actuals.length) return null;
+    const meanActual = actuals.reduce(function (a, b) { return a + b; }, 0) / actuals.length;
+    const mae = actuals.reduce(function (s, v) { return s + Math.abs(v - meanActual); }, 0) / actuals.length;
+    return { meanActual: +meanActual.toFixed(3), naiveMae: +mae.toFixed(3) };
+  }
+
+  function computeTennisAccuracyTargets(results) {
+    const markets = ["match", "set1", "team_a", "team_b"];
+    const targets = {};
+    markets.forEach(function (mk) {
+      const naive = btNaiveBaselineMAE(results, mk);
+      targets[mk] = naive ? +(naive.naiveMae * TENNIS_ACCURACY_TARGET_FRACTION).toFixed(3) : null;
+    });
+    return targets;
+  }
+
+  function computeTennisCalibration(results) {
+    const markets = ["match", "set1", "team_a", "team_b"];
+    const calibration = { n: results.length };
+    markets.forEach(function (mk) {
+      let sum = 0, count = 0;
+      results.forEach(function (r) {
+        const p = r.predicted[mk], a = r.actual[mk];
+        if (Number.isFinite(p) && Number.isFinite(a)) { sum += Math.abs(p - a); count++; }
+      });
+      calibration[mk + "MAE"] = count ? +(sum / count).toFixed(3) : null;
+      calibration[mk + "N"] = count;
+    });
+    return calibration;
+  }
+
+  function btBandScore(mae, target) {
+    if (!isFinite(mae) || !isFinite(target) || target <= 0) return null;
+    return Math.max(0, Math.min(100, 100 * (1 - mae / (2 * target))));
+  }
+
+  function computeTennisAccuracyScore(calibration, targets) {
+    const markets = ["match", "set1", "team_a", "team_b"];
+    const breakdown = {};
+    let sum = 0, count = 0;
+    markets.forEach(function (mk) {
+      const s = btBandScore(calibration[mk + "MAE"], targets[mk]);
+      breakdown[mk] = s !== null ? +s.toFixed(1) : null;
+      if (s !== null) { sum += s; count++; }
+    });
+    const composite = count ? +(sum / count).toFixed(1) : null;
+    return { composite: composite, breakdown: breakdown };
+  }
+
+  function diagnoseTennisBacktest(backtestResult) {
+    const results = (backtestResult && backtestResult.results) || [];
+    if (!results.length) return { error: "No results to score." };
+
+    const splitIdx = Math.floor(results.length * 0.7);
+    const trainResults = results.slice(0, splitIdx);
+    const holdoutResults = results.slice(splitIdx);
+    const targets = computeTennisAccuracyTargets(trainResults.length ? trainResults : results);
+
+    const overallCal = computeTennisCalibration(results);
+    const trainCal = computeTennisCalibration(trainResults);
+    const holdoutCal = computeTennisCalibration(holdoutResults);
+    const overallScore = computeTennisAccuracyScore(overallCal, targets);
+    const trainScore = computeTennisAccuracyScore(trainCal, targets);
+    const holdoutScore = computeTennisAccuracyScore(holdoutCal, targets);
+
+    const h2hPresent = results.filter(function (r) { return r.sampleDepth && r.sampleDepth.h2h >= 2; });
+    const h2hAbsent = results.filter(function (r) { return !r.sampleDepth || r.sampleDepth.h2h < 2; });
+    const h2hPresentCal = computeTennisCalibration(h2hPresent);
+    const h2hAbsentCal = computeTennisCalibration(h2hAbsent);
+
+    const tour = backtestResult.tour;
+    function classifyCell(r) {
+      const known = r.surface === "Hard" || r.surface === "Clay" || r.surface === "Grass";
+      const isBO5 = (tour === "ATP" && r.eventLevel === "Grand Slam");
+      return (known ? "known" : "unknown") + "_" + (isBO5 ? "bo5" : "bo3");
+    }
+    const cells = { known_bo3: [], known_bo5: [], unknown_bo3: [], unknown_bo5: [] };
+    results.forEach(function (r) { cells[classifyCell(r)].push(r); });
+    const surfaceFormatBreakdown = {};
+    Object.keys(cells).forEach(function (k) {
+      const arr = cells[k];
+      let sum = 0, count = 0;
+      arr.forEach(function (r) {
+        const p = r.predicted.match, a = r.actual.match;
+        if (Number.isFinite(p) && Number.isFinite(a)) { sum += Math.abs(p - a); count++; }
+      });
+      surfaceFormatBreakdown[k] = { n: arr.length, matchMAE: count ? +(sum / count).toFixed(3) : null };
+    });
+
+    return {
+      tour: tour, year: backtestResult.year,
+      targets: targets,
+      overall: { calibration: overallCal, score: overallScore },
+      train: { calibration: trainCal, score: trainScore, n: trainResults.length },
+      holdout: { calibration: holdoutCal, score: holdoutScore, n: holdoutResults.length },
+      h2hPresent: { calibration: h2hPresentCal, n: h2hPresent.length },
+      h2hAbsent: { calibration: h2hAbsentCal, n: h2hAbsent.length },
+      surfaceFormatBreakdown: surfaceFormatBreakdown
+    };
+  }
+
+  window.diagnoseTennisBacktest = diagnoseTennisBacktest;
+
 })();
 
 </script>
@@ -8995,6 +9107,7 @@ panel.innerHTML =
       '<button onclick="AFDB.runSeasonPull()" style="background:#0a1a2a;border:1px solid #4ea9ff;color:#4ea9ff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📅 SEASON PULL</button>' +
       '<button onclick="AFDB.runH2HBufferPull()" style="background:#1a1400;border:1px solid #e0b84a;color:#e0b84a;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📚 H2H BUFFER</button>' +
       '<button onclick="AFDB.runProjectionBacktest()" style="background:#1a0a2a;border:1px solid #b478ff;color:#b478ff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🧪 RUN BACKTEST</button>' +
+      '<button onclick="AFDB.runAccuracyScoring()" style="background:#001a12;border:1px solid #4ade80;color:#4ade80;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📈 SCORE BACKTEST</button>' +
       '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
       '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
     '</div>' +
@@ -9191,6 +9304,8 @@ async function runProjectionBacktest(year) {
       const bt = await window.runTennisSeasonBacktest(tour, targetYear, function(done, total) {
         log('INFO', 'BACKTEST', `${tour} ${targetYear}: ${done}/${total} matches replayed.`);
       });
+      if (!window.__tennisBacktestCache) window.__tennisBacktestCache = {};
+      window.__tennisBacktestCache[tour + '_' + targetYear] = bt;
       const summary = window.summarizeTennisBacktest(bt);
       log('SUCCESS', 'BACKTEST', `${tour} ${targetYear} summary:`, summary);
     } catch (e) {
@@ -9200,7 +9315,24 @@ async function runProjectionBacktest(year) {
   log('SUCCESS', 'BACKTEST', `Phase 2 replay complete for both tours. Tap "Copy Log" above and send it back.`);
 }
 
-return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, runSeasonPull: runSeasonPull, runH2HBufferPull: runH2HBufferPull, runProjectionBacktest: runProjectionBacktest, get logs() { return _log; } }; 
+async function runAccuracyScoring(year) {
+  const targetYear = Number.isFinite(year) ? year : (new Date().getFullYear() - 1);
+  for (const tour of ['ATP', 'WTA']) {
+    const cacheKey = tour + '_' + targetYear;
+    const bt = window.__tennisBacktestCache && window.__tennisBacktestCache[cacheKey];
+    if (!bt) {
+      log('ERROR', 'SCORE', `${tour} ${targetYear}: no backtest cached in this session. Run 🧪 RUN BACKTEST first, then this button.`);
+      continue;
+    }
+    const diagnosis = window.diagnoseTennisBacktest(bt);
+    if (diagnosis.error) { log('ERROR', 'SCORE', `${tour} ${targetYear}: ${diagnosis.error}`); continue; }
+    log('SUCCESS', 'SCORE', `${tour} ${targetYear} ACCURACY SCORE: ${diagnosis.overall.score.composite}/100  (train ${diagnosis.train.score.composite} | holdout ${diagnosis.holdout.score.composite})`);
+    log('INFO', 'SCORE', `${tour} ${targetYear} full diagnosis:`, diagnosis);
+  }
+  log('SUCCESS', 'SCORE', `Phase 3 scoring complete for both tours. Tap "Copy Log" above and send it back.`);
+}
+
+return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, runSeasonPull: runSeasonPull, runH2HBufferPull: runH2HBufferPull, runProjectionBacktest: runProjectionBacktest, runAccuracyScoring: runAccuracyScoring, get logs() { return _log; } }; 
 })(); 
 
 </script>
