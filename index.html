@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8724,6 +8723,7 @@ panel.innerHTML =
       '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">📋 Copy Log</button>' +
       '<button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ Clear</button>' +
       '<button onclick="AFDB.runTestSweep()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>' +
+      '<button onclick="AFDB.runSeasonPull()" style="background:#0a1a2a;border:1px solid #4ea9ff;color:#4ea9ff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📅 SEASON PULL</button>' +
       '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
       '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
     '</div>' +
@@ -8866,7 +8866,26 @@ log('ERROR', 'SETTLE', 'window.autoSettleTracker not found — reload the page.'
 if (btnEl) { btnEl.innerHTML = orig; btnEl.disabled = false; } 
 } 
 } 
-return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, get logs() { return _log; } }; 
+
+async function runSeasonPull(year) {
+  const targetYear = Number.isFinite(year) ? year : (new Date().getFullYear() - 1);
+  log('INFO', 'SEASON_PULL', `Starting ATP + WTA ${targetYear} season pull — stay on this screen, this can take a minute or two.`);
+  for (const tour of ['ATP', 'WTA']) {
+    try {
+      log('INFO', 'SEASON_PULL', `${tour} ${targetYear}: fetching...`);
+      const pull = await window.fetchTennisSeasonMatchLog(tour, targetYear, function(done, total) {
+        log('INFO', 'SEASON_PULL', `${tour} ${targetYear}: chunk ${done}/${total} done.`);
+      });
+      const summary = window.summarizeTennisSeasonPull(pull);
+      log('SUCCESS', 'SEASON_PULL', `${tour} ${targetYear} summary:`, summary);
+    } catch (e) {
+      log('ERROR', 'SEASON_PULL', `${tour} ${targetYear} pull failed: ` + (e && e.message || String(e)));
+    }
+  }
+  log('SUCCESS', 'SEASON_PULL', `Phase 1 pull complete for both tours. Tap "Copy Log" above and send it back.`);
+}
+
+return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, runSeasonPull: runSeasonPull, get logs() { return _log; } }; 
 })(); 
 
 </script>
