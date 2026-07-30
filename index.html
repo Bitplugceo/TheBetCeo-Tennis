@@ -1,3 +1,4 @@
+Z
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7063,7 +7064,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || "").trim(),
       status: status,
       retired: status.retired || false,
-      surface: extractSurfaceText(comp, parentEvent),
+      surface: surface,
       playerAId: aId, playerAName: aName, playerBId: bId, playerBName: bName,
       playerARank: playerARank, playerBRank: playerBRank,
       playerARankMove: playerARankMove, playerBRankMove: playerBRankMove,
@@ -7400,6 +7401,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const ranges = getSeasonDateRanges(seasonYear, 60);
     let startAt = 0;
     let accumulated = [];
+    let rawSeenTotal = 0;
+    let rejectedTotal = 0;
     try {
       const saved = JSON.parse(localStorage.getItem(progressKey) || "null");
       if (saved && saved.league === key && saved.year === seasonYear && Array.isArray(saved.records)) {
@@ -7412,7 +7415,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       let chunkRecords = [];
       try {
         const payload = await fetchTennisScoreboard(key, ranges[i]);
-        chunkRecords = extractCompetitionRecords(payload).filter(function (record) {
+        const rawRecords = extractCompetitionRecords(payload);
+        rawSeenTotal += rawRecords.length;
+        chunkRecords = rawRecords.filter(function (record) {
           if (key === "ATP" && record.gender === "WTA") return false;
           if (key === "WTA" && record.gender === "ATP") return false;
           return record.status.completed &&
@@ -7424,6 +7429,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             Number.isFinite(record.playerASet1Games) &&
             Number.isFinite(record.playerBSet1Games);
         });
+        rejectedTotal += (rawRecords.length - chunkRecords.length);
       } catch (e) {
         if (typeof window.engineDebug === "function") window.engineDebug("TENNIS_SEASON_FETCH chunk failed", ranges[i] + " | " + (e && e.message || String(e)));
       }
@@ -7439,6 +7445,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const result = {
       league: key, year: seasonYear, records: deduped,
       playerIndex: buildTennisPlayerIndex(deduped, key),
+      rawSeenTotal: rawSeenTotal, rejectedTotal: rejectedTotal,
       fetchedAt: new Date().toISOString()
     };
     window.__tennisSeasonDataCache[cacheKey] = result;
@@ -7490,12 +7497,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       if (!Number.isFinite(r.totalGames)) missingTotals++;
     });
     const dates = records.map(function (r) { return r.date; }).filter(Boolean).sort();
+    const rejected = (pullResult && pullResult.rejectedTotal) || 0;
+    const rawSeen = (pullResult && pullResult.rawSeenTotal) || 0;
     return {
       league: pullResult && pullResult.league, year: pullResult && pullResult.year,
       totalMatches: records.length,
       dateRange: dates.length ? (dates[0] + " to " + dates[dates.length - 1]) : null,
       bySurface: bySurface, byMonth: byMonth,
-      missingSet1Total: missingSet1, missingMatchTotal: missingTotals
+      missingSet1Total: missingSet1, missingMatchTotal: missingTotals,
+      rejectedRecords: rejected, rawSeenTotal: rawSeen,
+      acceptRate: rawSeen ? +((records.length / rawSeen) * 100).toFixed(1) : null
     };
   }
 
