@@ -1,3 +1,4 @@
+M
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9040,6 +9041,239 @@ document.addEventListener("DOMContentLoaded", function () {
 
   window.diagnoseTennisBacktest = diagnoseTennisBacktest;
 
+  // ===== PHASE 6 (backtest roadmap): parameter sweep execution =====
+  // Coordinate-ascent over the Phase 5 ranges. Contexts (everything in
+  // btPredictOneMatch that does NOT depend on tennisConfig) are built once
+  // and cached; each candidate only re-runs the cheap config-dependent part
+  // against the cache. Train split only — holdout is reserved for Phase 7.
+
+  const TENNIS_PARAM_SEARCH_SPACE = {
+    expectedSetsBO5:       { min: 3.40, max: 4.20, step: 0.10 },
+    decay:                 { min: 0.55, max: 0.90, step: 0.05 },
+    clayMult:              { min: 0.90, max: 1.05, step: 0.025 },
+    grassMult:             { min: 0.95, max: 1.15, step: 0.025 },
+    hardMult:              { min: 0.92, max: 1.08, step: 0.02 },
+    expectedSetsClay:      { min: 2.30, max: 2.60, step: 0.05 },
+    expectedSetsGrass:     { min: 2.05, max: 2.35, step: 0.05 },
+    expectedSetsHard:      { min: 2.20, max: 2.50, step: 0.05 },
+    hotColdTrendThreshold: { min: 0.10, max: 0.35, step: 0.05 },
+    hotColdFactor:         { min: 0.05, max: 0.25, step: 0.05 },
+    surfaceDeltaCap:       { min: 0.80, max: 1.80, step: 0.10 },
+    h2hWeightGe5:          { min: 0.25, max: 0.50, step: 0.05 },
+    h2hWeightGe3:          { min: 0.20, max: 0.40, step: 0.05 },
+    h2hWeightGe2:          { min: 0.10, max: 0.30, step: 0.05 },
+    h2hClayFactor:         { min: 1.00, max: 1.50, step: 0.10 },
+    h2hGrassFactor:        { min: 0.70, max: 1.10, step: 0.10 },
+    h2hWeightCap:          { min: 0.30, max: 0.60, step: 0.05 }
+  };
+
+  function btParamRange(spec) {
+    const vals = [];
+    for (let v = spec.min; v <= spec.max + 1e-9; v += spec.step) vals.push(+v.toFixed(4));
+    return vals;
+  }
+
+  function btBuildOneContext(tour, match, priorRecords, eloState) {
+    const playerAId = match.playerAId, playerBId = match.playerBId;
+    const recentA = buildRecentSeries(priorRecords, playerAId);
+    const recentB = buildRecentSeries(priorRecords, playerBId);
+    if (!recentA.length || !recentB.length) return null;
+
+    const h2h = buildH2HSeries(priorRecords, playerAId, playerBId, match.playerAName, match.playerBName);
+    const sharedSampleSize = Math.min(10, recentA.length, recentB.length);
+    const recentA10 = recentA.slice(0, sharedSampleSize);
+    const recentB10 = recentB.slice(0, sharedSampleSize);
+
+    const currentSurface = match.surface || "";
+    const surfaceKey = currentSurface.toLowerCase();
+    const eloMapKey = (surfaceKey === "clay" || surfaceKey === "grass" || surfaceKey === "hard") ? surfaceKey : "all";
+    const eloMap = eloState[eloMapKey];
+    const eloA = eloMap.has(playerAId) ? eloMap.get(playerAId) : 1500;
+    const eloB = eloMap.has(playerBId) ? eloMap.get(playerBId) : 1500;
+
+    const aGames = recentA10.map(function (m) { return m.playerGames; }).filter(Number.isFinite);
+    const bGames = recentB10.map(function (m) { return m.playerGames; }).filter(Number.isFinite);
+    const aSet1Games = recentA10.map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
+    const bSet1Games = recentB10.map(function (m) { return m.playerSet1Games; }).filter(Number.isFinite);
+    if (aGames.length < 1 || bGames.length < 1) return null;
+
+    const h2hMatchTotals = h2h.slice(0, 5).map(function (m) { return Number.isFinite(m.totalGames) ? Math.round(m.totalGames) : null; }).filter(Number.isFinite);
+    const h2hSet1Totals = h2h.slice(0, 5).map(function (m) { return Number.isFinite(m.set1Total) ? Math.round(m.set1Total) : null; }).filter(Number.isFinite);
+    const h2hPlayerAGames = h2h.slice(0, 5).map(function (m) {
+      if (m.playerAId === playerAId && Number.isFinite(m.playerAGames)) return m.playerAGames;
+      if (m.playerBId === playerAId && Number.isFinite(m.playerBGames)) return m.playerBGames;
+      return null;
+    }).filter(Number.isFinite);
+    const h2hPlayerBGames = h2h.slice(0, 5).map(function (m) {
+      if (m.playerBId === playerBId && Number.isFinite(m.playerBGames)) return m.playerBGames;
+      if (m.playerAId === playerBId && Number.isFinite(m.playerAGames)) return m.playerAGames;
+      return null;
+    }).filter(Number.isFinite);
+
+    const normalizeMatchGames = function (series) {
+      return series.map(function (m) {
+        if (!Number.isFinite(m.playerGames)) return null;
+        const sets = Number.isFinite(m.setCount) && m.setCount > 0 ? m.setCount : 2;
+        const perSet = m.playerGames / sets;
+        const qMult = getOpponentQualityMultiplier(m.opponentRank);
+        return perSet * qMult;
+      }).filter(Number.isFinite);
+    };
+    const aGamesNorm = normalizeMatchGames(recentA10);
+    const bGamesNorm = normalizeMatchGames(recentB10);
+
+    const TOUR_AVG_GAMES_NORM = 4.35, TOUR_AVG_S1 = 5, MIN_SAMPLE_SIZE = 5;
+    const applyPrior = function (dataArray, priorValue) {
+      const result = dataArray.slice();
+      while (result.length < MIN_SAMPLE_SIZE) result.push(priorValue);
+      return result.map(function (v) { return Math.round(v); });
+    };
+    const bayesianANorm = aGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(aGamesNorm, TOUR_AVG_GAMES_NORM) : aGamesNorm;
+    const bayesianBNorm = bGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(bGamesNorm, TOUR_AVG_GAMES_NORM) : bGamesNorm;
+    const bayesianS1A = aSet1Games.length < MIN_SAMPLE_SIZE ? applyPrior(aSet1Games, TOUR_AVG_S1) : aSet1Games;
+    const bayesianS1B = bSet1Games.length < MIN_SAMPLE_SIZE ? applyPrior(bSet1Games, TOUR_AVG_S1) : bSet1Games;
+
+    const eventLevel = match.eventLevel || classifyEventLevel(match.tournamentName);
+    const matchFormat = inferMatchFormat(tour, eventLevel);
+    const fatigueA = computeFatigueProfile(recentA10, match.date);
+    const fatigueB = computeFatigueProfile(recentB10, match.date);
+    const brutalA = computeBrutalMetrics(recentA10, currentSurface);
+    const brutalB = computeBrutalMetrics(recentB10, currentSurface);
+
+    const ctx = {
+      tour: tour, surface: currentSurface,
+      tournamentName: match.tournamentName, eventLevel: eventLevel, roundName: match.roundName, matchFormat: matchFormat,
+      fatigueA: fatigueA, fatigueB: fatigueB, brutalA: brutalA, brutalB: brutalB,
+      eloA: eloA, eloB: eloB,
+      recentMatchA: bayesianANorm, recentMatchB: bayesianBNorm,
+      recentSet1A: bayesianS1A, recentSet1B: bayesianS1B,
+      h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals,
+      h2hPlayerA: h2hPlayerAGames, h2hPlayerB: h2hPlayerBGames
+    };
+
+    return {
+      date: match.date, surface: currentSurface, eventLevel: eventLevel, ctx: ctx,
+      actual: { match: match.totalGames, set1: match.set1Total, team_a: match.playerAGames, team_b: match.playerBGames }
+    };
+  }
+
+  function btBuildMatchContexts(tour, year) {
+    const tourKey = String(tour || "").trim().toUpperCase();
+    const cacheKey = tourKey + "_" + year;
+    const pull = window.__tennisSeasonDataCache && window.__tennisSeasonDataCache[cacheKey];
+    if (!pull || !pull.records || !pull.records.length) {
+      throw new Error("No cached season data for " + tourKey + " " + year + " — run Phase 1 (📅 SEASON PULL) first in this session.");
+    }
+    const scoreRecords = pull.records;
+    const scoreIds = new Set(scoreRecords.map(function (r) { return r.competitionId; }));
+    let historyPool = scoreRecords.slice();
+    for (let ly = year - 1; ly >= year - 2; ly--) {
+      const lk = tourKey + "_" + ly;
+      const lp = window.__tennisSeasonDataCache && window.__tennisSeasonDataCache[lk];
+      if (lp && lp.records && lp.records.length) historyPool = historyPool.concat(lp.records);
+    }
+    historyPool = dedupeRecords(historyPool);
+    historyPool.forEach(function (r) { r._btMs = new Date(r.date).getTime(); });
+    historyPool.sort(function (a, b) { return a._btMs - b._btMs; });
+
+    const eloState = { all: new Map(), hard: new Map(), clay: new Map(), grass: new Map() };
+    const seasonStartMs = scoreRecords.length ? new Date(scoreRecords[0].date).getTime() : 0;
+    historyPool.forEach(function (r) {
+      if (r._btMs < seasonStartMs && !scoreIds.has(r.competitionId)) btUpdateElo(eloState, r);
+    });
+
+    const contexts = [];
+    for (let i = 0; i < scoreRecords.length; i++) {
+      const match = scoreRecords[i];
+      const cutoffMs = new Date(match.date).getTime();
+      const priorRecords = historyPool.filter(function (r) { return r._btMs < cutoffMs; });
+      const built = btBuildOneContext(tourKey, match, priorRecords, eloState);
+      if (built) contexts.push(built);
+      btUpdateElo(eloState, match);
+    }
+    return contexts;
+  }
+
+  function btPredictContexts(contexts, tennisConfig) {
+    return contexts.map(function (c) {
+      const ctx = c.ctx;
+      const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: [], manualB: [], manualAllowedA: [], manualAllowedB: [], manualH2H: ctx.h2hMatch, ctx: ctx, tennisConfig: tennisConfig });
+      const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: [], manualB: [], manualAllowedA: [], manualAllowedB: [], manualH2H: ctx.h2hSet1, ctx: ctx, tennisConfig: tennisConfig });
+      const matchProjection = btComputeProjectionCore(matchDerived.avgA, matchDerived.avgB, matchDerived.h2h, matchDerived.projectionShift, ctx, tennisConfig);
+      const set1Projection = btComputeProjectionCore(set1Derived.avgA, set1Derived.avgB, set1Derived.h2h, set1Derived.projectionShift, ctx, tennisConfig);
+      const teamAProjection = btComputeProjectionCore(matchDerived.avgA, 0, ctx.h2hPlayerA, 0, ctx, tennisConfig);
+      const teamBProjection = btComputeProjectionCore(matchDerived.avgB, 0, ctx.h2hPlayerB, 0, ctx, tennisConfig);
+      return {
+        predicted: { match: matchProjection, set1: set1Projection, team_a: teamAProjection, team_b: teamBProjection },
+        actual: c.actual
+      };
+    });
+  }
+
+  function btScoreContexts(contexts, tennisConfig, targets) {
+    return computeTennisAccuracyScore(computeTennisCalibration(btPredictContexts(contexts, tennisConfig)), targets);
+  }
+
+  async function runTennisParamSweep(year, onProgress) {
+    const targetYear = Number.isFinite(year) ? year : (new Date().getFullYear() - 1);
+
+    const trainContexts = {};
+    const targetsByTour = {};
+    for (const tour of ["ATP", "WTA"]) {
+      const contexts = btBuildMatchContexts(tour, targetYear);
+      const splitIdx = Math.floor(contexts.length * 0.7);
+      trainContexts[tour] = contexts.slice(0, splitIdx);
+      targetsByTour[tour] = computeTennisAccuracyTargets(trainContexts[tour].map(function (c) { return { actual: c.actual }; }));
+      await new Promise(function (r) { setTimeout(r, 0); });
+    }
+
+    function jointTrainScore(tennisConfig) {
+      let sum = 0;
+      ["ATP", "WTA"].forEach(function (tour) {
+        sum += btScoreContexts(trainContexts[tour], tennisConfig, targetsByTour[tour]).composite;
+      });
+      return +(sum / 2).toFixed(2);
+    }
+
+    let bestConfig = Object.assign({}, getDefaultTennisConfig());
+    let bestScore = jointTrainScore(bestConfig);
+    const searchTrace = [{ param: null, value: null, score: bestScore, note: "baseline" }];
+
+    const paramNames = Object.keys(TENNIS_PARAM_SEARCH_SPACE);
+    const PASSES = 2;
+    let evalCount = 0;
+    const totalEvals = paramNames.reduce(function (s, p) { return s + btParamRange(TENNIS_PARAM_SEARCH_SPACE[p]).length; }, 0) * PASSES;
+
+    for (let pass = 1; pass <= PASSES; pass++) {
+      for (const param of paramNames) {
+        const candidates = btParamRange(TENNIS_PARAM_SEARCH_SPACE[param]);
+        let passBestVal = bestConfig[param];
+        let passBestScore = bestScore;
+        for (const val of candidates) {
+          const trial = Object.assign({}, bestConfig);
+          trial[param] = val;
+          const score = jointTrainScore(trial);
+          evalCount++;
+          if (score > passBestScore) { passBestScore = score; passBestVal = val; }
+          if (typeof onProgress === "function" && evalCount % 20 === 0) {
+            try { onProgress(evalCount, totalEvals, param, bestScore); } catch (e) {}
+          }
+        }
+        if (passBestVal !== bestConfig[param]) {
+          bestConfig[param] = passBestVal;
+          bestScore = passBestScore;
+          searchTrace.push({ param: param, value: passBestVal, score: bestScore, pass: pass });
+        }
+        await new Promise(function (r) { setTimeout(r, 0); });
+      }
+    }
+
+    return { year: targetYear, baselineScore: searchTrace[0].score, bestScore: bestScore, bestConfig: bestConfig, searchTrace: searchTrace, evalCount: evalCount };
+  }
+
+  window.runTennisParamSweep = runTennisParamSweep;
+  window.btBuildMatchContexts = btBuildMatchContexts;
+
 })();
 
 </script>
@@ -9127,6 +9361,7 @@ panel.innerHTML =
       '<button onclick="AFDB.runH2HBufferPull()" style="background:#1a1400;border:1px solid #e0b84a;color:#e0b84a;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📚 H2H BUFFER</button>' +
       '<button onclick="AFDB.runProjectionBacktest()" style="background:#1a0a2a;border:1px solid #b478ff;color:#b478ff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🧪 RUN BACKTEST</button>' +
       '<button onclick="AFDB.runAccuracyScoring()" style="background:#001a12;border:1px solid #4ade80;color:#4ade80;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📈 SCORE BACKTEST</button>' +
+      '<button onclick="AFDB.runParameterSweep()" style="background:#2a1a00;border:1px solid #ffa500;color:#ffa500;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🎯 RUN SWEEP</button>' +
       '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
       '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
     '</div>' +
@@ -9351,7 +9586,24 @@ async function runAccuracyScoring(year) {
   log('SUCCESS', 'SCORE', `Phase 3 scoring complete for both tours. Tap "Copy Log" above and send it back.`);
 }
 
-return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, runSeasonPull: runSeasonPull, runH2HBufferPull: runH2HBufferPull, runProjectionBacktest: runProjectionBacktest, runAccuracyScoring: runAccuracyScoring, get logs() { return _log; } }; 
+async function runParameterSweep(year) {
+  const targetYear = Number.isFinite(year) ? year : (new Date().getFullYear() - 1);
+  log('INFO', 'SWEEP', `Starting Phase 6 sweep for ${targetYear}. Building match contexts once first (similar cost to a normal backtest run), then testing ~240 candidate values fast against the cache. Stay on this screen.`);
+  try {
+    const result = await window.runTennisParamSweep(targetYear, function(done, total, param, bestSoFar) {
+      log('INFO', 'SWEEP', `${done}/${total} evaluations done (testing ${param}), best joint train score so far: ${bestSoFar}`);
+    });
+    window.__tennisSweepResult = result;
+    log('SUCCESS', 'SWEEP', `Sweep complete. Baseline: ${result.baselineScore} -> Best found: ${result.bestScore}  (${result.evalCount} evaluations)`);
+    log('SUCCESS', 'SWEEP', `Best config:`, result.bestConfig);
+    log('INFO', 'SWEEP', `Full search trace (only shows params that actually moved the score):`, result.searchTrace);
+  } catch (e) {
+    log('ERROR', 'SWEEP', `Sweep failed: ` + (e && e.message || String(e)));
+  }
+  log('SUCCESS', 'SWEEP', `Phase 6 sweep complete. Tap "Copy Log" above and send it back.`);
+}
+
+return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, runSeasonPull: runSeasonPull, runH2HBufferPull: runH2HBufferPull, runProjectionBacktest: runProjectionBacktest, runAccuracyScoring: runAccuracyScoring, runParameterSweep: runParameterSweep, get logs() { return _log; } }; 
 })(); 
 
 </script>
