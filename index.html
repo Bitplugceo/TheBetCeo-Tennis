@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8968,6 +8967,24 @@ document.addEventListener("DOMContentLoaded", function () {
     return { composite: composite, breakdown: breakdown };
   }
 
+  function computeTennisBias(results) {
+    const markets = ["match", "set1", "team_a", "team_b"];
+    const bias = {};
+    markets.forEach(function (mk) {
+      let sumP = 0, sumA = 0, sumSignedErr = 0, count = 0;
+      results.forEach(function (r) {
+        const p = r.predicted[mk], a = r.actual[mk];
+        if (Number.isFinite(p) && Number.isFinite(a)) { sumP += p; sumA += a; sumSignedErr += (p - a); count++; }
+      });
+      bias[mk] = count ? {
+        meanPredicted: +(sumP / count).toFixed(3),
+        meanActual: +(sumA / count).toFixed(3),
+        meanSignedError: +(sumSignedErr / count).toFixed(3)
+      } : null;
+    });
+    return bias;
+  }
+
   function diagnoseTennisBacktest(backtestResult) {
     const results = (backtestResult && backtestResult.results) || [];
     if (!results.length) return { error: "No results to score." };
@@ -9016,7 +9033,8 @@ document.addEventListener("DOMContentLoaded", function () {
       holdout: { calibration: holdoutCal, score: holdoutScore, n: holdoutResults.length },
       h2hPresent: { calibration: h2hPresentCal, n: h2hPresent.length },
       h2hAbsent: { calibration: h2hAbsentCal, n: h2hAbsent.length },
-      surfaceFormatBreakdown: surfaceFormatBreakdown
+      surfaceFormatBreakdown: surfaceFormatBreakdown,
+      bias: computeTennisBias(results)
     };
   }
 
