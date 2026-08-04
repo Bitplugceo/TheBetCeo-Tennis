@@ -1,3 +1,4 @@
+Q
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4084,7 +4085,13 @@ let g_clearDebug = {
       h2hWeightGe2: 0.20,
       h2hClayFactor: 1.2,
       h2hGrassFactor: 0.9,
-      h2hWeightCap: 0.45
+      h2hWeightCap: 0.45,
+      // PHASE 5 promotions — previously hardcoded live-only constants, now
+      // config-driven in both buildMarketResult (live) and btComputeServeBlend
+      // (backtest mirror). See TENNIS_PARAM_SEARCH_SPACE comment block for the
+      // full promote/fix audit.
+      eloServeBlendWeight: 0.40,
+      pAPickScaling: 0.28
     };
   }
 
@@ -4680,10 +4687,11 @@ let g_clearDebug = {
     const _gameDomA = (_gA - _gB) / (_gA + _gB + 2);
     const _rawServeA = 0.5 + _gameDomA * 0.30;
     const _rawServeB = 0.5 - _gameDomA * 0.30;
-    const _blendA = (_eloExpectedA * 0.40) + (_rawServeA * 0.60);
-    const _blendB = ((1 - _eloExpectedA) * 0.40) + (_rawServeB * 0.60);
-    const pA = baseHoldProb + (_blendA - 0.5) * 0.28;
-    const pB = baseHoldProb + (_blendB - 0.5) * 0.28;
+    const _eloW = tennisConfig.eloServeBlendWeight;
+    const _blendA = (_eloExpectedA * _eloW) + (_rawServeA * (1 - _eloW));
+    const _blendB = ((1 - _eloExpectedA) * _eloW) + (_rawServeB * (1 - _eloW));
+    const pA = baseHoldProb + (_blendA - 0.5) * tennisConfig.pAPickScaling;
+    const pB = baseHoldProb + (_blendB - 0.5) * tennisConfig.pAPickScaling;
     
     const isBO5 = config.ctx?.matchFormat === "BO5";
 
@@ -9151,7 +9159,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // confidence replay is added on top of this once Phase 4 (historical
   // lines) exists — this function only gives later phases a ready-made,
   // config-consistent pA/pB/eloExpectedA per match instead of re-deriving it.
-  function btComputeServeBlend(tour, surface, eloA, eloB, avgA, avgB) {
+  function btComputeServeBlend(tour, surface, eloA, eloB, avgA, avgB, tennisConfig) {
+    const _cfg = tennisConfig || getDefaultTennisConfig();
     const _isATP = tour === "ATP";
     const _surf = surface || "Hard";
     let baseHoldProb = _isATP
@@ -9167,13 +9176,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const _gameDomA = (_gA - _gB) / (_gA + _gB + 2);
     const _rawServeA = 0.5 + _gameDomA * 0.30;
     const _rawServeB = 0.5 - _gameDomA * 0.30;
-    const _blendA = (_eloExpectedA * 0.40) + (_rawServeA * 0.60);
-    const _blendB = ((1 - _eloExpectedA) * 0.40) + (_rawServeB * 0.60);
+    const _eloW = _cfg.eloServeBlendWeight;
+    const _blendA = (_eloExpectedA * _eloW) + (_rawServeA * (1 - _eloW));
+    const _blendB = ((1 - _eloExpectedA) * _eloW) + (_rawServeB * (1 - _eloW));
 
     return {
       eloExpectedA: +_eloExpectedA.toFixed(4),
-      pA: +(baseHoldProb + (_blendA - 0.5) * 0.28).toFixed(4),
-      pB: +(baseHoldProb + (_blendB - 0.5) * 0.28).toFixed(4)
+      pA: +(baseHoldProb + (_blendA - 0.5) * _cfg.pAPickScaling).toFixed(4),
+      pB: +(baseHoldProb + (_blendB - 0.5) * _cfg.pAPickScaling).toFixed(4)
     };
   }
 
@@ -9286,7 +9296,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const teamAProjection = btComputeProjectionCore(matchDerived.avgA, 0, ctx.h2hPlayerA, 0, ctx, tennisConfig);
     const teamBProjection = btComputeProjectionCore(matchDerived.avgB, 0, ctx.h2hPlayerB, 0, ctx, tennisConfig);
 
-    const serveBlend = btComputeServeBlend(tour, currentSurface, eloA, eloB, matchDerived.avgA, matchDerived.avgB);
+    const serveBlend = btComputeServeBlend(tour, currentSurface, eloA, eloB, matchDerived.avgA, matchDerived.avgB, tennisConfig);
 
     return {
       date: match.date, competitionId: match.competitionId, surface: currentSurface, eventLevel: eventLevel,
@@ -9531,6 +9541,51 @@ document.addEventListener("DOMContentLoaded", function () {
 
   window.diagnoseTennisBacktest = diagnoseTennisBacktest;
 
+  // ===== PHASE 5 (backtest roadmap): unified parameter space =====
+  // Full promote/fix audit against the 19-knob getDefaultTennisConfig() plus
+  // the hardcoded live-only constants (see roadmap doc). One line per
+  // decision, so "why isn't this tunable" has an answer later:
+  //
+  //   bo5FallbackMult / allowedBlend — FIXED, not just "missing": traced both
+  //     to dead code. Both gate on a sample-size check (seriesA/B.length < 3,
+  //     !useCtx) that the Bayesian padding in buildEngineResults/btBuildOneContext
+  //     (MIN_SAMPLE_SIZE = 5) makes unreachable whenever ctx exists — live or
+  //     backtest. Sweeping either would burn eval budget on a knob that can
+  //     never move the score. Left in getDefaultTennisConfig() for now since
+  //     removing them is a live-path behavior change, out of Phase 5's scope.
+  //   eloServeBlendWeight (was hardcoded 40/60 Elo-vs-serve split) — PROMOTED.
+  //     Real lever on how much recent form vs. Elo rating drives pA/pB; same
+  //     kind of blend weight as the h2h knobs already tunable.
+  //   pAPickScaling (was hardcoded 0.28) — PROMOTED. Single scalar, cheap to
+  //     sweep, directly controls how far pA/pB move off the surface baseline.
+  //   Elo K-factors (8 values, K_MAP) — FIXED for now. Promoting all 8
+  //     independently adds 8 search dimensions for what is mostly a standard
+  //     Elo convention (Slam > Masters > Tour > Challenger); recommend a
+  //     single eloKScale multiplier over the existing K_MAP if/when this
+  //     needs tuning, not 8 free knobs. Flagged for Diana's call, not decided
+  //     here.
+  //   Base hold probabilities (6 values, ATP/WTA x Clay/Grass/Hard) — FIXED
+  //     for now. These are the per-point serve-hold anchors the whole Markov
+  //     sim is built on, not a style multiplier layered on top (clayMult/
+  //     grassMult/hardMult already cover that lever, applied to avgA/avgB,
+  //     not baseHoldProb — no overlap). Flagged for Diana's call.
+  //   Veto thresholds (grind 0.40, tiebreak 0.25, set1-kill 0.35, edge-cap
+  //     18%, chaos-vol 5.0-7.0, rescue 62%/4.0 edge) — FIXED for now, not
+  //     wired into tennisConfig yet. These only run in the live pick/veto
+  //     path, which Phase 3 hasn't ported into the backtest walk-forward yet
+  //     — promoting them before Phase 3 exists would add dimensions Phase 6/7
+  //     can't actually score against.
+  //   Market-pull breakpoints (z>3.0→0%, z>2.0→5%, else 20%) — FIXED for
+  //     now, same reason as veto thresholds: MARKET_PULL only fires against a
+  //     real sportsbook line, and Phase 3 (wiring MARKET_PULL into the
+  //     backtest replay using Phase 4's lines) hasn't been built yet.
+  //
+  //   Bonus findings, not in the original roadmap inventory: the 0.30
+  //   raw-serve-domination scaling in _rawServeA/_rawServeB, and the 1.15x
+  //   grass volatility multiplier (buildMarketResult) are also hardcoded.
+  //   Left untouched — flagging for a future phase, not folding into scope
+  //   here without sign-off.
+
   // ===== PHASE 6 (backtest roadmap): parameter sweep execution =====
   // Coordinate-ascent over the Phase 5 ranges. Contexts (everything in
   // btPredictOneMatch that does NOT depend on tennisConfig) are built once
@@ -9554,7 +9609,9 @@ document.addEventListener("DOMContentLoaded", function () {
     h2hWeightGe2:          { min: 0.10, max: 0.30, step: 0.05 },
     h2hClayFactor:         { min: 1.00, max: 1.50, step: 0.10 },
     h2hGrassFactor:        { min: 0.70, max: 1.10, step: 0.10 },
-    h2hWeightCap:          { min: 0.30, max: 0.60, step: 0.05 }
+    h2hWeightCap:          { min: 0.30, max: 0.60, step: 0.05 },
+    eloServeBlendWeight:   { min: 0.20, max: 0.60, step: 0.05 },
+    pAPickScaling:         { min: 0.15, max: 0.40, step: 0.025 }
   };
 
   function btParamRange(spec) {
@@ -9710,7 +9767,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const set1Projection = btComputeProjectionCore(set1Derived.avgA, set1Derived.avgB, set1Derived.h2h, set1Derived.projectionShift, ctx, tennisConfig);
       const teamAProjection = btComputeProjectionCore(matchDerived.avgA, 0, ctx.h2hPlayerA, 0, ctx, tennisConfig);
       const teamBProjection = btComputeProjectionCore(matchDerived.avgB, 0, ctx.h2hPlayerB, 0, ctx, tennisConfig);
-      const serveBlend = btComputeServeBlend(ctx.tour, ctx.surface, ctx.eloA, ctx.eloB, matchDerived.avgA, matchDerived.avgB);
+      const serveBlend = btComputeServeBlend(ctx.tour, ctx.surface, ctx.eloA, ctx.eloB, matchDerived.avgA, matchDerived.avgB, tennisConfig);
       return {
         predicted: { match: matchProjection, set1: set1Projection, team_a: teamAProjection, team_b: teamBProjection, eloExpectedA: serveBlend.eloExpectedA, pA: serveBlend.pA, pB: serveBlend.pB },
         actual: c.actual
