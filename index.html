@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9067,6 +9066,38 @@ document.addEventListener("DOMContentLoaded", function () {
     return projectionCore + (projectionShift || 0);
   }
 
+  // PHASE 3 (backtest roadmap): line-independent half of the live serve
+  // model, mirrored 1:1 from buildMarketResult's baseHoldProb / _eloExpectedA /
+  // _gameDomA / pA / pB math. No market line is involved here. Pick/veto/
+  // confidence replay is added on top of this once Phase 4 (historical
+  // lines) exists — this function only gives later phases a ready-made,
+  // config-consistent pA/pB/eloExpectedA per match instead of re-deriving it.
+  function btComputeServeBlend(tour, surface, eloA, eloB, avgA, avgB) {
+    const _isATP = tour === "ATP";
+    const _surf = surface || "Hard";
+    let baseHoldProb = _isATP
+      ? (_surf === "Clay" ? 0.615 : _surf === "Grass" ? 0.675 : 0.645)
+      : (_surf === "Clay" ? 0.595 : _surf === "Grass" ? 0.650 : 0.625);
+
+    const _eloA = eloA || 1500;
+    const _eloB = eloB || 1500;
+    const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
+
+    const _gA = avgA || 5;
+    const _gB = avgB || 5;
+    const _gameDomA = (_gA - _gB) / (_gA + _gB + 2);
+    const _rawServeA = 0.5 + _gameDomA * 0.30;
+    const _rawServeB = 0.5 - _gameDomA * 0.30;
+    const _blendA = (_eloExpectedA * 0.40) + (_rawServeA * 0.60);
+    const _blendB = ((1 - _eloExpectedA) * 0.40) + (_rawServeB * 0.60);
+
+    return {
+      eloExpectedA: +_eloExpectedA.toFixed(4),
+      pA: +(baseHoldProb + (_blendA - 0.5) * 0.28).toFixed(4),
+      pB: +(baseHoldProb + (_blendB - 0.5) * 0.28).toFixed(4)
+    };
+  }
+
   function btUpdateElo(eloState, match) {
     const K_MAP = { "Grand Slam": 40, "Masters / 1000": 32, "Finals": 36, "Olympics": 32, "500": 28, "250": 24, "Tour": 28, "Challenger": 20 };
     const kFactor = K_MAP[match.eventLevel] || 28;
@@ -9176,9 +9207,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const teamAProjection = btComputeProjectionCore(matchDerived.avgA, 0, ctx.h2hPlayerA, 0, ctx, tennisConfig);
     const teamBProjection = btComputeProjectionCore(matchDerived.avgB, 0, ctx.h2hPlayerB, 0, ctx, tennisConfig);
 
+    const serveBlend = btComputeServeBlend(tour, currentSurface, eloA, eloB, matchDerived.avgA, matchDerived.avgB);
+
     return {
       date: match.date, competitionId: match.competitionId, surface: currentSurface, eventLevel: eventLevel,
-      predicted: { match: matchProjection, set1: set1Projection, team_a: teamAProjection, team_b: teamBProjection },
+      predicted: { match: matchProjection, set1: set1Projection, team_a: teamAProjection, team_b: teamBProjection, eloExpectedA: serveBlend.eloExpectedA, pA: serveBlend.pA, pB: serveBlend.pB },
       actual: { match: match.totalGames, set1: match.set1Total, team_a: match.playerAGames, team_b: match.playerBGames },
       sampleDepth: { a: recentA10.length, b: recentB10.length, h2h: h2h.length }
     };
