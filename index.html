@@ -1,4 +1,3 @@
-M
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3728,6 +3727,54 @@ let g_clearDebug = {
     };
   }
 
+  // Live path only consumes a locked config when a human has set applied:true
+  // via AFDB "APPLY LOCK". Proposals (Phase 2 / Phase 7) never auto-mutate live.
+  const TENNIS_LOCKED_CONFIG_KEY = "TENNIS_MAXPOWER_LOCKED_CONFIG";
+  function getEffectiveTennisConfig() {
+    try {
+      const raw = localStorage.getItem(TENNIS_LOCKED_CONFIG_KEY);
+      if (!raw) return getDefaultTennisConfig();
+      const locked = JSON.parse(raw);
+      if (!locked || locked.applied !== true || !locked.config || typeof locked.config !== "object") {
+        return getDefaultTennisConfig();
+      }
+      return Object.assign({}, getDefaultTennisConfig(), locked.config);
+    } catch (e) {
+      return getDefaultTennisConfig();
+    }
+  }
+  function getTennisLockedConfigMeta() {
+    try {
+      const raw = localStorage.getItem(TENNIS_LOCKED_CONFIG_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+  function applyTennisLockedConfigFromProposal() {
+    try {
+      const raw = localStorage.getItem(TENNIS_LOCKED_CONFIG_KEY);
+      if (!raw) return { ok: false, error: "No locked proposal in localStorage" };
+      const locked = JSON.parse(raw);
+      if (!locked || !locked.config) return { ok: false, error: "Locked entry missing config" };
+      locked.applied = true;
+      locked.appliedAt = new Date().toISOString();
+      localStorage.setItem(TENNIS_LOCKED_CONFIG_KEY, JSON.stringify(locked));
+      return { ok: true, locked: locked };
+    } catch (e) {
+      return { ok: false, error: String(e && e.message ? e.message : e) };
+    }
+  }
+  function clearTennisLockedConfig() {
+    try {
+      localStorage.removeItem(TENNIS_LOCKED_CONFIG_KEY);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: String(e && e.message ? e.message : e) };
+    }
+  }
+
     function weightedMean(values, decayFactor) {
     if (!Array.isArray(values) || !values.length) return null;
     
@@ -4398,7 +4445,7 @@ let g_clearDebug = {
   const set1H2H = qs("use1HH2H").checked ? parseNumericList(qs("a1HH2H").value, "Set 1 H2H totals", 0, 5, true) : [];
 
   const ctx = getEffectiveContext(tour, playerAName, playerBName);
-  const tennisConfig = getDefaultTennisConfig();
+  const tennisConfig = (typeof getEffectiveTennisConfig === "function") ? getEffectiveTennisConfig() : getDefaultTennisConfig();
 
   const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: matchRecentA, manualB: matchRecentB, manualAllowedA: matchAllowedA, manualAllowedB: matchAllowedB, manualH2H: matchH2H, ctx: ctx, tennisConfig: tennisConfig });
   const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: set1RecentA, manualB: set1RecentB, manualAllowedA: [], manualAllowedB: [], manualH2H: set1H2H, ctx: ctx, tennisConfig: tennisConfig });
@@ -8620,6 +8667,10 @@ document.addEventListener("DOMContentLoaded", function () {
     };
     window.runTennisMarkovSimulation = runTennisMarkovSimulation;
     window.getDefaultTennisConfig = getDefaultTennisConfig;
+    window.getEffectiveTennisConfig = getEffectiveTennisConfig;
+    window.getTennisLockedConfigMeta = getTennisLockedConfigMeta;
+    window.applyTennisLockedConfigFromProposal = applyTennisLockedConfigFromProposal;
+    window.clearTennisLockedConfig = clearTennisLockedConfig;
     window.buildDerivedMarketInputs = buildDerivedMarketInputs;
     window.buildMarketResult = buildMarketResult;
     window.autoSettleTracker = autoSettleTracker;
@@ -9271,8 +9322,96 @@ document.addEventListener("DOMContentLoaded", function () {
     return { year: targetYear, baselineScore: searchTrace[0].score, bestScore: bestScore, bestConfig: bestConfig, searchTrace: searchTrace, evalCount: evalCount };
   }
 
+  // PHASE 7 — dual-tour holdout validation + proposal-only lock.
+  // Requires a Phase 6 sweep result in-session. Scores baseline vs bestConfig
+  // on the 30% holdout for ATP and WTA. Locks only if BOTH tours hold within
+  // tolerance of baseline holdout and joint holdout improves. Never sets
+  // applied:true — human must APPLY LOCK in AFDB.
+  async function runTennisHoldoutLock(year, onProgress) {
+    const targetYear = Number.isFinite(year) ? year : (new Date().getFullYear() - 1);
+    const sweep = window.__tennisSweepResult;
+    if (!sweep || !sweep.bestConfig) {
+      return { error: "No Phase 6 sweep result in session — run 🎯 RUN SWEEP first without reloading." };
+    }
+    const baselineConfig = Object.assign({}, getDefaultTennisConfig());
+    const candidateConfig = Object.assign({}, getDefaultTennisConfig(), sweep.bestConfig);
+    const HOLDOUT_HOLD_TOL = 0.50;
+    const MIN_JOINT_IMPROVE = 0.25;
+
+    const holdoutByTour = {};
+    for (const tour of ["ATP", "WTA"]) {
+      if (typeof onProgress === "function") {
+        try { onProgress(tour, "building contexts"); } catch (e) {}
+      }
+      const contexts = btBuildMatchContexts(tour, targetYear);
+      const splitIdx = Math.floor(contexts.length * 0.7);
+      const holdout = contexts.slice(splitIdx);
+      const targets = computeTennisAccuracyTargets(
+        contexts.slice(0, splitIdx).map(function (c) { return { actual: c.actual }; })
+      );
+      const baseScore = btScoreContexts(holdout, baselineConfig, targets);
+      const candScore = btScoreContexts(holdout, candidateConfig, targets);
+      holdoutByTour[tour] = {
+        n: holdout.length,
+        baselineComposite: baseScore.composite,
+        candidateComposite: candScore.composite,
+        delta: (candScore.composite != null && baseScore.composite != null)
+          ? +(candScore.composite - baseScore.composite).toFixed(2)
+          : null,
+        holds: (candScore.composite != null && baseScore.composite != null)
+          ? candScore.composite >= (baseScore.composite - HOLDOUT_HOLD_TOL)
+          : false
+      };
+      await new Promise(function (r) { setTimeout(r, 0); });
+    }
+
+    const holdsBoth = holdoutByTour.ATP.holds && holdoutByTour.WTA.holds;
+    const jointBase = +(((holdoutByTour.ATP.baselineComposite || 0) + (holdoutByTour.WTA.baselineComposite || 0)) / 2).toFixed(2);
+    const jointCand = +(((holdoutByTour.ATP.candidateComposite || 0) + (holdoutByTour.WTA.candidateComposite || 0)) / 2).toFixed(2);
+    const jointDelta = +(jointCand - jointBase).toFixed(2);
+    const improved = holdsBoth && jointDelta >= MIN_JOINT_IMPROVE;
+
+    let locked = false;
+    if (improved) {
+      try {
+        localStorage.setItem("TENNIS_MAXPOWER_LOCKED_CONFIG", JSON.stringify({
+          year: targetYear,
+          config: candidateConfig,
+          applied: false,
+          lockedAt: new Date().toISOString(),
+          trainBestScore: sweep.bestScore,
+          holdoutByTour: holdoutByTour,
+          jointHoldoutBaseline: jointBase,
+          jointHoldoutCandidate: jointCand,
+          jointHoldoutDelta: jointDelta,
+          source: "phase7_dual_tour_holdout"
+        }));
+        locked = true;
+      } catch (e) {
+        return { error: "Failed to persist lock proposal: " + (e && e.message ? e.message : String(e)) };
+      }
+    }
+
+    return {
+      year: targetYear,
+      improved: improved,
+      locked: locked,
+      applied: false,
+      holdsBoth: holdsBoth,
+      jointHoldoutBaseline: jointBase,
+      jointHoldoutCandidate: jointCand,
+      jointHoldoutDelta: jointDelta,
+      holdoutByTour: holdoutByTour,
+      bestConfig: candidateConfig,
+      note: locked
+        ? "Proposal stored (applied:false). Use AFDB 🔐 APPLY LOCK to feed live engine."
+        : "Did not lock — need both tours to hold and joint holdout delta >= " + MIN_JOINT_IMPROVE
+    };
+  }
+
   window.runTennisParamSweep = runTennisParamSweep;
   window.btBuildMatchContexts = btBuildMatchContexts;
+  window.runTennisHoldoutLock = runTennisHoldoutLock;
 
 })();
 
@@ -9362,6 +9501,9 @@ panel.innerHTML =
       '<button onclick="AFDB.runProjectionBacktest()" style="background:#1a0a2a;border:1px solid #b478ff;color:#b478ff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🧪 RUN BACKTEST</button>' +
       '<button onclick="AFDB.runAccuracyScoring()" style="background:#001a12;border:1px solid #4ade80;color:#4ade80;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📈 SCORE BACKTEST</button>' +
       '<button onclick="AFDB.runParameterSweep()" style="background:#2a1a00;border:1px solid #ffa500;color:#ffa500;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🎯 RUN SWEEP</button>' +
+      '<button onclick="AFDB.runHoldoutLock()" style="background:#001018;border:1px solid #38bdf8;color:#38bdf8;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🧪 HOLDOUT LOCK</button>' +
+      '<button onclick="AFDB.applyLockedConfig()" style="background:#001a08;border:1px solid #4ade80;color:#4ade80;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🔐 APPLY LOCK</button>' +
+      '<button onclick="AFDB.clearLockedConfig()" style="background:#1a0000;border:1px solid #ff5c61;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🧹 CLEAR LOCK</button>' +
       '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
       '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
     '</div>' +
@@ -9437,9 +9579,17 @@ best = cfg;
 } 
 } 
 if (best && bestLower > 0.50) { 
-localStorage.setItem("tennis_phase2_config", JSON.stringify(best)); 
-
-log('SUCCESS', 'PHASE2', `Best config: ${best.label} with Wilson lower bound ${(bestLower*100).toFixed(1)}%`); 
+try {
+  localStorage.setItem("TENNIS_PHASE2_PROPOSAL", JSON.stringify({
+    config: best,
+    wilsonLower: bestLower,
+    sampleSize: settled.length,
+    applied: false,
+    ts: new Date().toISOString(),
+    note: "Proposal only — does not change live getEffectiveTennisConfig until promoted via Configs/AFDB"
+  }));
+} catch (e) {}
+log('SUCCESS', 'PHASE2', `Proposed '${best.label}' (Wilson lower ${(bestLower*100).toFixed(1)}%) — NOT auto-applied. Review before promote.`); 
 } else { 
 log('WARN', 'PHASE2', 'No config with >50% Wilson lower bound'); 
 } 
@@ -9600,10 +9750,60 @@ async function runParameterSweep(year) {
   } catch (e) {
     log('ERROR', 'SWEEP', `Sweep failed: ` + (e && e.message || String(e)));
   }
-  log('SUCCESS', 'SWEEP', `Phase 6 sweep complete. Tap "Copy Log" above and send it back.`);
+  log('SUCCESS', 'SWEEP', `Phase 6 sweep complete. Next: 🧪 HOLDOUT LOCK (Phase 7 dual-tour holdout). Still not live until 🔐 APPLY LOCK.`);
 }
 
-return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, runSeasonPull: runSeasonPull, runH2HBufferPull: runH2HBufferPull, runProjectionBacktest: runProjectionBacktest, runAccuracyScoring: runAccuracyScoring, runParameterSweep: runParameterSweep, get logs() { return _log; } }; 
+async function runHoldoutLock(year) {
+  const targetYear = Number.isFinite(year) ? year : (new Date().getFullYear() - 1);
+  if (typeof window.runTennisHoldoutLock !== "function") {
+    log('ERROR', 'LOCK', 'runTennisHoldoutLock not found — reload after patching Phase 7.');
+    return;
+  }
+  log('INFO', 'LOCK', `Phase 7 dual-tour holdout validation for ${targetYear}...`);
+  try {
+    const report = await window.runTennisHoldoutLock(targetYear, function(tour, stage) {
+      log('INFO', 'LOCK', `${tour}: ${stage}`);
+    });
+    if (report.error) {
+      log('ERROR', 'LOCK', report.error);
+      return;
+    }
+    log(report.locked ? 'SUCCESS' : 'WARN', 'LOCK', `holdsBoth=${report.holdsBoth} improved=${report.improved} locked=${report.locked} jointΔ=${report.jointHoldoutDelta}`, report);
+    if (report.locked) {
+      log('SUCCESS', 'LOCK', 'Proposal saved with applied:false. Tap 🔐 APPLY LOCK only after you review the holdout numbers.');
+    }
+  } catch (e) {
+    log('ERROR', 'LOCK', 'Holdout lock failed: ' + (e && e.message || String(e)));
+  }
+}
+
+function applyLockedConfig() {
+  if (typeof window.applyTennisLockedConfigFromProposal !== "function") {
+    log('ERROR', 'APPLY', 'applyTennisLockedConfigFromProposal missing — reload after patch.');
+    return;
+  }
+  const res = window.applyTennisLockedConfigFromProposal();
+  if (!res.ok) {
+    log('ERROR', 'APPLY', res.error || 'Apply failed');
+    return;
+  }
+  log('SUCCESS', 'APPLY', 'Locked config now applied:true — live Run uses getEffectiveTennisConfig().', res.locked);
+}
+
+function clearLockedConfig() {
+  if (typeof window.clearTennisLockedConfig !== "function") {
+    log('ERROR', 'CLEAR', 'clearTennisLockedConfig missing — reload after patch.');
+    return;
+  }
+  const res = window.clearTennisLockedConfig();
+  if (!res.ok) {
+    log('ERROR', 'CLEAR', res.error || 'Clear failed');
+    return;
+  }
+  log('SUCCESS', 'CLEAR', 'TENNIS_MAXPOWER_LOCKED_CONFIG removed. Live path back to getDefaultTennisConfig().');
+}
+
+return { log: log, clear: clear, copy: copy, toggleFilter: toggleFilter, open: open, close: close, runTestSweep: runTestSweep, openReport: openReport, settleNow: settleNow, runSeasonPull: runSeasonPull, runH2HBufferPull: runH2HBufferPull, runProjectionBacktest: runProjectionBacktest, runAccuracyScoring: runAccuracyScoring, runParameterSweep: runParameterSweep, runHoldoutLock: runHoldoutLock, applyLockedConfig: applyLockedConfig, clearLockedConfig: clearLockedConfig, get logs() { return _log; } }; 
 })(); 
 
 </script>
