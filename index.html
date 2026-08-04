@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3091,6 +3090,7 @@ title="Show issues">
     <div class="tennis-bt-btn-row">
       <button type="button" class="tennis-bt-btn primary" id="tennisBtSeasonPullBtn">📅 Season Pull</button>
       <button type="button" class="tennis-bt-btn" id="tennisBtH2HBufferBtn">📚 H2H Buffer</button>
+      <button type="button" class="tennis-bt-btn" id="tennisBtImportLinesBtn">📥 Import Lines</button>
       <button type="button" class="tennis-bt-btn" id="tennisBtRunBacktestBtn">🧪 Run Backtest</button>
       <button type="button" class="tennis-bt-btn" id="tennisBtScoreBtn">📈 Score</button>
       <button type="button" class="tennis-bt-btn warn" id="tennisBtSweepBtn">🎯 Run Sweep</button>
@@ -3122,6 +3122,11 @@ title="Show issues">
         <div class="lbl">Holdout Δ</div>
         <div class="val" id="tennisBtHoldoutDelta">—</div>
         <div class="sub" id="tennisBtHoldoutSub">Dual-tour holdout delta</div>
+      </div>
+      <div class="tennis-bt-card">
+        <div class="lbl">Line Coverage</div>
+        <div class="val" id="tennisBtLineCoverage">—</div>
+        <div class="sub" id="tennisBtLineCoverageSub">real vs. synthetic (Phase 4)</div>
       </div>
     </div>
   </div>
@@ -3388,6 +3393,7 @@ let g_trackerRefreshPromise = null;
 let g_trackerSaveTimer = null;
 let g_bucketPerformance = {};
 let g_lineMemory = {};
+let g_historicalLines = {};
 let g_clearDebug = {
     lastAction: "idle",
     lastFlagWrite: "",
@@ -3409,6 +3415,77 @@ let g_clearDebug = {
       localStorage.setItem("tennis_line_memory", JSON.stringify(g_lineMemory));
     } catch (e) {}
   }
+  // PHASE 4 — Historical Line Acquisition.
+  // Real closing lines are imported (importTennisHistoricalLines) and keyed by
+  // tour + competitionId. When no real line exists for a match, callers fall
+  // back to a synthetic trailing-average "fair line" (btComputeSyntheticFairLine).
+  // Every consumer of that fallback must carry the source tag ("real" |
+  // "synthetic") through to scoring — never treat a synthetic line's pick
+  // accuracy as a real hit rate.
+  function loadTennisHistoricalLines() {
+    try {
+      const raw = localStorage.getItem("tennis_historical_lines_v1");
+      if (raw) g_historicalLines = JSON.parse(raw);
+    } catch (e) {}
+  }
+  function saveTennisHistoricalLines() {
+    try {
+      localStorage.setItem("tennis_historical_lines_v1", JSON.stringify(g_historicalLines));
+    } catch (e) {}
+  }
+  function importTennisHistoricalLines(tour, rawText) {
+    const tourKey = String(tour || "").trim().toUpperCase();
+    if (!tourKey) return { ok: false, error: "Missing tour." };
+    if (!g_historicalLines[tourKey]) g_historicalLines[tourKey] = {};
+    const bucket = g_historicalLines[tourKey];
+    const lines = String(rawText || "").split(/\r?\n/);
+    let imported = 0, skipped = 0;
+    lines.forEach(function (rawLine) {
+      const line = rawLine.trim();
+      if (!line || line.indexOf(",") === -1) return;
+      const parts = line.split(",").map(function (p) { return p.trim(); });
+      const competitionId = parts[0];
+      const matchLine = parseFloat(parts[1]);
+      const set1Line = parts.length > 2 ? parseFloat(parts[2]) : NaN;
+      if (!competitionId || !Number.isFinite(matchLine)) { skipped++; return; }
+      bucket[competitionId] = {
+        match: matchLine,
+        set1: Number.isFinite(set1Line) ? set1Line : undefined,
+        source: "real",
+        importedAt: new Date().toISOString()
+      };
+      imported++;
+    });
+    saveTennisHistoricalLines();
+    return { ok: true, tour: tourKey, imported: imported, skipped: skipped };
+  }
+  const TENNIS_SYNTH_LINE_WINDOW = 20;
+  const TENNIS_SYNTH_LINE_MIN_SAMPLE = 8;
+  const TENNIS_SYNTH_LINE_FALLBACK = { match: 21.5, set1: 9.5 };
+  function btComputeSyntheticFairLine(priorRecords, surface, marketKey) {
+    const field = marketKey === "set1" ? "set1Total" : "totalGames";
+    const fallback = marketKey === "set1" ? TENNIS_SYNTH_LINE_FALLBACK.set1 : TENNIS_SYNTH_LINE_FALLBACK.match;
+    const sameSurface = priorRecords.filter(function (r) { return r.surface === surface && Number.isFinite(r[field]); });
+    const pool = sameSurface.length >= TENNIS_SYNTH_LINE_MIN_SAMPLE
+      ? sameSurface
+      : priorRecords.filter(function (r) { return Number.isFinite(r[field]); });
+    if (!pool.length) return fallback;
+    const recent = pool.slice(-TENNIS_SYNTH_LINE_WINDOW);
+    const sum = recent.reduce(function (s, r) { return s + r[field]; }, 0);
+    return +(sum / recent.length).toFixed(1);
+  }
+  function btGetHistoricalLine(tour, competitionId, surface, priorRecords) {
+    const tourKey = String(tour || "").trim().toUpperCase();
+    const real = g_historicalLines[tourKey] && competitionId != null ? g_historicalLines[tourKey][competitionId] : null;
+    const matchLine = (real && Number.isFinite(real.match))
+      ? { value: real.match, source: "real" }
+      : { value: btComputeSyntheticFairLine(priorRecords, surface, "match"), source: "synthetic" };
+    const set1Line = (real && Number.isFinite(real.set1))
+      ? { value: real.set1, source: "real" }
+      : { value: btComputeSyntheticFairLine(priorRecords, surface, "set1"), source: "synthetic" };
+    return { match: matchLine, set1: set1Line };
+  }
+  window.importTennisHistoricalLines = importTennisHistoricalLines;
   function resolveLineWithMemory(marketKey, playerAId, playerBId, surface, currentLine, currentPick) {
     const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
     const entry = g_lineMemory[key];
@@ -8843,6 +8920,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     loadLineMemory();
     loadBucketPerformance();
+    loadTennisHistoricalLines();
     updateTrackerUI();
     renderTrackerDebug();
     hydrateTrackerState(true).then(function () {
@@ -9563,9 +9641,17 @@ document.addEventListener("DOMContentLoaded", function () {
       h2hPlayerA: h2hPlayerAGames, h2hPlayerB: h2hPlayerBGames
     };
 
+    // PHASE 4 — attach a historical line to this context: a real imported
+    // closing line when one exists for this competitionId, otherwise a
+    // synthetic trailing-average fair line. line.match.source / line.set1.source
+    // ("real" | "synthetic") must travel with every downstream pick-accuracy/
+    // ROI number derived from this context — never averaged away silently.
+    const lineData = btGetHistoricalLine(tour, match.competitionId, currentSurface, priorRecords);
+
     return {
       date: match.date, surface: currentSurface, eventLevel: eventLevel, ctx: ctx,
-      actual: { match: match.totalGames, set1: match.set1Total, team_a: match.playerAGames, team_b: match.playerBGames }
+      actual: { match: match.totalGames, set1: match.set1Total, team_a: match.playerAGames, team_b: match.playerBGames },
+      line: lineData
     };
   }
 
@@ -9595,14 +9681,23 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     const contexts = [];
+    let realLineCount = 0, syntheticLineCount = 0;
     for (let i = 0; i < scoreRecords.length; i++) {
       const match = scoreRecords[i];
       const cutoffMs = new Date(match.date).getTime();
       const priorRecords = historyPool.filter(function (r) { return r._btMs < cutoffMs; });
       const built = btBuildOneContext(tourKey, match, priorRecords, eloState);
-      if (built) contexts.push(built);
+      if (built) {
+        contexts.push(built);
+        if (built.line && built.line.match && built.line.match.source === "real") realLineCount++;
+        else syntheticLineCount++;
+      }
       btUpdateElo(eloState, match);
     }
+    // PHASE 4 — record real-vs-synthetic line coverage for this tour/year so
+    // the backtest panel can surface it; never averaged away silently.
+    window.__tennisLineCoverage = window.__tennisLineCoverage || {};
+    window.__tennisLineCoverage[tourKey] = { real: realLineCount, synthetic: syntheticLineCount, total: contexts.length };
     return contexts;
   }
 
@@ -9850,6 +9945,21 @@ document.addEventListener("DOMContentLoaded", function () {
     const scoreSubEl = document.getElementById("tennisBtLastScoreSub");
     if (scoreEl) scoreEl.textContent = last && last.composite != null ? String(last.composite) : "—";
     if (scoreSubEl) scoreSubEl.textContent = last && last.detail ? last.detail : "Run Score after Backtest";
+
+    const coverageByTour = window.__tennisLineCoverage;
+    const covEl = document.getElementById("tennisBtLineCoverage");
+    const covSubEl = document.getElementById("tennisBtLineCoverageSub");
+    if (coverageByTour) {
+      let real = 0, synthetic = 0;
+      Object.keys(coverageByTour).forEach(function (t) {
+        real += coverageByTour[t].real || 0;
+        synthetic += coverageByTour[t].synthetic || 0;
+      });
+      if (covEl) covEl.textContent = real + " real / " + synthetic + " synth";
+      if (covSubEl) covSubEl.textContent = (real + synthetic) ? Math.round((real / (real + synthetic)) * 100) + "% real coverage" : "real vs. synthetic (Phase 4)";
+    } else if (covEl) {
+      covEl.textContent = "—";
+    }
   }
   function refreshTennisConfigsPanel() {
     const el = document.getElementById("tennisCfgStatus");
@@ -10049,10 +10159,31 @@ document.addEventListener("DOMContentLoaded", function () {
     refreshTennisBacktestPanel();
     refreshTennisConfigsPanel();
   }
+  function tennisBtImportLines() {
+    const tours = tennisBtTourList();
+    const tour = tours.length === 1 ? tours[0] : (tours[0] || "ATP");
+    const pasted = prompt(
+      "Paste historical closing lines for " + tour + ", one match per line:\n" +
+      "competitionId,matchTotalLine,set1TotalLine (set1 optional)\n" +
+      "These are labeled 'real' and preferred over synthetic fair lines.\n" +
+      "(If BOTH tours are selected, this imports for " + tour + " only — switch the tour dropdown and re-run for the other tour.)",
+      ""
+    );
+    if (pasted === null || !pasted.trim()) {
+      tennisBtSetStatus("Import Lines cancelled — no data pasted.");
+      return;
+    }
+    const res = importTennisHistoricalLines(tour, pasted);
+    tennisBtSetStatus(res.ok
+      ? ("Imported " + res.imported + " real lines for " + res.tour + " (" + res.skipped + " skipped). Re-run Backtest to apply.")
+      : ("Import failed: " + (res.error || "unknown error")));
+    refreshTennisBacktestPanel();
+  }
   function wireTennisBacktestPanel() {
     const map = [
       ["tennisBtSeasonPullBtn", tennisBtSeasonPull],
       ["tennisBtH2HBufferBtn", tennisBtH2HBuffer],
+      ["tennisBtImportLinesBtn", tennisBtImportLines],
       ["tennisBtRunBacktestBtn", tennisBtRunBacktest],
       ["tennisBtScoreBtn", tennisBtScore],
       ["tennisBtSweepBtn", tennisBtSweep],
