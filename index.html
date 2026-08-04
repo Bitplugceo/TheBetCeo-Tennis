@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1884,7 +1885,8 @@ body.dark-mode .tracker-bar-stage {
 .tracker-panel.analytics-view #trackerSummary,
 .tracker-panel.analytics-view #trackerMarketSummary,
 .tracker-panel.analytics-view #trackerEmpty,
-.tracker-panel.analytics-view .tracker-table-wrap {
+.tracker-panel.analytics-view .tracker-table-wrap,
+.tracker-panel.analytics-view #trackerArchiveWrap {
   display: none !important;
 }
 
@@ -1898,6 +1900,214 @@ body.dark-mode .tracker-bar-stage {
 
 .tracker-panel.analytics-view .tracker-body-scroll {
   padding-top: 0;
+}
+
+.tracker-panel.backtest-view #trackerSummary,
+.tracker-panel.backtest-view #trackerMarketSummary,
+.tracker-panel.backtest-view #trackerEmpty,
+.tracker-panel.backtest-view .tracker-table-wrap,
+.tracker-panel.backtest-view #trackerArchiveWrap,
+.tracker-panel.backtest-view #trackerAnalyticsPanel,
+.tracker-panel.configs-view #trackerSummary,
+.tracker-panel.configs-view #trackerMarketSummary,
+.tracker-panel.configs-view #trackerEmpty,
+.tracker-panel.configs-view .tracker-table-wrap,
+.tracker-panel.configs-view #trackerArchiveWrap,
+.tracker-panel.configs-view #trackerAnalyticsPanel {
+  display: none !important;
+}
+
+.tracker-panel.backtest-view #trackerBacktestPanel,
+.tracker-panel.configs-view #trackerConfigsPanel {
+  display: block !important;
+}
+
+.tracker-panel:not(.backtest-view) #trackerBacktestPanel,
+.tracker-panel:not(.configs-view) #trackerConfigsPanel {
+  display: none !important;
+}
+
+.tracker-panel.backtest-view .tracker-body-scroll,
+.tracker-panel.configs-view .tracker-body-scroll {
+  padding-top: 0;
+}
+
+.tennis-bt-panel {
+  padding: 12px 14px 18px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--tracker-summary-bg);
+  display: grid;
+  gap: 12px;
+}
+
+.tennis-bt-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tennis-bt-title {
+  margin: 0;
+  color: var(--tracker-strong);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.tennis-bt-sub {
+  margin: 0;
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.tennis-bt-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+}
+
+.tennis-bt-controls label {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--tracker-subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.tennis-bt-controls select,
+.tennis-bt-controls input {
+  margin: 0;
+  max-width: 120px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tennis-bt-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tennis-bt-btn {
+  margin: 0 !important;
+  padding: 7px 10px !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  border: 1px solid var(--table-border) !important;
+  background: var(--panel) !important;
+  color: var(--tracker-strong) !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+.tennis-bt-btn.primary {
+  background: #17973f !important;
+  border-color: #17973f !important;
+  color: #fff !important;
+}
+
+.tennis-bt-btn.warn {
+  background: #2a1a00 !important;
+  border-color: #ffa500 !important;
+  color: #ffa500 !important;
+}
+
+.tennis-bt-btn.lock {
+  background: #001018 !important;
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+
+.tennis-bt-btn.apply {
+  background: #001a08 !important;
+  border-color: #4ade80 !important;
+  color: #4ade80 !important;
+}
+
+.tennis-bt-btn.danger {
+  background: #1a0000 !important;
+  border-color: #ff5c61 !important;
+  color: #ff5c61 !important;
+}
+
+.tennis-bt-btn:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+}
+
+.tennis-bt-status {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--tracker-strong);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  min-height: 52px;
+}
+
+.tennis-bt-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tennis-bt-card {
+  border: 1px solid var(--table-border);
+  border-top: 3px solid #d91f26;
+  background: var(--panel);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.tennis-bt-card.hero {
+  border-top-color: #17973f;
+  background: linear-gradient(135deg, #17973f 0%, #127731 100%);
+  color: #fff;
+}
+
+.tennis-bt-card .lbl {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.tennis-bt-card .val {
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.tennis-bt-card .sub {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+body.dark-mode .tennis-bt-card:not(.hero) {
+  background: #171717;
+  border-color: #2f3338;
+}
+
+@media (max-width: 560px) {
+  .tennis-bt-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .fixture-debug-panel {
@@ -2847,6 +3057,8 @@ title="Show issues">
       <span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:11px;font-weight:900;pointer-events:none;white-space:nowrap;"></span>
       <div class="tracker-head-actions">
         <button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Military Grade Settle" onclick="window.triggerTrackerMilitaryRaid()">🚨</button>
+        <button type="button" id="trackerSeasonBacktestBtn" class="tracker-insights-btn" title="Season Backtest panel (Pull → Replay → Score → Sweep → Lock)">📊</button>
+        <button type="button" id="trackerConfigBtn" class="tracker-insights-btn" title="View / apply locked configs">⚙️</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
     </div>
@@ -2855,6 +3067,78 @@ title="Show issues">
 
 <div class="tracker-body-scroll" id="trackedPicksWrap">
           <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
+
+  <div id="trackerBacktestPanel" class="tennis-bt-panel" style="display:none;">
+    <div>
+      <div class="tennis-bt-kicker">Season Lab</div>
+      <h3 class="tennis-bt-title">Tennis Season Backtest</h3>
+      <p class="tennis-bt-sub">Basketball-style staged pipeline: Season Pull → H2H Buffer → Walk-forward → Score → Param Sweep → Dual-tour Holdout Lock. Live engine only changes after Apply Lock.</p>
+    </div>
+    <div class="tennis-bt-controls">
+      <div>
+        <label for="tennisBtYear">Year</label>
+        <input id="tennisBtYear" type="number" min="2018" max="2030" step="1" value="2025" />
+      </div>
+      <div>
+        <label for="tennisBtTour">Tour</label>
+        <select id="tennisBtTour">
+          <option value="BOTH">ATP + WTA</option>
+          <option value="ATP">ATP only</option>
+          <option value="WTA">WTA only</option>
+        </select>
+      </div>
+    </div>
+    <div class="tennis-bt-btn-row">
+      <button type="button" class="tennis-bt-btn primary" id="tennisBtSeasonPullBtn">📅 Season Pull</button>
+      <button type="button" class="tennis-bt-btn" id="tennisBtH2HBufferBtn">📚 H2H Buffer</button>
+      <button type="button" class="tennis-bt-btn" id="tennisBtRunBacktestBtn">🧪 Run Backtest</button>
+      <button type="button" class="tennis-bt-btn" id="tennisBtScoreBtn">📈 Score</button>
+      <button type="button" class="tennis-bt-btn warn" id="tennisBtSweepBtn">🎯 Run Sweep</button>
+      <button type="button" class="tennis-bt-btn lock" id="tennisBtHoldoutBtn">🧪 Holdout Lock</button>
+    </div>
+    <div class="tennis-bt-btn-row">
+      <button type="button" class="tennis-bt-btn apply" id="tennisBtApplyBtn">🔐 Apply Lock</button>
+      <button type="button" class="tennis-bt-btn danger" id="tennisBtClearBtn">🧹 Clear Lock</button>
+      <button type="button" class="tennis-bt-btn" id="tennisBtRefreshMetaBtn">↻ Refresh Status</button>
+    </div>
+    <div id="tennisBtStatus" class="tennis-bt-status">Idle — pick a year, then run Season Pull. Stay on this screen while jobs run.</div>
+    <div class="tennis-bt-grid" id="tennisBtCards">
+      <div class="tennis-bt-card hero">
+        <div class="lbl">Lock State</div>
+        <div class="val" id="tennisBtLockState">NONE</div>
+        <div class="sub" id="tennisBtLockSub">No proposal / applied lock</div>
+      </div>
+      <div class="tennis-bt-card">
+        <div class="lbl">Last Score</div>
+        <div class="val" id="tennisBtLastScore">—</div>
+        <div class="sub" id="tennisBtLastScoreSub">Run Score after Backtest</div>
+      </div>
+      <div class="tennis-bt-card">
+        <div class="lbl">Sweep Best</div>
+        <div class="val" id="tennisBtSweepScore">—</div>
+        <div class="sub" id="tennisBtSweepSub">Train joint composite</div>
+      </div>
+      <div class="tennis-bt-card">
+        <div class="lbl">Holdout Δ</div>
+        <div class="val" id="tennisBtHoldoutDelta">—</div>
+        <div class="sub" id="tennisBtHoldoutSub">Dual-tour holdout delta</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="trackerConfigsPanel" class="tennis-bt-panel" style="display:none;">
+    <div>
+      <div class="tennis-bt-kicker">Config Lab</div>
+      <h3 class="tennis-bt-title">Locked / Proposed Configs</h3>
+      <p class="tennis-bt-sub">Human gate for live params. Phase 7 proposals stay applied:false until you Apply Lock.</p>
+    </div>
+    <div class="tennis-bt-btn-row">
+      <button type="button" class="tennis-bt-btn apply" id="tennisCfgApplyBtn">🔐 Apply Lock</button>
+      <button type="button" class="tennis-bt-btn danger" id="tennisCfgClearBtn">🧹 Clear Lock</button>
+      <button type="button" class="tennis-bt-btn" id="tennisCfgRefreshBtn">↻ Refresh</button>
+    </div>
+    <div id="tennisCfgStatus" class="tennis-bt-status">No locked config loaded yet.</div>
+  </div>
 
   <div id="trackerEmpty" class="tracker-empty">
     No tracked picks saved yet.
@@ -6450,23 +6734,46 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const panel = trackerModal ? trackerModal.querySelector(".tracker-panel") : null;
     if (!panel) return;
 
-    
-    
-    
-    
-    const finalMode = mode === "report" ? "report" : "list";
-    
-    
-    
+    const allowed = { list: 1, report: 1, backtest: 1, configs: 1 };
+    const finalMode = allowed[mode] ? mode : "list";
+
     panel.classList.toggle("analytics-view", finalMode === "report");
+    panel.classList.toggle("backtest-view", finalMode === "backtest");
+    panel.classList.toggle("configs-view", finalMode === "configs");
+
+    const titleEl = qs("trackerHeadTitle");
+    if (titleEl) {
+      titleEl.textContent =
+        finalMode === "backtest" ? "Season Backtest" :
+        finalMode === "configs" ? "Locked Configs" :
+        finalMode === "report" ? "Tracker Report" :
+        "Tracked Picks";
+    }
+
+    const btBtn = qs("trackerSeasonBacktestBtn");
+    if (btBtn) {
+      btBtn.classList.toggle("active", finalMode === "backtest");
+      btBtn.title = finalMode === "backtest" ? "Show tracked picks" : "Season Backtest panel (Pull → Replay → Score → Sweep → Lock)";
+    }
+    const cfgBtn = qs("trackerConfigBtn");
+    if (cfgBtn) {
+      cfgBtn.classList.toggle("active", finalMode === "configs");
+      cfgBtn.title = finalMode === "configs" ? "Show tracked picks" : "View / apply locked configs";
+    }
 
     const reportBtn = qs("trackerInsightsBtn");
     if (reportBtn) {
-      
       reportBtn.classList.toggle("active", finalMode === "report");
       reportBtn.textContent = finalMode === "report" ? "📋 List" : "📊 Report";
       reportBtn.title = finalMode === "report" ? "Show tracked picks" : "Open report";
       reportBtn.setAttribute("aria-label", reportBtn.title);
+    }
+
+    if (finalMode === "backtest" && typeof window.refreshTennisBacktestPanel === "function") {
+      window.refreshTennisBacktestPanel();
+    }
+    if (finalMode === "configs" && typeof window.refreshTennisConfigsPanel === "function") {
+      window.refreshTennisConfigsPanel();
     }
   }
 
@@ -8233,6 +8540,26 @@ document.addEventListener("DOMContentLoaded", function () {
     const trackerCloseBtn = qs("trackerCloseBtn");
     if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
 
+    const trackerSeasonBacktestBtn = qs("trackerSeasonBacktestBtn");
+    if (trackerSeasonBacktestBtn) {
+      trackerSeasonBacktestBtn.addEventListener("click", function () {
+        const panel = qs("trackerModal") && qs("trackerModal").querySelector(".tracker-panel");
+        const onBacktest = panel && panel.classList.contains("backtest-view");
+        setTrackerView(onBacktest ? "list" : "backtest");
+      });
+    }
+    const trackerConfigBtn = qs("trackerConfigBtn");
+    if (trackerConfigBtn) {
+      trackerConfigBtn.addEventListener("click", function () {
+        const panel = qs("trackerModal") && qs("trackerModal").querySelector(".tracker-panel");
+        const onConfigs = panel && panel.classList.contains("configs-view");
+        setTrackerView(onConfigs ? "list" : "configs");
+      });
+    }
+    if (typeof window.wireTennisBacktestPanel === "function") {
+      window.wireTennisBacktestPanel();
+    }
+
     const trackedPicksBody = qs("trackedPicksBody");
     if (trackedPicksBody) trackedPicksBody.addEventListener("click", handleTrackedPicksActionClick);
 
@@ -9412,6 +9739,309 @@ document.addEventListener("DOMContentLoaded", function () {
   window.runTennisParamSweep = runTennisParamSweep;
   window.btBuildMatchContexts = btBuildMatchContexts;
   window.runTennisHoldoutLock = runTennisHoldoutLock;
+
+  // ===== Tracker Season Backtest panel (basketball-style UI) =====
+  function tennisBtYearValue() {
+    const el = document.getElementById("tennisBtYear");
+    const y = el ? parseInt(el.value, 10) : NaN;
+    return Number.isFinite(y) ? y : (new Date().getFullYear() - 1);
+  }
+  function tennisBtTourList() {
+    const el = document.getElementById("tennisBtTour");
+    const v = el ? String(el.value || "BOTH").toUpperCase() : "BOTH";
+    if (v === "ATP") return ["ATP"];
+    if (v === "WTA") return ["WTA"];
+    return ["ATP", "WTA"];
+  }
+  function tennisBtSetStatus(text) {
+    const el = document.getElementById("tennisBtStatus");
+    if (el) el.textContent = text || "";
+  }
+  function tennisBtSetBusy(busy) {
+    [
+      "tennisBtSeasonPullBtn", "tennisBtH2HBufferBtn", "tennisBtRunBacktestBtn",
+      "tennisBtScoreBtn", "tennisBtSweepBtn", "tennisBtHoldoutBtn",
+      "tennisBtApplyBtn", "tennisBtClearBtn"
+    ].forEach(function (id) {
+      const b = document.getElementById(id);
+      if (b) b.disabled = !!busy;
+    });
+  }
+  function refreshTennisBacktestPanel() {
+    const yearEl = document.getElementById("tennisBtYear");
+    if (yearEl && !yearEl.value) yearEl.value = String(new Date().getFullYear() - 1);
+
+    let lockState = "NONE";
+    let lockSub = "No proposal / applied lock";
+    try {
+      const meta = typeof getTennisLockedConfigMeta === "function" ? getTennisLockedConfigMeta() : null;
+      if (meta && meta.config) {
+        lockState = meta.applied === true ? "APPLIED" : "PROPOSED";
+        lockSub = (meta.source || "lock") + " · year " + (meta.year || "?") +
+          (meta.jointHoldoutDelta != null ? (" · holdout Δ " + meta.jointHoldoutDelta) : "");
+      }
+    } catch (e) {}
+    const lockEl = document.getElementById("tennisBtLockState");
+    const lockSubEl = document.getElementById("tennisBtLockSub");
+    if (lockEl) lockEl.textContent = lockState;
+    if (lockSubEl) lockSubEl.textContent = lockSub;
+
+    const sweep = window.__tennisSweepResult;
+    const sweepScoreEl = document.getElementById("tennisBtSweepScore");
+    const sweepSubEl = document.getElementById("tennisBtSweepSub");
+    if (sweepScoreEl) {
+      sweepScoreEl.textContent = sweep && sweep.bestScore != null ? String(sweep.bestScore) : "—";
+    }
+    if (sweepSubEl) {
+      sweepSubEl.textContent = sweep
+        ? ("baseline " + sweep.baselineScore + " · " + (sweep.evalCount || 0) + " evals")
+        : "Train joint composite";
+    }
+
+    const hold = window.__tennisHoldoutReport;
+    const holdEl = document.getElementById("tennisBtHoldoutDelta");
+    const holdSubEl = document.getElementById("tennisBtHoldoutSub");
+    if (holdEl) {
+      holdEl.textContent = hold && hold.jointHoldoutDelta != null ? String(hold.jointHoldoutDelta) : "—";
+    }
+    if (holdSubEl) {
+      holdSubEl.textContent = hold
+        ? ("holdsBoth=" + !!hold.holdsBoth + " locked=" + !!hold.locked)
+        : "Dual-tour holdout delta";
+    }
+
+    const last = window.__tennisLastScoreSummary;
+    const scoreEl = document.getElementById("tennisBtLastScore");
+    const scoreSubEl = document.getElementById("tennisBtLastScoreSub");
+    if (scoreEl) scoreEl.textContent = last && last.composite != null ? String(last.composite) : "—";
+    if (scoreSubEl) scoreSubEl.textContent = last && last.detail ? last.detail : "Run Score after Backtest";
+  }
+  function refreshTennisConfigsPanel() {
+    const el = document.getElementById("tennisCfgStatus");
+    if (!el) return;
+    try {
+      const meta = typeof getTennisLockedConfigMeta === "function" ? getTennisLockedConfigMeta() : null;
+      if (!meta || !meta.config) {
+        el.textContent = "No TENNIS_MAXPOWER_LOCKED_CONFIG in localStorage.";
+        return;
+      }
+      el.textContent = JSON.stringify({
+        applied: !!meta.applied,
+        year: meta.year,
+        source: meta.source,
+        lockedAt: meta.lockedAt,
+        appliedAt: meta.appliedAt || null,
+        jointHoldoutDelta: meta.jointHoldoutDelta,
+        trainBestScore: meta.trainBestScore,
+        config: meta.config
+      }, null, 2);
+    } catch (e) {
+      el.textContent = "Failed to read lock: " + (e && e.message ? e.message : String(e));
+    }
+  }
+  async function tennisBtSeasonPull() {
+    const year = tennisBtYearValue();
+    const tours = tennisBtTourList();
+    tennisBtSetBusy(true);
+    tennisBtSetStatus("Season Pull " + year + " (" + tours.join("+") + ") — stay on this screen...");
+    try {
+      for (let i = 0; i < tours.length; i++) {
+        const tour = tours[i];
+        tennisBtSetStatus(tour + " " + year + ": fetching...");
+        const pull = await window.fetchTennisSeasonMatchLog(tour, year, function (done, total) {
+          tennisBtSetStatus(tour + " " + year + ": chunk " + done + "/" + total);
+        });
+        const summary = window.summarizeTennisSeasonPull(pull);
+        tennisBtSetStatus(tour + " " + year + " done: " + JSON.stringify(summary));
+      }
+      tennisBtSetStatus("Season Pull complete for " + tours.join("+") + " " + year + ".");
+    } catch (e) {
+      tennisBtSetStatus("Season Pull failed: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      tennisBtSetBusy(false);
+      refreshTennisBacktestPanel();
+    }
+  }
+  async function tennisBtH2HBuffer() {
+    const year = tennisBtYearValue();
+    const tours = tennisBtTourList();
+    const lookbacks = [year - 1, year - 2];
+    tennisBtSetBusy(true);
+    tennisBtSetStatus("H2H Buffer pull for " + lookbacks.join(", ") + " (not scored)...");
+    try {
+      for (let yi = 0; yi < lookbacks.length; yi++) {
+        const yr = lookbacks[yi];
+        for (let ti = 0; ti < tours.length; ti++) {
+          const tour = tours[ti];
+          tennisBtSetStatus(tour + " " + yr + ": fetching buffer...");
+          await window.fetchTennisSeasonMatchLog(tour, yr, function (done, total) {
+            tennisBtSetStatus(tour + " " + yr + ": chunk " + done + "/" + total);
+          });
+        }
+      }
+      tennisBtSetStatus("H2H Buffer complete. Run Backtest next (same session, no reload).");
+    } catch (e) {
+      tennisBtSetStatus("H2H Buffer failed: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      tennisBtSetBusy(false);
+      refreshTennisBacktestPanel();
+    }
+  }
+  async function tennisBtRunBacktest() {
+    const year = tennisBtYearValue();
+    const tours = tennisBtTourList();
+    tennisBtSetBusy(true);
+    tennisBtSetStatus("Walk-forward backtest " + year + "...");
+    try {
+      if (!window.__tennisBacktestCache) window.__tennisBacktestCache = {};
+      for (let i = 0; i < tours.length; i++) {
+        const tour = tours[i];
+        const cacheKey = tour + "_" + year;
+        if (!window.__tennisSeasonDataCache || !window.__tennisSeasonDataCache[cacheKey]) {
+          tennisBtSetStatus(tour + " " + year + ": no Season Pull cache — run Season Pull first.");
+          continue;
+        }
+        const bt = await window.runTennisSeasonBacktest(tour, year, function (done, total) {
+          tennisBtSetStatus(tour + " " + year + ": " + done + "/" + total + " matches");
+        });
+        window.__tennisBacktestCache[cacheKey] = bt;
+        const summary = window.summarizeTennisBacktest(bt);
+        tennisBtSetStatus(tour + " " + year + " summary: " + JSON.stringify(summary));
+      }
+      tennisBtSetStatus("Backtest complete. Tap Score next.");
+    } catch (e) {
+      tennisBtSetStatus("Backtest failed: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      tennisBtSetBusy(false);
+      refreshTennisBacktestPanel();
+    }
+  }
+  async function tennisBtScore() {
+    const year = tennisBtYearValue();
+    const tours = tennisBtTourList();
+    tennisBtSetBusy(true);
+    try {
+      const parts = [];
+      let joint = 0, n = 0;
+      for (let i = 0; i < tours.length; i++) {
+        const tour = tours[i];
+        const bt = window.__tennisBacktestCache && window.__tennisBacktestCache[tour + "_" + year];
+        if (!bt) {
+          parts.push(tour + ": no backtest cache");
+          continue;
+        }
+        const d = window.diagnoseTennisBacktest(bt);
+        if (d.error) {
+          parts.push(tour + ": " + d.error);
+          continue;
+        }
+        const c = d.overall && d.overall.score ? d.overall.score.composite : null;
+        if (c != null) { joint += c; n++; }
+        parts.push(tour + " overall " + c + " (train " + (d.train.score.composite) + " / holdout " + (d.holdout.score.composite) + ")");
+      }
+      const composite = n ? +(joint / n).toFixed(1) : null;
+      window.__tennisLastScoreSummary = { composite: composite, detail: parts.join(" · ") };
+      tennisBtSetStatus(parts.join("\n"));
+    } catch (e) {
+      tennisBtSetStatus("Score failed: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      tennisBtSetBusy(false);
+      refreshTennisBacktestPanel();
+    }
+  }
+  async function tennisBtSweep() {
+    const year = tennisBtYearValue();
+    tennisBtSetBusy(true);
+    tennisBtSetStatus("Param sweep " + year + " (train only)...");
+    try {
+      const result = await window.runTennisParamSweep(year, function (done, total, param, bestSoFar) {
+        tennisBtSetStatus(done + "/" + total + " evals · testing " + param + " · best " + bestSoFar);
+      });
+      window.__tennisSweepResult = result;
+      tennisBtSetStatus("Sweep done. baseline " + result.baselineScore + " → best " + result.bestScore + " (" + result.evalCount + " evals). Next: Holdout Lock.");
+    } catch (e) {
+      tennisBtSetStatus("Sweep failed: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      tennisBtSetBusy(false);
+      refreshTennisBacktestPanel();
+    }
+  }
+  async function tennisBtHoldout() {
+    const year = tennisBtYearValue();
+    tennisBtSetBusy(true);
+    tennisBtSetStatus("Phase 7 dual-tour holdout validation...");
+    try {
+      const report = await window.runTennisHoldoutLock(year, function (tour, stage) {
+        tennisBtSetStatus(tour + ": " + stage);
+      });
+      window.__tennisHoldoutReport = report;
+      if (report.error) {
+        tennisBtSetStatus(report.error);
+      } else {
+        tennisBtSetStatus(
+          "holdsBoth=" + report.holdsBoth +
+          " improved=" + report.improved +
+          " locked=" + report.locked +
+          " jointΔ=" + report.jointHoldoutDelta +
+          "\n" + (report.note || "")
+        );
+      }
+    } catch (e) {
+      tennisBtSetStatus("Holdout lock failed: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      tennisBtSetBusy(false);
+      refreshTennisBacktestPanel();
+      refreshTennisConfigsPanel();
+    }
+  }
+  function tennisBtApply() {
+    if (typeof window.applyTennisLockedConfigFromProposal !== "function") {
+      tennisBtSetStatus("applyTennisLockedConfigFromProposal missing.");
+      return;
+    }
+    const res = window.applyTennisLockedConfigFromProposal();
+    tennisBtSetStatus(res.ok ? "Lock APPLIED — live Run uses getEffectiveTennisConfig()." : (res.error || "Apply failed"));
+    refreshTennisBacktestPanel();
+    refreshTennisConfigsPanel();
+  }
+  function tennisBtClear() {
+    if (typeof window.clearTennisLockedConfig !== "function") {
+      tennisBtSetStatus("clearTennisLockedConfig missing.");
+      return;
+    }
+    const res = window.clearTennisLockedConfig();
+    tennisBtSetStatus(res.ok ? "Lock cleared — live path back to defaults." : (res.error || "Clear failed"));
+    refreshTennisBacktestPanel();
+    refreshTennisConfigsPanel();
+  }
+  function wireTennisBacktestPanel() {
+    const map = [
+      ["tennisBtSeasonPullBtn", tennisBtSeasonPull],
+      ["tennisBtH2HBufferBtn", tennisBtH2HBuffer],
+      ["tennisBtRunBacktestBtn", tennisBtRunBacktest],
+      ["tennisBtScoreBtn", tennisBtScore],
+      ["tennisBtSweepBtn", tennisBtSweep],
+      ["tennisBtHoldoutBtn", tennisBtHoldout],
+      ["tennisBtApplyBtn", tennisBtApply],
+      ["tennisBtClearBtn", tennisBtClear],
+      ["tennisBtRefreshMetaBtn", refreshTennisBacktestPanel],
+      ["tennisCfgApplyBtn", tennisBtApply],
+      ["tennisCfgClearBtn", tennisBtClear],
+      ["tennisCfgRefreshBtn", refreshTennisConfigsPanel]
+    ];
+    map.forEach(function (pair) {
+      const el = document.getElementById(pair[0]);
+      if (el && !el._tennisBtWired) {
+        el.addEventListener("click", pair[1]);
+        el._tennisBtWired = true;
+      }
+    });
+    const yearEl = document.getElementById("tennisBtYear");
+    if (yearEl && !yearEl.value) yearEl.value = String(new Date().getFullYear() - 1);
+  }
+  window.refreshTennisBacktestPanel = refreshTennisBacktestPanel;
+  window.refreshTennisConfigsPanel = refreshTennisConfigsPanel;
+  window.wireTennisBacktestPanel = wireTennisBacktestPanel;
 
 })();
 
