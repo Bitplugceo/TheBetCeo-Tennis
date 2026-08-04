@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9614,8 +9615,9 @@ document.addEventListener("DOMContentLoaded", function () {
       const set1Projection = btComputeProjectionCore(set1Derived.avgA, set1Derived.avgB, set1Derived.h2h, set1Derived.projectionShift, ctx, tennisConfig);
       const teamAProjection = btComputeProjectionCore(matchDerived.avgA, 0, ctx.h2hPlayerA, 0, ctx, tennisConfig);
       const teamBProjection = btComputeProjectionCore(matchDerived.avgB, 0, ctx.h2hPlayerB, 0, ctx, tennisConfig);
+      const serveBlend = btComputeServeBlend(ctx.tour, ctx.surface, ctx.eloA, ctx.eloB, matchDerived.avgA, matchDerived.avgB);
       return {
-        predicted: { match: matchProjection, set1: set1Projection, team_a: teamAProjection, team_b: teamBProjection },
+        predicted: { match: matchProjection, set1: set1Projection, team_a: teamAProjection, team_b: teamBProjection, eloExpectedA: serveBlend.eloExpectedA, pA: serveBlend.pA, pB: serveBlend.pB },
         actual: c.actual
       };
     });
