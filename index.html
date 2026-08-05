@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3449,10 +3448,16 @@ let g_clearDebug = {
       const competitionId = parts[0];
       const matchLine = parseFloat(parts[1]);
       const set1Line = parts.length > 2 ? parseFloat(parts[2]) : NaN;
+      // Team-market gap fix: optional 4th/5th columns for per-player real
+      // closing lines (competitionId,matchLine,set1Line,teamALine,teamBLine).
+      const teamALine = parts.length > 3 ? parseFloat(parts[3]) : NaN;
+      const teamBLine = parts.length > 4 ? parseFloat(parts[4]) : NaN;
       if (!competitionId || !Number.isFinite(matchLine)) { skipped++; return; }
       bucket[competitionId] = {
         match: matchLine,
         set1: Number.isFinite(set1Line) ? set1Line : undefined,
+        teamA: Number.isFinite(teamALine) ? teamALine : undefined,
+        teamB: Number.isFinite(teamBLine) ? teamBLine : undefined,
         source: "real",
         importedAt: new Date().toISOString()
       };
@@ -3463,7 +3468,7 @@ let g_clearDebug = {
   }
   const TENNIS_SYNTH_LINE_WINDOW = 20;
   const TENNIS_SYNTH_LINE_MIN_SAMPLE = 8;
-  const TENNIS_SYNTH_LINE_FALLBACK = { match: 21.5, set1: 9.5 };
+  const TENNIS_SYNTH_LINE_FALLBACK = { match: 21.5, set1: 9.5, team: 10.5 };
   function btComputeSyntheticFairLine(priorRecords, surface, marketKey) {
     const field = marketKey === "set1" ? "set1Total" : "totalGames";
     const fallback = marketKey === "set1" ? TENNIS_SYNTH_LINE_FALLBACK.set1 : TENNIS_SYNTH_LINE_FALLBACK.match;
@@ -3475,6 +3480,34 @@ let g_clearDebug = {
     const recent = pool.slice(-TENNIS_SYNTH_LINE_WINDOW);
     const sum = recent.reduce(function (s, r) { return s + r[field]; }, 0);
     return +(sum / recent.length).toFixed(1);
+  }
+  // Team-market gap fix: match/set1 fair lines are pool-level averages
+  // across ALL matches in priorRecords, but a team_a/team_b fair line has
+  // to be specific to one player's own game-count history, not the pool.
+  // buildRecentSeries already gives that per-player, most-recent-first.
+  function btComputePlayerFairLine(priorRecords, playerId, surface) {
+    if (!playerId) return TENNIS_SYNTH_LINE_FALLBACK.team;
+    const series = buildRecentSeries(priorRecords, playerId);
+    if (!series.length) return TENNIS_SYNTH_LINE_FALLBACK.team;
+    const sameSurface = series.filter(function (m) { return m.surface === surface && Number.isFinite(m.playerGames); });
+    const pool = sameSurface.length >= TENNIS_SYNTH_LINE_MIN_SAMPLE
+      ? sameSurface
+      : series.filter(function (m) { return Number.isFinite(m.playerGames); });
+    if (!pool.length) return TENNIS_SYNTH_LINE_FALLBACK.team;
+    const recent = pool.slice(0, TENNIS_SYNTH_LINE_WINDOW);
+    const sum = recent.reduce(function (s, m) { return s + m.playerGames; }, 0);
+    return +(sum / recent.length).toFixed(1);
+  }
+  function btGetHistoricalTeamLine(tour, competitionId, surface, priorRecords, playerAId, playerBId) {
+    const tourKey = String(tour || "").trim().toUpperCase();
+    const real = g_historicalLines[tourKey] && competitionId != null ? g_historicalLines[tourKey][competitionId] : null;
+    const teamALine = (real && Number.isFinite(real.teamA))
+      ? { value: real.teamA, source: "real" }
+      : { value: btComputePlayerFairLine(priorRecords, playerAId, surface), source: "synthetic" };
+    const teamBLine = (real && Number.isFinite(real.teamB))
+      ? { value: real.teamB, source: "real" }
+      : { value: btComputePlayerFairLine(priorRecords, playerBId, surface), source: "synthetic" };
+    return { team_a: teamALine, team_b: teamBLine };
   }
   function btGetHistoricalLine(tour, competitionId, surface, priorRecords) {
     const tourKey = String(tour || "").trim().toUpperCase();
@@ -9412,7 +9445,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const pA_point = pointProbFromGameWinProb(pA);
     const pB_point = pointProbFromGameWinProb(pB);
-    const sim = btSimTotalGames(pA_point, pB_point, config.lineRange.mid, isBO5, simRuns, config.marketKey === "set1", null);
+    // Team-market gap fix: this was hardcoded to `null`, meaning team_a/team_b
+    // backtest results were silently simulated against the combined match
+    // total instead of the individual player's own games — same class of
+    // bug as the live-path fix. Derive teamSide from marketKey like live does.
+    const teamSide = config.marketKey === "team_a" ? "A" : config.marketKey === "team_b" ? "B" : null;
+    const sim = btSimTotalGames(pA_point, pB_point, config.lineRange.mid, isBO5, simRuns, config.marketKey === "set1", teamSide);
     const simPct = (pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50;
 
     if (lineDecision.atMid) { confidence = "PASS"; pick = "PASS"; }
@@ -9539,6 +9577,37 @@ document.addEventListener("DOMContentLoaded", function () {
           lineSource: c.line.set1.source, simRuns: 300
         });
         records.push({ date: c.date, tour: tourKey, surface: c.surface, eventLevel: c.eventLevel, market: "set1", pick: set1Result.pick, confidence: set1Result.confidence, edge: set1Result.edge, simPct: set1Result.simPct, lineSource: c.line.set1.source, grade: btGradeMarketResult(set1Result, c.actual.set1) });
+      }
+
+      // Team-market gap fix: team_a/team_b previously had no historical fair
+      // line and were never graded WIN/LOSS/PUSH, only scored on raw
+      // projection MAE via diagnoseTennisBacktest. c.line.team_a/team_b now
+      // exist (real import if present, else per-player trailing-average
+      // synthetic fair line) so these can be graded the same way match/set1 are.
+      if (Number.isFinite(c.actual.team_a) && c.line.team_a) {
+        const teamALineRange = { min: c.line.team_a.value, max: c.line.team_a.value, mid: c.line.team_a.value, label: fmt(c.line.team_a.value) };
+        const teamAResult = btBuildMarketResult({
+          marketLabel: "Player A Total Games", marketKey: "team_a", lineRange: teamALineRange,
+          avgA: matchDerived.avgA, avgB: 0, stdA: matchDerived.stdA, stdB: 0,
+          h2h: (ctx.h2hPlayerA && ctx.h2hPlayerA.length) ? ctx.h2hPlayerA : [],
+          avgGrind: matchDerived.avgGrind, avgTb: matchDerived.avgTb, avgS1Kill: matchDerived.avgS1Kill,
+          projectionShift: 0, ctx: ctx, tennisConfig: tennisConfig,
+          lineSource: c.line.team_a.source, simRuns: 300
+        });
+        records.push({ date: c.date, tour: tourKey, surface: c.surface, eventLevel: c.eventLevel, market: "team_a", pick: teamAResult.pick, confidence: teamAResult.confidence, edge: teamAResult.edge, simPct: teamAResult.simPct, lineSource: c.line.team_a.source, grade: btGradeMarketResult(teamAResult, c.actual.team_a) });
+      }
+
+      if (Number.isFinite(c.actual.team_b) && c.line.team_b) {
+        const teamBLineRange = { min: c.line.team_b.value, max: c.line.team_b.value, mid: c.line.team_b.value, label: fmt(c.line.team_b.value) };
+        const teamBResult = btBuildMarketResult({
+          marketLabel: "Player B Total Games", marketKey: "team_b", lineRange: teamBLineRange,
+          avgA: matchDerived.avgB, avgB: 0, stdA: matchDerived.stdB, stdB: 0,
+          h2h: (ctx.h2hPlayerB && ctx.h2hPlayerB.length) ? ctx.h2hPlayerB : [],
+          avgGrind: matchDerived.avgGrind, avgTb: matchDerived.avgTb, avgS1Kill: matchDerived.avgS1Kill,
+          projectionShift: 0, ctx: ctx, tennisConfig: tennisConfig,
+          lineSource: c.line.team_b.source, simRuns: 300
+        });
+        records.push({ date: c.date, tour: tourKey, surface: c.surface, eventLevel: c.eventLevel, market: "team_b", pick: teamBResult.pick, confidence: teamBResult.confidence, edge: teamBResult.edge, simPct: teamBResult.simPct, lineSource: c.line.team_b.source, grade: btGradeMarketResult(teamBResult, c.actual.team_b) });
       }
 
       if (typeof onProgress === "function" && (i % 200 === 0 || i === contexts.length - 1)) {
@@ -10066,6 +10135,12 @@ document.addEventListener("DOMContentLoaded", function () {
     // ("real" | "synthetic") must travel with every downstream pick-accuracy/
     // ROI number derived from this context — never averaged away silently.
     const lineData = btGetHistoricalLine(tour, match.competitionId, currentSurface, priorRecords);
+    // Team-market gap fix: attach per-player fair lines the same way, so
+    // team_a/team_b can be graded WIN/LOSS/PUSH downstream instead of only
+    // being scored on raw MAE.
+    const teamLineData = btGetHistoricalTeamLine(tour, match.competitionId, currentSurface, priorRecords, match.playerAId, match.playerBId);
+    lineData.team_a = teamLineData.team_a;
+    lineData.team_b = teamLineData.team_b;
 
     return {
       date: match.date, surface: currentSurface, eventLevel: eventLevel, ctx: ctx,
@@ -10614,7 +10689,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const tour = tours.length === 1 ? tours[0] : (tours[0] || "ATP");
     const pasted = prompt(
       "Paste historical closing lines for " + tour + ", one match per line:\n" +
-      "competitionId,matchTotalLine,set1TotalLine (set1 optional)\n" +
+      "competitionId,matchTotalLine,set1TotalLine,teamALine,teamBLine (set1/teamA/teamB optional)\n" +
       "These are labeled 'real' and preferred over synthetic fair lines.\n" +
       "(If BOTH tours are selected, this imports for " + tour + " only — switch the tour dropdown and re-run for the other tour.)",
       ""
