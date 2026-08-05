@@ -1,4 +1,3 @@
-Q
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3496,29 +3495,36 @@ let g_clearDebug = {
     const MAX_DEV = 0.10;
     const minAllowed = currentLine * (1 - MAX_DEV);
     const maxAllowed = currentLine * (1 + MAX_DEV);
-    const rawBest = Math.min(maxAllowed, Math.max(minAllowed, entry.bestLine));
+    const _memoryLine = Number.isFinite(entry.avgLine) ? entry.avgLine : entry.bestLine;
+    const rawAvg = Math.min(maxAllowed, Math.max(minAllowed, _memoryLine));
     
     
     
     
     
-    const side = currentPick === "OVER" ? "over" : "under";
-    const resolved = (side === "over") ? Math.min(currentLine, rawBest) : Math.max(currentLine, rawBest);
+    // FIX #4: no longer nudges the line in favor of whichever side was
+    // picked — resolved value is the clamped memory average regardless of
+    // currentPick.
+    const resolved = rawAvg;
     return { line: resolved, usedMemory: (resolved !== currentLine) };
   }
   function upsertLineMemory(marketKey, playerAId, playerBId, surface, side, line) {
     const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
     const existing = g_lineMemory[key];
     if (!existing) {
-      g_lineMemory[key] = { bestLine: line, lastSeen: new Date().toISOString(), side };
+      // FIX #4: previously only stored `bestLine`, which the resolver then
+      // ratcheted one-directionally toward whichever side was picked (see
+      // resolveLineWithMemory). That manufactures phantom edge over time.
+      // Track a plain exponential moving average instead, independent of
+      // which side is currently being picked.
+      g_lineMemory[key] = { avgLine: line, bestLine: line, lastSeen: new Date().toISOString(), side };
     } else {
       
       
       
       
-      if ((side === "over" && line < existing.bestLine) || (side === "under" && line > existing.bestLine)) {
-        existing.bestLine = line;
-      }
+      const EMA_DECAY = 0.7;
+      existing.avgLine = (Number.isFinite(existing.avgLine) ? existing.avgLine : line) * EMA_DECAY + line * (1 - EMA_DECAY);
       existing.lastSeen = new Date().toISOString();
     }
     saveLineMemory();
@@ -4009,20 +4015,26 @@ let g_clearDebug = {
     else if (edgePct >= 7.5  && volNorm <= 0.26) conf = "B";
     else if (edgePct >= 3.5  && volNorm <= 0.32) conf = "C";
 
-    
+    // FIX #6: raw win-rate at n>=5 is noise, not signal, and the loop is
+    // self-referential (this same function fed the bucket it now reads).
+    // Require a larger sample and use a Wilson lower-confidence-bound
+    // instead of the raw rate so a lucky/unlucky short streak can't swing
+    // the grade.
     if (conf !== "PASS") {
       const bucketKey = `${tour}|${marketKey}|${surface}|${conf}`;
       const perf = g_bucketPerformance[bucketKey];
-      if (perf && (perf.wins + perf.losses) >= 5) {
-        const winRate = perf.wins / (perf.wins + perf.losses + (perf.pushes || 0));
+      const bucketDecided = perf ? perf.wins + perf.losses : 0;
+      if (perf && bucketDecided >= 25) {
+        const z = 1.96;
+        const p = perf.wins / bucketDecided;
+        const wilsonLower = ((p + (z * z) / (2 * bucketDecided) - z * Math.sqrt((p * (1 - p) + (z * z) / (4 * bucketDecided)) / bucketDecided)) / (1 + (z * z) / bucketDecided));
         
         
         
         
         
-        
-        if (winRate < 0.45) conf = (conf === "A" ? "B" : conf === "B" ? "C" : "PASS");
-        else if (winRate > 0.65 && conf !== "A") conf = (conf === "C" ? "B" : conf === "B" ? "A" : conf);
+        if (wilsonLower < 0.40) conf = (conf === "A" ? "B" : conf === "B" ? "C" : "PASS");
+        else if (wilsonLower > 0.55 && conf !== "A") conf = (conf === "C" ? "B" : conf === "B" ? "A" : conf);
       }
     }
     return conf;
@@ -4493,7 +4505,32 @@ let g_clearDebug = {
     return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: uniqueNotes(notes), avgGrind, avgTb, avgS1Kill };
   }
 
-      async function runTennisMarkovSimulation(pA_serve, pB_serve, lineMid, isBO5 = false, runs = 10000, set1Only = false) {
+  // FIX #1: baseHoldProb-derived pA/pB are GAME-HOLD probabilities, not
+  // per-point probabilities. The Markov worker's simGame() expects a
+  // per-point probability. Feeding a ~0.65 hold rate directly as a point
+  // probability inflates simulated hold rates to ~0.80+. These two helpers
+  // invert the standard game-win-from-point-win formula so the simulator
+  // receives correctly-scaled per-point inputs.
+  function gameWinProbFromPointProb(p) {
+    const q = 1 - p;
+    const noDeuce = Math.pow(p, 4) + 4 * Math.pow(p, 4) * q + 10 * Math.pow(p, 4) * q * q;
+    const deuceReach = 20 * Math.pow(p, 3) * Math.pow(q, 3);
+    const denom = (p * p + q * q) || 1;
+    const winFromDeuce = (p * p) / denom;
+    return noDeuce + deuceReach * winFromDeuce;
+  }
+  function pointProbFromGameWinProb(targetHold) {
+    const clamped = Math.min(0.98, Math.max(0.02, targetHold));
+    let lo = 0.01, hi = 0.99;
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2;
+      const g = gameWinProbFromPointProb(mid);
+      if (g < clamped) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+
+      async function runTennisMarkovSimulation(pA_serve, pB_serve, lineMid, isBO5 = false, runs = 10000, set1Only = false, teamSide = null) {
     return new Promise(resolve => {
       const workerCode = `
         function simGame(p_server) {
@@ -4545,22 +4582,26 @@ let g_clearDebug = {
           }
         }
         onmessage = function(e) {
-          const { pA, pB, line, isBO5, runs, set1Only } = e.data;
+          const { pA, pB, line, isBO5, runs, set1Only, teamSide } = e.data;
           let overHits = 0;
           for (let i = 0; i < runs; i++) {
             if (set1Only) {
               let res = simSet(pA, pB, false);
-              if ((res.gA + res.gB) > line) overHits++;
+              let val = teamSide === "A" ? res.gA : teamSide === "B" ? res.gB : (res.gA + res.gB);
+              if (val > line) overHits++;
             } else {
-              let totalGames = 0, setsA = 0, setsB = 0;
+              let totalGames = 0, gamesA = 0, gamesB = 0, setsA = 0, setsB = 0;
               let target = isBO5 ? 3 : 2;
               while (setsA < target && setsB < target) {
                 let isFinalBO5Set = isBO5 && setsA === 2 && setsB === 2;
                 let res = simSet(pA, pB, isFinalBO5Set);
                 totalGames += (res.gA + res.gB);
+                gamesA += res.gA;
+                gamesB += res.gB;
                 if (res.gA > res.gB) setsA++; else setsB++;
               }
-              if (totalGames > line) overHits++;
+              let val = teamSide === "A" ? gamesA : teamSide === "B" ? gamesB : totalGames;
+              if (val > line) overHits++;
             }
           }
           postMessage({ overPct: (overHits/runs)*100 });
@@ -4583,7 +4624,7 @@ let g_clearDebug = {
         resolve({ overPct: 50, underPct: 50 });
       };
 
-      worker.postMessage({ pA: pA_serve, pB: pB_serve, line: lineMid, isBO5, runs, set1Only });
+      worker.postMessage({ pA: pA_serve, pB: pB_serve, line: lineMid, isBO5, runs, set1Only, teamSide });
     });
   }
 
@@ -4682,8 +4723,12 @@ let g_clearDebug = {
     const _eloB = config.ctx?.eloB || 1500;
     const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
     
-    const _gA = config.avgA || 5;
-    const _gB = config.avgB || 5;
+    // FIX #3: `config.avgB || 5` silently replaces a deliberate 0 (team_a/
+    // team_b markets pass avgB=0 since there's no second player) with 5,
+    // corrupting _gameDomA for those markets. Number.isFinite preserves a
+    // real zero while still defaulting when avgA/avgB are missing.
+    const _gA = Number.isFinite(config.avgA) ? config.avgA : 5;
+    const _gB = Number.isFinite(config.avgB) ? config.avgB : 5;
     const _gameDomA = (_gA - _gB) / (_gA + _gB + 2);
     const _rawServeA = 0.5 + _gameDomA * 0.30;
     const _rawServeB = 0.5 - _gameDomA * 0.30;
@@ -4698,10 +4743,14 @@ let g_clearDebug = {
         
     
     
-    
-    
-    
-    const sim = await runTennisMarkovSimulation(pA, pB, config.lineRange.mid, isBO5, 5000, config.marketKey === "set1");
+    // FIX #1 + FIX #2: convert hold-probability pA/pB into per-point
+    // probabilities before simulating, and tell the simulator which side
+    // (if any) the market is scored on so team_a/team_b markets are no
+    // longer simulated against the combined match total.
+    const pA_point = pointProbFromGameWinProb(pA);
+    const pB_point = pointProbFromGameWinProb(pB);
+    const teamSide = config.marketKey === "team_a" ? "A" : config.marketKey === "team_b" ? "B" : null;
+    const sim = await runTennisMarkovSimulation(pA_point, pB_point, config.lineRange.mid, isBO5, 5000, config.marketKey === "set1", teamSide);
     
     
     
@@ -4718,19 +4767,27 @@ let g_clearDebug = {
     
     
     
-    if (config.avgGrind >= 0.40 && pick === "UNDER" && config.marketKey === "match") {
+    // FIX #7: grind/tiebreak/set1-kill rates are computed over up to 10
+    // recent matches (computeBrutalMetrics) but were previously applied as
+    // hard vetoes with no minimum sample check — 1-2 matches can push a
+    // fraction past these thresholds by chance alone. Require at least 5
+    // matches on file for BOTH players before letting these vetoes fire.
+    const _brutalSampleA = config.ctx && Array.isArray(config.ctx.recentMatchA) ? config.ctx.recentMatchA.length : 0;
+    const _brutalSampleB = config.ctx && Array.isArray(config.ctx.recentMatchB) ? config.ctx.recentMatchB.length : 0;
+    const _hasEnoughBrutalSample = _brutalSampleA >= 5 && _brutalSampleB >= 5;
+    if (_hasEnoughBrutalSample && config.avgGrind >= 0.40 && pick === "UNDER" && config.marketKey === "match") {
       filtersTriggered.push("grind_veto");
       confidence = downgradeConfidence(confidence);
       notes.push("Grind factor: UNDER downgraded");
       if (confidence === "PASS") { pick = "PASS"; terminalVeto = true; }
     }
-    if (config.avgTb >= 0.25 && pick === "UNDER") {
+    if (_hasEnoughBrutalSample && config.avgTb >= 0.25 && pick === "UNDER") {
       filtersTriggered.push("tb_veto");
       confidence = downgradeConfidence(confidence);
       notes.push("Serve-bot alert: UNDER downgraded");
       if (confidence === "PASS") { pick = "PASS"; terminalVeto = true; }
     }
-    if (config.avgS1Kill >= 0.35 && pick === "OVER" && config.marketKey === "set1") {
+    if (_hasEnoughBrutalSample && config.avgS1Kill >= 0.35 && pick === "OVER" && config.marketKey === "set1") {
       filtersTriggered.push("s1kill_veto");
       confidence = downgradeConfidence(confidence);
       notes.push("High kill rate: OVER downgraded");
@@ -4748,7 +4805,12 @@ let g_clearDebug = {
       notes.push("Edge cap: Z=" + fmt(_edgeZFinal) + " > 1.2 ceiling");
     }
 
-    const isRescueEligible = simPct >= 62 || Math.abs(edge) >= 4.0;
+    // FIX #5: previously simPct >= 62 OR |edge| >= 4.0 — but simPct is
+    // derived from the same avgA/avgB/Elo inputs that produced the edge in
+    // the first place, so OR let one weak, non-independent signal waive two
+    // separate penalties (missing H2H and chaos volatility). Require BOTH
+    // a strong sim agreement AND a meaningful edge before rescuing.
+    const isRescueEligible = simPct >= 65 && Math.abs(edge) >= 3.0;
     if (!hasH2H) {
       if (isRescueEligible) notes.push("No H2H, but rescued by extreme edge/sim");
       
