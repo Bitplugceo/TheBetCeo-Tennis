@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3093,6 +3094,7 @@ title="Show issues">
       <button type="button" class="tennis-bt-btn" id="tennisBtImportLinesBtn">📥 Import Lines</button>
       <button type="button" class="tennis-bt-btn" id="tennisBtRunBacktestBtn">🧪 Run Backtest</button>
       <button type="button" class="tennis-bt-btn" id="tennisBtScoreBtn">📈 Score</button>
+      <button type="button" class="tennis-bt-btn" id="tennisBtGradeBtn">🎓 Grade Picks</button>
       <button type="button" class="tennis-bt-btn warn" id="tennisBtSweepBtn">🎯 Run Sweep</button>
       <button type="button" class="tennis-bt-btn lock" id="tennisBtHoldoutBtn">🧪 Holdout Lock</button>
     </div>
@@ -9249,6 +9251,304 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   }
 
+  // ===== BACKTEST PICK/CONFIDENCE PIPELINE =====
+  // Closes the gap where the backtest only scored raw projection MAE and
+  // never touched pickFromRange / confidence grading / vetoes — i.e. the
+  // layer that actually decides what gets shown to the user. Everything
+  // below mirrors buildMarketResult's pick -> confidence -> veto chain so
+  // historical matches can be graded WIN/LOSS/PUSH by confidence grade.
+  // Two deliberate differences from the live path, both to avoid
+  // look-ahead / non-determinism in a backtest:
+  //   1. No line memory (resolveLineWithMemory/upsertLineMemory) — that
+  //      state is built from real chronological live usage and replaying
+  //      it inside a historical walk-forward loop would not be reproducible.
+  //   2. No bucket-performance grade adjustment (getRawConfidence's
+  //      g_bucketPerformance step) — that table is populated by real
+  //      settled picks from whenever the app was actually used, which has
+  //      no defined chronological relationship to the historical match
+  //      being scored here. Excluding it means this backtest grades the
+  //      raw model, not the self-adjusting learning loop.
+  function btGetRawConfidence(edge, volatility, marketKey) {
+    const absEdge = Math.abs(edge);
+    const safeVol = volatility > 0 ? volatility : 0.01;
+    const edgeZ = absEdge / safeVol;
+    const edgePct = Math.min(100, edgeZ * 15);
+    const marketBaseline = (marketKey === "set1") ? 10.0 : (marketKey === "team_a" || marketKey === "team_b") ? 11.0 : 22.0;
+    const volNorm = volatility / marketBaseline;
+    let conf = "PASS";
+    if (volNorm > 0.36) conf = "PASS";
+    else if (edgePct >= 12.0 && volNorm <= 0.20) conf = "A";
+    else if (edgePct >= 7.5  && volNorm <= 0.26) conf = "B";
+    else if (edgePct >= 3.5  && volNorm <= 0.32) conf = "C";
+    return conf;
+  }
+
+  function btSimTotalGames(pA, pB, lineMid, isBO5, runs, set1Only, teamSide) {
+    function simGame(p_server) {
+      let ptsA = 0, ptsB = 0;
+      while (true) {
+        if (Math.random() < p_server) ptsA++; else ptsB++;
+        if (ptsA >= 4 && ptsA - ptsB >= 2) return "A";
+        if (ptsB >= 4 && ptsB - ptsA >= 2) return "B";
+      }
+    }
+    function simTiebreak(pA_srv, pB_srv, serverStart) {
+      let ptsA = 0, ptsB = 0, currentServer = serverStart;
+      while (true) {
+        let p = (currentServer === "A") ? pA_srv : (1 - pB_srv);
+        if (Math.random() < p) ptsA++; else ptsB++;
+        if ((ptsA + ptsB) % 2 !== 0) currentServer = (currentServer === "A") ? "B" : "A";
+        if (ptsA >= 7 && ptsA - ptsB >= 2) return "A";
+        if (ptsB >= 7 && ptsB - ptsA >= 2) return "B";
+      }
+    }
+    function simSuperTiebreak(pA_srv, pB_srv, serverStart) {
+      let ptsA = 0, ptsB = 0, currentServer = serverStart;
+      while (true) {
+        let p = (currentServer === "A") ? pA_srv : (1 - pB_srv);
+        if (Math.random() < p) ptsA++; else ptsB++;
+        if ((ptsA + ptsB) % 2 !== 0) currentServer = (currentServer === "A") ? "B" : "A";
+        if (ptsA >= 10 && ptsA - ptsB >= 2) return "A";
+        if (ptsB >= 10 && ptsB - ptsA >= 2) return "B";
+      }
+    }
+    function simSet(pA, pB, isFinalBO5Set) {
+      let gA = 0, gB = 0, server = "A";
+      while (true) {
+        let winner = simGame(server === "A" ? pA : (1 - pB));
+        if (winner === "A") gA++; else gB++;
+        server = (server === "A") ? "B" : "A";
+        if (gA >= 6 && gA - gB >= 2) return { gA, gB };
+        if (gB >= 6 && gB - gA >= 2) return { gA, gB };
+        if (gA === 7 && gB === 5) return { gA: 7, gB: 5 };
+        if (gB === 7 && gA === 5) return { gA: 5, gB: 7 };
+        if (gA === 6 && gB === 6) {
+          if (isFinalBO5Set) {
+            let stWinner = simSuperTiebreak(pA, pB, server);
+            return (stWinner === "A") ? { gA: 7, gB: 6 } : { gA: 6, gB: 7 };
+          }
+          let tbWinner = simTiebreak(pA, pB, server);
+          return (tbWinner === "A") ? { gA: 7, gB: 6 } : { gA: 6, gB: 7 };
+        }
+      }
+    }
+    let overHits = 0;
+    for (let i = 0; i < runs; i++) {
+      if (set1Only) {
+        let res = simSet(pA, pB, false);
+        let val = teamSide === "A" ? res.gA : teamSide === "B" ? res.gB : (res.gA + res.gB);
+        if (val > lineMid) overHits++;
+      } else {
+        let totalGames = 0, gamesA = 0, gamesB = 0, setsA = 0, setsB = 0;
+        let target = isBO5 ? 3 : 2;
+        while (setsA < target && setsB < target) {
+          let isFinalBO5Set = isBO5 && setsA === 2 && setsB === 2;
+          let res = simSet(pA, pB, isFinalBO5Set);
+          totalGames += (res.gA + res.gB);
+          gamesA += res.gA;
+          gamesB += res.gB;
+          if (res.gA > res.gB) setsA++; else setsB++;
+        }
+        let val = teamSide === "A" ? gamesA : teamSide === "B" ? gamesB : totalGames;
+        if (val > lineMid) overHits++;
+      }
+    }
+    return { overPct: (overHits / runs) * 100, underPct: 100 - (overHits / runs) * 100 };
+  }
+
+  function btBuildMarketResult(config) {
+    const tennisConfig = config.tennisConfig || getDefaultTennisConfig();
+    const simRuns = Number.isFinite(config.simRuns) ? config.simRuns : 300;
+    const baseProjection = config.avgA + config.avgB;
+    const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
+    const h2hAvg = hasH2H ? mean(config.h2h) : null;
+
+    let h2hWeight = tennisConfig.h2hWeightGe3;
+    const h2hCount = config.h2h ? config.h2h.length : 0;
+    if (h2hCount >= 5) h2hWeight = tennisConfig.h2hWeightGe5;
+    else if (h2hCount >= 3) h2hWeight = tennisConfig.h2hWeightGe3;
+    else if (h2hCount >= 2) h2hWeight = tennisConfig.h2hWeightGe2;
+    else h2hWeight = 0.0;
+    if (config.ctx && config.ctx.surface === "Clay") h2hWeight *= tennisConfig.h2hClayFactor;
+    else if (config.ctx && config.ctx.surface === "Grass") h2hWeight *= tennisConfig.h2hGrassFactor;
+    h2hWeight = Math.min(tennisConfig.h2hWeightCap, Math.max(0.0, h2hWeight));
+
+    const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
+    let projection = projectionCore + (config.projectionShift || 0);
+
+    const _regVol = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2)) || 1;
+    const _lineZ = Math.abs(config.lineRange.mid - projection) / _regVol;
+    const MARKET_PULL = _lineZ > 3.0 ? 0.0 : _lineZ > 2.0 ? 0.05 : 0.20;
+    projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
+
+    let volatility = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2));
+    if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15;
+
+    const lineDecision = pickFromRange(projection, config.lineRange);
+    let pick = lineDecision.pick;
+    let edge = lineDecision.edge;
+    let confidence = btGetRawConfidence(edge, volatility, config.marketKey);
+    const filtersTriggered = [];
+
+    const _isATP = config.ctx?.tour === "ATP";
+    const _surf = config.ctx?.surface || "Hard";
+    let baseHoldProb = _isATP
+      ? (_surf === "Clay" ? 0.615 : _surf === "Grass" ? 0.675 : 0.645)
+      : (_surf === "Clay" ? 0.595 : _surf === "Grass" ? 0.650 : 0.625);
+    const _eloA = config.ctx?.eloA || 1500;
+    const _eloB = config.ctx?.eloB || 1500;
+    const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
+    const _gA = Number.isFinite(config.avgA) ? config.avgA : 5;
+    const _gB = Number.isFinite(config.avgB) ? config.avgB : 5;
+    const _gameDomA = (_gA - _gB) / (_gA + _gB + 2);
+    const _rawServeA = 0.5 + _gameDomA * 0.30;
+    const _rawServeB = 0.5 - _gameDomA * 0.30;
+    const _eloW = tennisConfig.eloServeBlendWeight;
+    const _blendA = (_eloExpectedA * _eloW) + (_rawServeA * (1 - _eloW));
+    const _blendB = ((1 - _eloExpectedA) * _eloW) + (_rawServeB * (1 - _eloW));
+    const pA = baseHoldProb + (_blendA - 0.5) * tennisConfig.pAPickScaling;
+    const pB = baseHoldProb + (_blendB - 0.5) * tennisConfig.pAPickScaling;
+    const isBO5 = config.ctx?.matchFormat === "BO5";
+
+    const pA_point = pointProbFromGameWinProb(pA);
+    const pB_point = pointProbFromGameWinProb(pB);
+    const sim = btSimTotalGames(pA_point, pB_point, config.lineRange.mid, isBO5, simRuns, config.marketKey === "set1", null);
+    const simPct = (pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50;
+
+    if (lineDecision.atMid) { confidence = "PASS"; pick = "PASS"; }
+
+    const _brutalSampleA = config.ctx && Array.isArray(config.ctx.recentMatchA) ? config.ctx.recentMatchA.length : 0;
+    const _brutalSampleB = config.ctx && Array.isArray(config.ctx.recentMatchB) ? config.ctx.recentMatchB.length : 0;
+    const _hasEnoughBrutalSample = _brutalSampleA >= 5 && _brutalSampleB >= 5;
+    if (_hasEnoughBrutalSample && config.avgGrind >= 0.40 && pick === "UNDER" && config.marketKey === "match") {
+      filtersTriggered.push("grind_veto");
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") pick = "PASS";
+    }
+    if (_hasEnoughBrutalSample && config.avgTb >= 0.25 && pick === "UNDER") {
+      filtersTriggered.push("tb_veto");
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") pick = "PASS";
+    }
+    if (_hasEnoughBrutalSample && config.avgS1Kill >= 0.35 && pick === "OVER" && config.marketKey === "set1") {
+      filtersTriggered.push("s1kill_veto");
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") pick = "PASS";
+    }
+
+    const _safeVolFinal = volatility > 0 ? volatility : 0.01;
+    const _edgeZFinal = Math.abs(edge) / _safeVolFinal;
+    const edgePctFinal = Math.min(100, _edgeZFinal * 15);
+    if (edgePctFinal > 18.0 && confidence !== "PASS") {
+      confidence = downgradeConfidence(confidence);
+    }
+
+    const isRescueEligible = simPct >= 65 && Math.abs(edge) >= 3.0;
+    if (!hasH2H && !isRescueEligible) {
+      filtersTriggered.push("missingH2H");
+      if (confidence !== "PASS") { confidence = downgradeConfidence(confidence); if (confidence === "PASS") pick = "PASS"; }
+    }
+
+    if (volatility > 5.0 && volatility <= 7.0) {
+      filtersTriggered.push("chaos");
+      if (!isRescueEligible) { confidence = downgradeConfidence(confidence); if (confidence === "PASS") pick = "PASS"; }
+    }
+    if (volatility > 7.0) { filtersTriggered.push("chaos"); confidence = "PASS"; pick = "PASS"; }
+
+    if (simPct < 45 && pick !== "PASS") {
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") pick = "PASS";
+    } else if (simPct < 53 && pick !== "PASS") {
+      confidence = downgradeConfidence(confidence);
+      if (confidence === "PASS") pick = "PASS";
+    }
+
+    return {
+      market: config.marketLabel, marketKey: config.marketKey, lineDisplay: config.lineRange.label, lineRange: config.lineRange,
+      projection: projection, volatility: volatility, edge: edge, pick: pick, confidence: confidence,
+      filtersTriggered: filtersTriggered, simPct: simPct, lineSource: config.lineSource || "unknown"
+    };
+  }
+
+  function btGradeMarketResult(result, actualValue) {
+    if (!result || result.pick === "PASS" || result.confidence === "PASS") return null;
+    if (!Number.isFinite(actualValue)) return null;
+    const lineMid = result.lineRange.mid;
+    if (actualValue > lineMid) return result.pick === "OVER" ? "WIN" : "LOSS";
+    if (actualValue < lineMid) return result.pick === "UNDER" ? "WIN" : "LOSS";
+    return "PUSH";
+  }
+
+  function computeTennisGradeReport(records) {
+    const scored = records.filter(function (r) { return r.grade === "WIN" || r.grade === "LOSS" || r.grade === "PUSH"; });
+    function bucket(keyFn) {
+      const map = new Map();
+      scored.forEach(function (r) {
+        const k = keyFn(r);
+        if (!map.has(k)) map.set(k, { wins: 0, losses: 0, pushes: 0, n: 0 });
+        const b = map.get(k);
+        b.n++;
+        if (r.grade === "WIN") b.wins++;
+        else if (r.grade === "LOSS") b.losses++;
+        else if (r.grade === "PUSH") b.pushes++;
+      });
+      const out = {};
+      map.forEach(function (v, k) {
+        const decided = v.wins + v.losses;
+        out[k] = Object.assign({}, v, { winRate: decided ? +((v.wins / decided) * 100).toFixed(1) : null });
+      });
+      return out;
+    }
+    return {
+      totalPicks: records.filter(function (r) { return r.pick !== "PASS"; }).length,
+      totalPassed: records.filter(function (r) { return r.pick === "PASS"; }).length,
+      scoredPicks: scored.length,
+      byConfidence: bucket(function (r) { return r.confidence; }),
+      byMarket: bucket(function (r) { return r.market; }),
+      byLineSource: bucket(function (r) { return r.lineSource || "unknown"; })
+    };
+  }
+
+  async function runTennisPickGradeBacktest(tour, year, onProgress) {
+    const tourKey = String(tour || "").trim().toUpperCase();
+    const tennisConfig = (typeof getEffectiveTennisConfig === "function") ? getEffectiveTennisConfig() : getDefaultTennisConfig();
+    const contexts = btBuildMatchContexts(tourKey, year);
+    const records = [];
+    for (let i = 0; i < contexts.length; i++) {
+      const c = contexts[i];
+      const ctx = c.ctx;
+      const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: [], manualB: [], manualAllowedA: [], manualAllowedB: [], manualH2H: ctx.h2hMatch, ctx: ctx, tennisConfig: tennisConfig });
+      const matchLineRange = { min: c.line.match.value, max: c.line.match.value, mid: c.line.match.value, label: fmt(c.line.match.value) };
+      const matchResult = btBuildMarketResult({
+        marketLabel: "Match Total Games", marketKey: "match", lineRange: matchLineRange,
+        avgA: matchDerived.avgA, avgB: matchDerived.avgB, stdA: matchDerived.stdA, stdB: matchDerived.stdB,
+        h2h: matchDerived.h2h, avgGrind: matchDerived.avgGrind, avgTb: matchDerived.avgTb, avgS1Kill: matchDerived.avgS1Kill,
+        projectionShift: matchDerived.projectionShift, ctx: ctx, tennisConfig: tennisConfig,
+        lineSource: c.line.match.source, simRuns: 300
+      });
+      records.push({ date: c.date, tour: tourKey, surface: c.surface, eventLevel: c.eventLevel, market: "match", pick: matchResult.pick, confidence: matchResult.confidence, edge: matchResult.edge, simPct: matchResult.simPct, lineSource: c.line.match.source, grade: btGradeMarketResult(matchResult, c.actual.match) });
+
+      if (Number.isFinite(c.actual.set1)) {
+        const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: [], manualB: [], manualAllowedA: [], manualAllowedB: [], manualH2H: ctx.h2hSet1, ctx: ctx, tennisConfig: tennisConfig });
+        const set1LineRange = { min: c.line.set1.value, max: c.line.set1.value, mid: c.line.set1.value, label: fmt(c.line.set1.value) };
+        const set1Result = btBuildMarketResult({
+          marketLabel: "Set 1 Total Games", marketKey: "set1", lineRange: set1LineRange,
+          avgA: set1Derived.avgA, avgB: set1Derived.avgB, stdA: set1Derived.stdA, stdB: set1Derived.stdB,
+          h2h: set1Derived.h2h, avgGrind: set1Derived.avgGrind, avgTb: set1Derived.avgTb, avgS1Kill: set1Derived.avgS1Kill,
+          projectionShift: set1Derived.projectionShift, ctx: ctx, tennisConfig: tennisConfig,
+          lineSource: c.line.set1.source, simRuns: 300
+        });
+        records.push({ date: c.date, tour: tourKey, surface: c.surface, eventLevel: c.eventLevel, market: "set1", pick: set1Result.pick, confidence: set1Result.confidence, edge: set1Result.edge, simPct: set1Result.simPct, lineSource: c.line.set1.source, grade: btGradeMarketResult(set1Result, c.actual.set1) });
+      }
+
+      if (typeof onProgress === "function" && (i % 200 === 0 || i === contexts.length - 1)) {
+        try { onProgress(i + 1, contexts.length); } catch (e) {}
+      }
+      if (i % 40 === 0) { await new Promise(function (r) { setTimeout(r, 0); }); }
+    }
+    return { tour: tourKey, year: year, records: records, report: computeTennisGradeReport(records) };
+  }
+
   function btUpdateElo(eloState, match) {
     const K_MAP = { "Grand Slam": 40, "Masters / 1000": 32, "Finals": 36, "Olympics": 32, "500": 28, "250": 24, "Tour": 28, "Challenger": 20 };
     const kFactor = K_MAP[match.eventLevel] || 28;
@@ -9988,6 +10288,8 @@ document.addEventListener("DOMContentLoaded", function () {
   window.runTennisParamSweep = runTennisParamSweep;
   window.btBuildMatchContexts = btBuildMatchContexts;
   window.runTennisHoldoutLock = runTennisHoldoutLock;
+  window.runTennisPickGradeBacktest = runTennisPickGradeBacktest;
+  window.computeTennisGradeReport = computeTennisGradeReport;
 
   // ===== Tracker Season Backtest panel (basketball-style UI) =====
   function tennisBtYearValue() {
@@ -10009,7 +10311,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function tennisBtSetBusy(busy) {
     [
       "tennisBtSeasonPullBtn", "tennisBtH2HBufferBtn", "tennisBtRunBacktestBtn",
-      "tennisBtScoreBtn", "tennisBtSweepBtn", "tennisBtHoldoutBtn",
+      "tennisBtScoreBtn", "tennisBtGradeBtn", "tennisBtSweepBtn", "tennisBtHoldoutBtn",
       "tennisBtApplyBtn", "tennisBtClearBtn"
     ].forEach(function (id) {
       const b = document.getElementById(id);
@@ -10213,6 +10515,35 @@ document.addEventListener("DOMContentLoaded", function () {
       refreshTennisBacktestPanel();
     }
   }
+  async function tennisBtGradeReport() {
+    const year = tennisBtYearValue();
+    const tours = tennisBtTourList();
+    tennisBtSetBusy(true);
+    tennisBtSetStatus("Grading historical picks (pick/confidence/veto replay) for " + year + "...");
+    try {
+      const parts = [];
+      window.__tennisGradeReport = window.__tennisGradeReport || {};
+      for (let i = 0; i < tours.length; i++) {
+        const tour = tours[i];
+        const cacheKey = tour + "_" + year;
+        if (!window.__tennisSeasonDataCache || !window.__tennisSeasonDataCache[cacheKey]) {
+          parts.push(tour + ": no Season Pull cache — run Season Pull first.");
+          continue;
+        }
+        const result = await window.runTennisPickGradeBacktest(tour, year, function (done, total) {
+          tennisBtSetStatus(tour + " " + year + ": grading " + done + "/" + total + " markets...");
+        });
+        window.__tennisGradeReport[cacheKey] = result;
+        parts.push(tour + " " + year + " grade report: " + JSON.stringify(result.report));
+      }
+      tennisBtSetStatus(parts.join("\n"));
+    } catch (e) {
+      tennisBtSetStatus("Grade report failed: " + (e && e.message ? e.message : String(e)));
+    } finally {
+      tennisBtSetBusy(false);
+      refreshTennisBacktestPanel();
+    }
+  }
   async function tennisBtSweep() {
     const year = tennisBtYearValue();
     tennisBtSetBusy(true);
@@ -10305,6 +10636,7 @@ document.addEventListener("DOMContentLoaded", function () {
       ["tennisBtImportLinesBtn", tennisBtImportLines],
       ["tennisBtRunBacktestBtn", tennisBtRunBacktest],
       ["tennisBtScoreBtn", tennisBtScore],
+      ["tennisBtGradeBtn", tennisBtGradeReport],
       ["tennisBtSweepBtn", tennisBtSweep],
       ["tennisBtHoldoutBtn", tennisBtHoldout],
       ["tennisBtApplyBtn", tennisBtApply],
