@@ -3581,8 +3581,15 @@ let g_clearDebug = {
     const market = item.market || "Match Total Games";
     
     
-    
-    const marketKey = market === "Match Total Games" ? "match" : "set1";
+    // FIX #8: this collapsed every non-"Match Total Games" label (Set 1,
+    // Player A, Player B) into "set1", polluting the set1 bucket with
+    // team-market settlements and leaving team_a/team_b bucket keys in
+    // getRawConfidence permanently empty. Map all 4 markets explicitly.
+    const marketKey = market === "Match Total Games" ? "match"
+      : market === "Set 1 Total Games" ? "set1"
+      : market === "Player A Total Games" ? "team_a"
+      : market === "Player B Total Games" ? "team_b"
+      : "match";
     const surface = item.surface || (item.context && item.context.surface) || "Hard";
     const grade = item.confidence || "PASS";
     const bucketKey = `${tour}|${marketKey}|${surface}|${grade}`;
@@ -3997,11 +4004,8 @@ let g_clearDebug = {
     return Math.sqrt(variance);
   }
 
-  function sign(value) {
-    if (value > 0) return 1;
-    if (value < 0) return -1;
-    return 0;
-  }
+  // FIX #15: sign() was defined but never called anywhere in the file —
+  // removed as dead code.
 
   function round2(value) {
     return Math.round(value * 100) / 100;
@@ -4084,7 +4088,13 @@ let g_clearDebug = {
       .trim();
 
     if (!cleaned) { if (allowEmpty) return null; throw new Error(name + " is required."); }
-    const parts = cleaned.split("-").map(function (v) { return v.trim(); }).filter(Boolean);
+    // FIX #14: splitting on "-" treated the range separator and a leading
+    // minus sign identically, so a single negative value like "-2.5" split
+    // into ["", "2.5"], the empty piece got filtered out, and the sign
+    // silently vanished. Matching signed-number tokens directly keeps a
+    // leading "-" attached to its own number instead of being read as a
+    // delimiter.
+    const parts = (cleaned.match(/-?\d+(?:\.\d+)?/g) || []).map(function (v) { return v.trim(); }).filter(Boolean);
     
     
     
@@ -4691,7 +4701,13 @@ let g_clearDebug = {
     const preRegressionProjection = projection;
     const _regVol = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2)) || 1;
     const _lineZ = Math.abs(config.lineRange.mid - projection) / _regVol;
-    const MARKET_PULL = _lineZ > 3.0 ? 0.0 : _lineZ > 2.0 ? 0.05 : 0.20;
+    // FIX #9: shrinkage direction was inverted — it pulled hardest toward
+    // the market line when the model was already close to it (z<=2) and
+    // applied zero shrinkage exactly when the model diverged most from an
+    // efficient market (z>3), the case most likely to reflect a data/model
+    // error rather than a real edge. Flipped so large divergence gets the
+    // strongest pull toward market, not the weakest.
+    const MARKET_PULL = _lineZ > 3.0 ? 0.20 : _lineZ > 2.0 ? 0.05 : 0.0;
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
 
     
@@ -5025,9 +5041,17 @@ let g_clearDebug = {
     return "conf-none";
   }
 
-  function confidenceScore(confidence, edge) {
+  // FIX #13: raw |edge| (games) ranked picks across markets with different
+  // natural scales (match ~22 games, set1 ~10, team ~11), so a bigger
+  // match-total edge could out-rank a proportionally stronger set1/team
+  // edge purely because match totals run bigger. Normalized by volatility
+  // (the same edgeZ used elsewhere in the confidence math) before using it
+  // as the tiebreaker within a confidence tier.
+  function confidenceScore(confidence, edge, volatility) {
     const map = { "A": 4, "B": 3, "C": 2, "PASS": 1 };
-    return (map[confidence] || 0) * 100 + Math.abs(edge);
+    const safeVol = (typeof volatility === "number" && volatility > 0) ? volatility : 0.01;
+    const edgeZ = Math.abs(edge) / safeVol;
+    return (map[confidence] || 0) * 100 + Math.min(edgeZ, 10);
   }
 
   function getShownLineForResult(result) {
@@ -5056,8 +5080,8 @@ let g_clearDebug = {
           item.result.confidence !== "PASS";
       })
       .sort(function (a, b) {
-        const scoreA = confidenceScore(a.result.confidence, a.result.edge);
-        const scoreB = confidenceScore(b.result.confidence, b.result.edge);
+        const scoreA = confidenceScore(a.result.confidence, a.result.edge, a.result.volatility);
+        const scoreB = confidenceScore(b.result.confidence, b.result.edge, b.result.volatility);
         return scoreB - scoreA;
       });
 
@@ -5068,8 +5092,8 @@ let g_clearDebug = {
     
     const valid = [match, set1].filter(Boolean); 
     const ranked = valid.sort(function (a, b) {
-      const scoreA = confidenceScore(a.confidence, a.edge);
-      const scoreB = confidenceScore(b.confidence, b.edge);
+      const scoreA = confidenceScore(a.confidence, a.edge, a.volatility);
+      const scoreB = confidenceScore(b.confidence, b.edge, b.volatility);
       return scoreB - scoreA;
     });
     return ranked[0];
@@ -8511,33 +8535,42 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const currentSurface = surfaceSelect && surfaceSelect.value ? surfaceSelect.value : (selectedFixtureRecord ? selectedFixtureRecord.surface : "Hard");
       const surfaceKey = currentSurface.toLowerCase();
       
-      const eloMap = new Map();
-      
       const K_MAP = { "Grand Slam": 40, "Masters / 1000": 32, "Finals": 36, "Olympics": 32, "500": 28, "250": 24, "Tour": 28, "Challenger": 20 };
 
-      
-      workingRecords.filter(r => {
-        if (!surfaceKey) return true;
-        
-        return inferSurfaceFromRecord(r).toLowerCase() === surfaceKey;
-      })
+      // FIX #10: this pre-filtered workingRecords down to only same-surface
+      // matches before running a single Elo map, shrinking an already-small
+      // fetched sample even further and resetting both players to 1500 on
+      // every call. Now builds all + per-surface maps (same shape as the
+      // backtest's eloState) from the full fetched sample, and reads the
+      // surface-specific map with a fallback to "all" so a thin surface
+      // sample doesn't just leave both players stuck at 1500.
+      const eloState = { all: new Map(), hard: new Map(), clay: new Map(), grass: new Map() };
+      workingRecords
+        .slice()
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .forEach(r => {
-          if (!eloMap.has(r.playerAId)) eloMap.set(r.playerAId, 1500);
-          if (!eloMap.has(r.playerBId)) eloMap.set(r.playerBId, 1500);
-          const rA = eloMap.get(r.playerAId), rB = eloMap.get(r.playerBId);
-          const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
-          
-          const aSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.aSets.filter((g, i) => g > (r.bSets[i] || 0)).length : (r.playerAGames > r.playerBGames ? 1 : 0);
-          const bSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.bSets.filter((g, i) => g > (r.aSets[i] || 0)).length : 0;
-          const scoreA = aSetsWon > bSetsWon ? 1 : aSetsWon < bSetsWon ? 0 : 0.5;
-          const kFactor = K_MAP[r.eventLevel] || 28;
-          eloMap.set(r.playerAId, rA + kFactor * (scoreA - expectedA));
-          eloMap.set(r.playerBId, rB + kFactor * ((1 - scoreA) - (1 - expectedA)));
+          const rSurfKey = inferSurfaceFromRecord(r).toLowerCase();
+          const maps = [eloState.all];
+          if (rSurfKey === "clay") maps.push(eloState.clay);
+          else if (rSurfKey === "grass") maps.push(eloState.grass);
+          else if (rSurfKey === "hard") maps.push(eloState.hard);
+          maps.forEach(map => {
+            if (!map.has(r.playerAId)) map.set(r.playerAId, 1500);
+            if (!map.has(r.playerBId)) map.set(r.playerBId, 1500);
+            const rA = map.get(r.playerAId), rB = map.get(r.playerBId);
+            const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
+            const aSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.aSets.filter((g, i) => g > (r.bSets[i] || 0)).length : (r.playerAGames > r.playerBGames ? 1 : 0);
+            const bSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.bSets.filter((g, i) => g > (r.aSets[i] || 0)).length : 0;
+            const scoreA = aSetsWon > bSetsWon ? 1 : aSetsWon < bSetsWon ? 0 : 0.5;
+            const kFactor = K_MAP[r.eventLevel] || 28;
+            map.set(r.playerAId, rA + kFactor * (scoreA - expectedA));
+            map.set(r.playerBId, rB + kFactor * ((1 - scoreA) - (1 - expectedA)));
+          });
         });
 
-      const eloA = eloMap.get(playerAId) || 1500;
-      const eloB = eloMap.get(playerBId) || 1500;
+      const eloSurfMap = surfaceKey === "clay" ? eloState.clay : surfaceKey === "grass" ? eloState.grass : surfaceKey === "hard" ? eloState.hard : eloState.all;
+      const eloA = (eloSurfMap.has(playerAId) ? eloSurfMap.get(playerAId) : eloState.all.get(playerAId)) || 1500;
+      const eloB = (eloSurfMap.has(playerBId) ? eloSurfMap.get(playerBId) : eloState.all.get(playerBId)) || 1500;
 
       const aGames = recentA10.map(m => m.playerGames).filter(Number.isFinite);
       const bGames = recentB10.map(m => m.playerGames).filter(Number.isFinite);
@@ -8589,12 +8622,18 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const TOUR_AVG_S1 = 5;
       const MIN_SAMPLE_SIZE = 5;
 
+      // FIX #12: this rounded the WHOLE returned array, including real
+      // (non-prior) data. For bayesianANorm/BNorm that real data is a
+      // fractional, opponent-quality-adjusted per-set average — rounding it
+      // to an integer threw away exactly the precision that metric exists
+      // to add, and only in the <5-match low-data regime where it matters
+      // most. Only the padded prior placeholders get rounded now.
       const applyPrior = (dataArray, priorValue) => {
-        let result = [...dataArray];
+        const result = [...dataArray];
         while (result.length < MIN_SAMPLE_SIZE) {
-          result.push(priorValue);
+          result.push(Math.round(priorValue));
         }
-        return result.map(function (v) { return Math.round(v); });
+        return result;
       };
 
       const bayesianA = aGames.length < MIN_SAMPLE_SIZE ? applyPrior(aGames, TOUR_AVG_GAMES) : aGames;
@@ -9391,7 +9430,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function btBuildMarketResult(config) {
     const tennisConfig = config.tennisConfig || getDefaultTennisConfig();
-    const simRuns = Number.isFinite(config.simRuns) ? config.simRuns : 300;
+    // FIX #11: live always simulates at 5000 runs; this defaulted to 300 —
+    // ~4x the Monte Carlo sampling noise at the simPct 45/53 grading
+    // thresholds, making backtest win-rate stats noisier than what live
+    // actually experiences. Raised toward live's precision.
+    const simRuns = Number.isFinite(config.simRuns) ? config.simRuns : 2000;
     const baseProjection = config.avgA + config.avgB;
     const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
     const h2hAvg = hasH2H ? mean(config.h2h) : null;
@@ -9411,7 +9454,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const _regVol = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2)) || 1;
     const _lineZ = Math.abs(config.lineRange.mid - projection) / _regVol;
-    const MARKET_PULL = _lineZ > 3.0 ? 0.0 : _lineZ > 2.0 ? 0.05 : 0.20;
+    // FIX #9 (backtest mirror of the live-path fix): same inverted-shrinkage
+    // bug — see buildMarketResult. Large model/market divergence now gets
+    // the strongest pull toward market instead of the weakest.
+    const MARKET_PULL = _lineZ > 3.0 ? 0.20 : _lineZ > 2.0 ? 0.05 : 0.0;
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
 
     let volatility = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2));
@@ -9562,7 +9608,7 @@ document.addEventListener("DOMContentLoaded", function () {
         avgA: matchDerived.avgA, avgB: matchDerived.avgB, stdA: matchDerived.stdA, stdB: matchDerived.stdB,
         h2h: matchDerived.h2h, avgGrind: matchDerived.avgGrind, avgTb: matchDerived.avgTb, avgS1Kill: matchDerived.avgS1Kill,
         projectionShift: matchDerived.projectionShift, ctx: ctx, tennisConfig: tennisConfig,
-        lineSource: c.line.match.source, simRuns: 300
+        lineSource: c.line.match.source, simRuns: 2000
       });
       records.push({ date: c.date, tour: tourKey, surface: c.surface, eventLevel: c.eventLevel, market: "match", pick: matchResult.pick, confidence: matchResult.confidence, edge: matchResult.edge, simPct: matchResult.simPct, lineSource: c.line.match.source, grade: btGradeMarketResult(matchResult, c.actual.match) });
 
@@ -9574,7 +9620,7 @@ document.addEventListener("DOMContentLoaded", function () {
           avgA: set1Derived.avgA, avgB: set1Derived.avgB, stdA: set1Derived.stdA, stdB: set1Derived.stdB,
           h2h: set1Derived.h2h, avgGrind: set1Derived.avgGrind, avgTb: set1Derived.avgTb, avgS1Kill: set1Derived.avgS1Kill,
           projectionShift: set1Derived.projectionShift, ctx: ctx, tennisConfig: tennisConfig,
-          lineSource: c.line.set1.source, simRuns: 300
+          lineSource: c.line.set1.source, simRuns: 2000
         });
         records.push({ date: c.date, tour: tourKey, surface: c.surface, eventLevel: c.eventLevel, market: "set1", pick: set1Result.pick, confidence: set1Result.confidence, edge: set1Result.edge, simPct: set1Result.simPct, lineSource: c.line.set1.source, grade: btGradeMarketResult(set1Result, c.actual.set1) });
       }
@@ -9592,7 +9638,7 @@ document.addEventListener("DOMContentLoaded", function () {
           h2h: (ctx.h2hPlayerA && ctx.h2hPlayerA.length) ? ctx.h2hPlayerA : [],
           avgGrind: matchDerived.avgGrind, avgTb: matchDerived.avgTb, avgS1Kill: matchDerived.avgS1Kill,
           projectionShift: 0, ctx: ctx, tennisConfig: tennisConfig,
-          lineSource: c.line.team_a.source, simRuns: 300
+          lineSource: c.line.team_a.source, simRuns: 2000
         });
         records.push({ date: c.date, tour: tourKey, surface: c.surface, eventLevel: c.eventLevel, market: "team_a", pick: teamAResult.pick, confidence: teamAResult.confidence, edge: teamAResult.edge, simPct: teamAResult.simPct, lineSource: c.line.team_a.source, grade: btGradeMarketResult(teamAResult, c.actual.team_a) });
       }
@@ -9605,7 +9651,7 @@ document.addEventListener("DOMContentLoaded", function () {
           h2h: (ctx.h2hPlayerB && ctx.h2hPlayerB.length) ? ctx.h2hPlayerB : [],
           avgGrind: matchDerived.avgGrind, avgTb: matchDerived.avgTb, avgS1Kill: matchDerived.avgS1Kill,
           projectionShift: 0, ctx: ctx, tennisConfig: tennisConfig,
-          lineSource: c.line.team_b.source, simRuns: 300
+          lineSource: c.line.team_b.source, simRuns: 2000
         });
         records.push({ date: c.date, tour: tourKey, surface: c.surface, eventLevel: c.eventLevel, market: "team_b", pick: teamBResult.pick, confidence: teamBResult.confidence, edge: teamBResult.edge, simPct: teamBResult.simPct, lineSource: c.line.team_b.source, grade: btGradeMarketResult(teamBResult, c.actual.team_b) });
       }
@@ -9691,10 +9737,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const bGamesNorm = normalizeMatchGames(recentB10);
 
     const TOUR_AVG_GAMES_NORM = 4.35, TOUR_AVG_S1 = 5, MIN_SAMPLE_SIZE = 5;
+    // FIX #12 (backtest mirror): same destructive-rounding bug — see the
+    // live-path fix. Only the padded prior placeholders get rounded now,
+    // real fractional per-set-normalized data passes through untouched.
     const applyPrior = function (dataArray, priorValue) {
       const result = dataArray.slice();
-      while (result.length < MIN_SAMPLE_SIZE) result.push(priorValue);
-      return result.map(function (v) { return Math.round(v); });
+      while (result.length < MIN_SAMPLE_SIZE) result.push(Math.round(priorValue));
+      return result;
     };
     const bayesianANorm = aGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(aGamesNorm, TOUR_AVG_GAMES_NORM) : aGamesNorm;
     const bayesianBNorm = bGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(bGamesNorm, TOUR_AVG_GAMES_NORM) : bGamesNorm;
@@ -10101,10 +10150,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const bGamesNorm = normalizeMatchGames(recentB10);
 
     const TOUR_AVG_GAMES_NORM = 4.35, TOUR_AVG_S1 = 5, MIN_SAMPLE_SIZE = 5;
+    // FIX #12 (backtest mirror): same destructive-rounding bug — see the
+    // live-path fix. Only the padded prior placeholders get rounded now,
+    // real fractional per-set-normalized data passes through untouched.
     const applyPrior = function (dataArray, priorValue) {
       const result = dataArray.slice();
-      while (result.length < MIN_SAMPLE_SIZE) result.push(priorValue);
-      return result.map(function (v) { return Math.round(v); });
+      while (result.length < MIN_SAMPLE_SIZE) result.push(Math.round(priorValue));
+      return result;
     };
     const bayesianANorm = aGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(aGamesNorm, TOUR_AVG_GAMES_NORM) : aGamesNorm;
     const bayesianBNorm = bGamesNorm.length < MIN_SAMPLE_SIZE ? applyPrior(bGamesNorm, TOUR_AVG_GAMES_NORM) : bGamesNorm;
