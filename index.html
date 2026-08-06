@@ -4099,7 +4099,20 @@ let g_clearDebug = {
     // silently vanished. Matching signed-number tokens directly keeps a
     // leading "-" attached to its own number instead of being read as a
     // delimiter.
-    const parts = (cleaned.match(/-?\d+(?:\.\d+)?/g) || []).map(function (v) { return v.trim(); }).filter(Boolean);
+    // FIX #21: FIX #14 stopped a leading "-" from being read as the range
+    // delimiter, but its replacement (matching every signed-number token
+    // globally) went too far the other way — on an ordinary range like
+    // "16.5 - 24.5", once whitespace is stripped the dash sits directly
+    // against the second number and gets consumed as that number's sign,
+    // turning "24.5" into "-24.5" and making every valid range look
+    // inverted (this was the literal bug behind "lower bound cannot be
+    // greater than upper bound" firing on correct input). A dedicated
+    // range pattern — two numbers, each optionally signed, joined by
+    // exactly one hyphen — is tried first so the separator is never
+    // ambiguous with a sign; a lone signed number (e.g. "-2.5") still
+    // falls back to the single-value path exactly as FIX #14 intended.
+    const rangeMatch = cleaned.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/);
+    const parts = rangeMatch ? [rangeMatch[1], rangeMatch[2]] : (cleaned.match(/^-?\d+(?:\.\d+)?$/) || []);
     
     
     
@@ -4780,9 +4793,17 @@ let g_clearDebug = {
     
     
     
+    // FIX #22: baseHoldProb values were calibrated far below real-world
+    // service-game hold rates for the ATP tour (0.615-0.675 implies ~54-57%
+    // service points won once run through pointProbFromGameWinProb, which
+    // is roughly WTA-level serve dominance, not ATP). Real tour averages:
+    // ATP service points won ~63-65% (hold ~79-87%), WTA ~55-58% (hold
+    // ~62-69%). Recalibrated so the Clay < Hard < Grass ordering per tour
+    // is preserved but the ATP/WTA gap now reflects reality instead of a
+    // ~2pt offset. Mirrored 1:1 in btComputeServeBlend / btBuildMarketResult.
     let baseHoldProb = _isATP
-      ? (_surf === "Clay" ? 0.615 : _surf === "Grass" ? 0.675 : 0.645)
-      : (_surf === "Clay" ? 0.595 : _surf === "Grass" ? 0.650 : 0.625);
+      ? (_surf === "Clay" ? 0.78 : _surf === "Grass" ? 0.87 : 0.82)
+      : (_surf === "Clay" ? 0.61 : _surf === "Grass" ? 0.67 : 0.64);
 
     const _eloA = config.ctx?.eloA || 1500;
     const _eloB = config.ctx?.eloB || 1500;
@@ -9351,9 +9372,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const _cfg = tennisConfig || getDefaultTennisConfig();
     const _isATP = tour === "ATP";
     const _surf = surface || "Hard";
+    // FIX #22 (backtest mirror): same recalibration as buildMarketResult —
+    // see the live-path FIX #22 comment for the real-world hold-rate
+    // reasoning. Kept 1:1 with the live values so backtest results stay
+    // representative of what live actually simulates.
     let baseHoldProb = _isATP
-      ? (_surf === "Clay" ? 0.615 : _surf === "Grass" ? 0.675 : 0.645)
-      : (_surf === "Clay" ? 0.595 : _surf === "Grass" ? 0.650 : 0.625);
+      ? (_surf === "Clay" ? 0.78 : _surf === "Grass" ? 0.87 : 0.82)
+      : (_surf === "Clay" ? 0.61 : _surf === "Grass" ? 0.67 : 0.64);
 
     const _eloA = eloA || 1500;
     const _eloB = eloB || 1500;
@@ -9526,9 +9551,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const _isATP = config.ctx?.tour === "ATP";
     const _surf = config.ctx?.surface || "Hard";
+    // FIX #22 (backtest mirror): same recalibration as buildMarketResult —
+    // see the live-path FIX #22 comment for the real-world hold-rate
+    // reasoning. Kept 1:1 with the live values so backtest results stay
+    // representative of what live actually simulates.
     let baseHoldProb = _isATP
-      ? (_surf === "Clay" ? 0.615 : _surf === "Grass" ? 0.675 : 0.645)
-      : (_surf === "Clay" ? 0.595 : _surf === "Grass" ? 0.650 : 0.625);
+      ? (_surf === "Clay" ? 0.78 : _surf === "Grass" ? 0.87 : 0.82)
+      : (_surf === "Clay" ? 0.61 : _surf === "Grass" ? 0.67 : 0.64);
     const _eloA = config.ctx?.eloA || 1500;
     const _eloB = config.ctx?.eloB || 1500;
     const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
