@@ -4042,7 +4042,12 @@ let g_clearDebug = {
     const absEdge = Math.abs(edge);
    const safeVol = volatility > 0 ? volatility : 0.01;
    const edgeZ = absEdge / safeVol;
-   const edgePct = Math.min(100, edgeZ * 15);
+   // FIX #19: renamed from edgePct — this is Math.min(100, z*15), an
+   // arbitrary tuned heuristic score, not a calibrated statistical
+   // percentage. It shared its old name with an unrelated, genuinely
+   // percentage-valued "edgePct" used in the results table UI, which made
+   // the two easy to confuse when reading the code.
+   const edgeSignalScore = Math.min(100, edgeZ * 15);
    
    
    const marketBaseline = (marketKey === "set1") ? 10.0 : (marketKey === "team_a" || marketKey === "team_b") ? 11.0 : 22.0;
@@ -4050,9 +4055,9 @@ let g_clearDebug = {
    let conf = "PASS";
 
     if (volNorm > 0.36) conf = "PASS";
-    else if (edgePct >= 12.0 && volNorm <= 0.20) conf = "A";
-    else if (edgePct >= 7.5  && volNorm <= 0.26) conf = "B";
-    else if (edgePct >= 3.5  && volNorm <= 0.32) conf = "C";
+    else if (edgeSignalScore >= 12.0 && volNorm <= 0.20) conf = "A";
+    else if (edgeSignalScore >= 7.5  && volNorm <= 0.26) conf = "B";
+    else if (edgeSignalScore >= 3.5  && volNorm <= 0.32) conf = "C";
 
     // FIX #6: raw win-rate at n>=5 is noise, not signal, and the loop is
     // self-referential (this same function fed the bucket it now reads).
@@ -4366,8 +4371,15 @@ let g_clearDebug = {
     const sourceA = useCtx ? ctxSeriesA : options.manualA;
     const sourceB = useCtx ? ctxSeriesB : options.manualB;
 
-    let avgA = weightedMean(sourceA, tennisConfig.decay) || mean(sourceA) || 0;
-    let avgB = weightedMean(sourceB, tennisConfig.decay) || mean(sourceB) || 0;
+    // FIX #18: same falsy-zero class of bug as FIX #3 — weightedMean/mean
+    // both correctly return null on empty input, but chaining with || meant
+    // a legitimate computed average of exactly 0 would fall through to the
+    // next fallback (and ultimately the hardcoded 0) instead of being used.
+    // Check for null explicitly instead of relying on truthiness.
+    const _wmA = weightedMean(sourceA, tennisConfig.decay);
+    const _wmB = weightedMean(sourceB, tennisConfig.decay);
+    let avgA = (_wmA !== null) ? _wmA : (mean(sourceA) !== null ? mean(sourceA) : 0);
+    let avgB = (_wmB !== null) ? _wmB : (mean(sourceB) !== null ? mean(sourceB) : 0);
     let stdA = stdDev(sourceA);
     let stdB = stdDev(sourceB);
 
@@ -4753,7 +4765,9 @@ let g_clearDebug = {
       notes.push("Mkt pull: raw " + fmt(preRegressionProjection) + " \u2192 " + fmt(projection));
     }
     const filtersTriggered = [];
-    let terminalVeto = false;
+    // FIX #17: terminalVeto was set below in three places and never read
+    // anywhere (not even on the returned result object) — removed as dead
+    // code, along with its three assignments.
 
     
     
@@ -4830,28 +4844,29 @@ let g_clearDebug = {
       filtersTriggered.push("grind_veto");
       confidence = downgradeConfidence(confidence);
       notes.push("Grind factor: UNDER downgraded");
-      if (confidence === "PASS") { pick = "PASS"; terminalVeto = true; }
+      if (confidence === "PASS") { pick = "PASS"; }
     }
     if (_hasEnoughBrutalSample && config.avgTb >= 0.25 && pick === "UNDER") {
       filtersTriggered.push("tb_veto");
       confidence = downgradeConfidence(confidence);
       notes.push("Serve-bot alert: UNDER downgraded");
-      if (confidence === "PASS") { pick = "PASS"; terminalVeto = true; }
+      if (confidence === "PASS") { pick = "PASS"; }
     }
     if (_hasEnoughBrutalSample && config.avgS1Kill >= 0.35 && pick === "OVER" && config.marketKey === "set1") {
       filtersTriggered.push("s1kill_veto");
       confidence = downgradeConfidence(confidence);
       notes.push("High kill rate: OVER downgraded");
-      if (confidence === "PASS") { pick = "PASS"; terminalVeto = true; }
+      if (confidence === "PASS") { pick = "PASS"; }
     }
 
     
     
     const _safeVolFinal = volatility > 0 ? volatility : 0.01;
     const _edgeZFinal = Math.abs(edge) / _safeVolFinal;
-    const edgePctFinal = Math.min(100, _edgeZFinal * 15);
+    // FIX #19: renamed from edgePctFinal — see getRawConfidence for why.
+    const edgeSignalScoreFinal = Math.min(100, _edgeZFinal * 15);
     
-    if (edgePctFinal > 18.0 && confidence !== "PASS") {
+    if (edgeSignalScoreFinal > 18.0 && confidence !== "PASS") {
       confidence = downgradeConfidence(confidence);
       notes.push("Edge cap: Z=" + fmt(_edgeZFinal) + " > 1.2 ceiling");
     }
@@ -8537,40 +8552,77 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       
       const K_MAP = { "Grand Slam": 40, "Masters / 1000": 32, "Finals": 36, "Olympics": 32, "500": 28, "250": 24, "Tour": 28, "Challenger": 20 };
 
-      // FIX #10: this pre-filtered workingRecords down to only same-surface
-      // matches before running a single Elo map, shrinking an already-small
-      // fetched sample even further and resetting both players to 1500 on
-      // every call. Now builds all + per-surface maps (same shape as the
-      // backtest's eloState) from the full fetched sample, and reads the
-      // surface-specific map with a fallback to "all" so a thin surface
-      // sample doesn't just leave both players stuck at 1500.
-      const eloState = { all: new Map(), hard: new Map(), clay: new Map(), grass: new Map() };
+      // FIX #20: ratings were still rebuilt from zero on every call, only
+      // ever seeing whatever small sample got fetched for this one matchup.
+      // Now persists ratings + a set of already-processed match keys in
+      // localStorage (same pattern as g_bucketPerformance / dedupeRecords'
+      // competitionId key) so ratings accumulate across calls/sessions
+      // instead of resetting, and each match only ever updates the rating
+      // once no matter how many times it shows up in a later fetch's
+      // recent/H2H window. Map keys are coerced to strings throughout since
+      // a JSON round-trip through localStorage always yields string keys.
+      const ELO_STORAGE_KEY = "tennis_elo_state_v1";
+      const MAX_SEEN_MATCH_IDS = 20000;
+      let eloState;
+      try {
+        const _rawEloState = localStorage.getItem(ELO_STORAGE_KEY);
+        const _parsedEloState = _rawEloState ? JSON.parse(_rawEloState) : null;
+        eloState = {
+          all: new Map(Object.entries((_parsedEloState && _parsedEloState.ratings && _parsedEloState.ratings.all) || {})),
+          hard: new Map(Object.entries((_parsedEloState && _parsedEloState.ratings && _parsedEloState.ratings.hard) || {})),
+          clay: new Map(Object.entries((_parsedEloState && _parsedEloState.ratings && _parsedEloState.ratings.clay) || {})),
+          grass: new Map(Object.entries((_parsedEloState && _parsedEloState.ratings && _parsedEloState.ratings.grass) || {})),
+          seenMatchIds: new Set((_parsedEloState && _parsedEloState.seenMatchIds) || [])
+        };
+      } catch (e) {
+        eloState = { all: new Map(), hard: new Map(), clay: new Map(), grass: new Map(), seenMatchIds: new Set() };
+      }
+
       workingRecords
         .slice()
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .forEach(r => {
+          const rAId = String(r.playerAId), rBId = String(r.playerBId);
+          const rMatchId = String(r.competitionId || (r.playerAId + "|" + r.playerBId + "|" + r.date));
+          if (eloState.seenMatchIds.has(rMatchId)) return;
           const rSurfKey = inferSurfaceFromRecord(r).toLowerCase();
           const maps = [eloState.all];
           if (rSurfKey === "clay") maps.push(eloState.clay);
           else if (rSurfKey === "grass") maps.push(eloState.grass);
           else if (rSurfKey === "hard") maps.push(eloState.hard);
           maps.forEach(map => {
-            if (!map.has(r.playerAId)) map.set(r.playerAId, 1500);
-            if (!map.has(r.playerBId)) map.set(r.playerBId, 1500);
-            const rA = map.get(r.playerAId), rB = map.get(r.playerBId);
+            if (!map.has(rAId)) map.set(rAId, 1500);
+            if (!map.has(rBId)) map.set(rBId, 1500);
+            const rA = map.get(rAId), rB = map.get(rBId);
             const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
             const aSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.aSets.filter((g, i) => g > (r.bSets[i] || 0)).length : (r.playerAGames > r.playerBGames ? 1 : 0);
             const bSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.bSets.filter((g, i) => g > (r.aSets[i] || 0)).length : 0;
             const scoreA = aSetsWon > bSetsWon ? 1 : aSetsWon < bSetsWon ? 0 : 0.5;
             const kFactor = K_MAP[r.eventLevel] || 28;
-            map.set(r.playerAId, rA + kFactor * (scoreA - expectedA));
-            map.set(r.playerBId, rB + kFactor * ((1 - scoreA) - (1 - expectedA)));
+            map.set(rAId, rA + kFactor * (scoreA - expectedA));
+            map.set(rBId, rB + kFactor * ((1 - scoreA) - (1 - expectedA)));
           });
+          eloState.seenMatchIds.add(rMatchId);
         });
 
+      try {
+        let _seenIdsArr = Array.from(eloState.seenMatchIds);
+        if (_seenIdsArr.length > MAX_SEEN_MATCH_IDS) _seenIdsArr = _seenIdsArr.slice(_seenIdsArr.length - MAX_SEEN_MATCH_IDS);
+        localStorage.setItem(ELO_STORAGE_KEY, JSON.stringify({
+          ratings: {
+            all: Object.fromEntries(eloState.all),
+            hard: Object.fromEntries(eloState.hard),
+            clay: Object.fromEntries(eloState.clay),
+            grass: Object.fromEntries(eloState.grass)
+          },
+          seenMatchIds: _seenIdsArr
+        }));
+      } catch (e) {}
+
       const eloSurfMap = surfaceKey === "clay" ? eloState.clay : surfaceKey === "grass" ? eloState.grass : surfaceKey === "hard" ? eloState.hard : eloState.all;
-      const eloA = (eloSurfMap.has(playerAId) ? eloSurfMap.get(playerAId) : eloState.all.get(playerAId)) || 1500;
-      const eloB = (eloSurfMap.has(playerBId) ? eloSurfMap.get(playerBId) : eloState.all.get(playerBId)) || 1500;
+      const _playerAKey = String(playerAId), _playerBKey = String(playerBId);
+      const eloA = (eloSurfMap.has(_playerAKey) ? eloSurfMap.get(_playerAKey) : eloState.all.get(_playerAKey)) || 1500;
+      const eloB = (eloSurfMap.has(_playerBKey) ? eloSurfMap.get(_playerBKey) : eloState.all.get(_playerBKey)) || 1500;
 
       const aGames = recentA10.map(m => m.playerGames).filter(Number.isFinite);
       const bGames = recentB10.map(m => m.playerGames).filter(Number.isFinite);
@@ -9344,14 +9396,17 @@ document.addEventListener("DOMContentLoaded", function () {
     const absEdge = Math.abs(edge);
     const safeVol = volatility > 0 ? volatility : 0.01;
     const edgeZ = absEdge / safeVol;
-    const edgePct = Math.min(100, edgeZ * 15);
+    // FIX #19 (backtest mirror): renamed from edgePct — see the live
+    // getRawConfidence fix for why (naming collision with the UI's
+    // genuinely percentage-valued "edgePct").
+    const edgeSignalScore = Math.min(100, edgeZ * 15);
     const marketBaseline = (marketKey === "set1") ? 10.0 : (marketKey === "team_a" || marketKey === "team_b") ? 11.0 : 22.0;
     const volNorm = volatility / marketBaseline;
     let conf = "PASS";
     if (volNorm > 0.36) conf = "PASS";
-    else if (edgePct >= 12.0 && volNorm <= 0.20) conf = "A";
-    else if (edgePct >= 7.5  && volNorm <= 0.26) conf = "B";
-    else if (edgePct >= 3.5  && volNorm <= 0.32) conf = "C";
+    else if (edgeSignalScore >= 12.0 && volNorm <= 0.20) conf = "A";
+    else if (edgeSignalScore >= 7.5  && volNorm <= 0.26) conf = "B";
+    else if (edgeSignalScore >= 3.5  && volNorm <= 0.32) conf = "C";
     return conf;
   }
 
@@ -9522,8 +9577,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const _safeVolFinal = volatility > 0 ? volatility : 0.01;
     const _edgeZFinal = Math.abs(edge) / _safeVolFinal;
-    const edgePctFinal = Math.min(100, _edgeZFinal * 15);
-    if (edgePctFinal > 18.0 && confidence !== "PASS") {
+    // FIX #19 (backtest mirror): renamed from edgePctFinal — see the live
+    // getRawConfidence fix for why.
+    const edgeSignalScoreFinal = Math.min(100, _edgeZFinal * 15);
+    if (edgeSignalScoreFinal > 18.0 && confidence !== "PASS") {
       confidence = downgradeConfidence(confidence);
     }
 
@@ -9583,14 +9640,87 @@ document.addEventListener("DOMContentLoaded", function () {
       });
       return out;
     }
+    const _overallWins = scored.filter(function (r) { return r.grade === "WIN"; }).length;
+    const _overallLosses = scored.filter(function (r) { return r.grade === "LOSS"; }).length;
+    const _overallPushes = scored.filter(function (r) { return r.grade === "PUSH"; }).length;
+    const _overallDecided = _overallWins + _overallLosses;
     return {
       totalPicks: records.filter(function (r) { return r.pick !== "PASS"; }).length,
       totalPassed: records.filter(function (r) { return r.pick === "PASS"; }).length,
       scoredPicks: scored.length,
+      overall: { wins: _overallWins, losses: _overallLosses, pushes: _overallPushes, winRate: _overallDecided ? +((_overallWins / _overallDecided) * 100).toFixed(1) : null },
       byConfidence: bucket(function (r) { return r.confidence; }),
       byMarket: bucket(function (r) { return r.market; }),
       byLineSource: bucket(function (r) { return r.lineSource || "unknown"; })
     };
+  }
+
+  // FIX #16: Phase 6/7 param tuning previously scored candidate configs
+  // purely on projection MAE (btScoreContexts / computeTennisAccuracyScore)
+  // and never evaluated how a candidate config performs through the actual
+  // pick/veto/confidence pipeline it will drive live — a config could lower
+  // MAE while quietly making real WIN/LOSS/PUSH performance worse. This
+  // helper runs a config through the same pick-grading path as
+  // runTennisPickGradeBacktest, but takes contexts + config as plain
+  // arguments so it can score an arbitrary candidate against an arbitrary
+  // context set (e.g. a holdout), which runTennisHoldoutLock now uses as an
+  // additional gate before locking.
+  function btScorePickGrades(contexts, tennisConfig, tourLabel) {
+    const records = [];
+    for (let i = 0; i < contexts.length; i++) {
+      const c = contexts[i];
+      const ctx = c.ctx;
+      const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: [], manualB: [], manualAllowedA: [], manualAllowedB: [], manualH2H: ctx.h2hMatch, ctx: ctx, tennisConfig: tennisConfig });
+      const matchLineRange = { min: c.line.match.value, max: c.line.match.value, mid: c.line.match.value, label: fmt(c.line.match.value) };
+      const matchResult = btBuildMarketResult({
+        marketLabel: "Match Total Games", marketKey: "match", lineRange: matchLineRange,
+        avgA: matchDerived.avgA, avgB: matchDerived.avgB, stdA: matchDerived.stdA, stdB: matchDerived.stdB,
+        h2h: matchDerived.h2h, avgGrind: matchDerived.avgGrind, avgTb: matchDerived.avgTb, avgS1Kill: matchDerived.avgS1Kill,
+        projectionShift: matchDerived.projectionShift, ctx: ctx, tennisConfig: tennisConfig,
+        lineSource: c.line.match.source, simRuns: 2000
+      });
+      records.push({ date: c.date, tour: tourLabel || null, surface: c.surface, eventLevel: c.eventLevel, market: "match", pick: matchResult.pick, confidence: matchResult.confidence, edge: matchResult.edge, simPct: matchResult.simPct, lineSource: c.line.match.source, grade: btGradeMarketResult(matchResult, c.actual.match) });
+
+      if (Number.isFinite(c.actual.set1)) {
+        const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: [], manualB: [], manualAllowedA: [], manualAllowedB: [], manualH2H: ctx.h2hSet1, ctx: ctx, tennisConfig: tennisConfig });
+        const set1LineRange = { min: c.line.set1.value, max: c.line.set1.value, mid: c.line.set1.value, label: fmt(c.line.set1.value) };
+        const set1Result = btBuildMarketResult({
+          marketLabel: "Set 1 Total Games", marketKey: "set1", lineRange: set1LineRange,
+          avgA: set1Derived.avgA, avgB: set1Derived.avgB, stdA: set1Derived.stdA, stdB: set1Derived.stdB,
+          h2h: set1Derived.h2h, avgGrind: set1Derived.avgGrind, avgTb: set1Derived.avgTb, avgS1Kill: set1Derived.avgS1Kill,
+          projectionShift: set1Derived.projectionShift, ctx: ctx, tennisConfig: tennisConfig,
+          lineSource: c.line.set1.source, simRuns: 2000
+        });
+        records.push({ date: c.date, tour: tourLabel || null, surface: c.surface, eventLevel: c.eventLevel, market: "set1", pick: set1Result.pick, confidence: set1Result.confidence, edge: set1Result.edge, simPct: set1Result.simPct, lineSource: c.line.set1.source, grade: btGradeMarketResult(set1Result, c.actual.set1) });
+      }
+
+      if (Number.isFinite(c.actual.team_a) && c.line.team_a) {
+        const teamALineRange = { min: c.line.team_a.value, max: c.line.team_a.value, mid: c.line.team_a.value, label: fmt(c.line.team_a.value) };
+        const teamAResult = btBuildMarketResult({
+          marketLabel: "Player A Total Games", marketKey: "team_a", lineRange: teamALineRange,
+          avgA: matchDerived.avgA, avgB: 0, stdA: matchDerived.stdA, stdB: 0,
+          h2h: (ctx.h2hPlayerA && ctx.h2hPlayerA.length) ? ctx.h2hPlayerA : [],
+          avgGrind: matchDerived.avgGrind, avgTb: matchDerived.avgTb, avgS1Kill: matchDerived.avgS1Kill,
+          projectionShift: 0, ctx: ctx, tennisConfig: tennisConfig,
+          lineSource: c.line.team_a.source, simRuns: 2000
+        });
+        records.push({ date: c.date, tour: tourLabel || null, surface: c.surface, eventLevel: c.eventLevel, market: "team_a", pick: teamAResult.pick, confidence: teamAResult.confidence, edge: teamAResult.edge, simPct: teamAResult.simPct, lineSource: c.line.team_a.source, grade: btGradeMarketResult(teamAResult, c.actual.team_a) });
+      }
+
+      if (Number.isFinite(c.actual.team_b) && c.line.team_b) {
+        const teamBLineRange = { min: c.line.team_b.value, max: c.line.team_b.value, mid: c.line.team_b.value, label: fmt(c.line.team_b.value) };
+        const teamBResult = btBuildMarketResult({
+          marketLabel: "Player B Total Games", marketKey: "team_b", lineRange: teamBLineRange,
+          avgA: matchDerived.avgB, avgB: 0, stdA: matchDerived.stdB, stdB: 0,
+          h2h: (ctx.h2hPlayerB && ctx.h2hPlayerB.length) ? ctx.h2hPlayerB : [],
+          avgGrind: matchDerived.avgGrind, avgTb: matchDerived.avgTb, avgS1Kill: matchDerived.avgS1Kill,
+          projectionShift: 0, ctx: ctx, tennisConfig: tennisConfig,
+          lineSource: c.line.team_b.source, simRuns: 2000
+        });
+        records.push({ date: c.date, tour: tourLabel || null, surface: c.surface, eventLevel: c.eventLevel, market: "team_b", pick: teamBResult.pick, confidence: teamBResult.confidence, edge: teamBResult.edge, simPct: teamBResult.simPct, lineSource: c.line.team_b.source, grade: btGradeMarketResult(teamBResult, c.actual.team_b) });
+      }
+    }
+    return computeTennisGradeReport(records);
   }
 
   async function runTennisPickGradeBacktest(tour, year, onProgress) {
@@ -10340,6 +10470,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const candidateConfig = Object.assign({}, getDefaultTennisConfig(), sweep.bestConfig);
     const HOLDOUT_HOLD_TOL = 0.50;
     const MIN_JOINT_IMPROVE = 0.25;
+    // FIX #16: the MAE-based checks above previously were the only gate —
+    // a candidate could pass them while its actual graded win rate got
+    // worse. Also require the candidate's real pick-grading win rate (via
+    // btScorePickGrades) not to regress beyond tolerance on the same
+    // holdout. Tours with too few decided picks to be meaningful are
+    // skipped rather than blocking on noise, and flagged as such below.
+    const WIN_RATE_HOLD_TOL = 3.0;
+    const MIN_DECIDED_FOR_WIN_RATE_CHECK = 20;
 
     const holdoutByTour = {};
     for (const tour of ["ATP", "WTA"]) {
@@ -10354,6 +10492,16 @@ document.addEventListener("DOMContentLoaded", function () {
       );
       const baseScore = btScoreContexts(holdout, baselineConfig, targets);
       const candScore = btScoreContexts(holdout, candidateConfig, targets);
+      const basePickReport = btScorePickGrades(holdout, baselineConfig, tour);
+      const candPickReport = btScorePickGrades(holdout, candidateConfig, tour);
+      const baseDecided = basePickReport.overall.wins + basePickReport.overall.losses;
+      const candDecided = candPickReport.overall.wins + candPickReport.overall.losses;
+      const enoughForWinRateCheck = baseDecided >= MIN_DECIDED_FOR_WIN_RATE_CHECK && candDecided >= MIN_DECIDED_FOR_WIN_RATE_CHECK;
+      const winRateHolds = !enoughForWinRateCheck || (
+        basePickReport.overall.winRate == null || candPickReport.overall.winRate == null
+          ? true
+          : candPickReport.overall.winRate >= (basePickReport.overall.winRate - WIN_RATE_HOLD_TOL)
+      );
       holdoutByTour[tour] = {
         n: holdout.length,
         baselineComposite: baseScore.composite,
@@ -10363,16 +10511,22 @@ document.addEventListener("DOMContentLoaded", function () {
           : null,
         holds: (candScore.composite != null && baseScore.composite != null)
           ? candScore.composite >= (baseScore.composite - HOLDOUT_HOLD_TOL)
-          : false
+          : false,
+        baselineWinRate: basePickReport.overall.winRate,
+        candidateWinRate: candPickReport.overall.winRate,
+        winRateSampleSize: { baseline: baseDecided, candidate: candDecided },
+        winRateChecked: enoughForWinRateCheck,
+        winRateHolds: winRateHolds
       };
       await new Promise(function (r) { setTimeout(r, 0); });
     }
 
     const holdsBoth = holdoutByTour.ATP.holds && holdoutByTour.WTA.holds;
+    const winRateHoldsBoth = holdoutByTour.ATP.winRateHolds && holdoutByTour.WTA.winRateHolds;
     const jointBase = +(((holdoutByTour.ATP.baselineComposite || 0) + (holdoutByTour.WTA.baselineComposite || 0)) / 2).toFixed(2);
     const jointCand = +(((holdoutByTour.ATP.candidateComposite || 0) + (holdoutByTour.WTA.candidateComposite || 0)) / 2).toFixed(2);
     const jointDelta = +(jointCand - jointBase).toFixed(2);
-    const improved = holdsBoth && jointDelta >= MIN_JOINT_IMPROVE;
+    const improved = holdsBoth && winRateHoldsBoth && jointDelta >= MIN_JOINT_IMPROVE;
 
     let locked = false;
     if (improved) {
@@ -10401,6 +10555,7 @@ document.addEventListener("DOMContentLoaded", function () {
       locked: locked,
       applied: false,
       holdsBoth: holdsBoth,
+      winRateHoldsBoth: winRateHoldsBoth,
       jointHoldoutBaseline: jointBase,
       jointHoldoutCandidate: jointCand,
       jointHoldoutDelta: jointDelta,
@@ -10408,7 +10563,7 @@ document.addEventListener("DOMContentLoaded", function () {
       bestConfig: candidateConfig,
       note: locked
         ? "Proposal stored (applied:false). Use AFDB 🔐 APPLY LOCK to feed live engine."
-        : "Did not lock — need both tours to hold and joint holdout delta >= " + MIN_JOINT_IMPROVE
+        : "Did not lock — need both tours to hold, win rate to not regress beyond tolerance, and joint holdout delta >= " + MIN_JOINT_IMPROVE
     };
   }
 
