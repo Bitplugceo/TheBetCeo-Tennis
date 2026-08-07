@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3056,8 +3057,6 @@ title="Show issues">
       <span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:11px;font-weight:900;pointer-events:none;white-space:nowrap;"></span>
       <div class="tracker-head-actions">
         <button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Military Grade Settle" onclick="window.triggerTrackerMilitaryRaid()">🚨</button>
-        <button type="button" id="trackerSeasonBacktestBtn" class="tracker-insights-btn" title="Season Backtest panel (Pull → Replay → Score → Sweep → Lock)">📊</button>
-        <button type="button" id="trackerConfigBtn" class="tracker-insights-btn" title="View / apply locked configs">⚙️</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
     </div>
@@ -3067,88 +3066,6 @@ title="Show issues">
 <div class="tracker-body-scroll" id="trackedPicksWrap">
           <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
 
-  <div id="trackerBacktestPanel" class="tennis-bt-panel" style="display:none;">
-    <div>
-      <div class="tennis-bt-kicker">Season Lab</div>
-      <h3 class="tennis-bt-title">Tennis Season Backtest</h3>
-      <p class="tennis-bt-sub">Staged pipeline. Data → Replay → Score → Sweep → Holdout. Live engine changes only after Apply Lock. Stay on this screen while jobs run.</p>
-    </div>
-    <div class="tennis-bt-controls">
-      <div>
-        <label for="tennisBtYear">Year</label>
-        <input id="tennisBtYear" type="number" min="2018" max="2030" step="1" value="2025" />
-      </div>
-      <div>
-        <label for="tennisBtTour">Tour</label>
-        <select id="tennisBtTour">
-          <option value="BOTH">ATP + WTA</option>
-          <option value="ATP">ATP only</option>
-          <option value="WTA">WTA only</option>
-        </select>
-      </div>
-    </div>
-    <div class="tennis-bt-btn-row">
-      <button type="button" class="tennis-bt-btn primary" id="tennisBtSeasonPullBtn">📅 Season Pull</button>
-      <button type="button" class="tennis-bt-btn" id="tennisBtH2HBufferBtn">📚 H2H Buffer</button>
-      <button type="button" class="tennis-bt-btn" id="tennisBtImportLinesBtn">📥 Import Lines</button>
-    </div>
-    <div class="tennis-bt-btn-row">
-      <button type="button" class="tennis-bt-btn" id="tennisBtRunBacktestBtn">🧪 Run Backtest</button>
-      <button type="button" class="tennis-bt-btn" id="tennisBtScoreBtn">📈 Score</button>
-      <button type="button" class="tennis-bt-btn" id="tennisBtGradeBtn">🎓 Grade Picks</button>
-    </div>
-    <div class="tennis-bt-btn-row">
-      <button type="button" class="tennis-bt-btn warn" id="tennisBtSweepBtn">🎯 Run Sweep</button>
-      <button type="button" class="tennis-bt-btn lock" id="tennisBtHoldoutBtn">🧪 Holdout Lock</button>
-    </div>
-    <div class="tennis-bt-btn-row">
-      <button type="button" class="tennis-bt-btn apply" id="tennisBtApplyBtn">🔐 Apply Lock</button>
-      <button type="button" class="tennis-bt-btn danger" id="tennisBtClearBtn">🧹 Clear Lock</button>
-      <button type="button" class="tennis-bt-btn" id="tennisBtRefreshMetaBtn">↻ Refresh Status</button>
-    </div>
-    <div id="tennisBtStatus" class="tennis-bt-status">Idle — pick a year, then run Season Pull. Stay on this screen while jobs run.</div>
-    <div class="tennis-bt-grid" id="tennisBtCards">
-      <div class="tennis-bt-card hero">
-        <div class="lbl">Lock State</div>
-        <div class="val" id="tennisBtLockState">NONE</div>
-        <div class="sub" id="tennisBtLockSub">No proposal / applied lock</div>
-      </div>
-      <div class="tennis-bt-card">
-        <div class="lbl">Last Score</div>
-        <div class="val" id="tennisBtLastScore">—</div>
-        <div class="sub" id="tennisBtLastScoreSub">Run Score after Backtest</div>
-      </div>
-      <div class="tennis-bt-card">
-        <div class="lbl">Sweep Best</div>
-        <div class="val" id="tennisBtSweepScore">—</div>
-        <div class="sub" id="tennisBtSweepSub">Train joint composite</div>
-      </div>
-      <div class="tennis-bt-card">
-        <div class="lbl">Holdout Δ</div>
-        <div class="val" id="tennisBtHoldoutDelta">—</div>
-        <div class="sub" id="tennisBtHoldoutSub">Dual-tour holdout delta</div>
-      </div>
-      <div class="tennis-bt-card">
-        <div class="lbl">Line Coverage</div>
-        <div class="val" id="tennisBtLineCoverage">—</div>
-        <div class="sub" id="tennisBtLineCoverageSub">real vs. synthetic (Phase 4)</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="trackerConfigsPanel" class="tennis-bt-panel" style="display:none;">
-    <div>
-      <div class="tennis-bt-kicker">Config Lab</div>
-      <h3 class="tennis-bt-title">Locked / Proposed Configs</h3>
-      <p class="tennis-bt-sub">Human gate for live params. Phase 7 proposals stay applied:false until you Apply Lock.</p>
-    </div>
-    <div class="tennis-bt-btn-row">
-      <button type="button" class="tennis-bt-btn apply" id="tennisCfgApplyBtn">🔐 Apply Lock</button>
-      <button type="button" class="tennis-bt-btn danger" id="tennisCfgClearBtn">🧹 Clear Lock</button>
-      <button type="button" class="tennis-bt-btn" id="tennisCfgRefreshBtn">↻ Refresh</button>
-    </div>
-    <div id="tennisCfgStatus" class="tennis-bt-status">No locked config loaded yet.</div>
-  </div>
 
   <div id="trackerEmpty" class="tracker-empty">
     No tracked picks saved yet.
