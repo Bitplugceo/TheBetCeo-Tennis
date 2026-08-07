@@ -1,4 +1,3 @@
-s
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3035,7 +3034,7 @@ title="Show issues">
       <tr>
         <th>Market</th>
         <th>Projection</th>
-        <th>Edge %</th>
+        <th>Edge (Games)</th>
         <th>Grade</th>
         <th>Pick</th>
       </tr>
@@ -5189,7 +5188,13 @@ let g_clearDebug = {
       
       const isNoPlay = result.pick === "PASS" || result.confidence === "PASS";
       const fairLine = fmt(result.projection);
-      const edgePct = fmt((Math.abs(result.edge) / result.lineRange.mid) * 100) + "%";
+      // FIX #24: "Edge %" was |edge| / lineMid * 100 — a percentage that
+      // inflates small, ordinary edges (a 2.3-game edge on a 9.5-game line
+      // reads as "24%", which looks like a market inefficiency instead of
+      // what it actually is: a 2.3-game deviation). Showing the real,
+      // signed edge in games instead, colored by direction, so a PASS/UNDER
+      // doesn't get rendered in the same green as a real OVER edge.
+      const edgeGames = (result.edge > 0 ? "+" : "") + fmt(result.edge);
       const predictionText = getPredictionText(result);
       
       
@@ -5204,7 +5209,7 @@ let g_clearDebug = {
         '<tr>' +
           '<td class="result-market" style="font-weight:800;">' + htmlEscape(result.market) + '</td>' +
           '<td style="font-family:monospace;">' + fairLine + '</td>' +
-          '<td style="color:#2f8f4a;">' + edgePct + '</td>' +
+          '<td style="font-family:monospace;color:' + (result.edge > 0 ? "#2f8f4a" : result.edge < 0 ? "#c0392b" : "#666") + ';">' + edgeGames + '</td>' +
           '<td class="' + getConfidenceCellClass(result.confidence) + '" style="font-weight:800;text-align:center;min-width:32px;">' + htmlEscape(result.confidence) + '</td>' +
           '<td class="' + getPickCellClass(result.pick, result.confidence) + '">' +
             '<div style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">' +
@@ -10472,6 +10477,17 @@ document.addEventListener("DOMContentLoaded", function () {
           if (typeof onProgress === "function" && evalCount % 20 === 0) {
             try { onProgress(evalCount, totalEvals, param, bestScore); } catch (e) {}
           }
+          // FIX #23: the only yield point in this sweep was once per PARAM
+          // (outside this inner loop), not once per candidate evaluation.
+          // Each jointTrainScore() call scores the full 70% train split for
+          // both tours — thousands of contexts — so a param with 10+
+          // candidates ran 10+ of those full scoring passes back-to-back
+          // with zero opportunity for the browser to repaint or respond,
+          // which is the freeze: the page isn't slow, it's fully blocked.
+          // Yielding every few evals keeps the main thread breathing
+          // without meaningfully slowing the sweep down (setTimeout(0)
+          // overhead is trivial next to a full dual-tour scoring pass).
+          if (evalCount % 3 === 0) { await new Promise(function (r) { setTimeout(r, 0); }); }
         }
         if (passBestVal !== bestConfig[param]) {
           bestConfig[param] = passBestVal;
