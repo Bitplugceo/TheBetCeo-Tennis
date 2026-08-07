@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3071,7 +3072,7 @@ title="Show issues">
     <div>
       <div class="tennis-bt-kicker">Season Lab</div>
       <h3 class="tennis-bt-title">Tennis Season Backtest</h3>
-      <p class="tennis-bt-sub">Basketball-style staged pipeline: Season Pull → H2H Buffer → Walk-forward → Score → Param Sweep → Dual-tour Holdout Lock. Live engine only changes after Apply Lock.</p>
+      <p class="tennis-bt-sub">Staged pipeline. Data → Replay → Score → Sweep → Holdout. Live engine changes only after Apply Lock. Stay on this screen while jobs run.</p>
     </div>
     <div class="tennis-bt-controls">
       <div>
@@ -3091,9 +3092,13 @@ title="Show issues">
       <button type="button" class="tennis-bt-btn primary" id="tennisBtSeasonPullBtn">📅 Season Pull</button>
       <button type="button" class="tennis-bt-btn" id="tennisBtH2HBufferBtn">📚 H2H Buffer</button>
       <button type="button" class="tennis-bt-btn" id="tennisBtImportLinesBtn">📥 Import Lines</button>
+    </div>
+    <div class="tennis-bt-btn-row">
       <button type="button" class="tennis-bt-btn" id="tennisBtRunBacktestBtn">🧪 Run Backtest</button>
       <button type="button" class="tennis-bt-btn" id="tennisBtScoreBtn">📈 Score</button>
       <button type="button" class="tennis-bt-btn" id="tennisBtGradeBtn">🎓 Grade Picks</button>
+    </div>
+    <div class="tennis-bt-btn-row">
       <button type="button" class="tennis-bt-btn warn" id="tennisBtSweepBtn">🎯 Run Sweep</button>
       <button type="button" class="tennis-bt-btn lock" id="tennisBtHoldoutBtn">🧪 Holdout Lock</button>
     </div>
@@ -11071,14 +11076,6 @@ panel.innerHTML =
       '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">📋 Copy Log</button>' +
       '<button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ Clear</button>' +
       '<button onclick="AFDB.runTestSweep()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>' +
-      '<button onclick="AFDB.runSeasonPull()" style="background:#0a1a2a;border:1px solid #4ea9ff;color:#4ea9ff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📅 SEASON PULL</button>' +
-      '<button onclick="AFDB.runH2HBufferPull()" style="background:#1a1400;border:1px solid #e0b84a;color:#e0b84a;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📚 H2H BUFFER</button>' +
-      '<button onclick="AFDB.runProjectionBacktest()" style="background:#1a0a2a;border:1px solid #b478ff;color:#b478ff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🧪 RUN BACKTEST</button>' +
-      '<button onclick="AFDB.runAccuracyScoring()" style="background:#001a12;border:1px solid #4ade80;color:#4ade80;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">📈 SCORE BACKTEST</button>' +
-      '<button onclick="AFDB.runParameterSweep()" style="background:#2a1a00;border:1px solid #ffa500;color:#ffa500;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🎯 RUN SWEEP</button>' +
-      '<button onclick="AFDB.runHoldoutLock()" style="background:#001018;border:1px solid #38bdf8;color:#38bdf8;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🧪 HOLDOUT LOCK</button>' +
-      '<button onclick="AFDB.applyLockedConfig()" style="background:#001a08;border:1px solid #4ade80;color:#4ade80;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🔐 APPLY LOCK</button>' +
-      '<button onclick="AFDB.clearLockedConfig()" style="background:#1a0000;border:1px solid #ff5c61;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">🧹 CLEAR LOCK</button>' +
       '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
       '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
     '</div>' +
