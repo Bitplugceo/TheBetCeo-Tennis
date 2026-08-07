@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6321,21 +6320,29 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   async function fetchCompletedMatchesForSettlement(league, dateOffsets) {
-    const all = [];
+    const good = [];
+    const retired = [];
     for (const offset of dateOffsets) {
       try {
         const dateQuery = dateKeyLocal(offset);
         const payload = await fetchTennisScoreboard(league, dateQuery);
-        const records = extractCompetitionRecords(payload).filter(function (r) {
-          return r.status.completed &&
-            !r.retired &&
-            Number.isFinite(r.totalGames) &&
-            Number.isFinite(r.set1Total);
+        const allRecs = extractCompetitionRecords(payload);
+        allRecs.forEach(function (r) {
+          if (!r.status || !r.status.completed) return;
+          if (r.retired) {
+            retired.push(r);
+            return;
+          }
+          if (Number.isFinite(r.totalGames) && Number.isFinite(r.set1Total)) {
+            good.push(r);
+          }
         });
-        all.push(...records);
       } catch (err) {  }
     }
-    return dedupeRecords(all);
+    return {
+      good: dedupeRecords(good),
+      retired: dedupeRecords(retired)
+    };
   }
 
   function trySettleItemFromScoreboard(item, completedRecords) {
@@ -6395,15 +6402,33 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       completedRecords = await fetchCompletedMatchesForSettlement(tour, [1, 0, -1, -2]);
       scoreboardCache.set(tour, completedRecords);
     }
-    window.engineDebug("SETTLE P1: " + tour + " scoreboard", { completedFound: completedRecords.length });
-    
-    
-    
+    const goodRecords = completedRecords.good || [];
+    const retiredRecords = completedRecords.retired || [];
+    window.engineDebug("SETTLE P1: " + tour + " scoreboard", {
+      completedFound: goodRecords.length,
+      retiredFound: retiredRecords.length
+    });
+
+    // Permanent hard-delete for retired / walkover matches
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i];
+      if (item.status !== "PENDING" || String(item.tour || "ATP").toUpperCase() !== tour) continue;
+      const retiredHit = trySettleItemFromScoreboard(item, retiredRecords);
+      if (retiredHit) {
+        window.engineDebug("RETIRED → PERMANENT DELETE", {
+          match: item.match,
+          market: item.market,
+          detail: (retiredHit.status && retiredHit.status.detail) || "retired"
+        });
+        items.splice(i, 1);
+      }
+    }
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       
       if (item.status !== "PENDING" || String(item.tour || "ATP").toUpperCase() !== tour) continue;
-      const record = trySettleItemFromScoreboard(item, completedRecords);
+      const record = trySettleItemFromScoreboard(item, goodRecords);
       if (record) {
         const settled = settleTrackerItemFromRecord(item, record);
         
@@ -6424,7 +6449,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           playerAId: item.playerAId || "MISSING",
           playerBId: item.playerBId || "MISSING",
           fixtureDate: item.fixtureDate || item.savedAt || "MISSING",
-          scoreboardSize: completedRecords.length
+          scoreboardSize: goodRecords.length
         });
       }
     }
