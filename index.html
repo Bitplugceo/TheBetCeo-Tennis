@@ -4058,10 +4058,22 @@ let g_clearDebug = {
    const volNorm = volatility / marketBaseline;
    let conf = "PASS";
 
+    // Tour + market aware thresholds (2025+2026 grade data):
+    // - Match Totals need a higher edgeSignalScore for Grade A (they were over-graded).
+    // - WTA needs a slightly lower bar for A on player/set1 markets (A was the weakest bucket).
+    const isWta = String(tour || "").toUpperCase() === "WTA";
+    const isMatch = marketKey === "match";
+    const aEdge = isMatch ? 14.0 : (isWta ? 10.5 : 12.0);
+    const aVol  = isMatch ? 0.18 : (isWta ? 0.22 : 0.20);
+    const bEdge = isMatch ? 9.0  : (isWta ? 6.5  : 7.5);
+    const bVol  = isMatch ? 0.24 : (isWta ? 0.28 : 0.26);
+    const cEdge = isMatch ? 4.5  : (isWta ? 3.0  : 3.5);
+    const cVol  = isMatch ? 0.30 : (isWta ? 0.34 : 0.32);
+
     if (volNorm > 0.36) conf = "PASS";
-    else if (edgeSignalScore >= 12.0 && volNorm <= 0.20) conf = "A";
-    else if (edgeSignalScore >= 7.5  && volNorm <= 0.26) conf = "B";
-    else if (edgeSignalScore >= 3.5  && volNorm <= 0.32) conf = "C";
+    else if (edgeSignalScore >= aEdge && volNorm <= aVol) conf = "A";
+    else if (edgeSignalScore >= bEdge && volNorm <= bVol) conf = "B";
+    else if (edgeSignalScore >= cEdge && volNorm <= cVol) conf = "C";
 
     // FIX #6: raw win-rate at n>=5 is noise, not signal, and the loop is
     // self-referential (this same function fed the bucket it now reads).
@@ -4145,50 +4157,38 @@ let g_clearDebug = {
   // PHASE 1: single source of truth for live defaults. Backtest/search may
   // pass overrides; live path uses getDefaultTennisConfig() unchanged.
   function getDefaultTennisConfig() {
+    // Permanent defaults — baked from 2026 dual-tour holdout lock
+    // (jointHoldoutΔ +4.6, trainBest 21.1). No longer loaded from lock storage.
     return {
-      decay: 0.75,
-      clayMult: 0.965,
+      decay: 0.9,
+      clayMult: 0.95,
       grassMult: 1.035,
-      hardMult: 1.0,
-      expectedSetsBO5: 3.82,
+      hardMult: 0.94,
+      expectedSetsBO5: 3.4,
       expectedSetsClay: 2.47,
       expectedSetsGrass: 2.21,
-      expectedSetsHard: 2.35,
+      expectedSetsHard: 2.4,
       bo5FallbackMult: 1.45,
       allowedBlend: 0.25,
-      hotColdTrendThreshold: 0.20,
-      hotColdFactor: 0.12,
-      surfaceDeltaCap: 1.25,
+      hotColdTrendThreshold: 0.35,
+      hotColdFactor: 0.05,
+      surfaceDeltaCap: 0.8,
       h2hWeightGe5: 0.35,
-      h2hWeightGe3: 0.30,
-      h2hWeightGe2: 0.20,
+      h2hWeightGe3: 0.3,
+      h2hWeightGe2: 0.2,
       h2hClayFactor: 1.2,
       h2hGrassFactor: 0.9,
       h2hWeightCap: 0.45,
-      // PHASE 5 promotions — previously hardcoded live-only constants, now
-      // config-driven in both buildMarketResult (live) and btComputeServeBlend
-      // (backtest mirror). See TENNIS_PARAM_SEARCH_SPACE comment block for the
-      // full promote/fix audit.
-      eloServeBlendWeight: 0.40,
+      eloServeBlendWeight: 0.4,
       pAPickScaling: 0.28
     };
   }
 
-  // Live path only consumes a locked config when a human has set applied:true
-  // via AFDB "APPLY LOCK". Proposals (Phase 2 / Phase 7) never auto-mutate live.
+  // Lock layer retired. Live engine always uses getDefaultTennisConfig().
+  // Key kept only so old localStorage entries do not crash; ignored.
   const TENNIS_LOCKED_CONFIG_KEY = "TENNIS_MAXPOWER_LOCKED_CONFIG";
   function getEffectiveTennisConfig() {
-    try {
-      const raw = localStorage.getItem(TENNIS_LOCKED_CONFIG_KEY);
-      if (!raw) return getDefaultTennisConfig();
-      const locked = JSON.parse(raw);
-      if (!locked || locked.applied !== true || !locked.config || typeof locked.config !== "object") {
-        return getDefaultTennisConfig();
-      }
-      return Object.assign({}, getDefaultTennisConfig(), locked.config);
-    } catch (e) {
-      return getDefaultTennisConfig();
-    }
+    return getDefaultTennisConfig();
   }
   function getTennisLockedConfigMeta() {
     try {
@@ -4736,7 +4736,12 @@ let g_clearDebug = {
     // efficient market (z>3), the case most likely to reflect a data/model
     // error rather than a real edge. Flipped so large divergence gets the
     // strongest pull toward market, not the weakest.
-    const MARKET_PULL = _lineZ > 3.0 ? 0.20 : _lineZ > 2.0 ? 0.05 : 0.0;
+    // 2025+2026 grade data: Match Totals were over-shrunk toward (often synthetic)
+    // lines, killing real edges. Soften MARKET_PULL only for the match market.
+    const isMatchMarket = config.marketKey === "match";
+    const MARKET_PULL = isMatchMarket
+      ? (_lineZ > 3.0 ? 0.10 : _lineZ > 2.0 ? 0.03 : 0.0)
+      : (_lineZ > 3.0 ? 0.20 : _lineZ > 2.0 ? 0.05 : 0.0);
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
 
     
@@ -9573,7 +9578,10 @@ document.addEventListener("DOMContentLoaded", function () {
     // FIX #9 (backtest mirror of the live-path fix): same inverted-shrinkage
     // bug — see buildMarketResult. Large model/market divergence now gets
     // the strongest pull toward market instead of the weakest.
-    const MARKET_PULL = _lineZ > 3.0 ? 0.20 : _lineZ > 2.0 ? 0.05 : 0.0;
+    const isMatchMarket = config.marketKey === "match";
+    const MARKET_PULL = isMatchMarket
+      ? (_lineZ > 3.0 ? 0.10 : _lineZ > 2.0 ? 0.03 : 0.0)
+      : (_lineZ > 3.0 ? 0.20 : _lineZ > 2.0 ? 0.05 : 0.0);
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
 
     let volatility = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2));
