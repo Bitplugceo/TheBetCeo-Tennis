@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -444,6 +443,15 @@ A
     const TRACKER_ARCHIVED_LIMIT = 400;
 
     // ---------- Utility functions ----------
+    // Drift error storage
+    window.g_driftErrors = [];
+    function recordPickError(proj, actual) {
+      if (!isFinite(proj) || !isFinite(actual)) return;
+      const error = Math.abs(actual - proj);
+      window.g_driftErrors.push(error);
+      if (window.g_driftErrors.length > 500) window.g_driftErrors.shift();
+      updateDriftDisplay();
+    }
     function avg(arr) {
       if (!arr || arr.length===0) return NaN;
       const clean = arr.filter(v=>isFinite(v));
@@ -782,80 +790,252 @@ A
       const stats = g_trackerState.stats || {};
       const active = g_trackerState.activePicks || [];
       const all = [...active, ...(g_trackerState.archivedPicks || [])];
-      const ft = all.filter(p=>p.marketKey==="ft");
-      const h1 = all.filter(p=>p.marketKey==="h1");
       const settled = all.filter(p=>p.resultStatus && p.resultStatus!=="pending");
       const wins = settled.filter(p=>p.resultStatus==="win").length;
       const losses = settled.filter(p=>p.resultStatus==="loss").length;
       const pushes = settled.filter(p=>p.resultStatus==="push").length;
       const winRate = settled.length ? ((wins + pushes*0.5)/settled.length*100).toFixed(1) : "—";
+
+      // Per-market breakdown
+      const ft = all.filter(p=>p.marketKey==="ft");
+      const h1 = all.filter(p=>p.marketKey==="h1");
       const ftSettled = ft.filter(p=>p.resultStatus && p.resultStatus!=="pending");
+      const h1Settled = h1.filter(p=>p.resultStatus && p.resultStatus!=="pending");
       const ftW = ftSettled.filter(p=>p.resultStatus==="win").length;
       const ftL = ftSettled.filter(p=>p.resultStatus==="loss").length;
       const ftP = ftSettled.filter(p=>p.resultStatus==="push").length;
-      const ftRate = ftSettled.length ? ((ftW + ftP*0.5)/ftSettled.length*100).toFixed(1) : "—";
-      const h1Settled = h1.filter(p=>p.resultStatus && p.resultStatus!=="pending");
       const h1W = h1Settled.filter(p=>p.resultStatus==="win").length;
       const h1L = h1Settled.filter(p=>p.resultStatus==="loss").length;
       const h1P = h1Settled.filter(p=>p.resultStatus==="push").length;
+      const ftRate = ftSettled.length ? ((ftW + ftP*0.5)/ftSettled.length*100).toFixed(1) : "—";
       const h1Rate = h1Settled.length ? ((h1W + h1P*0.5)/h1Settled.length*100).toFixed(1) : "—";
-      // Retrospective learning: adjust thresholds based on settled picks
-      let ftThreshold = 3.0, h1Threshold = 2.0;
-      if (settled.length >= 10) {
-        const winRateNum = parseFloat(winRate);
-        if (!isNaN(winRateNum)) {
-          if (winRateNum > 55) {
-            ftThreshold = Math.max(2.5, ftThreshold - 0.2);
-            h1Threshold = Math.max(1.5, h1Threshold - 0.2);
-          } else if (winRateNum < 45) {
-            ftThreshold = Math.min(4.0, ftThreshold + 0.2);
-            h1Threshold = Math.min(3.0, h1Threshold + 0.2);
-          }
+
+      // Retrospective thresholds (already computed elsewhere)
+      const th = window.__ttThresholds || { ft: 3.0, h1: 2.0 };
+
+      // Confidence performance
+      const gradeMap = { A: { w:0, l:0, p:0 }, B: { w:0, l:0, p:0 }, C: { w:0, l:0, p:0 }, D: { w:0, l:0, p:0 } };
+      settled.forEach(p => {
+        const g = String(p.confidenceGrade || 'D').toUpperCase();
+        if (gradeMap[g]) {
+          if (p.resultStatus === 'win') gradeMap[g].w++;
+          else if (p.resultStatus === 'loss') gradeMap[g].l++;
+          else if (p.resultStatus === 'push') gradeMap[g].p++;
         }
-        if (ftSettled.length >= 5) {
-          const ftWin = parseFloat(ftRate);
-          if (!isNaN(ftWin)) {
-            if (ftWin > 55) ftThreshold = Math.max(2.5, ftThreshold - 0.2);
-            else if (ftWin < 45) ftThreshold = Math.min(4.0, ftThreshold + 0.2);
-          }
+      });
+      const gradeRows = Object.entries(gradeMap).filter(([g, data]) => data.w+data.l+data.p > 0).map(([g, data]) => {
+        const total = data.w+data.l+data.p;
+        const rate = total ? ((data.w + data.p*0.5)/total*100).toFixed(1) : "—";
+        return `<tr><td>Grade ${g}</td><td class="num">${total}</td><td class="num">${data.w}</td><td class="num">${data.l}</td><td class="num">${data.p}</td><td class="rate">${rate}%</td></tr>`;
+      }).join('') || '<tr><td colspan="6" class="note">No confidence-grade data yet.</td></tr>';
+
+      // Edge bucket performance
+      const edgeBuckets = { micro: { w:0,l:0,p:0 }, small: { w:0,l:0,p:0 }, medium: { w:0,l:0,p:0 }, strong: { w:0,l:0,p:0 }, extreme: { w:0,l:0,p:0 } };
+      settled.forEach(p => {
+        const edgePct = p.edgePct || 0;
+        let bucket = 'micro';
+        if (edgePct >= 10) bucket = 'extreme';
+        else if (edgePct >= 7.5) bucket = 'strong';
+        else if (edgePct >= 5) bucket = 'medium';
+        else if (edgePct >= 3) bucket = 'small';
+        if (edgeBuckets[bucket]) {
+          if (p.resultStatus === 'win') edgeBuckets[bucket].w++;
+          else if (p.resultStatus === 'loss') edgeBuckets[bucket].l++;
+          else if (p.resultStatus === 'push') edgeBuckets[bucket].p++;
         }
-        if (h1Settled.length >= 5) {
-          const h1Win = parseFloat(h1Rate);
-          if (!isNaN(h1Win)) {
-            if (h1Win > 55) h1Threshold = Math.max(1.5, h1Threshold - 0.2);
-            else if (h1Win < 45) h1Threshold = Math.min(3.0, h1Threshold + 0.2);
-          }
-        }
-        window.__ttThresholds = { ft: ftThreshold, h1: h1Threshold };
-      }
+      });
+      const edgeRows = Object.entries(edgeBuckets).filter(([b, data]) => data.w+data.l+data.p > 0).map(([b, data]) => {
+        const total = data.w+data.l+data.p;
+        const rate = total ? ((data.w + data.p*0.5)/total*100).toFixed(1) : "—";
+        const label = b.charAt(0).toUpperCase() + b.slice(1) + ' Edge';
+        return `<tr><td>${label}</td><td class="num">${total}</td><td class="num">${data.w}</td><td class="num">${data.l}</td><td class="num">${data.p}</td><td class="rate">${rate}%</td></tr>`;
+      }).join('') || '<tr><td colspan="6" class="note">No edge-bucket data yet.</td></tr>';
+
+      // Best pick only experiment
+      const games = new Map();
+      settled.forEach(p => {
+        const key = p.eventId || p.signature;
+        if (!games.has(key)) games.set(key, []);
+        games.get(key).push(p);
+      });
+      let bestPicks = [];
+      games.forEach(picks => {
+        // pick the one with highest confidence rank (A > B > C > D) then highest edge
+        const sorted = picks.sort((a,b) => {
+          const rank = { A:4, B:3, C:2, D:1 };
+          const aRank = rank[a.confidenceGrade] || 0;
+          const bRank = rank[b.confidenceGrade] || 0;
+          if (aRank !== bRank) return bRank - aRank;
+          return (b.edgePct || 0) - (a.edgePct || 0);
+        });
+        if (sorted.length) bestPicks.push(sorted[0]);
+      });
+      const bestSettled = bestPicks.filter(p => p.resultStatus && p.resultStatus !== "pending");
+      const bestWins = bestSettled.filter(p => p.resultStatus === "win").length;
+      const bestLosses = bestSettled.filter(p => p.resultStatus === "loss").length;
+      const bestPushes = bestSettled.filter(p => p.resultStatus === "push").length;
+      const bestWinRate = bestSettled.length ? ((bestWins + bestPushes*0.5)/bestSettled.length*100).toFixed(1) : "—";
+      const bestNet = bestWins - bestLosses;
+
+      // Measurement lab table: all vs best
+      const allNet = wins - losses;
+      const allWinRate = settled.length ? ((wins + pushes*0.5)/settled.length*100).toFixed(1) : "—";
+      const measurementRows = `<tr><td>All tracked picks</td><td class="num">${games.size}</td><td class="num">${settled.length}</td><td class="num">${wins}</td><td class="num">${losses}</td><td class="num">${pushes}</td><td class="rate">${allWinRate}%</td><td class="num">${allNet}</td></tr>
+        <tr><td>Best pick only</td><td class="num">${games.size}</td><td class="num">${bestSettled.length}</td><td class="num">${bestWins}</td><td class="num">${bestLosses}</td><td class="num">${bestPushes}</td><td class="rate">${bestWinRate}%</td><td class="num">${bestNet}</td></tr>`;
+
+      // Checkpoint review
+      const checkpointTarget = 50;
+      const checkpointStatus = settled.length >= checkpointTarget ? 'Review ready' : 'Building';
+      const checkpointLeft = Math.max(0, checkpointTarget - settled.length);
+
+      // Out-of-sample validation placeholder (not implemented)
+      const oosHtml = `<div class="tracker-empty-note">No out-of-sample check yet for Setka Cup. This runs automatically once enough settled picks exist (needs 30+ settled picks with a valid createdAt) and refreshes periodically during the retraining pipeline.</div>`;
+
+      // God's Eye post-mortem log
+      const godRows = settled.slice(0, 20).map(p => {
+        const status = p.resultStatus.toUpperCase();
+        const color = status === 'WIN' ? '#3a9c35' : status === 'LOSS' ? '#c91920' : '#888';
+        return `<tr>
+          <td><strong>${p.homeTeam||'A'} vs ${p.awayTeam||'B'}</strong><br><span style="color:var(--muted);font-size:9px;">${p.marketName||'—'}</span></td>
+          <td>${p.predictionText||'—'}</td>
+          <td style="color:${color};font-weight:900;">${status}</td>
+          <td style="font-size:9px;color:var(--muted);">Edge: ${p.edgePct ? (p.edgePct>0?'+':'')+p.edgePct.toFixed(1)+'%' : '—'} | Grade: ${p.confidenceGrade||'—'}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="4" class="note">No settled picks yet.</td></tr>';
+
       panel.innerHTML = `
         <div class="tracker-analytics-shell">
           <div class="tracker-analytics-topbar">
             <div class="tracker-analytics-heading">
-              <div class="tracker-analytics-kicker">Tracker Report</div>
-              <div class="tracker-analytics-title">Setka Cup Performance</div>
-              <div class="tracker-analytics-subtitle">All settled picks · ${settled.length} settled</div>
+              <div class="tracker-analytics-kicker">ENGINE REPORT</div>
+              <div class="tracker-analytics-title">Tracked results and learning</div>
+              <div class="tracker-analytics-subtitle">Pick record, feedback, and post-checkpoint suggestions live here.</div>
             </div>
           </div>
-          <div class="tracker-summary-strip">
-            <div class="tracker-summary-cell primary">
-              <div class="tracker-summary-label">Overall</div>
-              <div class="tracker-summary-value">${wins}W-${losses}L</div>
-              <div class="tracker-summary-sub">${winRate}% win rate</div>
+
+          <!-- KPI Grid -->
+          <div class="tracker-kpi-grid">
+            <div class="tracker-kpi-card featured">
+              <div class="tracker-kpi-label">Overall</div>
+              <div class="tracker-kpi-value">${wins}W</div>
+              <div class="tracker-kpi-sub">Losses ${losses} • Pushes ${pushes} • Win rate ${winRate}%</div>
             </div>
-            <div class="tracker-summary-cell">
-              <div class="tracker-summary-label">Match Total</div>
-              <div class="tracker-summary-value">${ftW}W-${ftL}L</div>
-              <div class="tracker-summary-sub">${ftRate}% (${ftSettled.length} settled)</div>
+            <div class="tracker-kpi-card">
+              <div class="tracker-kpi-label">Active picks</div>
+              <div class="tracker-kpi-value">${active.length}</div>
+              <div class="tracker-kpi-sub">Current model ${ENGINE_MODEL_VERSION}</div>
             </div>
-            <div class="tracker-summary-cell">
-              <div class="tracker-summary-label">1st Set Total</div>
-              <div class="tracker-summary-value">${h1W}W-${h1L}L</div>
-              <div class="tracker-summary-sub">${h1Rate}% (${h1Settled.length} settled)</div>
+            <div class="tracker-kpi-card">
+              <div class="tracker-kpi-label">Settled picks</div>
+              <div class="tracker-kpi-value">${settled.length}</div>
+              <div class="tracker-kpi-sub">Checkpoint target ${checkpointTarget}</div>
+            </div>
+            <div class="tracker-kpi-card">
+              <div class="tracker-kpi-label">Review status</div>
+              <div class="tracker-kpi-value">${checkpointStatus}</div>
+              <div class="tracker-kpi-sub">Current version only</div>
             </div>
           </div>
+
+          <!-- Out-of-sample validation -->
+          <div class="tracker-analytics-card">
+            <div class="tracker-analytics-card-head">
+              <div class="tracker-analytics-card-title">Out-of-sample validation</div>
+              <div class="tracker-analytics-card-meta">Not yet available</div>
+            </div>
+            <div class="tracker-analytics-card-body">${oosHtml}</div>
+          </div>
+
+          <!-- Checkpoint review -->
+          <div class="tracker-analytics-card">
+            <div class="tracker-analytics-card-head">
+              <div class="tracker-analytics-card-title">Checkpoint review</div>
+              <div class="tracker-analytics-card-meta">${checkpointStatus}</div>
+            </div>
+            <div class="tracker-analytics-card-body">
+              <div class="tracker-review-list">
+                <div class="tracker-review-row">
+                  <div class="tracker-review-top">
+                    <div class="tracker-review-area">Checkpoint</div>
+                    <div class="tracker-review-status watching">WATCHING</div>
+                  </div>
+                  <div class="tracker-review-text"><strong>COLLECT MORE — ${settled.length}/${checkpointTarget} settled picks collected so far.</strong></div>
+                  <div class="tracker-review-action">${checkpointLeft} more settled picks are needed before the tracker can give a full review.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Measurement Lab -->
+          <div class="tracker-analytics-card">
+            <div class="tracker-analytics-card-head">
+              <div class="tracker-analytics-card-title">Measurement lab</div>
+              <div class="tracker-analytics-card-meta">Tracked-pick evidence only</div>
+            </div>
+            <div class="tracker-analytics-card-body">
+              <div class="tracker-report-subtitle">This layer measures what the engine actually saved to tracker. "Latest-line move" is a proxy built from the most recent line the engine has seen for that exact event/market/side. It is useful, but it is not guaranteed closing-line truth.</div>
+              <div class="table-wrap tracker-report-table-wrap">
+                <table class="tracker-analytics-table">
+                  <thead><tr><th>Experiment</th><th class="num">Games</th><th class="num">Settled</th><th class="num">Wins</th><th class="num">Losses</th><th class="num">Pushes</th><th class="rate">Win rate</th><th class="num">Net wins</th></tr></thead>
+                  <tbody>${measurementRows}</tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Confidence Performance -->
+          <div class="tracker-analytics-grid two">
+            <div class="tracker-analytics-card">
+              <div class="tracker-analytics-card-head">
+                <div class="tracker-analytics-card-title">Confidence performance</div>
+                <div class="tracker-analytics-card-meta">Do higher grades actually win more?</div>
+              </div>
+              <div class="tracker-analytics-card-body">
+                <div class="table-wrap tracker-report-table-wrap">
+                  <table class="tracker-analytics-table">
+                    <thead><tr><th>Grade</th><th class="num">Settled</th><th class="num">Wins</th><th class="num">Losses</th><th class="num">Pushes</th><th class="rate">Win rate</th></tr></thead>
+                    <tbody>${gradeRows}</tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <!-- Edge Bucket Performance -->
+            <div class="tracker-analytics-card">
+              <div class="tracker-analytics-card-head">
+                <div class="tracker-analytics-card-title">Edge bucket performance</div>
+                <div class="tracker-analytics-card-meta">Check whether bigger edges are actually stronger</div>
+              </div>
+              <div class="tracker-analytics-card-body">
+                <div class="table-wrap tracker-report-table-wrap">
+                  <table class="tracker-analytics-table">
+                    <thead><tr><th>Edge bucket</th><th class="num">Settled</th><th class="num">Wins</th><th class="num">Losses</th><th class="num">Pushes</th><th class="rate">Win rate</th></tr></thead>
+                    <tbody>${edgeRows}</tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- God's Eye Post-Mortem -->
+          <div class="tracker-analytics-card" style="margin-top:10px;border-color:#d4af37;">
+            <div class="tracker-analytics-card-head" style="background:linear-gradient(90deg,#333 0%,#111 100%);">
+              <div class="tracker-analytics-card-title" style="color:#ffd700;">👁️ GOD'S EYE: POST-MORTEM LOG</div>
+              <div class="tracker-analytics-card-meta">Game-by-game diagnostic archive</div>
+            </div>
+            <div class="tracker-analytics-card-body">
+              <div class="tracker-report-subtitle">Review the exact conditions the engine saw when it locked the pick.</div>
+              <div class="table-wrap tracker-report-table-wrap">
+                <table class="tracker-analytics-table">
+                  <thead><tr><th>Matchup & Market</th><th>Pick</th><th>Result</th><th>Context</th></tr></thead>
+                  <tbody>${godRows}</tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Retrospective thresholds note -->
           <div style="padding:10px;font-size:11px;color:var(--muted);border-top:1px solid var(--panel-border);">
-            <strong>Retrospective thresholds:</strong> FT=${ftThreshold.toFixed(1)}, 1st=${h1Threshold.toFixed(1)}
+            <strong>Retrospective thresholds:</strong> FT=${th.ft.toFixed(1)}, 1st=${th.h1.toFixed(1)}
             ${settled.length < 10 ? ' (need 10+ settled for auto-tuning)' : ''}
           </div>
         </div>
@@ -884,6 +1064,11 @@ A
       // Trigger retrospective learning after settlement
       if (status !== 'pending') {
         engineDebug("Retrospective: pick settled as " + status, { market: pick.marketKey, edge: pick.edge });
+        // Record error for drift tracker
+        if (isFinite(pick.projection) && pick.actualScore) {
+          const actual = parseFloat(pick.actualScore);
+          if (isFinite(actual)) recordPickError(pick.projection, actual);
+        }
         // Recalculate thresholds if enough data
         renderTrackerAnalytics(); // this updates thresholds based on new data
       }
@@ -992,6 +1177,7 @@ A
         // tracker payload
         if(pick!=="NO PLAY" && isFinite(line) && line>0) {
           const side = getPickSideFromText(pick);
+          const edgePct = isFinite(edge) && line ? Math.abs((edge/line)*100) : 0;
           const payload = {
             eventId: fixtureMeta.eventId,
             eventDate: fixtureMeta.eventDate,
@@ -1003,6 +1189,7 @@ A
             line: line,
             projection: proj,
             edge: edge,
+            edgePct: edgePct,
             predictionText: pick,
             confidenceGrade: conf,
             side: side,
@@ -1017,7 +1204,13 @@ A
       pushRow("Match Total Points", "ft", ftProj, ftEdge, ftLine, ftPick, ftConf);
       pushRow("1st Set Total Points", "h1", h1Proj, h1Edge, h1Line, h1Pick, h1Conf);
 
-      if(rows.length) addTrackedPicks(rows);
+      if(rows.length) {
+        addTrackedPicks(rows);
+        // Log each pick for debug
+        rows.forEach(p => {
+          engineDebug("New pick: " + p.marketName + " " + p.predictionText + " @ " + p.line, { edge: p.edge, proj: p.projection });
+        });
+      }
     }
 
     // ---------- Collapsible sections ----------
@@ -1119,7 +1312,7 @@ A
       document.getElementById("runBtn").addEventListener("click", runEngine);
       document.getElementById("clearBtn").addEventListener("click", clearAll);
 
-      // AFDB shell
+      // AFDB shell with full debug features
       document.getElementById("afdbBtn").addEventListener("click", function(){
         const ov = document.getElementById("afdbOverlay");
         if (ov.style.display === "flex") {
@@ -1127,20 +1320,29 @@ A
           return;
         }
         ov.style.display = "flex";
-        // Build the panel with a proper log container
+        // Build the panel with full debug header and log container
         ov.innerHTML = `
           <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:#0a0a0a;">
             <div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;flex-shrink:0;">
-              <div style="color:#d4af37;font-size:14px;font-weight:900;">🔬 TABLE TENNIS DEBUG</div>
-              <div>
-                <button onclick="window.g_debugLog=[]; renderAfdbLogs();" style="background:#111;border:1px solid #555;color:#ccc;padding:4px 10px;font-weight:700;cursor:pointer;margin-right:6px;">Clear</button>
+              <div style="color:#d4af37;font-size:14px;font-weight:900;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="window.copyDebugLog()" style="background:#111;border:1px solid #555;color:#49d45f;padding:4px 10px;font-weight:700;cursor:pointer;">📋 Copy Log</button>
+                <button onclick="window.g_debugLog=[]; renderAfdbLogs();" style="background:#111;border:1px solid #555;color:#ff5c61;padding:4px 10px;font-weight:700;cursor:pointer;">🗑️ Clear</button>
+                <button onclick="window.militaryRaid()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:4px 10px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>
+                <button onclick="window.openTrackerReportFromDebug()" style="background:#111;border:1px solid #555;color:#d4af37;padding:4px 10px;font-weight:700;cursor:pointer;">📊 Tracker Report</button>
                 <button onclick="document.getElementById('afdbOverlay').style.display='none'" style="background:#111;border:1px solid #555;color:#ccc;padding:4px 10px;font-weight:700;cursor:pointer;">✕ Close</button>
               </div>
+            </div>
+            <div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;">
+              <span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📈 DRIFT TRACKER</span>
+              <span style="color:#49d45f;font-size:12px;font-weight:900;">Rolling Mean Error (last 20): <span id="driftValue">—</span></span>
+              <span style="color:#555;font-size:10px;"><span id="driftSampleCount">0</span> samples logged</span>
             </div>
             <div id="afdbLogContainer" style="flex:1;overflow-y:auto;padding:10px;background:#0a0a0a;"></div>
           </div>
         `;
         renderAfdbLogs();
+        updateDriftDisplay();
       });
 
       renderTrackedPicks();
