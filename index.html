@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="BB Engine" />
+  <meta name="apple-mobile-web-app-title" content="TT Engine" />
   <meta name="theme-color" content="#c91920" />
   <title>Table Tennis Prediction Engine</title>
   <style>
@@ -564,7 +564,7 @@
       const driftHtml = '<div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;"><span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📐 DRIFT TRACKER</span><span style="color:' + rmeColor + ';font-size:12px;font-weight:900;">Rolling Mean Error (last 20): ' + rmeDisplay + '</span><span style="color:#555;font-size:10px;">' + driftArr.length + ' samples logged</span></div>';
 
       panel.innerHTML =
-        '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div>' +
+        '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (TT)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div>' +
         driftHtml +
         '<div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>📡 FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' +
         (logRows || ('<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>')) +
@@ -951,6 +951,53 @@
       }
       if (pctEl) pctEl.textContent = settled ? (pct.toFixed(0) + "%") : "—";
     }
+    window.copyTrackerData = function() {
+      try {
+        const all = [...(g_trackerState.activePicks || []), ...(g_trackerState.archivedPicks || [])];
+        const lines = [];
+        lines.push("==========================================");
+        lines.push("   TT ENGINE: TRACKER DATA EXPORT");
+        lines.push("==========================================");
+        lines.push("Generated: " + new Date().toLocaleString());
+        lines.push("Active: " + (g_trackerState.activePicks || []).length);
+        lines.push("Archived: " + (g_trackerState.archivedPicks || []).length);
+        lines.push("Stats: " + JSON.stringify(g_trackerState.stats || {}));
+        lines.push("");
+        all.forEach(function(p, i) {
+          lines.push((i + 1) + ". " + (p.homeTeam || "A") + " vs " + (p.awayTeam || "B"));
+          lines.push("   " + (p.marketName || p.marketKey || "—") + " | SETKA CUP");
+          lines.push("   " + String(p.resultStatus || "pending").toUpperCase() + ": " + (p.predictionText || "—") + " @ " + (isFinite(p.line) ? p.line : "—"));
+          if (p.actualScore != null) lines.push("   Final: " + p.actualScore);
+          lines.push("");
+        });
+        if (!all.length) lines.push("No tracked picks yet.");
+        const text = lines.join("\n");
+        const btn = document.getElementById("trackerCopyDataBtn");
+        const finish = function(ok) {
+          if (!btn) return;
+          const orig = btn.textContent;
+          btn.textContent = ok ? "✅" : "❌";
+          setTimeout(function() { if (btn) btn.textContent = orig; }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function() { finish(true); }).catch(function() {
+            try {
+              const ta = Object.assign(document.createElement("textarea"), { value: text, style: "position:fixed;opacity:0" });
+              document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+              finish(true);
+            } catch (_) { finish(false); }
+          });
+        } else {
+          try {
+            const ta = Object.assign(document.createElement("textarea"), { value: text, style: "position:fixed;opacity:0" });
+            document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+            finish(true);
+          } catch (_) { finish(false); }
+        }
+      } catch (e) {
+        if (typeof engineDebug === "function") engineDebug("copyTrackerData failed", e);
+      }
+    };
     window.engineDebug = function(msg, extra) {
       const msgStr = String(msg || "");
       const lower = msgStr.toLowerCase();
