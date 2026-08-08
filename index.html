@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -479,7 +478,9 @@ A
     function getPick(edge, line, marketKey) {
       if (!line || !isFinite(edge) || !isFinite(line) || line<=0) return "NO PLAY";
       if (Math.abs(edge) < 1.5) return "NO PLAY";
-      const threshold = marketKey==="h1" ? 2.0 : 3.0;
+      // Use retrospective thresholds if available
+      const th = window.__ttThresholds || {};
+      const threshold = marketKey==="h1" ? (th.h1 || 2.0) : (th.ft || 3.0);
       if (Math.abs(edge) < threshold) return "NO PLAY";
       return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
     }
@@ -627,6 +628,49 @@ A
     }
     loadTrackerState();
 
+    // ---------- Debug Log ----------
+    window.g_debugLog = [];
+    window.engineDebug = function(msg, extra) {
+      const entry = { ts: new Date().toISOString(), msg: msg, extra: extra || null };
+      window.g_debugLog.unshift(entry);
+      if (window.g_debugLog.length > 500) window.g_debugLog.length = 500;
+      console.log("[ENGINE]", msg, extra || '');
+      if (document.getElementById("afdbOverlay")?.style.display === "flex") {
+        renderAfdbLogs();
+      }
+    };
+    window.trackerDebug = function(msg, extra) {
+      const entry = { ts: new Date().toISOString(), msg: msg, extra: extra || null };
+      window.g_debugLog.unshift(entry);
+      if (window.g_debugLog.length > 500) window.g_debugLog.length = 500;
+      console.log("[TRACKER]", msg, extra || '');
+      if (document.getElementById("afdbOverlay")?.style.display === "flex") {
+        renderAfdbLogs();
+      }
+    };
+    function renderAfdbLogs() {
+      const panel = document.getElementById("afdbPanel");
+      if (!panel) return;
+      const logs = window.g_debugLog || [];
+      const rows = logs.slice(0, 100).map(e => {
+        const msg = e.msg || "";
+        const extra = e.extra ? " | " + JSON.stringify(e.extra) : "";
+        const ts = e.ts ? new Date(e.ts).toLocaleTimeString() : "";
+        let color = '#aaa';
+        const lower = msg.toLowerCase();
+        if (lower.includes('error') || lower.includes('fail')) color = '#ff5c61';
+        else if (lower.includes('warn')) color = '#ffcf73';
+        else if (lower.includes('success') || lower.includes('ok')) color = '#49d45f';
+        else if (lower.includes('info')) color = '#4ea9ff';
+        return `<div style="padding:4px 8px;border-bottom:1px solid #1a1a1a;font-size:11px;color:${color};font-family:monospace;white-space:pre-wrap;word-break:break-all;"><span style="color:#555;">${ts}</span> ${msg}${extra}</div>`;
+      }).join('');
+      const logContainer = panel.querySelector('#afdbLogContainer');
+      if (logContainer) {
+        logContainer.innerHTML = rows || '<div style="padding:20px;color:#666;">No debug logs yet. Run a prediction.</div>';
+        logContainer.scrollTop = 0;
+      }
+    }
+
     // ---------- Tracker View State ----------
     let g_trackerModalView = 'picks';
     function setTrackerModalView(view) {
@@ -730,6 +774,94 @@ A
       }).join("");
     }
 
+    // ---------- Tracker Analytics ----------
+    function renderTrackerAnalytics() {
+      const panel = document.getElementById("trackerAnalyticsPanel");
+      if (!panel) return;
+      const stats = g_trackerState.stats || {};
+      const active = g_trackerState.activePicks || [];
+      const all = [...active, ...(g_trackerState.archivedPicks || [])];
+      const ft = all.filter(p=>p.marketKey==="ft");
+      const h1 = all.filter(p=>p.marketKey==="h1");
+      const settled = all.filter(p=>p.resultStatus && p.resultStatus!=="pending");
+      const wins = settled.filter(p=>p.resultStatus==="win").length;
+      const losses = settled.filter(p=>p.resultStatus==="loss").length;
+      const pushes = settled.filter(p=>p.resultStatus==="push").length;
+      const winRate = settled.length ? ((wins + pushes*0.5)/settled.length*100).toFixed(1) : "—";
+      const ftSettled = ft.filter(p=>p.resultStatus && p.resultStatus!=="pending");
+      const ftW = ftSettled.filter(p=>p.resultStatus==="win").length;
+      const ftL = ftSettled.filter(p=>p.resultStatus==="loss").length;
+      const ftP = ftSettled.filter(p=>p.resultStatus==="push").length;
+      const ftRate = ftSettled.length ? ((ftW + ftP*0.5)/ftSettled.length*100).toFixed(1) : "—";
+      const h1Settled = h1.filter(p=>p.resultStatus && p.resultStatus!=="pending");
+      const h1W = h1Settled.filter(p=>p.resultStatus==="win").length;
+      const h1L = h1Settled.filter(p=>p.resultStatus==="loss").length;
+      const h1P = h1Settled.filter(p=>p.resultStatus==="push").length;
+      const h1Rate = h1Settled.length ? ((h1W + h1P*0.5)/h1Settled.length*100).toFixed(1) : "—";
+      // Retrospective learning: adjust thresholds based on settled picks
+      let ftThreshold = 3.0, h1Threshold = 2.0;
+      if (settled.length >= 10) {
+        const winRateNum = parseFloat(winRate);
+        if (!isNaN(winRateNum)) {
+          if (winRateNum > 55) {
+            ftThreshold = Math.max(2.5, ftThreshold - 0.2);
+            h1Threshold = Math.max(1.5, h1Threshold - 0.2);
+          } else if (winRateNum < 45) {
+            ftThreshold = Math.min(4.0, ftThreshold + 0.2);
+            h1Threshold = Math.min(3.0, h1Threshold + 0.2);
+          }
+        }
+        if (ftSettled.length >= 5) {
+          const ftWin = parseFloat(ftRate);
+          if (!isNaN(ftWin)) {
+            if (ftWin > 55) ftThreshold = Math.max(2.5, ftThreshold - 0.2);
+            else if (ftWin < 45) ftThreshold = Math.min(4.0, ftThreshold + 0.2);
+          }
+        }
+        if (h1Settled.length >= 5) {
+          const h1Win = parseFloat(h1Rate);
+          if (!isNaN(h1Win)) {
+            if (h1Win > 55) h1Threshold = Math.max(1.5, h1Threshold - 0.2);
+            else if (h1Win < 45) h1Threshold = Math.min(3.0, h1Threshold + 0.2);
+          }
+        }
+        window.__ttThresholds = { ft: ftThreshold, h1: h1Threshold };
+      }
+      panel.innerHTML = `
+        <div class="tracker-analytics-shell">
+          <div class="tracker-analytics-topbar">
+            <div class="tracker-analytics-heading">
+              <div class="tracker-analytics-kicker">Tracker Report</div>
+              <div class="tracker-analytics-title">Setka Cup Performance</div>
+              <div class="tracker-analytics-subtitle">All settled picks · ${settled.length} settled</div>
+            </div>
+          </div>
+          <div class="tracker-summary-strip">
+            <div class="tracker-summary-cell primary">
+              <div class="tracker-summary-label">Overall</div>
+              <div class="tracker-summary-value">${wins}W-${losses}L</div>
+              <div class="tracker-summary-sub">${winRate}% win rate</div>
+            </div>
+            <div class="tracker-summary-cell">
+              <div class="tracker-summary-label">Match Total</div>
+              <div class="tracker-summary-value">${ftW}W-${ftL}L</div>
+              <div class="tracker-summary-sub">${ftRate}% (${ftSettled.length} settled)</div>
+            </div>
+            <div class="tracker-summary-cell">
+              <div class="tracker-summary-label">1st Set Total</div>
+              <div class="tracker-summary-value">${h1W}W-${h1L}L</div>
+              <div class="tracker-summary-sub">${h1Rate}% (${h1Settled.length} settled)</div>
+            </div>
+          </div>
+          <div style="padding:10px;font-size:11px;color:var(--muted);border-top:1px solid var(--panel-border);">
+            <strong>Retrospective thresholds:</strong> FT=${ftThreshold.toFixed(1)}, 1st=${h1Threshold.toFixed(1)}
+            ${settled.length < 10 ? ' (need 10+ settled for auto-tuning)' : ''}
+          </div>
+        </div>
+      `;
+      panel.style.display = "block";
+    }
+
     function applyManualSettlementToTrackedPick(signature, resultStatus) {
       const status = String(resultStatus||"").toLowerCase();
       if(!["win","loss","push","pending"].includes(status)) return false;
@@ -748,6 +880,12 @@ A
       rebuildTrackerStats();
       saveTrackerState();
       renderTrackedPicks();
+      // Trigger retrospective learning after settlement
+      if (status !== 'pending') {
+        engineDebug("Retrospective: pick settled as " + status, { market: pick.marketKey, edge: pick.edge });
+        // Recalculate thresholds if enough data
+        renderTrackerAnalytics(); // this updates thresholds based on new data
+      }
       return true;
     }
 
@@ -983,13 +1121,25 @@ A
       // AFDB shell
       document.getElementById("afdbBtn").addEventListener("click", function(){
         const ov = document.getElementById("afdbOverlay");
-        ov.style.display = ov.style.display==="flex" ? "none" : "flex";
-        if(ov.style.display==="flex") {
-          document.getElementById("afdbPanel").innerHTML = `<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;">
-            <div style="color:#d4af37;font-size:14px;font-weight:900;">🔬 TABLE TENNIS DEBUG</div>
-            <button onclick="document.getElementById('afdbOverlay').style.display='none'" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-weight:900;cursor:pointer;">✕ Close</button>
-          </div><div style="padding:20px;color:#aaa;font-size:13px;">Debug log active. Use console for deeper inspection.</div>`;
+        if (ov.style.display === "flex") {
+          ov.style.display = "none";
+          return;
         }
+        ov.style.display = "flex";
+        // Build the panel with a proper log container
+        ov.innerHTML = `
+          <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:#0a0a0a;">
+            <div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;flex-shrink:0;">
+              <div style="color:#d4af37;font-size:14px;font-weight:900;">🔬 TABLE TENNIS DEBUG</div>
+              <div>
+                <button onclick="window.g_debugLog=[]; renderAfdbLogs();" style="background:#111;border:1px solid #555;color:#ccc;padding:4px 10px;font-weight:700;cursor:pointer;margin-right:6px;">Clear</button>
+                <button onclick="document.getElementById('afdbOverlay').style.display='none'" style="background:#111;border:1px solid #555;color:#ccc;padding:4px 10px;font-weight:700;cursor:pointer;">✕ Close</button>
+              </div>
+            </div>
+            <div id="afdbLogContainer" style="flex:1;overflow-y:auto;padding:10px;background:#0a0a0a;"></div>
+          </div>
+        `;
+        renderAfdbLogs();
       });
 
       renderTrackedPicks();
