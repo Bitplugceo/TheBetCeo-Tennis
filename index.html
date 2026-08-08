@@ -589,8 +589,9 @@
         const st = document.getElementById("ssFetchStatus");
         if(st) { st.style.color="#2f8f4a"; st.textContent="✅ Team "+side+" stats loaded from pasted JSON!"; }
         pasteEl.value = "";
-        // auto-open sections
-        document.querySelectorAll('.section').forEach(s=>s.classList.remove('collapsed'));
+        // auto-open only the lookup and market sections; keep others collapsed
+        document.getElementById("sofascoreManualSection").classList.remove("collapsed");
+        document.getElementById("marketSection").classList.remove("collapsed");
       } catch(err) {
         const st = document.getElementById("ssFetchStatus");
         if(st) { st.style.color="#d92d2a"; st.textContent="❌ Parse failed: "+err.message; }
@@ -624,6 +625,17 @@
     }
     loadTrackerState();
 
+    // ---------- Tracker View State ----------
+    let g_trackerModalView = 'picks';
+    function setTrackerModalView(view) {
+      if (view === 'picks' || view === 'report') {
+        g_trackerModalView = view;
+        renderTrackedPicks();
+        const title = document.getElementById('trackerHeadTitle');
+        if (title) title.textContent = view === 'picks' ? 'Tracked Picks' : 'Tracker Report';
+      }
+    }
+
     function addTrackedPicks(newPicks) {
       if(!Array.isArray(newPicks)||!newPicks.length) return;
       const active = g_trackerState.activePicks;
@@ -653,6 +665,7 @@
       const emptyEl = document.getElementById("trackerEmpty");
       const wrapEl = document.getElementById("trackedPicksWrap");
       const bodyEl = document.getElementById("trackedPicksBody");
+      const panel = document.getElementById("trackerAnalyticsPanel");
       if(!summaryEl||!marketSummaryEl||!emptyEl||!wrapEl||!bodyEl) return;
       const active = g_trackerState.activePicks || [];
       const visible = active.filter(isTrackedPickVisibleOnPage);
@@ -665,6 +678,16 @@
       }).filter(Boolean);
       marketSummaryEl.innerHTML = chips.join("");
       marketSummaryEl.style.display = chips.length ? "flex" : "none";
+      // Show/hide based on view
+      if (g_trackerModalView === 'report') {
+        if (panel) panel.style.display = 'block';
+        wrapEl.style.display = 'none';
+        emptyEl.style.display = 'none';
+        renderTrackerAnalytics();
+        return;
+      } else {
+        if (panel) panel.style.display = 'none';
+      }
       if(!visible.length) {
         emptyEl.style.display = "block";
         wrapEl.style.display = "none";
@@ -896,9 +919,21 @@
       document.getElementById("themeToggleBtn").addEventListener("click", toggleTheme);
       if(localStorage.getItem("theme")==="dark") document.body.classList.add("dark-mode");
 
+      // Ensure auto-fill indicators are hidden initially
+      document.querySelectorAll(".autofill-indicator").forEach(el => el.style.display = "none");
+
       document.getElementById("trackerToggleBtn").addEventListener("click", openTrackerModal);
       document.getElementById("trackerCloseBtn").addEventListener("click", closeTrackerModal);
       document.getElementById("trackerModal").addEventListener("click", e=>{ if(e.target===e.currentTarget) closeTrackerModal(); });
+      // Tracker view toggle on title click
+      const headTitle = document.getElementById('trackerHeadTitle');
+      if (headTitle) {
+        headTitle.style.cursor = 'pointer';
+        headTitle.addEventListener('click', function() {
+          const next = (g_trackerModalView === 'picks') ? 'report' : 'picks';
+          setTrackerModalView(next);
+        });
+      }
       document.getElementById("trackedPicksBody").addEventListener("click", function(e) {
         const target = e.target.closest(".tracker-disp-toggle");
         if(target) {
