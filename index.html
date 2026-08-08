@@ -406,7 +406,7 @@
       <span id="trackerHeadTitle">Tracked Picks</span>
       <span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:12px;font-weight:900;pointer-events:none;white-space:nowrap;"></span>
       <div class="tracker-head-actions">
-        <button type="button" id="trackerCopyDataBtn" class="tracker-insights-btn" title="Copy tracker data to clipboard">📑</button>
+        <button type="button" id="trackerCopyDataBtn" class="tracker-insights-btn" title="Copy tracker data to clipboard" onclick="window.copyTrackerData()">📑</button>
         <span class="engine-battery" id="engineHealthBatteryWrap" title="Rolling engine performance">
           <span class="engine-battery-shell"><span class="engine-battery-fill" id="enginePerfFill" style="width:0%;"></span></span>
           <span class="engine-battery-pct" id="enginePerfPct">—</span>
@@ -1070,8 +1070,29 @@
       const checkpointStatus = settled.length >= checkpointTarget ? 'Review ready' : 'Building';
       const checkpointLeft = Math.max(0, checkpointTarget - settled.length);
 
-      // Out-of-sample validation placeholder (not implemented)
-      const oosHtml = `<div class="tracker-empty-note">No out-of-sample check yet for Setka Cup. This runs automatically once enough settled picks exist (needs 30+ settled picks with a valid createdAt) and refreshes periodically during the retraining pipeline.</div>`;
+      // Out-of-sample validation - compute if enough settled picks
+      let oosHtml = `<div class="tracker-empty-note">No out-of-sample check yet for Setka Cup. This runs automatically once enough settled picks exist (needs 30+ settled picks with a valid createdAt) and refreshes periodically during the retraining pipeline.</div>`;
+      if (settled.length >= 30) {
+        const oosResult = runOutOfSampleValidation();
+        if (oosResult) {
+          const oosWinRate = (oosResult.winRate * 100).toFixed(1);
+          oosHtml = `
+            <div class="tracker-report-subtitle">Win rate on the most recent 30% of settled picks (held out from the training split). This checks whether the model generalizes to games it wasn't tuned on.</div>
+            <div class="tracker-kpi-grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="tracker-kpi-card">
+                <div class="tracker-kpi-label">Test win rate</div>
+                <div class="tracker-kpi-value">${oosWinRate}%</div>
+                <div class="tracker-kpi-sub">${oosResult.testSize} held-out picks</div>
+              </div>
+              <div class="tracker-kpi-card">
+                <div class="tracker-kpi-label">Training size</div>
+                <div class="tracker-kpi-value">${oosResult.trainSize}</div>
+                <div class="tracker-kpi-sub">Picks used to build the split</div>
+              </div>
+            </div>
+          `;
+        }
+      }
 
       // God's Eye post-mortem log
       const godRows = settled.slice(0, 20).map(p => {
@@ -1123,7 +1144,7 @@
           <div class="tracker-analytics-card">
             <div class="tracker-analytics-card-head">
               <div class="tracker-analytics-card-title">Out-of-sample validation</div>
-              <div class="tracker-analytics-card-meta">Not yet available</div>
+              <div class="tracker-analytics-card-meta">${settled.length >= 30 ? 'Available' : 'Not yet available'}</div>
             </div>
             <div class="tracker-analytics-card-body">${oosHtml}</div>
           </div>
@@ -1271,6 +1292,25 @@
       renderTrackedPicks();
       engineDebug("Pick deleted", { signature, market: pick.marketKey });
       return true;
+    }
+
+    // ---------- Out-of-sample validation ----------
+    function runOutOfSampleValidation() {
+      const all = [...g_trackerState.activePicks, ...g_trackerState.archivedPicks];
+      const settled = all.filter(p => p.resultStatus && p.resultStatus !== "pending" && p.createdAt)
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      if (settled.length < 30) return null;
+      const splitIdx = Math.floor(settled.length * 0.7);
+      const testSet = settled.slice(splitIdx);
+      const wins = testSet.filter(p => p.resultStatus === "win").length;
+      const result = { testSize: testSet.length, winRate: wins / testSet.length, trainSize: splitIdx };
+      // Store for later use
+      try {
+        const store = JSON.parse(localStorage.getItem("BB_OOS_VALIDATION_RESULTS") || "{}");
+        store["Setka Cup"] = { ...result, league: "Setka Cup", computedAt: new Date().toISOString() };
+        localStorage.setItem("BB_OOS_VALIDATION_RESULTS", JSON.stringify(store));
+      } catch(e) {}
+      return result;
     }
 
     // ---------- UI event handlers ----------
