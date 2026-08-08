@@ -11,7 +11,7 @@
   </script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="BB Engine" />
+  <meta name="apple-mobile-web-app-title" content="TT Engine" />
   <meta name="theme-color" content="#c91920" />
 
   <link rel="manifest" href="manifest.json?v=tracker_cleanup_v22_measurement_lab" />
@@ -36,7 +36,7 @@
     }
   </script>
 
-  <title>Basketball Prediction Engine</title>
+  <title>Table Tennis Prediction Engine — Setka Cup</title>
 
   <style>
 :root {
@@ -2569,6 +2569,7 @@ body.dark-mode .tracker-analytics-section-head {
 </style>
 
 </head>
+
 <body>
 <div id="engineLockOverlay">
   <div class="engine-lock-card">
@@ -2583,9 +2584,7 @@ body.dark-mode .tracker-analytics-section-head {
 (function(){
   var ENGINE_LOCK_PIN = "349137";
   var overlay = document.getElementById('engineLockOverlay');
-  if (localStorage.getItem('engineUnlocked') === 'yes') {
-    overlay.classList.add('hidden');
-  }
+  if (localStorage.getItem('engineUnlocked') === 'yes') overlay.classList.add('hidden');
   function tryUnlock(){
     var val = document.getElementById('engineLockInput').value;
     var err = document.getElementById('engineLockError');
@@ -2604,540 +2603,302 @@ body.dark-mode .tracker-analytics-section-head {
   });
 })();
 </script>
- <header class="app-header">
+
+<header class="app-header">
   <span class="brand-name">TheBetCeo ⚡️</span>
-
-<span class="header-center">
-  <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show fetch/input issues">⚠️</button>
-</span>
-
+  <span class="header-center">
+    <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show issues">⚠️</button>
+  </span>
   <span class="brand-right">
-
-    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏀</button>
+    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏓</button>
     <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
-    <button class="theme-toggle" type="button" id="afdbBtn" title="Auto-Fetch Debugger" onclick="if(typeof AFDB!=='undefined'&&AFDB.open)AFDB.open()">🔬</button>
-    <button class="theme-toggle" type="button" id="engineRelockBtn" title="Lock the engine" onclick="localStorage.removeItem('engineUnlocked'); location.reload();">🔒</button>
-    
-    PREDICTIONS
+    <button class="theme-toggle" type="button" id="afdbBtn" title="Debugger">🔬</button>
+    <button class="theme-toggle" type="button" id="engineRelockBtn" title="Lock the engine">🔒</button>
+    TT · SETKA
   </span>
 </header>
 
-  <div class="wrapper">
+<div class="wrapper">
 
-<div class="section" id="leagueSection">
-  <h3>League Tier</h3>
-  <label>Select League</label>
-  <select id="leagueSelect" class="league-box">
-    <option value="">- Select League -</option>
-    <optgroup label="── A ──────────────────">
-      <option value="aba">ABA - Liga ABA (International)</option>
-      <option value="acb">ACB - Spain (Liga ACB)</option>
-      <option value="argentina_lnb">Argentina - LNB</option>
-      <option value="ausnbl">Australia - NBL</option>
-      <option value="aus_nbl1_east">Australia - NBL1, East</option>
-      <option value="aus_nbl1_north">Australia - NBL1, North</option>
-      <option value="aus_nbl1_south">Australia - NBL1, South</option>
-      <option value="aus_nbl1_west">Australia - NBL1, West</option>
-      <option value="aus_nbl1_central">Australia - NBL1, Central</option>
-      <option value="aus_nbl1_east_w">Australia - NBL1 East, Women</option>
-      <option value="aus_nbl1_north_w">Australia - NBL1 North, Women</option>
-      <option value="aus_nbl1_south_w">Australia - NBL1 South, Women</option>
-      <option value="aus_nbl1_west_w">Australia - NBL1 West, Women</option>
-      <option value="aus_nbl1_central_w">Australia - NBL1 Central, Women</option>
-      <option value="aus_big_v">Australia - Big V</option>
-      <option value="aus_big_v_w">Australia - Big V, Women</option>
-      <option value="austria_superliga">Austria - Superliga</option>
-      <option value="austria_zweite">Austria - Zweite Liga</option>
-    </optgroup>
-    <optgroup label="── B ──────────────────">
-      <option value="bal">BAL - Basketball Africa League</option>
-      <option value="bbl">BBL - Germany</option>
-      <option value="belgium_top">Belgium - Top Division 1</option>
-      <option value="bih_1st">Bosnia &amp; Herzegovina - 1st Division</option>
-      <option value="bnxt">BNXT League (Intl)</option>
-      <option value="brazil_nbb">Brazil - NBB</option>
-      <option value="brazil_lbf_w">Brazil - LBF Women</option>
-      <option value="bulgaria_nbl">Bulgaria - NBL</option>
-    </optgroup>
-    <optgroup label="── C ──────────────────">
-      <option value="cba">CBA - China</option>
-      <option value="cebl">CEBL - Canada</option>
-      <option value="chile_lnb">Chile - Liga Nacional</option>
-      <option value="chile_lnb2">Chile - LNB 2</option>
-      <option value="china_nbl">China - NBL</option>
-
-      <option value="croatia_premier">Croatia - Premijer Liga</option>
-      <option value="cyprus_div_a">Cyprus - Division A</option>
-      <option value="nbl_cz">Czech Republic - NBL</option>
-    </optgroup>
-    <optgroup label="── D ──────────────────">
-      <option value="denmark_bliga">Denmark - Basketligaen</option>
-    </optgroup>
-    <optgroup label="── E ──────────────────">
-      <option value="el_salvador_lmb">El Salvador - Liga Mayor</option>
-      <option value="england_slb">England - SLB</option>
-      <option value="england_slb_w">England - SLB Women</option>
-      <option value="estonia_kml">Estonia - KML</option>
-      <option value="eurocup">EuroCup (Intl)</option>
-      <option value="euroleague">EuroLeague (Intl)</option>
-      <option value="champions_league">Champions League (Intl)</option>
-    </optgroup>
-    <optgroup label="── F ──────────────────">
-      <option value="fiba_ac">FIBA - AmeriCup</option>
-      <option value="fiba_eb">FIBA - EuroBasket</option>
-      
-      <option value="fiba_u20eb_a">FIBA - U20 EuroBasket, Div. A</option>
-      <option value="fiba_u20eb_b">FIBA - U20 EuroBasket, Div. B</option>
-      <option value="fiba_wc">FIBA - World Cup</option>
-      <option value="finland_koris">Finland - Korisliiga</option>
-      <option value="proa">France - Pro A</option>
-      <option value="prob">France - Pro B</option>
-      <option value="france_lfb_w">France - LFB Women</option>
-    </optgroup>
-    <optgroup label="── G ──────────────────">
-      <option value="georgia_super">Georgia - Superleague</option>
-      <option value="germany_proa">Germany - Pro A</option>
-      <option value="gb_super_league_w">Great Britain - Super League Women</option>
-      <option value="bcl">Greece - Basketball League</option>
-    </optgroup>
-    <optgroup label="── H ──────────────────">
-      <option value="hungary_nb1">Hungary - NB I. A</option>
-    </optgroup>
-    <optgroup label="── I ──────────────────">
-      <option value="iceland_urvalsdeild">Iceland - Urvalsdeild</option>
-      <option value="iceland_urvalsdeild_w">Iceland - Urvalsdeild Women</option>
-      <option value="iceland_1st">Iceland - First Division</option>
-      <option value="indonesia_ibl">Indonesia - IBL</option>
-      <option value="isl">Israel - Super League</option>
-      <option value="lba">Italy - Serie A</option>
-      <option value="italy_a2">Italy - Serie A2</option>
-      <option value="italy_serb">Italy - Serie B</option>
-      <option value="italy_a1_w">Italy - A1 Women</option>
-      <option value="italy_a2_w">Italy - Serie A2 Women</option>
-    </optgroup>
-    <optgroup label="── J ──────────────────">
-      <option value="bleague">Japan - B1 League</option>
-    </optgroup>
-    <optgroup label="── K ──────────────────">
-      <option value="korea_kbl">Korea - KBL</option>
-    </optgroup>
-    <optgroup label="── L ──────────────────">
-      <option value="latvia_lbl">Latvia - LBL</option>
-      <option value="lebanon_1st">Lebanon - First Division</option>
-      <option value="lkl">Lithuania - LKL</option>
-    </optgroup>
-    <optgroup label="── M ──────────────────">
-      <option value="mexico_cibacopa">Mexico - CIBACOPA</option>
-      <option value="mexico_lnbp">Mexico - LNBP</option>
-    </optgroup>
-    <optgroup label="── N ──────────────────">
-
-      <option value="nba">NBA - USA</option>
-      <option value="nznbl">New Zealand - NBL</option>
-    </optgroup>
-    <optgroup label="── P ──────────────────">
-      <option value="pba">Philippines - PBA (Philippine Cup)</option>
-      <option value="phil_mpbl">Philippines - MPBL</option>
-      <option value="plk">Poland - PLK</option>
-      <option value="poland_1liga">Poland - 1. Liga</option>
-      <option value="portugal_lpb">Portugal - LPB</option>
-      <option value="portugal_proliga">Portugal - Proliga</option>
-      <option value="portugal_taca">Portugal - Taca da Liga</option>
-      <option value="portugal_lfb_w">Portugal - Liga Feminina</option>
-      <option value="puerto_rico_bsn">Puerto Rico - BSN</option>
-    </optgroup>
-    <optgroup label="── R ──────────────────">
-      <option value="romania_ln">Romania - Liga Nationala</option>
-      <option value="rwanda">Rwanda - Basketball League</option>
-    </optgroup>
-    <optgroup label="── S ──────────────────">
-      <option value="serbia_kls">Serbia - KLS</option>
-      <option value="slovenia_1a">Slovenia - 1. A SKL</option>
-      <option value="spain_primera">Spain - Primera FEB</option>
-      <option value="spain_segunda">Spain - Segunda FEB</option>
-      <option value="sweden_sbl">Sweden - SBL</option>
-      <option value="swiss_sbl">Switzerland - SB League</option>
-    </optgroup>
-    <optgroup label="── T ──────────────────">
-      <option value="taipei_tpbl">Taiwan - TPBL / P. League+</option>
-      <option value="turkey_bsl">Turkiye - Super Lig</option>
-      <option value="turkey_tbl">Turkiye - TBL</option>
-      <option value="turkey_tb2l">Turkiye - TB2L</option>
-    </optgroup>
-    <optgroup label="── U ──────────────────">
-      <option value="united_league">United League (Intl)</option>
-      <option value="uruguay_lub">Uruguay - LUB</option>
-      <option value="uruguay_lfb_w">Uruguay - LFB Women</option>
-
-      <option value="nba">USA - NBA</option>
-      
-      <option value="nba_summer">USA - NBA Summer League</option>
-      <option value="nba_gl">USA - NBA G League</option>
-      <option value="ncaa">USA - NCAA Men's</option>
-      <option value="ncaaw">USA - NCAA Women's</option>
-      <option value="wnba">USA - WNBA</option>
-      <option value="wnba_pre">USA - WNBA Preseason</option>
-    </optgroup>
-    <optgroup label="── V ──────────────────">
-      <option value="venezuela_sl">Venezuela - SuperLiga</option>
-    </optgroup>
-    <optgroup label="── Z ──────────────────">
-      <option value="unknown">Other / Mixed League</option>
-    </optgroup>
-  </select>
-</div>
-
-<div class="section" id="espnSection">
-  <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA · WNBA · NCAA Men's · NCAA Women's · NBA G League)</span></h3>
-
-  <div id="fixtureToolbar" class="fixture-toolbar">
-    <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
-    <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
-  </div>
-
-<label id="fixtureSelectLabel" style="font-size:12px;">Select match</label>
-<select id="fixtureSelect" class="league-box">
-
-<option value="">- Select match -</option>
-</select>
-
-<label id="teamALabel" style="font-size:12px;">Team A Name (Home)</label>
-
-  <div class="autocomplete-wrap">
-    <input id="teamAName" placeholder="e.g. Lakers" autocomplete="off" />
-    <div class="autocomplete-list" id="dropA"></div>
-  </div>
-
-<label id="teamBLabel" style="font-size:12px;margin-top:6px;">Team B Name (Away)</label>
-
-  <div class="autocomplete-wrap">
-    <input id="teamBName" placeholder="e.g. Celtics" autocomplete="off" />
-    <div class="autocomplete-list" id="dropB"></div>
-  </div>
-
-<button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
-
-  <div id="fetchStatus"></div>
-
-  <div class="injury-box" id="injuryBoxA">
-    <div class="inj-title">Team A - Injury Report</div>
-    <div id="injuryContentA"></div>
-  </div>
-
-  <div class="injury-box" id="injuryBoxB">
-    <div class="inj-title">Team B - Injury Report</div>
-    <div id="injuryContentB"></div>
-  </div>
-</div>
-<div class="section" id="sofascoreManualSection" style="display:none;">
-  <h3>🔍 Player Lookup <span style="font-size:11px;color:#aaa;">(Manual leagues — SofaScore)</span></h3>
-
-  <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
-    <label>Player A Name (Home)</label>
-    <div style="display:flex;gap:6px;margin-bottom:4px;">
-      <input id="ssTeamAName" placeholder="Player / Team A" style="margin-bottom:0;flex:1;" />
-      <input id="ssPasteA" placeholder="Paste JSON A" oninput="parseSofascoreIndividual('A')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
-      <button type="button" onclick="searchSofascorePlayer('A')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search basketball team">🔍</button>
-      <button type="button" onclick="clearPasteJSON('A')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
-    </div>
-    <div style="display:flex;gap:6px;align-items:center;">
-      <input id="ssTeamAId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('A')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
-      <a id="ssTeamALink" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 Open JSON A</a>
+  <!-- League: fixed, no dropdown -->
+  <div class="section" id="leagueSection">
+    <button type="button" class="section-toggle" data-section="leagueSection">
+      <span class="toggle-title">League</span>
+      <span class="toggle-icon">▾</span>
+    </button>
+    <div class="section-body">
+      <div style="font-size:12px;font-weight:700;padding:6px 8px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);max-width:260px;">Setka Cup — Table Tennis</div>
+      <p style="font-size:10px;color:var(--muted);font-weight:600;margin:6px 0 0;line-height:1.35;">Fixed competition. SofaScore manual only. Markets: Match Total Points + 1st Set Total Points.</p>
     </div>
   </div>
 
-  <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
-    <label>Player B Name (Away)</label>
-    <div style="display:flex;gap:6px;margin-bottom:4px;">
-      <input id="ssTeamBName" placeholder="Player / Team B" style="margin-bottom:0;flex:1;" />
-      <input id="ssPasteB" placeholder="Paste JSON B" oninput="parseSofascoreIndividual('B')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
-      <button type="button" onclick="searchSofascorePlayer('B')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search basketball team">🔍</button>
-      <button type="button" onclick="clearPasteJSON('B')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
-    </div>
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-      <input id="ssTeamBId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('B')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
-      <a id="ssTeamBLink" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p0</a>
-      <a id="ssTeamBLink1" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p1</a>
-      <a id="ssTeamBLink2" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p2</a>
-      <a id="ssTeamBLink3" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p3</a>
-    </div>
-  </div>
+  <!-- SofaScore (BB-style compact paste, not a giant box) -->
+  <div class="section" id="sofascoreManualSection">
+    <button type="button" class="section-toggle" data-section="sofascoreManualSection">
+      <span class="toggle-title">🔍 SofaScore Manual</span>
+      <span class="toggle-icon">▾</span>
+    </button>
+    <div class="section-body">
+      <p style="font-size:10px;color:var(--muted);font-weight:600;margin:0 0 8px;line-height:1.35;">Paste SofaScore player JSON per side (same compact fields as BB).</p>
 
-  <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--panel-border);">
-    <label style="font-size:11px;font-weight:800;">Tournament ID <span style="color:var(--muted);font-weight:600;">(auto-detected from paste · enter manually to override)</span></label>
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-      <input id="ssTournamentId" placeholder="e.g. 12345" style="margin-bottom:0;font-size:11px;padding:4px 6px;width:180px;flex-shrink:0;" oninput="onTournamentIdInput()" />
-      <span id="ssTournamentName" style="font-size:10px;font-weight:800;color:var(--muted);"></span>
-    </div>
-  </div>
-  <div id="ssFetchStatus" style="font-size:10px;min-height:16px;margin-top:6px;"></div>
-</div>
-<div class="section" id="marketSection">
-  <h3>Market Lines</h3>
-
-  <div id="ftH1MarketRow" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-    <div><label id="ftMarketLabel">FT Total</label><input id="ftMarket" placeholder="150.5 - 160.5" /></div>
-    <div id="h1MarketSection"><label>1H Total</label><input id="h1Market" placeholder="75.5 - 85.5" /></div>
-  </div>
-
-  <div id="teamMarketSection" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label id="teamAMarketLabel">Team A Total</label><input id="teamAMarket" placeholder="75.5 - 79.5" /></div>
-    <div><label id="teamBMarketLabel">Team B Total</label><input id="teamBMarket" placeholder="75.5 - 79.5" /></div>
-  </div>
-
-      <div id="q1q2MarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-      <div><label>Q1 Total</label><input id="q1Market" placeholder="45.5 - 55.5" /></div>
-      <div><label>Q2 Total</label><input id="q2Market" placeholder="45.5 - 55.5" /></div>
-    </div>
-    
-    <div id="q3q4MarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-      <div><label>Q3 Total</label><input id="q3Market" placeholder="45.5 - 55.5" /></div>
-      <div><label>Q4 Total</label><input id="q4Market" placeholder="45.5 - 55.5" /></div>
-    </div>
-
-  <div id="h1TeamMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>1H Team A</label><input id="h1TeamAMarket" placeholder="52.5" /></div>
-    <div><label>1H Team B</label><input id="h1TeamBMarket" placeholder="53.5" /></div>
-  </div>
-
-  <div id="highLowQMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>Highest Q Total</label><input id="highQTotalMarket" placeholder="62.5 - 65.5" /></div>
-    <div><label>Lowest Q Total</label><input id="lowQTotalMarket" placeholder="32.5 - 35.5" /></div>
-  </div>
-
-  <div id="q1TeamMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
-    <div><label>Q1 Team A</label><input id="q1TeamAMarket" placeholder="25.5 - 29.5" /></div>
-    <div><label>Q1 Team B</label><input id="q1TeamBMarket" placeholder="26.5 - 30.5" /></div>
-  </div>
-
-</div>
-
-<div class="section" id="teamASection">
-  <h3>Team A - Last 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
-
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-    <div>
-      <label id="aFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
-      <input id="aFTScored" placeholder="85,79,88,74,82,92,76,80,86,90" />
-    </div>
-    <div id="aFTAllowedSection">
-      <label id="aFTAllowedLabel">FT Allowed</label>
-      <input id="aFTAllowed" placeholder="80,76,84,72,79,88,70,83,85,75" />
-    </div>
-  </div>
-
-    <div id="a1HSection" style="display:none;">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
-      <div>
-        <label id="a1HScoredLabel">1H Scored</label>
-        <input id="a1HScored" placeholder="42,38,45,40,41,43,39,44,37,42" />
+      <label style="font-size:12px;">Player A</label>
+      <div style="display:flex;gap:6px;margin-bottom:4px;max-width:400px;">
+        <input id="ssTeamAName" placeholder="Player A" style="margin-bottom:0;flex:1;" />
+        <input id="ssPasteA" placeholder="Paste JSON A" style="margin-bottom:0;flex:1;" />
+        <button type="button" class="fetch-btn" id="ssSearchA" style="margin:0;">Parse A</button>
       </div>
-      <div>
-        <label>1H Allowed</label>
-        <input id="a1HAllowed" placeholder="39,36,41,35,38,40,37,42,36,39" />
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+        <input id="ssTeamAId" placeholder="Player A ID (optional)" style="max-width:180px;margin-bottom:0;" />
       </div>
-    </div>
-  </div>
 
-  <div id="aQSection" style="display:none; margin-top: 6px;">
-    <label style="color:var(--muted); text-transform:uppercase; font-size:10px; margin-bottom:8px; display:block;">Quarter-by-Quarter Form</label>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-      <div><label>Q1 Scored</label><input id="aQ1Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
-      <div><label>Q1 Allowed</label><input id="aQ1Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
-      <div><label>Q2 Scored</label><input id="aQ2Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
-      <div><label>Q2 Allowed</label><input id="aQ2Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
-      <div><label>Q3 Scored</label><input id="aQ3Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
-      <div><label>Q3 Allowed</label><input id="aQ3Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
-      <div><label>Q4 Scored</label><input id="aQ4Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
-      <div><label>Q4 Allowed</label><input id="aQ4Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
-    </div>
-  </div>
-
-</div>
-
-<div class="section" id="teamBSection">
-  <h3>Team B - Last 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
-
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-    <div>
-      <label id="bFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
-      <input id="bFTScored" placeholder="83,77,81,79,80,85,82,78,90,86" />
-    </div>
-    <div id="bFTAllowedSection">
-      <label id="bFTAllowedLabel">FT Allowed</label>
-      <input id="bFTAllowed" placeholder="78,80,77,76,81,84,79,85,75,82" />
-    </div>
-  </div>
-
-    <div id="b1HSection" style="display:none;">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
-      <div>
-        <label id="b1HScoredLabel">1H Scored</label>
-        <input id="b1HScored" placeholder="40,39,42,38,41,43,40,44,37,42" />
+      <label style="font-size:12px;">Player B</label>
+      <div style="display:flex;gap:6px;margin-bottom:4px;max-width:400px;">
+        <input id="ssTeamBName" placeholder="Player B" style="margin-bottom:0;flex:1;" />
+        <input id="ssPasteB" placeholder="Paste JSON B" style="margin-bottom:0;flex:1;" />
+        <button type="button" class="fetch-btn" id="ssSearchB" style="margin:0;">Parse B</button>
       </div>
-      <div>
-        <label>1H Allowed</label>
-        <input id="b1HAllowed" placeholder="38,39,37,36,40,41,38,42,35,39" />
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="ssTeamBId" placeholder="Player B ID (optional)" style="max-width:180px;margin-bottom:0;" />
       </div>
+      <div id="ssStatus" style="font-size:10px;min-height:16px;margin-top:6px;font-weight:700;"></div>
     </div>
   </div>
 
-  <div id="bQSection" style="display:none; margin-top: 6px;">
-    <label style="color:var(--muted); text-transform:uppercase; font-size:10px; margin-bottom:8px; display:block;">Quarter-by-Quarter Form</label>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-      <div><label>Q1 Scored</label><input id="bQ1Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
-      <div><label>Q1 Allowed</label><input id="bQ1Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
-      <div><label>Q2 Scored</label><input id="bQ2Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
-      <div><label>Q2 Allowed</label><input id="bQ2Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
-      <div><label>Q3 Scored</label><input id="bQ3Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
-      <div><label>Q3 Allowed</label><input id="bQ3Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
-      <div><label>Q4 Scored</label><input id="bQ4Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
-      <div><label>Q4 Allowed</label><input id="bQ4Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
-    </div>
-  </div>
-
-</div>
-
-<div class="section" id="h2hSection">
-  <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2022+, decay-weighted, OT stripped)</span></h3>
-
-  <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" /> Use FT H2H (min 2 games)</label>
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-    <input id="aFTH2H" placeholder="82,78,84,76,82" />
-    <input id="bFTH2H" placeholder="79,81,77,80,78" />
-  </div>
-
-  <div id="h2h1HSection" style="display:none; margin-top: 6px;">
-    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" /> Use 1H H2H (min 2 games)</label>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-      <input id="a1HH2H" placeholder="41,39,43,38,41" />
-      <input id="b1HH2H" placeholder="39,41,38,42,39" />
-    </div>
-  </div>
-
-  <div id="h2hQSection" style="display:none; margin-top: 10px; border-top: 1px solid var(--panel-border); padding-top: 10px;">
-    <label style="color:var(--muted); text-transform:uppercase; font-size:10px; margin-bottom:8px; display:block;">H2H Quarter Breakdown</label>
-    
-    <div style="margin-top:4px;">
-      <label><input type="checkbox" id="useQ1H2H" /> Use Q1 H2H</label>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-        <input id="aQ1H2H" placeholder="22,19,25,18,20" />
-        <input id="bQ1H2H" placeholder="20,18,22,17,21" />
-      </div>
-    </div>
-
-    <div style="margin-top:6px;">
-      <label><input type="checkbox" id="useQ2H2H" /> Use Q2 H2H</label>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-        <input id="aQ2H2H" placeholder="22,19,25,18,20" />
-        <input id="bQ2H2H" placeholder="20,18,22,17,21" />
-      </div>
-    </div>
-
-    <div style="margin-top:6px;">
-      <label><input type="checkbox" id="useQ3H2H" /> Use Q3 H2H</label>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-        <input id="aQ3H2H" placeholder="22,19,25,18,20" />
-        <input id="bQ3H2H" placeholder="20,18,22,17,21" />
-      </div>
-    </div>
-
-    <div style="margin-top:6px;">
-      <label><input type="checkbox" id="useQ4H2H" /> Use Q4 H2H</label>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-        <input id="aQ4H2H" placeholder="22,19,25,18,20" />
-        <input id="bQ4H2H" placeholder="20,18,22,17,21" />
-      </div>
-    </div>
-  </div>
-
-</div>
-
-  </div>
-
-  <div style="display:none;" aria-hidden="true">
-    <input id="aFormIntel" /><input id="bFormIntel" />
-    <input id="aSpreadIntel" /><input id="bSpreadIntel" />
-    <input id="aHitIntel" /><input id="bHitIntel" />
-  </div>
-
-  <div class="actions">
-    <button id="runBtn" type="button">Run</button>
-    <button id="clearBtn" type="button">Clear</button>
-    <button id="auditCopyBtn" type="button" title="Copy Audit" style="background: #d4af37 !important; color: #111 !important; box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important; font-weight: 700 !important; border: none !important; padding: 5px 14px !important; font-size: 12px !important; cursor: pointer !important; width: auto !important; min-width: 0 !important;">📋</button>
-    <button id="inputsCopyBtn" type="button" title="Copy Inputs &amp; Market Lines" style="background: #d4af37 !important; color: #111 !important; box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important; font-weight: 700 !important; border: none !important; padding: 5px 14px !important; font-size: 12px !important; cursor: pointer !important; width: auto !important; min-width: 0 !important;">🗒️</button>
-
-  </div>
-
-  <div class="table-wrap">
-    <table id="results" style="display:none;">
-      <tr>
-        <th>Pick</th>
-        <th>Projection</th>
-        <th>Edge</th>
-<th>Model Grade</th>
-        <th>Prediction</th>
-      </tr>
-    </table>
-  </div>
-
-  <div id="trackerModal" class="tracker-modal" aria-hidden="true">
-    <div class="tracker-panel">
-      <div class="tracker-head">
-        <span id="trackerHeadTitle">Tracked Picks</span>
-        <span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:12px;font-weight:900;pointer-events:none;white-space:nowrap;"></span>
-                       <div class="tracker-head-actions">
-<button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Single-click: Military Raid · Double-click: Toggle debug view" onclick="triggerTrackerMilitaryRaid()">🚨</button>
-<button type="button" id="trackerHealthBtn" class="tracker-insights-btn" title="Engine health dashboard">❤️</button>
-<button type="button" id="trackerSeasonBacktestBtn" class="tracker-insights-btn" title="Season Backtest panel (Joint search + Lock Optimal Parameters)">📊</button>
-<button type="button" id="trackerBacktestBtn" class="tracker-insights-btn" title="Max-power backtest: run 1 replay test">⚡</button>
-<button type="button" id="trackerConfigBtn" class="tracker-insights-btn" title="View/Edit verified configs">⚙️</button>
-<button type="button" id="trackerCopyDataBtn" class="tracker-insights-btn" title="Copy tracker data to clipboard">📑</button>
-<button type="button" id="trackerCopyDataJsonBtn" class="tracker-insights-btn" title="Copy tracker data as JSON">🧾</button>
-          <span class="engine-battery" id="engineHealthBatteryWrap" title="Rolling engine performance">
-            <span class="engine-battery-shell"><span class="engine-battery-fill" id="enginePerfFill" style="width:0%;"></span></span>
-            <span class="engine-battery-pct" id="enginePerfPct">—</span>
-          </span>
-          <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
+  <!-- Markets: Match Total + 1st Set only -->
+  <div class="section" id="marketSection">
+    <button type="button" class="section-toggle" data-section="marketSection">
+      <span class="toggle-title">Market Lines</span>
+      <span class="toggle-icon">▾</span>
+    </button>
+    <div class="section-body">
+      <div id="ftH1MarketRow" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label id="ftMarketLabel">Match Total Points</label>
+          <input id="ftMarket" placeholder="e.g. 72.5 or 70.5-74.5" />
+        </div>
+        <div>
+          <label>1st Set Total Points</label>
+          <input id="h1Market" placeholder="e.g. 18.5 or 17.5-19.5" />
         </div>
       </div>
-          <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
-<div class="tracker-market-summary" id="trackerMarketSummary"></div>
-
-<div class="tracker-body-scroll" id="trackedPicksWrap">
-  <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
-
-  <div id="trackerEmpty" class="tracker-empty">
-    No tracked picks saved yet.
+    </div>
   </div>
 
-  <div class="table-wrap tracker-table-wrap">
-<table id="trackedPicksTable">
-  <thead>
+  <!-- Player A form -->
+  <div class="section" id="teamASection">
+    <button type="button" class="section-toggle" data-section="teamASection">
+      <span class="toggle-title">Player A — Recent Form <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></span>
+      <span class="toggle-icon">▾</span>
+    </button>
+    <div class="section-body">
+      <label style="font-size:12px;">Player A name</label>
+      <input id="teamAName" placeholder="Player A" autocomplete="off" />
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+        <div>
+          <label>Match totals <span style="font-size:10px;color:var(--muted);">(newest → oldest, max 10)</span></label>
+          <input id="aFTScored" placeholder="78,72,85,69,81,74,80,76,82,70" />
+        </div>
+        <div>
+          <label>Opp match totals</label>
+          <input id="aFTAllowed" placeholder="74,70,80,66,77,72,75,71,78,68" />
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
+        <div>
+          <label>1st-set totals</label>
+          <input id="a1HScored" placeholder="19,17,21,18,20,16,19,18,22,17" />
+        </div>
+        <div>
+          <label>1st-set opp totals</label>
+          <input id="a1HAllowed" placeholder="18,16,20,17,19,15,18,17,21,16" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Player B form -->
+  <div class="section" id="teamBSection">
+    <button type="button" class="section-toggle" data-section="teamBSection">
+      <span class="toggle-title">Player B — Recent Form <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></span>
+      <span class="toggle-icon">▾</span>
+    </button>
+    <div class="section-body">
+      <label style="font-size:12px;">Player B name</label>
+      <input id="teamBName" placeholder="Player B" autocomplete="off" />
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+        <div>
+          <label>Match totals <span style="font-size:10px;color:var(--muted);">(newest → oldest, max 10)</span></label>
+          <input id="bFTScored" placeholder="74,80,70,76,82,71,79,73,84,68" />
+        </div>
+        <div>
+          <label>Opp match totals</label>
+          <input id="bFTAllowed" placeholder="70,76,68,72,78,69,75,71,80,66" />
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
+        <div>
+          <label>1st-set totals</label>
+          <input id="b1HScored" placeholder="18,20,16,19,21,17,18,19,22,16" />
+        </div>
+        <div>
+          <label>1st-set opp totals</label>
+          <input id="b1HAllowed" placeholder="17,19,15,18,20,16,17,18,21,15" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- H2H -->
+  <div class="section" id="h2hSection">
+    <button type="button" class="section-toggle" data-section="h2hSection">
+      <span class="toggle-title">H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled</span></span>
+      <span class="toggle-icon">▾</span>
+    </button>
+    <div class="section-body">
+      <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" /> Use Match Total H2H (min 2 games)</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+        <input id="aFTH2H" placeholder="78,72,85,69,81" />
+        <input id="bFTH2H" placeholder="74,80,70,76,82" />
+      </div>
+      <div style="margin-top:6px;">
+        <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" /> Use 1st Set H2H (min 2 games)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+          <input id="a1HH2H" placeholder="19,17,21,18,20" />
+          <input id="b1HH2H" placeholder="18,20,16,19,21" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="actions">
+  <button id="runBtn" type="button">Run</button>
+  <button id="clearBtn" type="button">Clear</button>
+</div>
+
+<div class="table-wrap">
+  <table id="results" style="display:none;">
     <tr>
-      <th>Date</th>
-      <th>League</th>
-      <th>Match</th>
       <th>Market</th>
-      <th>Line</th>
-      <th>Pick</th>
+      <th>Projection</th>
+      <th>Edge</th>
       <th>Grade</th>
-      <th>Status</th>
+      <th>Prediction</th>
     </tr>
-  </thead>
-  <tbody id="trackedPicksBody"></tbody>
-</table>
-  </div>
-</div>
-  </div>
+  </table>
 </div>
 
+<div id="trackerModal" class="tracker-modal" aria-hidden="true">
+  <div class="tracker-panel">
+    <div class="tracker-head">
+      <span id="trackerHeadTitle">Tracked Picks</span>
+      <div class="tracker-head-actions">
+        <button type="button" id="trackerCopyDataBtn" class="tracker-insights-btn" title="Copy tracker report">📑</button>
+        <button type="button" id="trackerCopyDataJsonBtn" class="tracker-insights-btn" title="Copy JSON">🧾</button>
+        <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
+      </div>
+    </div>
+    <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
+    <div class="tracker-market-summary" id="trackerMarketSummary"></div>
+    <div class="tracker-body-scroll" id="trackedPicksWrap">
+      <div id="trackerEmpty" class="tracker-empty">No tracked picks saved yet.</div>
+      <div class="table-wrap tracker-table-wrap">
+        <table id="trackedPicksTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>League</th>
+              <th>Match</th>
+              <th>Market</th>
+              <th>Line</th>
+              <th>Pick</th>
+              <th>Grade</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="trackedPicksBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="afdbOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,0.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
   <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;"></div>
 </div>
 
+<script>
+(function () {
+  // Theme
+  var themeBtn = document.getElementById("themeToggleBtn");
+  if (localStorage.getItem("theme") === "dark") document.body.classList.add("dark-mode");
+  if (themeBtn) themeBtn.addEventListener("click", function () {
+    var dark = document.body.classList.toggle("dark-mode");
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  });
 
+  // Relock
+  var relock = document.getElementById("engineRelockBtn");
+  if (relock) relock.addEventListener("click", function () {
+    localStorage.removeItem("engineUnlocked");
+    location.reload();
+  });
 
+  // Section collapse — same behavior as BB makeSectionsCollapsible
+  function wireSections() {
+    document.querySelectorAll(".section-toggle").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var sec = btn.closest(".section");
+        if (!sec || sec.classList.contains("locked")) return;
+        sec.classList.toggle("collapsed");
+      });
+    });
+  }
+  wireSections();
+
+  // Default: collapse lower sections on first load (league + sofa open)
+  ["teamASection", "teamBSection", "h2hSection"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.add("collapsed");
+  });
+
+  // Tracker modal open/close shell
+  var modal = document.getElementById("trackerModal");
+  var openBtn = document.getElementById("trackerToggleBtn");
+  var closeBtn = document.getElementById("trackerCloseBtn");
+  if (openBtn && modal) openBtn.addEventListener("click", function () {
+    document.body.classList.add("tracker-open");
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+  });
+  if (closeBtn && modal) closeBtn.addEventListener("click", function () {
+    document.body.classList.remove("tracker-open");
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+  });
+  if (modal) modal.addEventListener("click", function (e) {
+    if (e.target === modal) {
+      document.body.classList.remove("tracker-open");
+      modal.classList.remove("open");
+    }
+  });
+
+  // AFDB shell open
+  var afdbBtn = document.getElementById("afdbBtn");
+  var afdb = document.getElementById("afdbOverlay");
+  if (afdbBtn && afdb) afdbBtn.addEventListener("click", function () {
+    afdb.style.display = afdb.style.display === "flex" ? "none" : "flex";
+    if (afdb.style.display === "flex") {
+      document.getElementById("afdbPanel").innerHTML =
+        '<div style="padding:16px;color:#d4af37;font-weight:900;">🔬 TT SETKA DEBUG (shell)</div>' +
+        '<div style="padding:12px;color:#888;font-size:12px;">Design shell only — wire engine/debug next.</div>' +
+        '<button type="button" id="afdbCloseBtn" style="margin:12px;background:#111;border:1px solid #555;color:#ccc;padding:8px 14px;cursor:pointer;">✕ Close</button>';
+      var c = document.getElementById("afdbCloseBtn");
+      if (c) c.onclick = function () { afdb.style.display = "none"; };
+    }
+  });
+})();
+</script>
 </body>
 </html>
