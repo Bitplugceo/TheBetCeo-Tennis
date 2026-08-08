@@ -1,2458 +1,217 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
-  />
-<script>
-    
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="TT Engine" />
+  <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#c91920" />
-
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v22_measurement_lab" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_measurement_lab" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_measurement_lab" />
-
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", function () {
-        navigator.serviceWorker.register("sw.js?v=tracker_cleanup_v22_measurement_lab")
-          .then(function (reg) {
-            if (typeof engineDebug === "function") {
-              engineDebug("Service worker registered", { scope: reg.scope });
-            }
-          })
-          .catch(function (err) {
-            if (typeof engineDebug === "function") {
-              engineDebug("Service worker registration failed (non-fatal)", { error: err?.message || String(err) });
-            }
-          });
-      });
-    }
-  </script>
-
-  <title>Table Tennis Prediction Engine — Setka Cup</title>
-
+  <title>Table Tennis Prediction Engine</title>
   <style>
-:root {
-  --bg: #efefef;
-  --text: #1f2430;
-  --panel: #ffffff;
-  --panel-border: #dedede;
-  --panel-soft: #f6f7f9;
-  --panel-soft-2: #eceff3;
-  --input-bg: #ffffff;
-  --input-border: #cfd4da;
-  --table-head: #3a404c;
-  --muted: #7b8088;
-  --chip-text: #2a2f38;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    --section-toggle-text: #20242c;
-  --section-toggle-icon: #d91f26;
-  --injury-title: #20242c;
-  --table-border: #dfe2e7;
-  --tracker-head-bg: #3a404c;
-  --tracker-head-text: #ffffff;
-  --tracker-summary-bg: #f6f7f9;
-  --tracker-chip-bg: #f6f7f9;
-  --tracker-chip-border: #dfe2e7;
-  --tracker-strong: #20242c;
-  --tracker-subtext: #5a5f6b;
-  --tracker-mini-head-bg: #eceff3;
-  --tracker-mini-head-text: #2a2f38;
-}
-body.tracker-open {
-  position: fixed;
-  width: 100%;
-  left: 0;
-  right: 0;
-  overflow: hidden;
-}
-body.dark-mode {
-  --bg: #111;
-  --text: #d4af37;
-  --panel: #1a1a1a;
-  --panel-border: #333;
-  --panel-soft: #151515;
-  --panel-soft-2: #111;
-  --input-bg: #222;
-  --input-border: #444;
-  --table-head: #111;
-  --muted: #9aa0a8;
-  --chip-text: #d4af37;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
-    --section-toggle-text: #d4af37;
-  --section-toggle-icon: #d4af37;
-  --injury-title: #aac;
-  --table-border: #333;
-  --tracker-head-bg: #111;
-  --tracker-head-text: #d4af37;
-  --tracker-summary-bg: #151515;
-  --tracker-chip-bg: #151515;
-  --tracker-chip-border: #333;
-  --tracker-strong: #d4af37;
-  --tracker-subtext: #c3aa55;
-  --tracker-mini-head-bg: #111;
-  --tracker-mini-head-text: #d4af37;
-}
-
-    button,
-    input,
-    select,
-    .section,
-    table,
-    th,
-    td,
-    .tracker-panel,
-    .fixture-day,
-    .autocomplete-list,
-    .league-box {
-      border-radius: 0;
+    :root {
+      --bg: #efefef;
+      --text: #1f2430;
+      --panel: #ffffff;
+      --panel-border: #dedede;
+      --panel-soft: #f6f7f9;
+      --panel-soft-2: #eceff3;
+      --input-bg: #ffffff;
+      --input-border: #cfd4da;
+      --table-head: #3a404c;
+      --muted: #7b8088;
+      --chip-text: #2a2f38;
+      --shadow: 0 2px 8px rgba(0,0,0,0.05);
+      --section-toggle-text: #20242c;
+      --section-toggle-icon: #d91f26;
+      --injury-title: #20242c;
+      --table-border: #dfe2e7;
+      --tracker-head-bg: #3a404c;
+      --tracker-head-text: #ffffff;
+      --tracker-summary-bg: #f6f7f9;
+      --tracker-chip-bg: #f6f7f9;
+      --tracker-chip-border: #dfe2e7;
+      --tracker-strong: #20242c;
+      --tracker-subtext: #5a5f6b;
+      --tracker-mini-head-bg: #eceff3;
+      --tracker-mini-head-text: #2a2f38;
     }
-
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
+    body.tracker-open { position: fixed; width: 100%; left: 0; right: 0; overflow: hidden; }
+    body.dark-mode {
+      --bg: #111;
+      --text: #d4af37;
+      --panel: #1a1a1a;
+      --panel-border: #333;
+      --panel-soft: #151515;
+      --panel-soft-2: #111;
+      --input-bg: #222;
+      --input-border: #444;
+      --table-head: #111;
+      --muted: #9aa0a8;
+      --chip-text: #d4af37;
+      --shadow: 0 2px 8px rgba(0,0,0,0.22);
+      --section-toggle-text: #d4af37;
+      --section-toggle-icon: #d4af37;
+      --injury-title: #aac;
+      --table-border: #333;
+      --tracker-head-bg: #111;
+      --tracker-head-text: #d4af37;
+      --tracker-summary-bg: #151515;
+      --tracker-chip-bg: #151515;
+      --tracker-chip-border: #333;
+      --tracker-strong: #d4af37;
+      --tracker-subtext: #c3aa55;
+      --tracker-mini-head-bg: #111;
+      --tracker-mini-head-text: #d4af37;
     }
-
-html {
-  -webkit-text-size-adjust: 100%;
-  background: var(--bg);
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-  -webkit-text-size-adjust: 100%;
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
-  /* Keep content clear of the home indicator */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* Fixed red strip only under the status bar (standalone / black-translucent) */
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: env(safe-area-inset-top, 0px);
-  background: #c91920;
-  z-index: 10000;
-  pointer-events: none;
-}
-     .app-header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 0 10px 0;
-  padding-top: calc(env(safe-area-inset-top, 20px) + 12px);
-  padding-left: max(14px, env(safe-area-inset-left));
-  padding-right: max(14px, env(safe-area-inset-right));
-  padding-bottom: 10px;
-  min-height: 54px;
-  background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #b91520 100%);
-  color: #fff;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
-}
-
-    .brand-name {
-      font-size: 15px;
-      font-weight: 800;
-      letter-spacing: 0.3px;
-      color: #fff;
+    button, input, select, .section, table, th, td, .tracker-panel, .fixture-day, .autocomplete-list, .league-box { border-radius: 0; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { -webkit-text-size-adjust: 100%; background: var(--bg); }
+    body {
+      margin: 0; padding: 0; background: var(--bg); color: var(--text);
+      font-family: Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      -webkit-text-size-adjust: 100%; min-height: 100vh; min-height: -webkit-fill-available;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
-
-    .brand-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      color: rgba(255, 255, 255, 0.85);
-      text-transform: uppercase;
+    body::before {
+      content: ""; position: fixed; top: 0; left: 0; right: 0;
+      height: env(safe-area-inset-top, 0px); background: #c91920; z-index: 10000; pointer-events: none;
     }
-
-    .theme-toggle {
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: 1.5px !important;
-  color: rgba(255, 255, 255, 0.85) !important;
-  text-transform: uppercase !important;
-  cursor: pointer !important;
-  opacity: 1 !important;
-}
-
-.header-center {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.header-error-btn {
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  font-size: 18px !important;
-  line-height: 1 !important;
-  cursor: pointer !important;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.header-error-btn.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.engine-battery {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.3px;
-}
-
-.engine-battery-shell {
-  width: 22px;
-  height: 11px;
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
-  border-radius: 2px;
-  position: relative;
-  padding: 1px;
-}
-
-.engine-battery-shell::after {
-  content: '';
-  position: absolute;
-  right: -3px;
-  top: 3px;
-  width: 2px;
-  height: 5px;
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 0 1px 1px 0;
-}
-
-.engine-battery-fill {
-  height: 100%;
-  border-radius: 1px;
-  background: #49d45f;
-  transition: width 0.4s ease, background-color 0.4s ease;
-}
-
-.engine-battery-pct {
-  min-width: 26px;
-  text-align: left;
-}
-
-    .wrapper {
-      max-width: 760px;
-      margin: 10px auto;
-      padding: 0 10px;
+    .app-header {
+      position: relative; display: flex; align-items: center; justify-content: space-between;
+      margin: 0 0 10px 0; padding-top: calc(env(safe-area-inset-top, 20px) + 12px);
+      padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right));
+      padding-bottom: 10px; min-height: 54px;
+      background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #b91520 100%);
+      color: #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.18);
     }
-
-   .section {
-  border: 1px solid var(--panel-border);
-  background: var(--panel);
-  margin: 8px auto;
-  box-shadow: var(--shadow);
-  color: var(--text);
-}
-       .section-toggle {
-      width: 100%;
-      background: none !important;
-      border: none;
-      padding: 12px 10px;
-      margin: 0 !important;
-      color: var(--section-toggle-text) !important;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      text-align: left;
-      cursor: pointer;
-    }
-
-       .section-toggle .toggle-title {
-      display: block;
-      font-weight: 800;
-      color: var(--section-toggle-text) !important;
-    }
-
-    .section-toggle .toggle-icon {
-      font-size: 15px;
-      line-height: 1;
-      transition: transform 0.2s ease;
-      color: var(--section-toggle-icon) !important;
-    }
-
-    .section-body {
-      padding: 0 10px 10px;
-      margin-top: 0;
-    }
-
-    .section.collapsed .section-body {
-      display: none;
-    }
-
-    .section.collapsed .section-toggle .toggle-icon {
-      transform: rotate(-90deg);
-    }
-
-    .section.locked .section-body {
-      display: none !important;
-    }
-
-    .section.locked .section-toggle {
-      opacity: 0.4 !important;
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-
-    .section.locked .section-toggle .toggle-icon {
-      display: none;
-    }
-
-    h3 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 800;
-    }
-
-    label {
-  display: block;
-  font-size: 12px;
-  margin-bottom: 4px;
-  color: var(--text);
-  font-weight: 600;
-}
-
-h3 span,
-label span,
-small {
-  color: var(--muted);
-}
-
-    input,
-    .league-box,
-    .autocomplete-wrap {
-      width: 100%;
-      max-width: 260px;
-      box-sizing: border-box;
-    }
-
-input,
-    .league-box {
-      display: block;
-      padding: 6px 8px;
-      font-size: 12px;
-      background: var(--input-bg);
-      color: var(--text);
-      border: 1px solid var(--input-border);
-      margin-bottom: 6px;
-      appearance: none;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-    }
-    input::placeholder {
-  color: var(--muted);
-  opacity: 0.75;
-}
-
-    input:focus,
-    select:focus {
-      outline: none;
-      border-color: #4aa346;
-      box-shadow: 0 0 0 2px rgba(74, 163, 70, 0.12);
-    }
-
-    input[type="checkbox"] {
-      width: 12px !important;
-      height: 12px !important;
-      min-width: 12px !important;
-      min-height: 12px !important;
-      max-width: 12px !important;
-      max-height: 12px !important;
-      margin-right: 6px !important;
-      vertical-align: middle !important;
-      appearance: checkbox !important;
-      -webkit-appearance: checkbox !important;
-    }
-
-    button {
-      padding: 8px 16px;
-      margin: 6px;
-      font-weight: 700;
-      background: #313744;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-    }
-
-    button:hover {
-      opacity: 0.95;
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .fetch-btn {
-      background: #49a443 !important;
-      color: #fff !important;
-      padding: 6px 12px !important;
-      font-size: 12px !important;
-      font-weight: 700 !important;
-      border: none !important;
-      cursor: pointer;
-      margin-top: 4px;
-      box-shadow: 0 2px 6px rgba(73, 164, 67, 0.2);
-    }
-
-    .fixture-toolbar {
-      display: flex;
-      gap: 8px;
-      margin: 10px 0 8px;
-      flex-wrap: wrap;
-    }
-
-    .fixture-day {
-      background: #eceff3 !important;
-      color: #2a2f38 !important;
-      border: 1px solid #d7dbe1 !important;
-      padding: 6px 10px !important;
-      font-size: 12px !important;
-      font-weight: 700;
-      margin: 0;
-      min-width: 90px !important;
-      text-align: center;
-    }
-
-    .fixture-day.active {
-      background: #49a443 !important;
-      color: #fff !important;
-      border-color: #49a443 !important;
-    }
-
-    .autocomplete-wrap {
-      position: relative;
-      margin-bottom: 4px;
-    }
-
-    .autocomplete-wrap input {
-      width: 100%;
-      margin-bottom: 0;
-      box-sizing: border-box;
-    }
-
-   .autocomplete-list {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: var(--panel);
-  border: 1px solid var(--input-border);
-  border-top: none;
-  z-index: 999;
-  max-height: 180px;
-  overflow-y: auto;
-  display: none;
-}
-
-  .autocomplete-list div {
-  padding: 6px 8px;
-  font-size: 12px;
-  cursor: pointer;
-  color: var(--text);
-}
-
-    .autocomplete-list div:hover,
-    .autocomplete-list div.active {
-      background: #49a443 !important;
-      color: #fff !important;
-    }
-
-   .autocomplete-list div.group-label {
-  color: var(--muted) !important;
-  font-size: 10px;
-  padding: 4px 8px;
-  cursor: default;
-  background: var(--panel-soft) !important;
-  pointer-events: none;
-}
-
-    .autocomplete-list strong {
-      color: inherit;
-      font-weight: 800;
-      text-decoration: underline;
-    }
-
-   .injury-box {
-  background: var(--panel-soft);
-  border: 1px solid var(--panel-border);
-  padding: 6px;
-  margin-top: 6px;
-  font-size: 10px;
-  line-height: 1.8;
-  display: none;
-}
-
-    .injury-box .inj-title {
-      color: var(--injury-title);
-      font-weight: bold;
-      margin-bottom: 2px;
-    }
-
-    .inj-out {
-      color: #d92d2a;
-    }
-
-    .inj-dtd {
-      color: #d98a00;
-    }
-
-    #fetchStatus {
-      font-size: 10px;
-      margin-top: 6px;
-      min-height: 16px;
-    }
-
-    #fetchStatus.ok {
-      color: #2f8f4a;
-    }
-
-    #fetchStatus.err {
-      color: #d92d2a;
-    }
-
-    #fetchStatus.loading {
-      color: #d98a00;
-    }
-
-    .autofill-indicator {
-      font-size: 10px;
-      color: #2f8f4a;
-      display: none;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 10px;
-      height: 8px;
-      border: 2px solid #4aa346;
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-      vertical-align: middle;
-      margin-right: 4px;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .actions {
-      text-align: center;
-      padding-bottom: 20px;
-    }
-
-    #runBtn,
-    #clearBtn {
-      opacity: 1 !important;
-      border: none !important;
-      cursor: pointer !important;
-      padding: 5px 14px !important;
-      font-size: 12px !important;
-      font-weight: 700 !important;
-      min-width: 0 !important;
-      width: auto !important;
-    }
-
-    #runBtn {
-      background: #3a9c35 !important;
-      color: #fff !important;
-      box-shadow: 0 2px 8px rgba(58, 156, 53, 0.35) !important;
-    }
-
-    #clearBtn {
-      background: #3a404c !important;
-      color: #fff !important;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-      margin: 0 6px 10px;
-    }
-
-    table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  font-size: 12px;
-  background: var(--panel) !important;
-}
-
-                th,
-td {
-  border: 1px solid var(--table-border);
-  padding: 10px 8px !important;
-  text-align: center;
-  vertical-align: middle;
-}
-
-    th {
-  background: var(--table-head) !important;
-  color: #fff !important;
-  font-weight: 700;
-}
-
-    td {
-  background: var(--panel) !important;
-  color: var(--text) !important;
-  font-weight: 600 !important;
-}
-
-    .pred-over {
-      background: #3a9c35 !important;
-      color: #fff !important;
-      font-weight: 800 !important;
-    }
-
-    .pred-under {
-      background: #c91920 !important;
-      color: #fff !important;
-      font-weight: 800 !important;
-    }
-
-    .pred-noplay {
-      background: transparent !important;
-      color: var(--muted) !important;
-      font-weight: 700 !important;
-    }
-    
-    tr:has(td.pred-noplay) td {
-      background: transparent !important;
-    }
-    td.pred-noplay {
-      background: transparent !important;
-      color: var(--muted) !important;
-      font-weight: 700 !important;
-    }
-    small.error-note {
-      color: #c91920 !important;
-      font-size: 10px !important;
-      font-weight: 600 !important;
-      display: block;
-      margin-top: 3px;
-    }
-
-    small.warn-note {
-      color: #d98a00 !important;
-      font-size: 10px !important;
-      font-weight: 600 !important;
-      display: block;
-      margin-top: 3px;
-    }
-
-    small.info-note {
-      color: #2f8f4a !important;
-      font-size: 10px !important;
-      font-weight: 600 !important;
-      display: block;
-      margin-top: 3px;
-    }
-
-    small.muted-note {
-      color: var(--muted) !important;
-      font-size: 10px !important;
-      font-weight: 600 !important;
-      display: block;
-      margin-top: 3px;
-    }
-
-    .conf-a {
-      background: #2f8f4a !important;
-      color: #fff !important;
-      font-weight: 800 !important;
-    }
-
-    .conf-b {
-      background: #4aa346 !important;
-      color: #fff !important;
-      font-weight: 800 !important;
-    }
-
-    .conf-c {
-      background: #d98a00 !important;
-      color: #fff !important;
-      font-weight: 800 !important;
-    }
-
-    .conf-d {
-      background: #c91920 !important;
-      color: #fff !important;
-      font-weight: 800 !important;
-    }
-
-   .conf-none {
-  background: var(--panel-soft-2) !important;
-  color: var(--muted) !important;
-  font-weight: 700 !important;
-}
-
-.conf-provisional-badge {
-  display: none !important;
-  margin-left: 4px;
-  padding: 0 4px;
-  font-size: 9px;
-  font-weight: 900;
-  line-height: 1.4;
-  color: var(--muted);
-  border: 1px dashed var(--muted);
-  border-radius: 0;
-  vertical-align: middle;
-  cursor: help;
-}
-
-/* FIX #21: shown on the confidence badge when the grade is running on
-   hand-guessed default coefficients rather than a real fitted model. */
-.conf-default-coeff-badge {
-  display: none !important;
-  margin-left: 4px;
-  padding: 0 4px;
-  font-size: 9px;
-  font-weight: 900;
-  line-height: 1.4;
-  color: #ffa500;
-  border: 1px dashed #ffa500;
-  border-radius: 0;
-  vertical-align: middle;
-  cursor: help;
-}
-
-    body.dark-mode .conf-none {
-      background: #2a2f3a !important;
-      color: #9aa0a8 !important;
-    }
-
-   .lock {
-  font-size: 4px !important;
-  display: inline-block;
-  vertical-align: middle;
-  transform: translateY(-1px);
-  margin-left: 4px;
-  margin-right: 0;
-}
-
-    .why-pick-details {
-      display: block;
-      margin-top: 0;
-      font-size: 10px;
-      font-weight: 600;
-      white-space: normal;
-    }
-    .why-pick-details[open] {
-      margin-top: 6px;
-    }
-    .why-pick-details summary {
-      cursor: pointer;
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 700;
-      list-style: none;
-      outline: none;
-      display: none;
-    }
+    .brand-name { font-size: 15px; font-weight: 800; letter-spacing: 0.3px; color: #fff; }
+    .brand-right { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: rgba(255,255,255,0.85); text-transform: uppercase; }
+    .theme-toggle { background: none !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: 1.5px !important; color: rgba(255,255,255,0.85) !important; text-transform: uppercase !important; cursor: pointer !important; opacity: 1 !important; }
+    .header-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 10px; }
+    .header-error-btn { background: none !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; font-size: 18px !important; line-height: 1 !important; cursor: pointer !important; opacity: 0; pointer-events: none; }
+    .header-error-btn.active { opacity: 1; pointer-events: auto; }
+    .engine-battery { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; color: #fff; letter-spacing: 0.3px; }
+    .engine-battery-shell { width: 22px; height: 11px; border: 1.5px solid rgba(255,255,255,0.85); border-radius: 2px; position: relative; padding: 1px; }
+    .engine-battery-shell::after { content: ''; position: absolute; right: -3px; top: 3px; width: 2px; height: 5px; background: rgba(255,255,255,0.85); border-radius: 0 1px 1px 0; }
+    .engine-battery-fill { height: 100%; border-radius: 1px; background: #49d45f; transition: width 0.4s ease, background-color 0.4s ease; }
+    .engine-battery-pct { min-width: 26px; text-align: left; }
+    .wrapper { max-width: 760px; margin: 10px auto; padding: 0 10px; }
+    .section { border: 1px solid var(--panel-border); background: var(--panel); margin: 8px auto; box-shadow: var(--shadow); color: var(--text); }
+    .section-toggle { width: 100%; background: none !important; border: none; padding: 12px 10px; margin: 0 !important; color: var(--section-toggle-text) !important; display: flex; align-items: center; justify-content: space-between; text-align: left; cursor: pointer; }
+    .section-toggle .toggle-title { display: block; font-weight: 800; color: var(--section-toggle-text) !important; }
+    .section-toggle .toggle-icon { font-size: 15px; line-height: 1; transition: transform 0.2s ease; color: var(--section-toggle-icon) !important; }
+    .section-body { padding: 0 10px 10px; margin-top: 0; }
+    .section.collapsed .section-body { display: none; }
+    .section.collapsed .section-toggle .toggle-icon { transform: rotate(-90deg); }
+    .section.locked .section-body { display: none !important; }
+    .section.locked .section-toggle { opacity: 0.4 !important; cursor: not-allowed; pointer-events: none; }
+    .section.locked .section-toggle .toggle-icon { display: none; }
+    h3 { margin: 0; font-size: 16px; font-weight: 800; }
+    label { display: block; font-size: 12px; margin-bottom: 4px; color: var(--text); font-weight: 600; }
+    input, .league-box, .autocomplete-wrap { width: 100%; max-width: 260px; box-sizing: border-box; }
+    input, .league-box { display: block; padding: 6px 8px; font-size: 12px; background: var(--input-bg); color: var(--text); border: 1px solid var(--input-border); margin-bottom: 6px; appearance: none; -webkit-appearance: none; -moz-appearance: none; }
+    input::placeholder { color: var(--muted); opacity: 0.75; }
+    input:focus { outline: none; border-color: #4aa346; box-shadow: 0 0 0 2px rgba(74, 163, 70, 0.12); }
+    input[type="checkbox"] { width: 12px !important; height: 12px !important; min-width: 12px !important; min-height: 12px !important; max-width: 12px !important; max-height: 12px !important; margin-right: 6px !important; vertical-align: middle !important; appearance: checkbox !important; -webkit-appearance: checkbox !important; }
+    button { padding: 8px 16px; margin: 6px; font-weight: 700; background: #313744; color: #fff; border: none; cursor: pointer; }
+    button:hover { opacity: 0.95; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .fetch-btn { background: #49a443 !important; color: #fff !important; padding: 6px 12px !important; font-size: 12px !important; font-weight: 700 !important; border: none !important; cursor: pointer; margin-top: 4px; box-shadow: 0 2px 6px rgba(73, 164, 67, 0.2); }
+    .autocomplete-wrap { position: relative; margin-bottom: 4px; }
+    .autocomplete-wrap input { width: 100%; margin-bottom: 0; box-sizing: border-box; }
+    .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--panel); border: 1px solid var(--input-border); border-top: none; z-index: 999; max-height: 180px; overflow-y: auto; display: none; }
+    .autocomplete-list div { padding: 6px 8px; font-size: 12px; cursor: pointer; color: var(--text); }
+    .autocomplete-list div:hover, .autocomplete-list div.active { background: #49a443 !important; color: #fff !important; }
+    .autocomplete-list div.group-label { color: var(--muted) !important; font-size: 10px; padding: 4px 8px; cursor: default; background: var(--panel-soft) !important; pointer-events: none; }
+    .autocomplete-list strong { color: inherit; font-weight: 800; text-decoration: underline; }
+    .spinner { display: inline-block; width: 10px; height: 8px; border: 2px solid #4aa346; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 4px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .actions { text-align: center; padding-bottom: 20px; }
+    #runBtn, #clearBtn { opacity: 1 !important; border: none !important; cursor: pointer !important; padding: 5px 14px !important; font-size: 12px !important; font-weight: 700 !important; min-width: 0 !important; width: auto !important; }
+    #runBtn { background: #3a9c35 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(58, 156, 53, 0.35) !important; }
+    #clearBtn { background: #3a404c !important; color: #fff !important; box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important; }
+    .table-wrap { overflow-x: auto; margin: 0 6px 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; background: var(--panel) !important; }
+    th, td { border: 1px solid var(--table-border); padding: 10px 8px !important; text-align: center; vertical-align: middle; }
+    th { background: var(--table-head) !important; color: #fff !important; font-weight: 700; }
+    td { background: var(--panel) !important; color: var(--text) !important; font-weight: 600 !important; }
+    .pred-over { background: #3a9c35 !important; color: #fff !important; font-weight: 800 !important; }
+    .pred-under { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
+    .pred-noplay { background: transparent !important; color: var(--muted) !important; font-weight: 700 !important; }
+    tr:has(td.pred-noplay) td { background: transparent !important; }
+    td.pred-noplay { background: transparent !important; color: var(--muted) !important; font-weight: 700 !important; }
+    .conf-a { background: #2f8f4a !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-b { background: #4aa346 !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-c { background: #d98a00 !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-d { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
+    .conf-none { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
+    .why-pick-details { display: block; margin-top: 0; font-size: 10px; font-weight: 600; white-space: normal; }
+    .why-pick-details[open] { margin-top: 6px; }
+    .why-pick-details summary { cursor: pointer; color: var(--muted); font-size: 10px; font-weight: 700; list-style: none; outline: none; display: none; }
     .why-pick-details summary::-webkit-details-marker { display: none; }
     .why-pick-details[open] summary { color: var(--text); }
-    .why-pick-body {
-      margin-top: 4px;
-      padding: 6px 8px;
-      background: var(--panel-soft);
-      border: 1px solid var(--table-border);
-    }
-    .why-pick-list {
-      margin: 0;
-      padding-left: 14px;
-      display: grid;
-      gap: 4px;
-    }
-    .why-pick-list li {
-      color: var(--text);
-      font-size: 10px;
-      line-height: 1.35;
-      font-weight: 600;
-    }
-    .why-pick-note {
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 600;
-    }
-
-    .track-pending {
-      background: #eceff3 !important;
-      color: #2a2f38 !important;
-      font-weight: 800 !important;
-    }
-
-    .track-win {
-      background: #3a9c35 !important;
-      color: #fff !important;
-      font-weight: 800 !important;
-    }
-
-    .track-loss {
-      background: #c91920 !important;
-      color: #fff !important;
-      font-weight: 800 !important;
-    }
-
-    .track-push {
-      background: #3a404c !important;
-      color: #fff !important;
-      font-weight: 800 !important;
-    }
-
-.tracker-status-stack {
-  display: grid;
-  gap: 4px;
-  justify-items: center;
-}
-
-.tracker-manual-settle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.tracker-manual-btn {
-  background: #eceff3 !important;
-  color: #2a2f38 !important;
-  border: 1px solid #d7dbe1 !important;
-  box-shadow: none !important;
-  padding: 3px 6px !important;
-  margin: 0 !important;
-  min-width: 26px !important;
-  font-size: 10px !important;
-  font-weight: 800 !important;
-  line-height: 1 !important;
-}
-
-body.dark-mode .tracker-manual-btn {
-  background: #151515 !important;
-  color: #d4af37 !important;
-  border-color: #333 !important;
-}
-
-.tracker-manual-hint {
-  font-size: 9px;
-  line-height: 1.2;
-  color: var(--tracker-subtext);
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.tracker-debug-panel {
-  display: none;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--panel-border);
-  background: var(--tracker-summary-bg);
-}
-
-.tracker-debug-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.tracker-debug-title {
-  color: var(--tracker-strong);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-
-.tracker-debug-meta {
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.tracker-debug-log {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 5px;
-}
-
-.tracker-debug-log li {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  color: var(--text);
-  padding: 7px 8px;
-  font-size: 10px;
-  line-height: 1.35;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.report-debug-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-
-.report-debug-empty {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  color: var(--tracker-subtext);
-  padding: 10px 12px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.debug-ok {
-  border-left: 3px solid #2f8f4a !important;
-}
-
-.debug-warn {
-  border-left: 3px solid #d98a00 !important;
-  color: #8a5a00 !important;
-  background: rgba(217, 138, 0, 0.08) !important;
-}
-
-.debug-error {
-  border-left: 4px solid #ff0000 !important;
-  background: #fff0f0 !important;
-  color: #d10000 !important;
-  font-weight: 900 !important;
-}
-.debug-critical {
-  border: 2px solid #ff0000 !important;
-  border-left: 10px solid #ff0000 !important;
-  background: #000000 !important;
-  color: #ff0000 !important;
-  font-weight: 900 !important;
-  text-transform: uppercase;
-  animation: pulse-red 1s infinite;
-}
-
-@keyframes pulse-red {
-  0% { box-shadow: 0 0 0 0px rgba(255, 0, 0, 0.7); }
-  70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
-  100% { box-shadow: 0 0 0 0px rgba(255, 0, 0, 0); }
-}
-
-body.dark-mode .debug-warn {
-  color: #ffcf73 !important;
-  background: rgba(217, 138, 0, 0.14) !important;
-}
-
-body.dark-mode .debug-error {
-  color: #ff5c61 !important;
-  background: rgba(201, 25, 32, 0.18) !important;
-}
-
-@keyframes engineAlertPulse {
-  from {
-    box-shadow: 0 0 0 0 rgba(217, 31, 38, 0.10);
-  }
-  to {
-    box-shadow: 0 0 0 1px rgba(217, 31, 38, 0.30), 0 0 24px rgba(217, 31, 38, 0.14);
-  }
-}
-
-body.engine-alert {
-  background: #2a0608 !important;
-}
-
-body.engine-alert .app-header {
-  background: linear-gradient(90deg, #7b0007 0%, #cf1119 52%, #820008 100%) !important;
-  animation: engineAlertPulse 1.15s ease-in-out infinite alternate;
-}
-
-body.engine-alert .section,
-body.engine-alert .table-wrap,
-body.engine-alert .actions {
-  border-color: #d91f26 !important;
-  animation: engineAlertPulse 1.15s ease-in-out infinite alternate;
-}
-
-body.engine-alert .section {
-  background: #fff6f6 !important;
-}
-
-body.engine-alert #trackerToggleBtn,
-body.engine-alert #headerErrorBtn.active {
-  color: #ffffff !important;
-  text-shadow: 0 0 12px rgba(255, 255, 255, 0.55);
-}
-
-body.engine-alert #runBtn,
-body.engine-alert #clearBtn {
-  box-shadow: 0 0 0 1px rgba(217, 31, 38, 0.40), 0 0 18px rgba(217, 31, 38, 0.18) !important;
-}
-
-body.dark-mode.engine-alert {
-  background: #140203 !important;
-}
-
-body.dark-mode.engine-alert .section {
-  background: #220b0d !important;
-  border-color: #ff3a41 !important;
-}
-
-@media (min-width: 720px) {
-  .report-debug-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.tracker-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: none;
-  align-items: stretch;
-  justify-content: flex-end;
-  padding-top: env(safe-area-inset-top);
-  padding-right: env(safe-area-inset-right);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  z-index: 9999;
-  overscroll-behavior: none;
-}
-.tracker-modal.open {
-  display: flex;
-}
-.tracker-panel {
-  
-  width: 100%;
-  height: 100%;
-  max-height: 100%;
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--panel-border);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.tracker-body-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: max(8px, env(safe-area-inset-bottom));
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-}
-
-.tracker-table-wrap {
-  margin: 0;
-  padding-bottom: 0;
-}
-    .tracker-head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  background: var(--tracker-head-bg);
-  color: var(--tracker-head-text);
-  border-bottom: 1px solid var(--panel-border);
-  font-weight: 800;
-  font-size: 13px;
-}
-
-.tracker-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tracker-close,
-.tracker-insights-btn {
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: var(--tracker-head-text) !important;
-  font-size: 18px !important;
-  line-height: 1 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  cursor: pointer !important;
-}
-
-.tracker-insights-btn {
-  font-size: 18px !important;
-  opacity: 0.88;
-}
-
-.tracker-insights-btn.state-good:not(.active) {
-  color: #49d45f !important;
-  text-shadow: 0 0 10px rgba(73, 212, 95, 0.28);
-}
-
-.tracker-insights-btn.state-error:not(.active) {
-  color: #ff3b30 !important;
-  text-shadow: 0 0 10px rgba(255, 59, 48, 0.30);
-}
-
-.tracker-insights-btn.state-idle:not(.active) {
-  color: var(--tracker-head-text) !important;
-}
-
-.tracker-insights-btn.active {
-  opacity: 1;
-  color: var(--tracker-head-text) !important;
-  text-shadow: none !important;
-}
-
-.tracker-summary {
-  padding: 14px 16px;
-  background: var(--tracker-summary-bg);
-  color: var(--tracker-strong);
-  border-bottom: 1px solid var(--panel-border);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.tracker-market-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid var(--panel-border);
-}
-
-/* FIX #49: removed a dead, fully-shadowed .tracker-market-chip block that
-   used to sit here (padding 12px 14px, plain chip background) — the later
-   definition below (padding 9px 11px, gradient background) always won per
-   CSS cascade, so this deleted block had zero visual effect; light-mode
-   rendering is unchanged. */
-
-/* FIX #49: removed a dead .tracker-analytics-panel block (padding 14px,
-   gradient background) and its paired dark-mode override — both fully
-   shadowed by later definitions further down (the plain rule loses to the
-   one at what's now the last .tracker-analytics-panel definition; the
-   dark-mode override loses to the later `body.dark-mode .tracker-analytics-panel`
-   rule below, which sets background: var(--tracker-summary-bg)). Zero visual
-   change either mode, since these never won the cascade. */
-
-.tracker-analytics-title {
-  margin-bottom: 4px;
-  color: var(--tracker-strong);
-  font-size: 16px;
-  font-weight: 900;
-  letter-spacing: 0.2px;
-}
-
-/* FIX #49: removed a dead .tracker-report-subtitle block (margin-bottom 12px)
-   — shadowed by the later definition (margin-bottom 10px) which always won. */
-
-.tracker-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.tracker-market-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 9px 11px;
-  background: linear-gradient(180deg, #ffffff 0%, #f6f7f9 100%);
-  border: 1px solid #d9dee5;
-  color: var(--tracker-strong);
-  font-size: 10px;
-  font-weight: 800;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
-}
-
-body.dark-mode .tracker-market-chip {
-  background: linear-gradient(180deg, #171717 0%, #121212 100%);
-  border-color: #2f3338;
-}
-
-.tracker-market-chip.good {
-  background: linear-gradient(180deg, rgba(47,143,74,0.16) 0%, rgba(47,143,74,0.08) 100%);
-  border-color: rgba(47, 143, 74, 0.38);
-  color: #1e6e39;
-}
-
-.tracker-market-chip.warn {
-  background: linear-gradient(180deg, rgba(217,138,0,0.16) 0%, rgba(217,138,0,0.08) 100%);
-  border-color: rgba(217, 138, 0, 0.36);
-  color: #9a6200;
-}
-
-.tracker-market-chip.neutral {
-  background: linear-gradient(180deg, rgba(58, 64, 76, 0.07) 0%, rgba(58, 64, 76, 0.03) 100%);
-}
-
-body.dark-mode .tracker-market-chip.good {
-  color: #8fe29b;
-  background: linear-gradient(180deg, rgba(47,143,74,0.25) 0%, rgba(47,143,74,0.14) 100%);
-  border-color: rgba(143, 226, 155, 0.24);
-}
-
-body.dark-mode .tracker-market-chip.warn {
-  color: #ffcf73;
-  background: linear-gradient(180deg, rgba(217,138,0,0.22) 0%, rgba(217,138,0,0.12) 100%);
-  border-color: rgba(255, 207, 115, 0.22);
-}
-
-.tracker-report-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.tracker-report-card {
-  border: 1px solid #d9dee5;
-  border-top: 3px solid #d91f26;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
-  padding: 12px;
-  min-width: 0;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-}
-
-body.dark-mode .tracker-report-card {
-  border-color: #2f3338;
-  border-top-color: #d91f26;
-  background: linear-gradient(180deg, #171717 0%, #121212 100%);
-  box-shadow: none;
-}
-
-.tracker-report-card.hero {
-  background: linear-gradient(135deg, #15963f 0%, #0f6f30 100%);
-  border-color: #0f6f30;
-  border-top-color: #0f6f30;
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(15,111,48,0.22);
-}
-
-.tracker-report-label {
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
-  opacity: 0.82;
-  margin-bottom: 6px;
-}
-
-.tracker-report-card.hero .tracker-report-label {
-  color: rgba(255,255,255,0.82);
-}
-
-.tracker-report-value {
-  font-size: 16px;
-  line-height: 1.08;
-  font-weight: 900;
-  color: inherit;
-}
-
-.tracker-report-sub {
-  margin-top: 4px;
-  font-size: 10px;
-  line-height: 1.25;
-  font-weight: 700;
-  color: inherit;
-  opacity: 0.96;
-}
-
-.tracker-report-section {
-  margin-top: 12px;
-  border: 1px solid #d9dee5;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.025);
-}
-
-body.dark-mode .tracker-report-section {
-  border-color: #2f3338;
-  background: linear-gradient(180deg, #171717 0%, #121212 100%);
-  box-shadow: none;
-}
-
-.tracker-report-section-head {
-  padding: 10px 12px;
-  border-bottom: 1px solid #d9dee5;
-  background: linear-gradient(90deg, #3a404c 0%, #2f3440 100%);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-body.dark-mode .tracker-report-section-head {
-  border-bottom-color: #2f3338;
-  background: linear-gradient(90deg, #111 0%, #1a1a1a 100%);
-}
-
-.tracker-report-section-body {
-  padding: 10px;
-}
-
-.tracker-report-list {
-  display: grid;
-  gap: 5px;
-}
-
-.tracker-report-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 12px;
-  line-height: 1.45;
-  font-weight: 700;
-  color: var(--tracker-strong);
-}
-
-.tracker-report-dot {
-  width: 8px;
-  height: 8px;
-  margin-top: 5px;
-  background: #17903f;
-  flex: 0 0 8px;
-}
-
-.tracker-report-dot.warn {
-  background: #d98a00;
-}
-
-.tracker-report-dot.neutral {
-  background: #3a404c;
-}
-
-body.dark-mode .tracker-report-dot.neutral {
-  background: #d4af37;
-}
-
-.tracker-recommendation {
-  padding: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
-  border: 1px solid #d9dee5;
-  color: var(--tracker-strong);
-  font-size: 12px;
-  line-height: 1.5;
-  font-weight: 700;
-}
-
-body.dark-mode .tracker-recommendation {
-  background: linear-gradient(180deg, #171717 0%, #121212 100%);
-  border-color: #2f3338;
-}
-
-@media (max-width: 560px) {
-  .tracker-report-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.tracker-empty {
-  padding: 18px 16px;
-  color: var(--tracker-subtext);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-/* FIX #49: removed another dead .tracker-analytics-panel plain rule
-   (padding 12px) — shadowed by the final definition further down (padding
-   10px). Keeping the dark-mode override below, which is the one that
-   actually wins the cascade for dark mode. */
-
-body.dark-mode .tracker-analytics-panel {
-  background: var(--tracker-summary-bg);
-}
-
-.tracker-report-subtitle {
-  margin: 0 0 10px 0;
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  line-height: 1.25;
-  font-weight: 700;
-}
-
-.tracker-report-inline-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-
-    .tracker-report-table-wrap {
-      margin: 0;
-      overflow-x: auto;
-    }
-
-.tracker-report-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: auto;
-  font-size: 10px;
-  line-height: 1.2;
-  background: var(--panel);
-}
-
-.tracker-report-table th,
-.tracker-report-table td {
-  border: 1px solid var(--table-border);
-  padding: 5px 4px;
-  text-align: left;
-  vertical-align: top;
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: normal;
-  hyphens: auto;
-}
-
-.tracker-report-table th {
-  background: var(--table-head);
-  color: #fff;
-  font-weight: 800;
-}
-
-.tracker-report-table td {
-  background: var(--panel);
-  color: var(--text);
-  font-weight: 700;
-}
-
-.tracker-report-table td.num,
-.tracker-report-table th.num {
-  text-align: center;
-  width: 12%;
-}
-
-.tracker-report-table td.rate,
-.tracker-report-table th.rate {
-  text-align: center;
-  width: 16%;
-}
-
-.tracker-report-table td.note {
-  color: var(--tracker-subtext);
-  font-weight: 700;
-}
-
-.tracker-report-mini-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-
-.tracker-report-badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.tracker-report-empty-row {
-  color: var(--tracker-subtext);
-}
-
-.tracker-report-table th,
-.tracker-report-table td,
-.tracker-analytics-table th,
-.tracker-analytics-table td,
-.tracker-rate-table th,
-.tracker-rate-table td {
-  max-width: none;
-}
-
-@media (min-width: 700px) {
-  .tracker-report-mini-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.league-trust-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 96px;
-  padding: 4px 8px;
-  border: 1px solid var(--table-border);
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.league-trust-pill.trust-trusted {
-  background: rgba(47,143,74,0.14);
-  border-color: rgba(47,143,74,0.34);
-  color: #1f6a39;
-}
-
-.league-trust-pill.trust-advisory {
-  background: rgba(217,138,0,0.14);
-  border-color: rgba(217,138,0,0.34);
-  color: #9a6200;
-}
-
-.league-trust-pill.trust-blocked {
-  background: rgba(201,25,32,0.14);
-  border-color: rgba(201,25,32,0.30);
-  color: #b11a20;
-}
-
-body.dark-mode .league-trust-pill.trust-trusted {
-  color: #9ae2a7;
-  border-color: rgba(154,226,167,0.24);
-  background: rgba(47,143,74,0.22);
-}
-
-body.dark-mode .league-trust-pill.trust-advisory {
-  color: #ffcf73;
-  border-color: rgba(255,207,115,0.24);
-  background: rgba(217,138,0,0.22);
-}
-
-body.dark-mode .league-trust-pill.trust-blocked {
-  color: #ff8f95;
-  border-color: rgba(255,143,149,0.24);
-  background: rgba(201,25,32,0.24);
-}
-
-.league-trust-note {
-  font-size: 10px;
-  line-height: 1.35;
-  color: var(--tracker-subtext);
-  font-weight: 700;
-}
-
-/* FIX #49: removed a third dead .tracker-analytics-panel plain rule
-   (identical to the one removed above) — shadowed by the final definition
-   just below in .tracker-analytics-shell's neighborhood. */
-.tracker-analytics-shell {
-  display: grid;
-  gap: 8px;
-}
-.tracker-analytics-topbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.tracker-analytics-heading {
-  display: grid;
-  gap: 4px;
-}
-.tracker-analytics-kicker {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.tracker-analytics-title {
-  margin: 0;
-  color: var(--tracker-strong);
-  font-size: 16px;
-  font-weight: 900;
-  line-height: 1.05;
-}
-.tracker-analytics-subtitle {
-  margin: 0;
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  line-height: 1.3;
-  font-weight: 700;
-}
-.tracker-analytics-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-.tracker-analytics-tab {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  color: var(--tracker-strong);
-  padding: 6px 8px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-.tracker-analytics-tab.active {
-  background: var(--tracker-head-bg);
-  color: var(--tracker-head-text);
-  border-color: var(--tracker-head-bg);
-}
-.tracker-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.tracker-kpi-card {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  padding: 10px;
-  display: grid;
-  gap: 4px;
-}
-.tracker-kpi-card.featured {
-  background: linear-gradient(135deg, #17973f 0%, #127731 100%);
-  border-color: #17973f;
-  color: #fff;
-}
-body.dark-mode .tracker-kpi-card.featured {
-  background: linear-gradient(135deg, #167d35 0%, #115f29 100%);
-  border-color: #167d35;
-}
-.tracker-kpi-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.tracker-kpi-card.featured .tracker-kpi-label,
-.tracker-kpi-card.featured .tracker-kpi-sub {
-  color: rgba(255,255,255,0.9);
-}
-.tracker-kpi-value {
-  font-size: 22px;
-  font-weight: 900;
-  line-height: 1;
-  color: var(--tracker-strong);
-}
-.tracker-kpi-card.featured .tracker-kpi-value {
-  color: #fff;
-}
-.tracker-kpi-sub {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--tracker-subtext);
-  line-height: 1.25;
-}
-.tracker-analytics-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-.tracker-analytics-card {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-}
-.tracker-analytics-card-head {
-  padding: 9px 10px 8px;
-  border-bottom: 1px solid var(--table-border);
-  background: linear-gradient(90deg, var(--tracker-head-bg) 0%, #434b5a 100%);
-  color: var(--tracker-head-text);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-body.dark-mode .tracker-analytics-card-head {
-  background: linear-gradient(90deg, #111 0%, #1a1a1a 100%);
-}
-.tracker-analytics-card-title {
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.9px;
-  text-transform: uppercase;
-}
-.tracker-analytics-card-meta {
-  font-size: 10px;
-  font-weight: 800;
-  color: rgba(255,255,255,0.82);
-}
-.tracker-analytics-card-body {
-  padding: 10px;
-}
-.tracker-mini-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.tracker-mini-stat {
-  border: 1px solid var(--table-border);
-  background: var(--panel-soft);
-  padding: 10px;
-  display: grid;
-  gap: 4px;
-}
-.tracker-mini-stat .name {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-}
-.tracker-mini-stat .value {
-  color: var(--tracker-strong);
-  font-size: 15px;
-  font-weight: 900;
-  line-height: 1.1;
-}
-.tracker-mini-stat .sub {
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  font-weight: 700;
-}
-.tracker-bar-chart {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  align-items: end;
-  min-height: 132px;
-  padding-top: 8px;
-}
-.tracker-bar-col {
-  display: grid;
-  gap: 5px;
-}
-.tracker-bar-stage {
-  height: 92px;
-  border: 1px solid var(--table-border);
-  background:
-    linear-gradient(to top, transparent 24%, rgba(0,0,0,0.04) 24%, rgba(0,0,0,0.04) 25%, transparent 25%, transparent 49%, rgba(0,0,0,0.04) 49%, rgba(0,0,0,0.04) 50%, transparent 50%, transparent 74%, rgba(0,0,0,0.04) 74%, rgba(0,0,0,0.04) 75%, transparent 75%),
-    var(--panel-soft);
-  display: flex;
-  align-items: flex-end;
-  padding: 6px;
-}
-body.dark-mode .tracker-bar-stage {
-  background:
-    linear-gradient(to top, transparent 24%, rgba(255,255,255,0.05) 24%, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 49%, rgba(255,255,255,0.05) 49%, rgba(255,255,255,0.05) 50%, transparent 50%, transparent 74%, rgba(255,255,255,0.05) 74%, rgba(255,255,255,0.05) 75%, transparent 75%),
-    var(--panel-soft);
-}
-.tracker-bar-fill {
-  width: 100%;
-  background: linear-gradient(180deg, #4ea9ff 0%, #2976d6 100%);
-  min-height: 6px;
-}
-.tracker-bar-fill.warn {
-  background: linear-gradient(180deg, #f0ad2f 0%, #d98a00 100%);
-}
-.tracker-bar-fill.good {
-  background: linear-gradient(180deg, #31be5e 0%, #17973f 100%);
-}
-.tracker-bar-fill.soft {
-  background: linear-gradient(180deg, #75a8f8 0%, #4b80d6 100%);
-}
-.tracker-bar-label {
-  color: var(--tracker-strong);
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-.tracker-bar-value {
-  color: var(--tracker-strong);
-  font-size: 16px;
-  font-weight: 900;
-  line-height: 1;
-}
-.tracker-bar-meta {
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-.tracker-progress-card {
-  display: grid;
-  gap: 8px;
-}
-.tracker-progress-top {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
-}
-.tracker-progress-value {
-  color: var(--tracker-strong);
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1;
-}
-.tracker-progress-sub {
-  color: var(--tracker-subtext);
-  font-size: 12px;
-  font-weight: 700;
-}
-.tracker-progress-track {
-  height: 8px;
-  border: 1px solid var(--table-border);
-  background: var(--panel-soft);
-}
-.tracker-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #31be5e 0%, #17973f 100%);
-}
-.tracker-insight-list {
-  display: grid;
-  gap: 8px;
-}
-.tracker-insight-row {
-  display: grid;
-  grid-template-columns: 10px 1fr;
-  gap: 10px;
-  align-items: start;
-}
-.tracker-insight-dot {
-  width: 10px;
-  height: 8px;
-  margin-top: 4px;
-  background: #31be5e;
-}
-.tracker-insight-dot.warn {
-  background: #d98a00;
-}
-.tracker-insight-dot.neutral {
-  background: #4b5568;
-}
-.tracker-insight-text strong {
-  display: block;
-  color: var(--tracker-strong);
-  font-size: 12px;
-  font-weight: 900;
-  margin-bottom: 2px;
-}
-.tracker-insight-text span {
-  color: var(--tracker-subtext);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-.tracker-analytics-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: auto;
-  font-size: 9px;
-  line-height: 1.15;
-  background: var(--panel);
-}
-.tracker-analytics-table th,
-.tracker-analytics-table td {
-  border: 1px solid var(--table-border);
-  padding: 4px 3px;
-  text-align: left;
-  vertical-align: top;
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: normal;
-  hyphens: auto;
-}
-.tracker-analytics-table th {
-  background: var(--table-head);
-  color: #fff;
-  font-weight: 800;
-}
-.tracker-analytics-table td {
-  background: var(--panel);
-  color: var(--text);
-  font-weight: 700;
-}
-.tracker-analytics-table td.num,
-.tracker-analytics-table th.num,
-.tracker-analytics-table td.rate,
-.tracker-analytics-table th.rate {
-  text-align: center;
-}
-.tracker-analytics-table td.note {
-  color: var(--tracker-subtext);
-}
-
-.tracker-review-list {
-  display: grid;
-  gap: 10px;
-}
-.tracker-review-row {
-  border: 1px solid var(--table-border);
-  background: var(--panel-soft);
-  padding: 10px;
-  display: grid;
-  gap: 6px;
-}
-.tracker-review-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.tracker-review-area {
-  color: var(--tracker-strong);
-  font-size: 12px;
-  font-weight: 900;
-}
-.tracker-review-status {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  color: var(--tracker-strong);
-  padding: 4px 7px;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-.tracker-review-status.confirmed {
-  border-color: #17973f;
-  color: #17973f;
-}
-.tracker-review-status.candidate {
-  border-color: #d98a00;
-  color: #d98a00;
-}
-.tracker-review-status.watching {
-  border-color: #4b5568;
-  color: #4b5568;
-}
-.tracker-review-text {
-  color: var(--tracker-strong);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.4;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
-.tracker-review-action {
-  color: var(--tracker-subtext);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.4;
-  overflow-wrap: break-word;
-  word-break: break-word;
-  overflow: hidden;
-}
-
-.tracker-line-list {
-  display: grid;
-  gap: 8px;
-}
-.tracker-line-row {
-  display: grid;
-  gap: 6px;
-}
-.tracker-line-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.tracker-line-name {
-  color: var(--tracker-strong);
-  font-size: 12px;
-  font-weight: 800;
-}
-.tracker-line-meta {
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  font-weight: 700;
-}
-.tracker-line-track {
-  height: 8px;
-  border: 1px solid var(--table-border);
-  background: var(--panel-soft);
-}
-.tracker-line-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #4ea9ff 0%, #2976d6 100%);
-}
-.tracker-table-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-.tracker-empty-note {
-  color: var(--tracker-subtext);
-  font-size: 12px;
-  font-weight: 700;
-}
-@media (min-width: 720px) {
-  .tracker-kpi-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .tracker-analytics-grid.two {
-    grid-template-columns: 1.2fr 1fr;
-  }
-  .tracker-table-grid.two {
-    grid-template-columns: 1.2fr 1fr;
-  }
-}
-
-.tracker-panel.analytics-view #trackerSummary,
-.tracker-panel.analytics-view #trackerMarketSummary,
-.tracker-panel.analytics-view #trackerEmpty,
-.tracker-panel.analytics-view .tracker-table-wrap {
-  display: none !important;
-}
-
-.tracker-panel.analytics-view #trackerAnalyticsPanel {
-  display: block !important;
-}
-
-.tracker-panel:not(.analytics-view) #trackerAnalyticsPanel,
-.tracker-panel:not(.analytics-view) #trackerCopyDataBtn,
-.tracker-panel:not(.analytics-view) #trackerCopyDataJsonBtn {
-  display: none !important;
-}
-
-.tracker-panel:not(.health-view) #engineHealthBatteryWrap {
-  display: none !important;
-}
-
-.tracker-panel.health-view #trackerMilitaryRaidBtn,
-.tracker-panel.health-view #trackerHealthBtn,
-.tracker-panel.health-view #trackerConfigBtn,
-.tracker-panel.health-view #trackerCopyDataBtn,
-.tracker-panel.health-view #trackerCopyDataJsonBtn {
-  display: none !important;
-}
-
-.tracker-panel.analytics-view .tracker-body-scroll {
-  padding-top: 0;
-}
-
-.tracker-analytics-panel {
-  padding: 10px;
-  border-bottom: 1px solid var(--panel-border);
-  background: var(--tracker-summary-bg);
-}
-.tracker-analytics-shell {
-  display: grid;
-  gap: 10px;
-}
-.tracker-analytics-topbar {
-  display: grid;
-  gap: 4px;
-}
-.tracker-analytics-kicker {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.tracker-analytics-title {
-  margin: 0;
-  color: var(--tracker-strong);
-  font-size: 15px;
-  font-weight: 900;
-  line-height: 1.1;
-}
-.tracker-analytics-subtitle {
-  margin: 0;
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  line-height: 1.35;
-  font-weight: 700;
-}
-.tracker-summary-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.tracker-summary-cell {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  padding: 9px 10px;
-  display: grid;
-  gap: 3px;
-}
-.tracker-summary-cell.primary {
-  background: linear-gradient(135deg, #17973f 0%, #127731 100%);
-  border-color: #17973f;
-}
-body.dark-mode .tracker-summary-cell.primary {
-  background: linear-gradient(135deg, #167d35 0%, #115f29 100%);
-  border-color: #167d35;
-}
-.tracker-summary-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.tracker-summary-cell.primary .tracker-summary-label,
-.tracker-summary-cell.primary .tracker-summary-sub,
-.tracker-summary-cell.primary .tracker-summary-value {
-  color: #fff;
-}
-.tracker-summary-value {
-  color: var(--tracker-strong);
-  font-size: 20px;
-  font-weight: 900;
-  line-height: 1;
-}
-.tracker-summary-sub {
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-.tracker-analytics-section {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-}
-.tracker-analytics-section-head {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--table-border);
-  background: linear-gradient(90deg, var(--tracker-head-bg) 0%, #434b5a 100%);
-  color: var(--tracker-head-text);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-body.dark-mode .tracker-analytics-section-head {
-  background: linear-gradient(90deg, #111 0%, #1a1a1a 100%);
-}
-.tracker-analytics-section-title {
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-}
-.tracker-analytics-section-meta {
-  font-size: 10px;
-  font-weight: 800;
-  color: rgba(255,255,255,0.85);
-}
-.tracker-analytics-section-body {
-  padding: 10px;
-}
-.tracker-rate-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: auto;
-  font-size: 10px;
-  line-height: 1.2;
-}
-.tracker-rate-table th,
-.tracker-rate-table td {
-  border: 1px solid var(--table-border);
-  padding: 5px 4px;
-  text-align: left;
-  vertical-align: middle;
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: normal;
-  hyphens: auto;
-}
-.tracker-rate-table th {
-  background: var(--table-head);
-  color: #fff;
-  font-weight: 800;
-}
-.tracker-rate-table td {
-  background: var(--panel);
-  color: var(--text);
-  font-weight: 700;
-}
-.tracker-rate-table td.center,
-.tracker-rate-table th.center {
-  text-align: center;
-}
-
-.tracker-report-table td.num,
-.tracker-report-table th.num,
-.tracker-report-table td.rate,
-.tracker-report-table th.rate,
-.tracker-analytics-table td.num,
-.tracker-analytics-table th.num,
-.tracker-analytics-table td.rate,
-.tracker-analytics-table th.rate,
-.tracker-rate-table td.center,
-.tracker-rate-table th.center {
-  white-space: nowrap;
-  width: 1%;
-}
-
-.league-trust-pill {
-  font-size: 9px;
-  line-height: 1.1;
-  padding: 4px 6px;
-}
-
-.league-trust-desktop-table {
-  display: none;
-}
-
-.league-trust-mobile-list {
-  display: grid;
-  gap: 8px;
-}
-
-.league-trust-mobile-card {
-  border: 1px solid var(--table-border);
-  background: var(--panel-soft);
-  padding: 8px;
-  display: grid;
-  gap: 8px;
-}
-
-.league-trust-mobile-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.league-trust-mobile-league {
-  color: var(--tracker-strong);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.league-trust-mobile-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.league-trust-mobile-stat {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  padding: 6px 5px;
-  display: grid;
-  gap: 3px;
-}
-
-.league-trust-mobile-stat strong {
-  color: var(--tracker-subtext);
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.league-trust-mobile-stat span {
-  color: var(--tracker-strong);
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.league-trust-mobile-action {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.league-trust-mobile-guidance {
-  color: var(--tracker-strong);
-  font-size: 11px;
-  line-height: 1.35;
-  font-weight: 700;
-}
-
-@media (max-width: 560px) {
-  .tracker-report-table,
-  .tracker-analytics-table,
-  .tracker-rate-table {
-    font-size: 8.5px;
-    line-height: 1.15;
-  }
-
-  .tracker-report-table th,
-  .tracker-report-table td,
-  .tracker-analytics-table th,
-  .tracker-analytics-table td,
-  .tracker-rate-table th,
-  .tracker-rate-table td {
-    padding: 4px 3px;
-  }
-
-  .tracker-analytics-table th {
-    white-space: normal;
-  }
-
-  .tracker-analytics-table td.note,
-  .tracker-analytics-table td:first-child {
-    white-space: normal;
-  }
-
-  .tracker-analytics-section-head,
-  .tracker-analytics-card-head {
-    padding: 7px 8px;
-    display: grid;
-    gap: 4px;
-    justify-items: start;
-  }
-
-  .tracker-analytics-card-title {
-    letter-spacing: 0.5px;
-  }
-
-  .tracker-analytics-section-meta,
-  .tracker-analytics-card-meta {
-    font-size: 9px;
-    line-height: 1.2;
-    text-align: left;
-    white-space: normal;
-  }
-
-  .league-trust-desktop-table {
-    display: none;
-  }
-
-  .league-trust-mobile-list {
-    display: grid;
-    gap: 8px;
-  }
-
-  .league-trust-pill {
-    font-size: 8px;
-    padding: 3px 5px;
-  }
-}
-.tracker-horizontal-bars {
-  display: grid;
-  gap: 8px;
-}
-.tracker-hbar-row {
-  display: grid;
-  gap: 4px;
-}
-.tracker-hbar-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.tracker-hbar-name {
-  color: var(--tracker-strong);
-  font-size: 11px;
-  font-weight: 800;
-}
-.tracker-hbar-value {
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  font-weight: 800;
-}
-.tracker-hbar-track {
-  height: 8px;
-  border: 1px solid var(--table-border);
-  background: var(--panel-soft);
-}
-.tracker-hbar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #4ea9ff 0%, #2976d6 100%);
-}
-.tracker-hbar-fill.good {
-  background: linear-gradient(90deg, #31be5e 0%, #17973f 100%);
-}
-.tracker-hbar-fill.warn {
-  background: linear-gradient(90deg, #f0ad2f 0%, #d98a00 100%);
-}
-.tracker-two-col {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-.tracker-insight-list {
-  display: grid;
-  gap: 8px;
-}
-.tracker-insight-item {
-  display: grid;
-  grid-template-columns: 8px 1fr;
-  gap: 8px;
-  align-items: start;
-}
-.tracker-insight-dot {
-  width: 8px;
-  height: 8px;
-  margin-top: 5px;
-  background: #31be5e;
-}
-.tracker-insight-dot.warn { background: #d98a00; }
-.tracker-insight-dot.neutral { background: #4b5568; }
-.tracker-insight-title {
-  color: var(--tracker-strong);
-  font-size: 11px;
-  font-weight: 800;
-  margin-bottom: 2px;
-}
-.tracker-insight-text {
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.35;
-}
-.tracker-empty-note {
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  font-weight: 700;
-}
-@media (min-width: 720px) {
-  .tracker-summary-strip {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .tracker-two-col {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.tracker-hidden {
-  display: none !important;
-}
-
-    #trackedPicksTable {
-      width: 100% !important;
-      table-layout: fixed !important;
-      border-collapse: collapse;
-      margin-top: 0;
-    }
-    #trackedPicksTable th,
-    #trackedPicksTable td {
-      border: 1px solid var(--table-border);
-      padding: 10px 2px !important; 
-      text-align: center;
-      vertical-align: middle;
-      line-height: 1.25;
-      font-size: 10px !important; 
-      white-space: normal !important;
-      word-break: normal !important;
-      overflow-wrap: anywhere !important;
-    }
+    .why-pick-body { margin-top: 4px; padding: 6px 8px; background: var(--panel-soft); border: 1px solid var(--table-border); }
+    .why-pick-list { margin: 0; padding-left: 14px; display: grid; gap: 4px; }
+    .why-pick-list li { color: var(--text); font-size: 10px; line-height: 1.35; font-weight: 600; }
+    .track-pending { background: #eceff3 !important; color: #2a2f38 !important; font-weight: 800 !important; }
+    .track-win { background: #3a9c35 !important; color: #fff !important; font-weight: 800 !important; }
+    .track-loss { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
+    .track-push { background: #3a404c !important; color: #fff !important; font-weight: 800 !important; }
+    .tracker-status-stack { display: grid; gap: 4px; justify-items: center; }
+    .tracker-manual-settle { display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; }
+    .tracker-manual-btn { background: #eceff3 !important; color: #2a2f38 !important; border: 1px solid #d7dbe1 !important; box-shadow: none !important; padding: 3px 6px !important; margin: 0 !important; min-width: 26px !important; font-size: 10px !important; font-weight: 800 !important; line-height: 1 !important; }
+    body.dark-mode .tracker-manual-btn { background: #151515 !important; color: #d4af37 !important; border-color: #333 !important; }
+    .tracker-manual-hint { font-size: 9px; line-height: 1.2; color: var(--tracker-subtext); font-weight: 800; text-transform: uppercase; }
+    .tracker-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: stretch; justify-content: flex-end; padding-top: env(safe-area-inset-top); padding-right: env(safe-area-inset-right); padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); z-index: 9999; overscroll-behavior: none; }
+    .tracker-modal.open { display: flex; }
+    .tracker-panel { width: 100%; height: 100%; max-height: 100%; background: var(--panel); color: var(--text); border: 1px solid var(--panel-border); box-shadow: 0 8px 28px rgba(0,0,0,0.22); display: flex; flex-direction: column; overflow: hidden; }
+    .tracker-body-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: max(8px, env(safe-area-inset-bottom)); transform: translateZ(0); -webkit-transform: translateZ(0); }
+    .tracker-head { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--tracker-head-bg); color: var(--tracker-head-text); border-bottom: 1px solid var(--panel-border); font-weight: 800; font-size: 13px; }
+    .tracker-head-actions { display: flex; align-items: center; gap: 8px; }
+    .tracker-close, .tracker-insights-btn { background: none !important; border: none !important; box-shadow: none !important; color: var(--tracker-head-text) !important; font-size: 18px !important; line-height: 1 !important; padding: 0 !important; margin: 0 !important; cursor: pointer !important; }
+    .tracker-insights-btn { font-size: 18px !important; opacity: 0.88; }
+    .tracker-summary { padding: 14px 16px; background: var(--tracker-summary-bg); color: var(--tracker-strong); border-bottom: 1px solid var(--panel-border); font-size: 12px; font-weight: 800; }
+    .tracker-market-summary { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; border-bottom: 1px solid var(--panel-border); }
+    .tracker-market-chip { display: inline-flex; align-items: center; justify-content: center; padding: 9px 11px; background: linear-gradient(180deg, #ffffff 0%, #f6f7f9 100%); border: 1px solid #d9dee5; color: var(--tracker-strong); font-size: 10px; font-weight: 800; box-shadow: 0 1px 0 rgba(0,0,0,0.02); }
+    body.dark-mode .tracker-market-chip { background: linear-gradient(180deg, #171717 0%, #121212 100%); border-color: #2f3338; }
+    .tracker-empty { padding: 18px 16px; color: var(--tracker-subtext); font-size: 12px; font-weight: 700; }
+    .tracker-report-table-wrap { margin: 0; overflow-x: auto; }
+    .tracker-report-table { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 10px; line-height: 1.2; background: var(--panel); }
+    .tracker-report-table th, .tracker-report-table td { border: 1px solid var(--table-border); padding: 5px 4px; text-align: left; vertical-align: top; white-space: normal; overflow-wrap: break-word; word-break: normal; hyphens: auto; }
+    .tracker-report-table th { background: var(--table-head); color: #fff; font-weight: 800; }
+    .tracker-report-table td { background: var(--panel); color: var(--text); font-weight: 700; }
+    .tracker-report-table td.num, .tracker-report-table th.num { text-align: center; width: 12%; }
+    .tracker-report-table td.rate, .tracker-report-table th.rate { text-align: center; width: 16%; }
+    .tracker-analytics-panel { padding: 10px; border-bottom: 1px solid var(--panel-border); background: var(--tracker-summary-bg); display: none; }
+    .tracker-analytics-shell { display: grid; gap: 10px; }
+    .tracker-analytics-topbar { display: grid; gap: 4px; }
+    .tracker-analytics-kicker { font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); }
+    .tracker-analytics-title { margin: 0; color: var(--tracker-strong); font-size: 15px; font-weight: 900; line-height: 1.1; }
+    .tracker-analytics-subtitle { margin: 0; color: var(--tracker-subtext); font-size: 10px; line-height: 1.35; font-weight: 700; }
+    .tracker-summary-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .tracker-summary-cell { border: 1px solid var(--table-border); background: var(--panel); padding: 9px 10px; display: grid; gap: 3px; }
+    .tracker-summary-cell.primary { background: linear-gradient(135deg, #17973f 0%, #127731 100%); border-color: #17973f; }
+    body.dark-mode .tracker-summary-cell.primary { background: linear-gradient(135deg, #167d35 0%, #115f29 100%); border-color: #167d35; }
+    .tracker-summary-label { font-size: 10px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase; color: var(--muted); }
+    .tracker-summary-cell.primary .tracker-summary-label, .tracker-summary-cell.primary .tracker-summary-sub, .tracker-summary-cell.primary .tracker-summary-value { color: #fff; }
+    .tracker-summary-value { color: var(--tracker-strong); font-size: 20px; font-weight: 900; line-height: 1; }
+    .tracker-summary-sub { color: var(--tracker-subtext); font-size: 10px; font-weight: 700; line-height: 1.25; }
+    .tracker-analytics-section { border: 1px solid var(--table-border); background: var(--panel); }
+    .tracker-analytics-section-head { padding: 8px 10px; border-bottom: 1px solid var(--table-border); background: linear-gradient(90deg, var(--tracker-head-bg) 0%, #434b5a 100%); color: var(--tracker-head-text); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    body.dark-mode .tracker-analytics-section-head { background: linear-gradient(90deg, #111 0%, #1a1a1a 100%); }
+    .tracker-analytics-section-title { font-size: 11px; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; }
+    .tracker-analytics-section-meta { font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.85); }
+    .tracker-analytics-section-body { padding: 10px; }
+    .tracker-mini-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .tracker-mini-stat { border: 1px solid var(--table-border); background: var(--panel-soft); padding: 10px; display: grid; gap: 4px; }
+    .tracker-mini-stat .name { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; }
+    .tracker-mini-stat .value { color: var(--tracker-strong); font-size: 15px; font-weight: 900; line-height: 1.1; }
+    .tracker-mini-stat .sub { color: var(--tracker-subtext); font-size: 10px; font-weight: 700; }
+    .tracker-hidden { display: none !important; }
+    #trackedPicksTable { width: 100% !important; table-layout: fixed !important; border-collapse: collapse; margin-top: 0; }
+    #trackedPicksTable th, #trackedPicksTable td { border: 1px solid var(--table-border); padding: 10px 2px !important; text-align: center; vertical-align: middle; line-height: 1.25; font-size: 10px !important; white-space: normal !important; word-break: normal !important; overflow-wrap: anywhere !important; }
     #trackedPicksTable th:nth-child(1) { width: 12%; }
     #trackedPicksTable th:nth-child(2) { width: 12%; }
     #trackedPicksTable th:nth-child(3) { width: 12%; }
@@ -2467,109 +226,16 @@ body.dark-mode .tracker-analytics-section-head {
     #trackedPicksTable td:nth-child(6) { font-weight: 900; }
     #trackedPicksTable td:nth-child(7) { font-weight: 800; opacity: 0.8; }
     #trackedPicksTable td:nth-child(8) { font-weight: 900; }
-
-.lock-celebration {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 10000;
-  overflow: hidden;
-}
-.lock-celebration .particle {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  background: radial-gradient(circle, #ffd700, #ff8c00);
-  border-radius: 50%;
-  opacity: 0;
-  animation: burst 1.5s ease-out forwards;
-}
-@keyframes burst {
-  0% {
-    opacity: 1;
-    transform: translate(0, 0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(var(--tx), var(--ty)) scale(0);
-  }
-}
-#engineLockOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2000000;
-  background: #0c0c0e;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  padding-top: max(24px, env(safe-area-inset-top));
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
-  box-sizing: border-box;
-}
-#engineLockOverlay.hidden {
-  display: none;
-}
-.engine-lock-card {
-  width: 100%;
-  max-width: 300px;
-  background: #17171a;
-  border: 1px solid #2b2b30;
-  border-radius: 14px;
-  padding: 28px 22px;
-  text-align: center;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-}
-.engine-lock-title {
-  color: #d4af37;
-  font-size: 16px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
-  margin: 0 0 6px 0;
-}
-.engine-lock-sub {
-  color: #9aa0a8;
-  font-size: 12px;
-  margin: 0 0 18px 0;
-}
-.engine-lock-input {
-  width: 100%;
-  font-size: 22px;
-  letter-spacing: 8px;
-  text-align: center;
-  padding: 12px 10px;
-  border-radius: 8px;
-  border: 1px solid #3a3a40;
-  background: #0c0c0e;
-  color: #fff;
-  margin-bottom: 12px;
-  box-sizing: border-box;
-}
-.engine-lock-btn {
-  width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: none;
-  background: #c91920;
-  color: #fff;
-  font-weight: 800;
-  font-size: 14px;
-  cursor: pointer;
-}
-.engine-lock-error {
-  color: #ff5c61;
-  font-size: 12px;
-  font-weight: 700;
-  min-height: 16px;
-  margin-top: 10px;
-}
-</style>
-
+    #engineLockOverlay { position: fixed; inset: 0; z-index: 2000000; background: #0c0c0e; display: flex; align-items: center; justify-content: center; padding: 24px; padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: max(24px, env(safe-area-inset-bottom)); box-sizing: border-box; }
+    #engineLockOverlay.hidden { display: none; }
+    .engine-lock-card { width: 100%; max-width: 300px; background: #17171a; border: 1px solid #2b2b30; border-radius: 14px; padding: 28px 22px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+    .engine-lock-title { color: #d4af37; font-size: 16px; font-weight: 900; letter-spacing: 0.5px; margin: 0 0 6px 0; }
+    .engine-lock-sub { color: #9aa0a8; font-size: 12px; margin: 0 0 18px 0; }
+    .engine-lock-input { width: 100%; font-size: 22px; letter-spacing: 8px; text-align: center; padding: 12px 10px; border-radius: 8px; border: 1px solid #3a3a40; background: #0c0c0e; color: #fff; margin-bottom: 12px; box-sizing: border-box; }
+    .engine-lock-btn { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #c91920; color: #fff; font-weight: 800; font-size: 14px; cursor: pointer; }
+    .engine-lock-error { color: #ff5c61; font-size: 12px; font-weight: 700; min-height: 16px; margin-top: 10px; }
+  </style>
 </head>
-
 <body>
 <div id="engineLockOverlay">
   <div class="engine-lock-card">
@@ -2581,324 +247,722 @@ body.dark-mode .tracker-analytics-section-head {
   </div>
 </div>
 <script>
-(function(){
-  var ENGINE_LOCK_PIN = "349137";
-  var overlay = document.getElementById('engineLockOverlay');
-  if (localStorage.getItem('engineUnlocked') === 'yes') overlay.classList.add('hidden');
-  function tryUnlock(){
-    var val = document.getElementById('engineLockInput').value;
-    var err = document.getElementById('engineLockError');
-    if (val === ENGINE_LOCK_PIN) {
-      localStorage.setItem('engineUnlocked', 'yes');
-      overlay.classList.add('hidden');
-      err.textContent = '';
-    } else {
-      err.textContent = 'Wrong PIN';
-      document.getElementById('engineLockInput').value = '';
+  (function(){
+    var ENGINE_LOCK_PIN = "349137";
+    var overlay = document.getElementById('engineLockOverlay');
+    if (localStorage.getItem('engineUnlocked') === 'yes') overlay.classList.add('hidden');
+    function tryUnlock(){
+      var val = document.getElementById('engineLockInput').value;
+      var err = document.getElementById('engineLockError');
+      if (val === ENGINE_LOCK_PIN) {
+        localStorage.setItem('engineUnlocked', 'yes');
+        overlay.classList.add('hidden');
+        err.textContent = '';
+      } else {
+        err.textContent = 'Wrong PIN';
+        document.getElementById('engineLockInput').value = '';
+      }
     }
-  }
-  document.getElementById('engineLockBtn').addEventListener('click', tryUnlock);
-  document.getElementById('engineLockInput').addEventListener('keydown', function(e){
-    if (e.key === 'Enter') tryUnlock();
-  });
-})();
+    document.getElementById('engineLockBtn').addEventListener('click', tryUnlock);
+    document.getElementById('engineLockInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') tryUnlock(); });
+  })();
 </script>
-
 <header class="app-header">
   <span class="brand-name">TheBetCeo ⚡️</span>
   <span class="header-center">
-    <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show issues">⚠️</button>
+    <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show fetch/input issues">⚠️</button>
   </span>
   <span class="brand-right">
-    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏓</button>
+    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏀</button>
     <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
-    <button class="theme-toggle" type="button" id="afdbBtn" title="Debugger">🔬</button>
-    <button class="theme-toggle" type="button" id="engineRelockBtn" title="Lock the engine">🔒</button>
-    TT · SETKA
+    <button class="theme-toggle" type="button" id="afdbBtn" title="Auto-Fetch Debugger" onclick="if(typeof AFDB!=='undefined'&&AFDB.open)AFDB.open()">🔬</button>
+    <button class="theme-toggle" type="button" id="engineRelockBtn" title="Lock the engine" onclick="localStorage.removeItem('engineUnlocked'); location.reload();">🔒</button>
+    PREDICTIONS
   </span>
 </header>
-
 <div class="wrapper">
-
-  <!-- League: fixed, no dropdown -->
   <div class="section" id="leagueSection">
-    <button type="button" class="section-toggle" data-section="leagueSection">
-      <span class="toggle-title">League</span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <div style="font-size:12px;font-weight:700;padding:6px 8px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);max-width:260px;">Setka Cup — Table Tennis</div>
-      <p style="font-size:10px;color:var(--muted);font-weight:600;margin:6px 0 0;line-height:1.35;">Fixed competition. SofaScore manual only. Markets: Match Total Points + 1st Set Total Points.</p>
+    <h3>Setka Cup — Table Tennis</h3>
+    <div style="padding: 10px; font-size: 12px; font-weight: 600; color: var(--text);">
+      League: Setka Cup (Fixed) — manual data via SofaScore
     </div>
   </div>
-
-  <!-- SofaScore (BB-style compact paste, not a giant box) -->
   <div class="section" id="sofascoreManualSection">
-    <button type="button" class="section-toggle" data-section="sofascoreManualSection">
-      <span class="toggle-title">🔍 SofaScore Manual</span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <p style="font-size:10px;color:var(--muted);font-weight:600;margin:0 0 8px;line-height:1.35;">Paste SofaScore player JSON per side (same compact fields as BB).</p>
-
-      <label style="font-size:12px;">Player A</label>
-      <div style="display:flex;gap:6px;margin-bottom:4px;max-width:400px;">
+    <h3>🔍 Player Lookup <span style="font-size:11px;color:#aaa;">(SofaScore — paste JSON)</span></h3>
+    <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
+      <label>Player A Name (Home)</label>
+      <div style="display:flex;gap:6px;margin-bottom:4px;">
         <input id="ssTeamAName" placeholder="Player A" style="margin-bottom:0;flex:1;" />
-        <input id="ssPasteA" placeholder="Paste JSON A" style="margin-bottom:0;flex:1;" />
-        <button type="button" class="fetch-btn" id="ssSearchA" style="margin:0;">Parse A</button>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
-        <input id="ssTeamAId" placeholder="Player A ID (optional)" style="max-width:180px;margin-bottom:0;" />
-      </div>
-
-      <label style="font-size:12px;">Player B</label>
-      <div style="display:flex;gap:6px;margin-bottom:4px;max-width:400px;">
-        <input id="ssTeamBName" placeholder="Player B" style="margin-bottom:0;flex:1;" />
-        <input id="ssPasteB" placeholder="Paste JSON B" style="margin-bottom:0;flex:1;" />
-        <button type="button" class="fetch-btn" id="ssSearchB" style="margin:0;">Parse B</button>
+        <input id="ssPasteA" placeholder="Paste JSON A" oninput="parseSofascoreIndividual('A')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
+        <button type="button" onclick="searchSofascorePlayer('A')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search player">🔍</button>
+        <button type="button" onclick="clearPasteJSON('A')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
       </div>
       <div style="display:flex;gap:6px;align-items:center;">
-        <input id="ssTeamBId" placeholder="Player B ID (optional)" style="max-width:180px;margin-bottom:0;" />
+        <input id="ssTeamAId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('A')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
+        <a id="ssTeamALink" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 Open JSON A</a>
       </div>
-      <div id="ssStatus" style="font-size:10px;min-height:16px;margin-top:6px;font-weight:700;"></div>
     </div>
+    <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
+      <label>Player B Name (Away)</label>
+      <div style="display:flex;gap:6px;margin-bottom:4px;">
+        <input id="ssTeamBName" placeholder="Player B" style="margin-bottom:0;flex:1;" />
+        <input id="ssPasteB" placeholder="Paste JSON B" oninput="parseSofascoreIndividual('B')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
+        <button type="button" onclick="searchSofascorePlayer('B')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search player">🔍</button>
+        <button type="button" onclick="clearPasteJSON('B')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input id="ssTeamBId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('B')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
+        <a id="ssTeamBLink" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p0</a>
+        <a id="ssTeamBLink1" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p1</a>
+        <a id="ssTeamBLink2" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p2</a>
+        <a id="ssTeamBLink3" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p3</a>
+      </div>
+    </div>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--panel-border);">
+      <label style="font-size:11px;font-weight:800;">Tournament ID <span style="color:var(--muted);font-weight:600;">(auto-detected from paste · enter manually to override)</span></label>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input id="ssTournamentId" placeholder="e.g. 12345" style="margin-bottom:0;font-size:11px;padding:4px 6px;width:180px;flex-shrink:0;" oninput="onTournamentIdInput()" />
+        <span id="ssTournamentName" style="font-size:10px;font-weight:800;color:var(--muted);"></span>
+      </div>
+    </div>
+    <div id="ssFetchStatus" style="font-size:10px;min-height:16px;margin-top:6px;"></div>
   </div>
-
-  <!-- Markets: Match Total + 1st Set only -->
   <div class="section" id="marketSection">
-    <button type="button" class="section-toggle" data-section="marketSection">
-      <span class="toggle-title">Market Lines</span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <div id="ftH1MarketRow" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div>
-          <label id="ftMarketLabel">Match Total Points</label>
-          <input id="ftMarket" placeholder="e.g. 72.5 or 70.5-74.5" />
-        </div>
-        <div>
-          <label>1st Set Total Points</label>
-          <input id="h1Market" placeholder="e.g. 18.5 or 17.5-19.5" />
-        </div>
-      </div>
+    <h3>Market Lines</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div><label>Match Total Points</label><input id="ftMarket" placeholder="150.5 - 160.5" /></div>
+      <div><label>1st Set Total Points</label><input id="h1Market" placeholder="75.5 - 85.5" /></div>
     </div>
   </div>
-
-  <!-- Player A form -->
   <div class="section" id="teamASection">
-    <button type="button" class="section-toggle" data-section="teamASection">
-      <span class="toggle-title">Player A — Recent Form <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <label style="font-size:12px;">Player A name</label>
-      <input id="teamAName" placeholder="Player A" autocomplete="off" />
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-        <div>
-          <label>Match totals <span style="font-size:10px;color:var(--muted);">(newest → oldest, max 10)</span></label>
-          <input id="aFTScored" placeholder="78,72,85,69,81,74,80,76,82,70" />
-        </div>
-        <div>
-          <label>Opp match totals</label>
-          <input id="aFTAllowed" placeholder="74,70,80,66,77,72,75,71,78,68" />
-        </div>
+    <h3>Player A — Recent Form <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+      <div>
+        <label>Match Total Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
+        <input id="aFTScored" placeholder="85,79,88,74,82" />
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
-        <div>
-          <label>1st-set totals</label>
-          <input id="a1HScored" placeholder="19,17,21,18,20,16,19,18,22,17" />
-        </div>
-        <div>
-          <label>1st-set opp totals</label>
-          <input id="a1HAllowed" placeholder="18,16,20,17,19,15,18,17,21,16" />
-        </div>
+      <div>
+        <label>Match Total Allowed</label>
+        <input id="aFTAllowed" placeholder="80,76,84,72,79" />
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
+      <div>
+        <label>1st Set Scored</label>
+        <input id="a1HScored" placeholder="42,38,45,40,41" />
+      </div>
+      <div>
+        <label>1st Set Allowed</label>
+        <input id="a1HAllowed" placeholder="39,36,41,35,38" />
       </div>
     </div>
   </div>
-
-  <!-- Player B form -->
   <div class="section" id="teamBSection">
-    <button type="button" class="section-toggle" data-section="teamBSection">
-      <span class="toggle-title">Player B — Recent Form <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <label style="font-size:12px;">Player B name</label>
-      <input id="teamBName" placeholder="Player B" autocomplete="off" />
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-        <div>
-          <label>Match totals <span style="font-size:10px;color:var(--muted);">(newest → oldest, max 10)</span></label>
-          <input id="bFTScored" placeholder="74,80,70,76,82,71,79,73,84,68" />
-        </div>
-        <div>
-          <label>Opp match totals</label>
-          <input id="bFTAllowed" placeholder="70,76,68,72,78,69,75,71,80,66" />
-        </div>
+    <h3>Player B — Recent Form <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+      <div>
+        <label>Match Total Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
+        <input id="bFTScored" placeholder="83,77,81,79,80" />
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
-        <div>
-          <label>1st-set totals</label>
-          <input id="b1HScored" placeholder="18,20,16,19,21,17,18,19,22,16" />
-        </div>
-        <div>
-          <label>1st-set opp totals</label>
-          <input id="b1HAllowed" placeholder="17,19,15,18,20,16,17,18,21,15" />
-        </div>
+      <div>
+        <label>Match Total Allowed</label>
+        <input id="bFTAllowed" placeholder="78,80,77,76,81" />
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
+      <div>
+        <label>1st Set Scored</label>
+        <input id="b1HScored" placeholder="40,39,42,38,41" />
+      </div>
+      <div>
+        <label>1st Set Allowed</label>
+        <input id="b1HAllowed" placeholder="38,39,37,36,40" />
       </div>
     </div>
   </div>
-
-  <!-- H2H -->
   <div class="section" id="h2hSection">
-    <button type="button" class="section-toggle" data-section="h2hSection">
-      <span class="toggle-title">H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled</span></span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" /> Use Match Total H2H (min 2 games)</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-        <input id="aFTH2H" placeholder="78,72,85,69,81" />
-        <input id="bFTH2H" placeholder="74,80,70,76,82" />
-      </div>
-      <div style="margin-top:6px;">
-        <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" /> Use 1st Set H2H (min 2 games)</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-          <input id="a1HH2H" placeholder="19,17,21,18,20" />
-          <input id="b1HH2H" placeholder="18,20,16,19,21" />
-        </div>
+    <h3>H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled</span></h3>
+    <label><input type="checkbox" id="useFTH2H" /> Use Match Total H2H (min 2 games)</label>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+      <input id="aFTH2H" placeholder="82,78,84,76,82" />
+      <input id="bFTH2H" placeholder="79,81,77,80,78" />
+    </div>
+    <div style="margin-top: 6px;">
+      <label><input type="checkbox" id="use1HH2H" /> Use 1st Set H2H (min 2 games)</label>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+        <input id="a1HH2H" placeholder="41,39,43,38,41" />
+        <input id="b1HH2H" placeholder="39,41,38,42,39" />
       </div>
     </div>
   </div>
-
 </div>
-
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
   <button id="clearBtn" type="button">Clear</button>
 </div>
-
 <div class="table-wrap">
   <table id="results" style="display:none;">
-    <tr>
-      <th>Market</th>
-      <th>Projection</th>
-      <th>Edge</th>
-      <th>Grade</th>
-      <th>Prediction</th>
-    </tr>
+    <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>
   </table>
 </div>
-
 <div id="trackerModal" class="tracker-modal" aria-hidden="true">
   <div class="tracker-panel">
     <div class="tracker-head">
       <span id="trackerHeadTitle">Tracked Picks</span>
+      <span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:12px;font-weight:900;pointer-events:none;white-space:nowrap;"></span>
       <div class="tracker-head-actions">
-        <button type="button" id="trackerCopyDataBtn" class="tracker-insights-btn" title="Copy tracker report">📑</button>
-        <button type="button" id="trackerCopyDataJsonBtn" class="tracker-insights-btn" title="Copy JSON">🧾</button>
+        <button type="button" id="trackerCopyDataBtn" class="tracker-insights-btn" title="Copy tracker data to clipboard">📑</button>
+        <span class="engine-battery" id="engineHealthBatteryWrap" title="Rolling engine performance">
+          <span class="engine-battery-shell"><span class="engine-battery-fill" id="enginePerfFill" style="width:0%;"></span></span>
+          <span class="engine-battery-pct" id="enginePerfPct">—</span>
+        </span>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
     </div>
     <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
     <div class="tracker-market-summary" id="trackerMarketSummary"></div>
     <div class="tracker-body-scroll" id="trackedPicksWrap">
+      <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
       <div id="trackerEmpty" class="tracker-empty">No tracked picks saved yet.</div>
       <div class="table-wrap tracker-table-wrap">
         <table id="trackedPicksTable">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>League</th>
-              <th>Match</th>
-              <th>Market</th>
-              <th>Line</th>
-              <th>Pick</th>
-              <th>Grade</th>
-              <th>Status</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Date</th><th>League</th><th>Match</th><th>Market</th><th>Line</th><th>Pick</th><th>Grade</th><th>Status</th></tr></thead>
           <tbody id="trackedPicksBody"></tbody>
         </table>
       </div>
     </div>
   </div>
 </div>
-
 <div id="afdbOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,0.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
   <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;"></div>
 </div>
-
 <script>
-(function () {
-  // Theme
-  var themeBtn = document.getElementById("themeToggleBtn");
-  if (localStorage.getItem("theme") === "dark") document.body.classList.add("dark-mode");
-  if (themeBtn) themeBtn.addEventListener("click", function () {
-    var dark = document.body.classList.toggle("dark-mode");
-    localStorage.setItem("theme", dark ? "dark" : "light");
-  });
+  // =====================================================================
+  // TABLE TENNIS ENGINE – Setka Cup only
+  // Adapted from Basketball Prediction Engine UI shell
+  // =====================================================================
+  (function(){
+    // ---------- Minimal global state ----------
+    window.__BETCEO_SESSION_ID = "sess_" + Date.now() + "_" + Math.random().toString(36).slice(2,9);
+    const APP_BUILD_VERSION = "tt_engine_v1";
+    const ENGINE_MODEL_VERSION = "tt_v1";
+    const TRACKED_PICKS_LIMIT = 500;
+    const TRACKER_ARCHIVED_LIMIT = 400;
 
-  // Relock
-  var relock = document.getElementById("engineRelockBtn");
-  if (relock) relock.addEventListener("click", function () {
-    localStorage.removeItem("engineUnlocked");
-    location.reload();
-  });
+    // ---------- Utility functions ----------
+    function avg(arr) {
+      if (!arr || arr.length===0) return NaN;
+      const clean = arr.filter(v=>isFinite(v));
+      return clean.length ? clean.reduce((a,b)=>a+b,0)/clean.length : NaN;
+    }
+    function weightedRecentAverage(arr, weights) {
+      const clean = Array.isArray(arr) ? arr.map(Number).filter(v=>isFinite(v)) : [];
+      if (!clean.length) return NaN;
+      const w = weights || [1.35,1.20,1.00,0.85,0.70,0.56,0.44,0.33,0.24,0.16];
+      const trunc = clean.slice(0, w.length);
+      let ws=0, wt=0;
+      for (let i=0; i<trunc.length; i++) { ws += trunc[i]*w[i]; wt += w[i]; }
+      return wt ? ws/wt : avg(trunc);
+    }
+    function getPickSideFromText(text) {
+      const raw = String(text||"").trim().toUpperCase();
+      if (raw.startsWith("OVER")) return "over";
+      if (raw.startsWith("UNDER")) return "under";
+      return "";
+    }
+    function displayLine(val) {
+      if (val==null || !isFinite(val)) return "—";
+      return Math.round(val*2)/2 + "";
+    }
+    function parseMarketLine(val) {
+      if (!val || !String(val).trim()) return null;
+      const raw = String(val).trim();
+      const m = raw.match(/^(\d{1,3}(?:\.\d+)?)\s*-\s*(\d{1,3}(?:\.\d+)?)$/);
+      if (m) { const a=parseFloat(m[1]), b=parseFloat(m[2]); if (isFinite(a)&&isFinite(b)&&b>=a) return (a+b)/2; }
+      const n = parseFloat(raw);
+      return isFinite(n) ? Math.round(n*2)/2 : null;
+    }
+    function getPick(edge, line, marketKey) {
+      if (!line || !isFinite(edge) || !isFinite(line) || line<=0) return "NO PLAY";
+      if (Math.abs(edge) < 1.5) return "NO PLAY";
+      const threshold = marketKey==="h1" ? 2.0 : 3.0;
+      if (Math.abs(edge) < threshold) return "NO PLAY";
+      return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
+    }
+    function getConfidenceGrade(edge, line, sampleTier) {
+      if (!isFinite(edge) || !line) return "NaN";
+      const pct = Math.abs(edge/line);
+      if (pct < 0.02) return "D";
+      if (pct < 0.04) return "C";
+      if (pct < 0.07) return "B";
+      return "A";
+    }
+    function getConfidenceClass(conf) {
+      if (conf==="A") return "conf-a";
+      if (conf==="B") return "conf-b";
+      if (conf==="C") return "conf-c";
+      if (conf==="D") return "conf-d";
+      return "conf-none";
+    }
+    function getPredictionClass(pick) {
+      if (!pick || pick==="NO PLAY") return "pred-noplay";
+      return getPickSideFromText(pick)==="under" ? "pred-under" : "pred-over";
+    }
 
-  // Section collapse — same behavior as BB makeSectionsCollapsible
-  function wireSections() {
-    document.querySelectorAll(".section-toggle").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var sec = btn.closest(".section");
-        if (!sec || sec.classList.contains("locked")) return;
-        sec.classList.toggle("collapsed");
+    // ---------- SofaScore manual paste helpers ----------
+    window.ssIsBasketballEvent = function(ev){ return true; }; // placeholder
+    window.ssProcessTeamEvents = function(events, teamId, label, fixtureTournamentId) {
+      const scoredList=[], allowedList=[], h1ScoredList=[], h1AllowedList=[];
+      const completed = (events||[]).filter(e => e.status?.type==="finished" || e.status?.finished===true);
+      completed.sort((a,b)=>(b.startTimestamp||0)-(a.startTimestamp||0));
+      completed.slice(0,10).forEach(ev => {
+        const isHome = String(ev.homeTeam?.id)===String(teamId);
+        const myScore = isHome ? ev.homeScore : ev.awayScore;
+        const oppScore = isHome ? ev.awayScore : ev.homeScore;
+        if (myScore && oppScore) {
+          const myFT = Number(myScore.normaltime ?? myScore.current ?? myScore.display ?? 0);
+          const oppFT = Number(oppScore.normaltime ?? oppScore.current ?? oppScore.display ?? 0);
+          if (myFT>0) {
+            scoredList.push(myFT);
+            allowedList.push(oppFT);
+            const myQ1 = Number(myScore.period1 ?? 0);
+            const oppQ1 = Number(oppScore.period1 ?? 0);
+            if (myQ1>0) { h1ScoredList.push(myQ1); h1AllowedList.push(oppQ1); }
+          }
+        }
       });
+      return { scoredList, allowedList, h1ScoredList, h1AllowedList, lastGameDate: completed[0]?.startTimestamp ? new Date(completed[0].startTimestamp*1000).toISOString() : "" };
+    };
+    window.updateSofascoreLinks = function(side) {
+      const idInput = document.getElementById(side==="A" ? "ssTeamAId" : "ssTeamBId");
+      const linkEl = document.getElementById(side==="A" ? "ssTeamALink" : "ssTeamBLink");
+      if (!idInput || !linkEl) return;
+      const idVal = idInput.value.trim();
+      if (idVal && /^\d+$/.test(idVal)) {
+        linkEl.href = "https://api.sofascore.com/api/v1/team/" + idVal + "/events/last/0";
+        linkEl.style.display = "inline-block";
+        if (side==="B") {
+          ["ssTeamBLink1","ssTeamBLink2","ssTeamBLink3"].forEach((id, i) => {
+            const el=document.getElementById(id);
+            if(el){ el.href="https://api.sofascore.com/api/v1/team/"+idVal+"/events/last/"+(i+1); el.style.display="inline-block"; }
+          });
+        }
+      } else { linkEl.style.display="none"; if(side==="B"){ ["ssTeamBLink1","ssTeamBLink2","ssTeamBLink3"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; }); } }
+    };
+    window.clearPasteJSON = function(side){
+      const el = document.getElementById(side==='A'?'ssPasteA':'ssPasteB');
+      if(el) el.value='';
+    };
+    window.searchSofascorePlayer = function(side){
+      const nameEl = document.getElementById(side==='A'?'ssTeamAName':'ssTeamBName');
+      const rawName = (nameEl?.value||"").trim();
+      if(!rawName){ alert("Enter a player/team name first."); return; }
+      const searchName = rawName.split(",")[0].trim();
+      const url = "https://api.sofascore.com/api/v1/search/teams?q=" + encodeURIComponent(searchName) + "&sport=tabletennis";
+      window.open(url, "_blank");
+    };
+    window.parseSofascoreIndividual = function(side){
+      const pasteEl = document.getElementById(side==='A'?'ssPasteA':'ssPasteB');
+      const raw = (pasteEl?.value||"").trim();
+      if(!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        const events = parsed.events || [];
+        if(!events.length) throw new Error("No events found.");
+        const idVal = (document.getElementById(side==='A'?'ssTeamAId':'ssTeamBId')?.value||"").trim();
+        if(!idVal) {
+          const counts={};
+          events.forEach(ev => { if(ev.homeTeam?.id) counts[ev.homeTeam.id]=(counts[ev.homeTeam.id]||0)+1; if(ev.awayTeam?.id) counts[ev.awayTeam.id]=(counts[ev.awayTeam.id]||0)+1; });
+          let bestId=null, max=0;
+          for(const id in counts){ if(counts[id]>max){ max=counts[id]; bestId=id; } }
+          if(bestId) {
+            const idEl = document.getElementById(side==='A'?'ssTeamAId':'ssTeamBId');
+            if(idEl) { idEl.value=bestId; updateSofascoreLinks(side); }
+          }
+        }
+        const stats = window.ssProcessTeamEvents(events, idVal, side, null);
+        const prefix = side==='A'?'a':'b';
+        const setVal = (id,val) => { const el=document.getElementById(id); if(el) el.value=val; };
+        if(stats.scoredList.length) {
+          setVal(prefix+"FTScored", stats.scoredList.slice(0,10).join(","));
+          setVal(prefix+"FTAllowed", stats.allowedList.slice(0,10).join(","));
+        }
+        if(stats.h1ScoredList.length) {
+          setVal(prefix+"1HScored", stats.h1ScoredList.slice(0,10).join(","));
+          setVal(prefix+"1HAllowed", stats.h1AllowedList.slice(0,10).join(","));
+        }
+        const tag = document.getElementById(prefix+"AutoTag");
+        if(tag) tag.style.display = "inline";
+        const st = document.getElementById("ssFetchStatus");
+        if(st) { st.style.color="#2f8f4a"; st.textContent="✅ Team "+side+" stats loaded from pasted JSON!"; }
+        pasteEl.value = "";
+        // auto-open sections
+        document.querySelectorAll('.section').forEach(s=>s.classList.remove('collapsed'));
+      } catch(err) {
+        const st = document.getElementById("ssFetchStatus");
+        if(st) { st.style.color="#d92d2a"; st.textContent="❌ Parse failed: "+err.message; }
+      }
+    };
+    window.onTournamentIdInput = function(){};
+
+    // ---------- Tracker (minimal) ----------
+    let g_trackerState = {
+      activePicks: [],
+      archivedPicks: [],
+      stats: { total:0, settled:0, wins:0, losses:0, pushes:0 },
+      updatedAt: new Date().toISOString()
+    };
+    function rebuildTrackerStats(){
+      const all = [...g_trackerState.activePicks, ...g_trackerState.archivedPicks];
+      g_trackerState.stats.total = all.length;
+      g_trackerState.stats.settled = all.filter(p=>p.resultStatus && p.resultStatus!=="pending").length;
+      g_trackerState.stats.wins = all.filter(p=>p.resultStatus==="win").length;
+      g_trackerState.stats.losses = all.filter(p=>p.resultStatus==="loss").length;
+      g_trackerState.stats.pushes = all.filter(p=>p.resultStatus==="push").length;
+    }
+    function saveTrackerState() {
+      try { localStorage.setItem("tt_tracker_state", JSON.stringify(g_trackerState)); } catch(e) {}
+    }
+    function loadTrackerState() {
+      try {
+        const raw = localStorage.getItem("tt_tracker_state");
+        if(raw) { const s=JSON.parse(raw); g_trackerState = s; rebuildTrackerStats(); }
+      } catch(e) {}
+    }
+    loadTrackerState();
+
+    function addTrackedPicks(newPicks) {
+      if(!Array.isArray(newPicks)||!newPicks.length) return;
+      const active = g_trackerState.activePicks;
+      newPicks.forEach(p => {
+        if(!p.signature) p.signature = p.eventId+"|"+p.marketKey+"|"+p.side;
+        const existing = active.findIndex(x => x.signature === p.signature);
+        if(existing !== -1) { active[existing] = p; }
+        else { active.unshift(p); }
+      });
+      if(active.length > TRACKED_PICKS_LIMIT) active.length = TRACKED_PICKS_LIMIT;
+      rebuildTrackerStats();
+      saveTrackerState();
+      renderTrackedPicks();
+    }
+    function makeTrackedSignature(p) { return p.eventId+"|"+p.marketKey+"|"+p.side; }
+    function getTrackedPickTimeMs(p) { return Date.parse(p.eventDate||p.createdAt)||0; }
+    function isTrackedPickVisibleOnPage(p) {
+      const status = String(p.resultStatus||"pending").toLowerCase();
+      if(status==="pending") return true;
+      const ts = Date.parse(p.eventDate||p.createdAt);
+      if(!ts) return false;
+      return (Date.now()-ts) < 14*24*60*60*1000;
+    }
+    function renderTrackedPicks() {
+      const summaryEl = document.getElementById("trackerSummary");
+      const marketSummaryEl = document.getElementById("trackerMarketSummary");
+      const emptyEl = document.getElementById("trackerEmpty");
+      const wrapEl = document.getElementById("trackedPicksWrap");
+      const bodyEl = document.getElementById("trackedPicksBody");
+      if(!summaryEl||!marketSummaryEl||!emptyEl||!wrapEl||!bodyEl) return;
+      const active = g_trackerState.activePicks || [];
+      const visible = active.filter(isTrackedPickVisibleOnPage);
+      const stats = g_trackerState.stats || {};
+      const pendingCount = active.filter(p=>String(p.resultStatus||"pending").toLowerCase()==="pending").length;
+      summaryEl.innerHTML = `${visible.length} live • ${pendingCount} pending • ${stats.wins} wins • ${stats.losses} losses`;
+      const chips = ["ft","h1"].map(key => {
+        const cnt = active.filter(p=>p.marketKey===key && String(p.resultStatus||"pending").toLowerCase()==="pending").length;
+        return cnt ? `<div class="tracker-market-chip">${key==="ft"?"Match":"1st Set"} ${cnt}</div>` : "";
+      }).filter(Boolean);
+      marketSummaryEl.innerHTML = chips.join("");
+      marketSummaryEl.style.display = chips.length ? "flex" : "none";
+      if(!visible.length) {
+        emptyEl.style.display = "block";
+        wrapEl.style.display = "none";
+        bodyEl.innerHTML = "";
+        return;
+      }
+      emptyEl.style.display = "none";
+      wrapEl.style.display = "block";
+      bodyEl.innerHTML = visible.sort((a,b)=>getTrackedPickTimeMs(b)-getTrackedPickTimeMs(a)).map(p => {
+        const status = String(p.resultStatus||"pending").toLowerCase();
+        const statusClass = status==="win" ? "track-win" : status==="loss" ? "track-loss" : status==="push" ? "track-push" : "track-pending";
+        const grade = String(p.confidenceGrade||"—").toUpperCase();
+        const gradeClass = getConfidenceClass(grade);
+        const encSig = encodeURIComponent(p.signature);
+        let statusHtml = status.toUpperCase();
+        if(status==="pending") {
+          statusHtml = `<div class="tracker-disp-toggle" data-pid="${p.signature}" style="font-weight:900;font-size:10px;cursor:pointer;text-decoration:underline dotted #ccc;">PENDING</div>
+            <div id="act-${p.signature}" style="display:none;flex-direction:column;align-items:center;gap:2px;margin-top:-2px;">
+              <div style="font-size:8px;font-weight:900;opacity:0.6;">SETTLE</div>
+              <button class="tracker-manual-btn tracker-settle-btn" data-manual-settle="win" data-sig="${encSig}" style="padding:0 !important;width:28px !important;min-width:28px !important;height:16px !important;min-height:16px !important;font-size:9px !important;line-height:16px !important;">W</button>
+              <button class="tracker-manual-btn tracker-settle-btn" data-manual-settle="loss" data-sig="${encSig}" style="padding:0 !important;width:28px !important;min-width:28px !important;height:16px !important;min-height:16px !important;font-size:9px !important;line-height:16px !important;">L</button>
+              <button class="tracker-manual-btn tracker-settle-btn" data-manual-settle="push" data-sig="${encSig}" style="padding:0 !important;width:28px !important;min-width:28px !important;height:16px !important;min-height:16px !important;font-size:9px !important;line-height:16px !important;">P</button>
+              <div class="tracker-custom-settle-btn" data-sig="${encSig}" style="font-size:8px;text-decoration:underline;cursor:pointer;margin-top:2px;font-weight:800;opacity:0.7;">CUSTOM</div>
+            </div>`;
+        } else {
+          statusHtml = `<div class="tracker-settled-edit-btn" data-sig="${encSig}" style="cursor:pointer;" title="Click to edit or revert">${status.toUpperCase()}</div>`;
+        }
+        return `<tr>
+          <td>${p.eventDate ? new Date(p.eventDate).toLocaleDateString() : "—"}</td>
+          <td>SETKA CUP</td>
+          <td>${p.homeTeam||"A"} vs ${p.awayTeam||"B"}</td>
+          <td>${p.marketName||"—"}</td>
+          <td>${isFinite(p.line)?displayLine(p.line):"—"}</td>
+          <td>${p.predictionText||"—"}${p.isLock?' <span class="lock">🔒</span>':''}</td>
+          <td class="${gradeClass}">${grade}</td>
+          <td class="${statusClass}"><div class="tracker-status-stack">${statusHtml}</div></td>
+        </tr>`;
+      }).join("");
+    }
+
+    function applyManualSettlementToTrackedPick(signature, resultStatus) {
+      const status = String(resultStatus||"").toLowerCase();
+      if(!["win","loss","push","pending"].includes(status)) return false;
+      let pick = g_trackerState.activePicks.find(p=>p.signature===signature);
+      if(!pick) return false;
+      pick.resultStatus = status;
+      pick.settledAt = new Date().toISOString();
+      if(status==="pending") {
+        g_trackerState.activePicks = g_trackerState.activePicks.filter(p=>p.signature!==signature);
+        g_trackerState.activePicks.unshift(pick);
+      } else {
+        g_trackerState.activePicks = g_trackerState.activePicks.filter(p=>p.signature!==signature);
+        g_trackerState.archivedPicks.unshift(pick);
+        if(g_trackerState.archivedPicks.length>TRACKER_ARCHIVED_LIMIT) g_trackerState.archivedPicks.length=TRACKER_ARCHIVED_LIMIT;
+      }
+      rebuildTrackerStats();
+      saveTrackerState();
+      renderTrackedPicks();
+      return true;
+    }
+
+    // ---------- UI event handlers ----------
+    function openTrackerModal(){
+      const modal = document.getElementById("trackerModal");
+      if(!modal) return;
+      modal.classList.add("open");
+      renderTrackedPicks();
+    }
+    function closeTrackerModal(){
+      const modal = document.getElementById("trackerModal");
+      if(modal) modal.classList.remove("open");
+    }
+    function toggleTheme(){
+      document.body.classList.toggle("dark-mode");
+      localStorage.setItem("theme", document.body.classList.contains("dark-mode")?"dark":"light");
+    }
+    function clearAll(){
+      document.querySelectorAll("input").forEach(i=>{ if(i.type!=="checkbox") i.value=""; else i.checked=false; });
+      document.getElementById("results").style.display="none";
+      document.getElementById("results").innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
+      document.querySelectorAll(".autofill-indicator").forEach(el=>el.style.display="none");
+      document.querySelectorAll(".section").forEach(s=>s.classList.add("collapsed"));
+      document.getElementById("leagueSection").classList.remove("collapsed");
+      document.getElementById("sofascoreManualSection").classList.remove("collapsed");
+      document.getElementById("marketSection").classList.remove("collapsed");
+    }
+
+    // ---------- Run Engine ----------
+    function runEngine() {
+      const table = document.getElementById("results");
+      table.style.display = "table";
+      table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
+
+      // read inputs
+      const aFT = document.getElementById("aFTScored").value.split(",").map(Number).filter(isFinite);
+      const aFA = document.getElementById("aFTAllowed").value.split(",").map(Number).filter(isFinite);
+      const bFT = document.getElementById("bFTScored").value.split(",").map(Number).filter(isFinite);
+      const bFA = document.getElementById("bFTAllowed").value.split(",").map(Number).filter(isFinite);
+      const a1H = document.getElementById("a1HScored").value.split(",").map(Number).filter(isFinite);
+      const a1A = document.getElementById("a1HAllowed").value.split(",").map(Number).filter(isFinite);
+      const b1H = document.getElementById("b1HScored").value.split(",").map(Number).filter(isFinite);
+      const b1A = document.getElementById("b1HAllowed").value.split(",").map(Number).filter(isFinite);
+      const h2hA = document.getElementById("aFTH2H").value.split(",").map(Number).filter(isFinite);
+      const h2hB = document.getElementById("bFTH2H").value.split(",").map(Number).filter(isFinite);
+      const h2h1A = document.getElementById("a1HH2H").value.split(",").map(Number).filter(isFinite);
+      const h2h1B = document.getElementById("b1HH2H").value.split(",").map(Number).filter(isFinite);
+      const useH2H = document.getElementById("useFTH2H").checked && h2hA.length>=2 && h2hB.length>=2;
+      const useH2H1 = document.getElementById("use1HH2H").checked && h2h1A.length>=2 && h2h1B.length>=2;
+      const ftLine = parseMarketLine(document.getElementById("ftMarket").value);
+      const h1Line = parseMarketLine(document.getElementById("h1Market").value);
+
+      // projections
+      const aFT_avg = weightedRecentAverage(aFT);
+      const aFA_avg = weightedRecentAverage(aFA);
+      const bFT_avg = weightedRecentAverage(bFT);
+      const bFA_avg = weightedRecentAverage(bFA);
+      const a1H_avg = weightedRecentAverage(a1H);
+      const a1A_avg = weightedRecentAverage(a1A);
+      const b1H_avg = weightedRecentAverage(b1H);
+      const b1A_avg = weightedRecentAverage(b1A);
+
+      let projAFT = (aFT_avg + bFA_avg) / 2;
+      let projBFT = (bFT_avg + aFA_avg) / 2;
+      let projA1H = (a1H_avg + b1A_avg) / 2;
+      let projB1H = (b1H_avg + a1A_avg) / 2;
+
+      if(useH2H && h2hA.length>=2 && h2hB.length>=2) {
+        const h2hA_avg = avg(h2hA);
+        const h2hB_avg = avg(h2hB);
+        const w = Math.min(0.30, 0.15 + h2hA.length*0.03);
+        projAFT = projAFT*(1-w) + h2hA_avg*w;
+        projBFT = projBFT*(1-w) + h2hB_avg*w;
+      }
+      if(useH2H1 && h2h1A.length>=2 && h2h1B.length>=2) {
+        const h2h1A_avg = avg(h2h1A);
+        const h2h1B_avg = avg(h2h1B);
+        const w = Math.min(0.30, 0.15 + h2h1A.length*0.03);
+        projA1H = projA1H*(1-w) + h2h1A_avg*w;
+        projB1H = projB1H*(1-w) + h2h1B_avg*w;
+      }
+
+      const ftProj = projAFT + projBFT;
+      const h1Proj = projA1H + projB1H;
+      const ftEdge = isFinite(ftLine) ? ftProj - ftLine : NaN;
+      const h1Edge = isFinite(h1Line) ? h1Proj - h1Line : NaN;
+      const ftPick = getPick(ftEdge, ftLine, "ft");
+      const h1Pick = getPick(h1Edge, h1Line, "h1");
+      const ftConf = getConfidenceGrade(ftEdge, ftLine, "full");
+      const h1Conf = getConfidenceGrade(h1Edge, h1Line, "full");
+
+      // build rows
+      const rows = [];
+      const fixtureMeta = { eventId: "manual_tt_"+Date.now(), eventDate: new Date().toISOString(), homeTeam: document.getElementById("ssTeamAName").value||"A", awayTeam: document.getElementById("ssTeamBName").value||"B" };
+      const pushRow = (name, marketKey, proj, edge, line, pick, conf) => {
+        const row = document.createElement("tr");
+        const td1 = document.createElement("td"); td1.textContent = name; row.appendChild(td1);
+        const td2 = document.createElement("td"); td2.textContent = isFinite(proj)?displayLine(proj):"NaN"; row.appendChild(td2);
+        const td3 = document.createElement("td"); td3.textContent = isFinite(edge)?(edge>0?"+":"")+edge.toFixed(1):"NaN"; row.appendChild(td3);
+        const td4 = document.createElement("td"); td4.className = pick==="NO PLAY"?"conf-none":getConfidenceClass(conf); td4.textContent = pick==="NO PLAY"?"NaN":conf; row.appendChild(td4);
+        const td5 = document.createElement("td"); td5.className = getPredictionClass(pick); td5.textContent = pick; row.appendChild(td5);
+        table.appendChild(row);
+        // tracker payload
+        if(pick!=="NO PLAY" && isFinite(line) && line>0) {
+          const side = getPickSideFromText(pick);
+          const payload = {
+            eventId: fixtureMeta.eventId,
+            eventDate: fixtureMeta.eventDate,
+            homeTeam: fixtureMeta.homeTeam,
+            awayTeam: fixtureMeta.awayTeam,
+            league: "Setka Cup",
+            marketKey: marketKey,
+            marketName: name,
+            line: line,
+            projection: proj,
+            edge: edge,
+            predictionText: pick,
+            confidenceGrade: conf,
+            side: side,
+            resultStatus: "pending",
+            signature: fixtureMeta.eventId+"|"+marketKey+"|"+side,
+            createdAt: new Date().toISOString(),
+            isLock: false
+          };
+          rows.push(payload);
+        }
+      };
+      pushRow("Match Total Points", "ft", ftProj, ftEdge, ftLine, ftPick, ftConf);
+      pushRow("1st Set Total Points", "h1", h1Proj, h1Edge, h1Line, h1Pick, h1Conf);
+
+      if(rows.length) addTrackedPicks(rows);
+    }
+
+    // ---------- Collapsible sections ----------
+    function makeSectionsCollapsible() {
+      document.querySelectorAll(".section").forEach(section => {
+        if(section.dataset.collapsibleReady==="1") return;
+        const heading = section.querySelector("h3");
+        if(!heading) return;
+        const titleHTML = heading.innerHTML;
+        const body = document.createElement("div");
+        body.className = "section-body";
+        const children = [...section.childNodes];
+        children.forEach(node => { if(node!==heading) body.appendChild(node); });
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "section-toggle";
+        const titleSpan = document.createElement("span");
+        titleSpan.className = "toggle-title";
+        titleSpan.innerHTML = titleHTML;
+        const iconSpan = document.createElement("span");
+        iconSpan.className = "toggle-icon";
+        iconSpan.innerHTML = "&#9662;";
+        btn.appendChild(titleSpan);
+        btn.appendChild(iconSpan);
+        btn.addEventListener("click", () => { section.classList.toggle("collapsed"); });
+        section.innerHTML = "";
+        section.appendChild(btn);
+        section.appendChild(body);
+        section.classList.add("collapsed");
+        section.dataset.collapsibleReady = "1";
+      });
+    }
+
+    // ---------- DOM ready ----------
+    document.addEventListener("DOMContentLoaded", function() {
+      makeSectionsCollapsible();
+      document.getElementById("leagueSection").classList.remove("collapsed");
+      document.getElementById("sofascoreManualSection").classList.remove("collapsed");
+      document.getElementById("marketSection").classList.remove("collapsed");
+
+      document.getElementById("themeToggleBtn").addEventListener("click", toggleTheme);
+      if(localStorage.getItem("theme")==="dark") document.body.classList.add("dark-mode");
+
+      document.getElementById("trackerToggleBtn").addEventListener("click", openTrackerModal);
+      document.getElementById("trackerCloseBtn").addEventListener("click", closeTrackerModal);
+      document.getElementById("trackerModal").addEventListener("click", e=>{ if(e.target===e.currentTarget) closeTrackerModal(); });
+      document.getElementById("trackedPicksBody").addEventListener("click", function(e) {
+        const target = e.target.closest(".tracker-disp-toggle");
+        if(target) {
+          const pid = target.dataset.pid;
+          target.style.display = "none";
+          const act = document.getElementById("act-"+pid);
+          if(act) act.style.display = "flex";
+        }
+        const btn = e.target.closest(".tracker-settle-btn");
+        if(btn) {
+          const sig = decodeURIComponent(btn.dataset.sig);
+          const status = btn.dataset.manualSettle;
+          applyManualSettlementToTrackedPick(sig, status);
+        }
+        const custom = e.target.closest(".tracker-custom-settle-btn");
+        if(custom) {
+          const sig = decodeURIComponent(custom.dataset.sig);
+          const result = prompt("Enter W for Win, L for Loss, P for Push, or PENDING to revert:");
+          if(result) {
+            const map = { 'w':'win','l':'loss','p':'push','win':'win','loss':'loss','push':'push','pending':'pending' };
+            const st = map[result.toLowerCase()];
+            if(st) applyManualSettlementToTrackedPick(sig, st);
+          }
+        }
+        const edit = e.target.closest(".tracker-settled-edit-btn");
+        if(edit) {
+          const sig = decodeURIComponent(edit.dataset.sig);
+          const result = prompt("Enter W for Win, L for Loss, P for Push, or PENDING to revert:");
+          if(result) {
+            const map = { 'w':'win','l':'loss','p':'push','win':'win','loss':'loss','push':'push','pending':'pending' };
+            const st = map[result.toLowerCase()];
+            if(st) applyManualSettlementToTrackedPick(sig, st);
+          }
+        }
+      });
+
+      document.getElementById("runBtn").addEventListener("click", runEngine);
+      document.getElementById("clearBtn").addEventListener("click", clearAll);
+
+      // AFDB shell
+      document.getElementById("afdbBtn").addEventListener("click", function(){
+        const ov = document.getElementById("afdbOverlay");
+        ov.style.display = ov.style.display==="flex" ? "none" : "flex";
+        if(ov.style.display==="flex") {
+          document.getElementById("afdbPanel").innerHTML = `<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+            <div style="color:#d4af37;font-size:14px;font-weight:900;">🔬 TABLE TENNIS DEBUG</div>
+            <button onclick="document.getElementById('afdbOverlay').style.display='none'" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-weight:900;cursor:pointer;">✕ Close</button>
+          </div><div style="padding:20px;color:#aaa;font-size:13px;">Debug log active. Use console for deeper inspection.</div>`;
+        }
+      });
+
+      renderTrackedPicks();
     });
-  }
-  wireSections();
-
-  // Default: collapse lower sections on first load (league + sofa open)
-  ["teamASection", "teamBSection", "h2hSection"].forEach(function (id) {
-    var el = document.getElementById(id);
-    if (el) el.classList.add("collapsed");
-  });
-
-  // Tracker modal open/close shell
-  var modal = document.getElementById("trackerModal");
-  var openBtn = document.getElementById("trackerToggleBtn");
-  var closeBtn = document.getElementById("trackerCloseBtn");
-  if (openBtn && modal) openBtn.addEventListener("click", function () {
-    document.body.classList.add("tracker-open");
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden", "false");
-  });
-  if (closeBtn && modal) closeBtn.addEventListener("click", function () {
-    document.body.classList.remove("tracker-open");
-    modal.classList.remove("open");
-    modal.setAttribute("aria-hidden", "true");
-  });
-  if (modal) modal.addEventListener("click", function (e) {
-    if (e.target === modal) {
-      document.body.classList.remove("tracker-open");
-      modal.classList.remove("open");
-    }
-  });
-
-  // AFDB shell open
-  var afdbBtn = document.getElementById("afdbBtn");
-  var afdb = document.getElementById("afdbOverlay");
-  if (afdbBtn && afdb) afdbBtn.addEventListener("click", function () {
-    afdb.style.display = afdb.style.display === "flex" ? "none" : "flex";
-    if (afdb.style.display === "flex") {
-      document.getElementById("afdbPanel").innerHTML =
-        '<div style="padding:16px;color:#d4af37;font-weight:900;">🔬 TT SETKA DEBUG (shell)</div>' +
-        '<div style="padding:12px;color:#888;font-size:12px;">Design shell only — wire engine/debug next.</div>' +
-        '<button type="button" id="afdbCloseBtn" style="margin:12px;background:#111;border:1px solid #555;color:#ccc;padding:8px 14px;cursor:pointer;">✕ Close</button>';
-      var c = document.getElementById("afdbCloseBtn");
-      if (c) c.onclick = function () { afdb.style.display = "none"; };
-    }
-  });
-})();
+  })();
 </script>
 </body>
 </html>
+```
