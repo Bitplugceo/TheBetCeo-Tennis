@@ -2,13 +2,43 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+  />
+<script>
+    
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="TT Engine" />
+  <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#c91920" />
-  <title>Table Tennis Prediction Engine — Setka Cup</title>
-<style>
+
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v22_measurement_lab" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_measurement_lab" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_measurement_lab" />
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js?v=tracker_cleanup_v22_measurement_lab")
+          .then(function (reg) {
+            if (typeof engineDebug === "function") {
+              engineDebug("Service worker registered", { scope: reg.scope });
+            }
+          })
+          .catch(function (err) {
+            if (typeof engineDebug === "function") {
+              engineDebug("Service worker registration failed (non-fatal)", { error: err?.message || String(err) });
+            }
+          });
+      });
+    }
+  </script>
+
+  <title>Basketball Prediction Engine</title>
+
+  <style>
 :root {
   --bg: #efefef;
   --text: #1f2430;
@@ -2537,6 +2567,7 @@ body.dark-mode .tracker-analytics-section-head {
   margin-top: 10px;
 }
 </style>
+
 </head>
 <body>
 <div id="engineLockOverlay">
@@ -2552,7 +2583,9 @@ body.dark-mode .tracker-analytics-section-head {
 (function(){
   var ENGINE_LOCK_PIN = "349137";
   var overlay = document.getElementById('engineLockOverlay');
-  if (localStorage.getItem('engineUnlocked') === 'yes') overlay.classList.add('hidden');
+  if (localStorage.getItem('engineUnlocked') === 'yes') {
+    overlay.classList.add('hidden');
+  }
   function tryUnlock(){
     var val = document.getElementById('engineLockInput').value;
     var err = document.getElementById('engineLockError');
@@ -2571,695 +2604,540 @@ body.dark-mode .tracker-analytics-section-head {
   });
 })();
 </script>
-
-<header class="app-header">
+ <header class="app-header">
   <span class="brand-name">TheBetCeo ⚡️</span>
-  <span class="header-center">
-    <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show issues">⚠️</button>
-  </span>
+
+<span class="header-center">
+  <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show fetch/input issues">⚠️</button>
+</span>
+
   <span class="brand-right">
-    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏓</button>
+
+    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏀</button>
     <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
-    <button class="theme-toggle" type="button" id="afdbBtn" title="Debugger">🔬</button>
-    <button class="theme-toggle" type="button" id="engineRelockBtn" title="Lock the engine">🔒</button>
-    TT · SETKA
+    <button class="theme-toggle" type="button" id="afdbBtn" title="Auto-Fetch Debugger" onclick="if(typeof AFDB!=='undefined'&&AFDB.open)AFDB.open()">🔬</button>
+    <button class="theme-toggle" type="button" id="engineRelockBtn" title="Lock the engine" onclick="localStorage.removeItem('engineUnlocked'); location.reload();">🔒</button>
+    
+    PREDICTIONS
   </span>
 </header>
 
-<div class="wrapper">
+  <div class="wrapper">
 
-  <div class="section" id="leagueSection">
-    <h3>League</h3>
-    <label>Competition</label>
-    <select id="leagueSelect" class="league-box" disabled>
-      <option value="setka_cup" selected>Setka Cup — Table Tennis</option>
-    </select>
-    <p style="font-size:10px;color:var(--muted);font-weight:600;margin:6px 0 0;">Fixed league. SofaScore manual JSON only. Markets: Match Total Points + 1st Set Total Points.</p>
+<div class="section" id="leagueSection">
+  <h3>League Tier</h3>
+  <label>Select League</label>
+  <select id="leagueSelect" class="league-box">
+    <option value="">- Select League -</option>
+    <optgroup label="── A ──────────────────">
+      <option value="aba">ABA - Liga ABA (International)</option>
+      <option value="acb">ACB - Spain (Liga ACB)</option>
+      <option value="argentina_lnb">Argentina - LNB</option>
+      <option value="ausnbl">Australia - NBL</option>
+      <option value="aus_nbl1_east">Australia - NBL1, East</option>
+      <option value="aus_nbl1_north">Australia - NBL1, North</option>
+      <option value="aus_nbl1_south">Australia - NBL1, South</option>
+      <option value="aus_nbl1_west">Australia - NBL1, West</option>
+      <option value="aus_nbl1_central">Australia - NBL1, Central</option>
+      <option value="aus_nbl1_east_w">Australia - NBL1 East, Women</option>
+      <option value="aus_nbl1_north_w">Australia - NBL1 North, Women</option>
+      <option value="aus_nbl1_south_w">Australia - NBL1 South, Women</option>
+      <option value="aus_nbl1_west_w">Australia - NBL1 West, Women</option>
+      <option value="aus_nbl1_central_w">Australia - NBL1 Central, Women</option>
+      <option value="aus_big_v">Australia - Big V</option>
+      <option value="aus_big_v_w">Australia - Big V, Women</option>
+      <option value="austria_superliga">Austria - Superliga</option>
+      <option value="austria_zweite">Austria - Zweite Liga</option>
+    </optgroup>
+    <optgroup label="── B ──────────────────">
+      <option value="bal">BAL - Basketball Africa League</option>
+      <option value="bbl">BBL - Germany</option>
+      <option value="belgium_top">Belgium - Top Division 1</option>
+      <option value="bih_1st">Bosnia &amp; Herzegovina - 1st Division</option>
+      <option value="bnxt">BNXT League (Intl)</option>
+      <option value="brazil_nbb">Brazil - NBB</option>
+      <option value="brazil_lbf_w">Brazil - LBF Women</option>
+      <option value="bulgaria_nbl">Bulgaria - NBL</option>
+    </optgroup>
+    <optgroup label="── C ──────────────────">
+      <option value="cba">CBA - China</option>
+      <option value="cebl">CEBL - Canada</option>
+      <option value="chile_lnb">Chile - Liga Nacional</option>
+      <option value="chile_lnb2">Chile - LNB 2</option>
+      <option value="china_nbl">China - NBL</option>
+
+      <option value="croatia_premier">Croatia - Premijer Liga</option>
+      <option value="cyprus_div_a">Cyprus - Division A</option>
+      <option value="nbl_cz">Czech Republic - NBL</option>
+    </optgroup>
+    <optgroup label="── D ──────────────────">
+      <option value="denmark_bliga">Denmark - Basketligaen</option>
+    </optgroup>
+    <optgroup label="── E ──────────────────">
+      <option value="el_salvador_lmb">El Salvador - Liga Mayor</option>
+      <option value="england_slb">England - SLB</option>
+      <option value="england_slb_w">England - SLB Women</option>
+      <option value="estonia_kml">Estonia - KML</option>
+      <option value="eurocup">EuroCup (Intl)</option>
+      <option value="euroleague">EuroLeague (Intl)</option>
+      <option value="champions_league">Champions League (Intl)</option>
+    </optgroup>
+    <optgroup label="── F ──────────────────">
+      <option value="fiba_ac">FIBA - AmeriCup</option>
+      <option value="fiba_eb">FIBA - EuroBasket</option>
+      
+      <option value="fiba_u20eb_a">FIBA - U20 EuroBasket, Div. A</option>
+      <option value="fiba_u20eb_b">FIBA - U20 EuroBasket, Div. B</option>
+      <option value="fiba_wc">FIBA - World Cup</option>
+      <option value="finland_koris">Finland - Korisliiga</option>
+      <option value="proa">France - Pro A</option>
+      <option value="prob">France - Pro B</option>
+      <option value="france_lfb_w">France - LFB Women</option>
+    </optgroup>
+    <optgroup label="── G ──────────────────">
+      <option value="georgia_super">Georgia - Superleague</option>
+      <option value="germany_proa">Germany - Pro A</option>
+      <option value="gb_super_league_w">Great Britain - Super League Women</option>
+      <option value="bcl">Greece - Basketball League</option>
+    </optgroup>
+    <optgroup label="── H ──────────────────">
+      <option value="hungary_nb1">Hungary - NB I. A</option>
+    </optgroup>
+    <optgroup label="── I ──────────────────">
+      <option value="iceland_urvalsdeild">Iceland - Urvalsdeild</option>
+      <option value="iceland_urvalsdeild_w">Iceland - Urvalsdeild Women</option>
+      <option value="iceland_1st">Iceland - First Division</option>
+      <option value="indonesia_ibl">Indonesia - IBL</option>
+      <option value="isl">Israel - Super League</option>
+      <option value="lba">Italy - Serie A</option>
+      <option value="italy_a2">Italy - Serie A2</option>
+      <option value="italy_serb">Italy - Serie B</option>
+      <option value="italy_a1_w">Italy - A1 Women</option>
+      <option value="italy_a2_w">Italy - Serie A2 Women</option>
+    </optgroup>
+    <optgroup label="── J ──────────────────">
+      <option value="bleague">Japan - B1 League</option>
+    </optgroup>
+    <optgroup label="── K ──────────────────">
+      <option value="korea_kbl">Korea - KBL</option>
+    </optgroup>
+    <optgroup label="── L ──────────────────">
+      <option value="latvia_lbl">Latvia - LBL</option>
+      <option value="lebanon_1st">Lebanon - First Division</option>
+      <option value="lkl">Lithuania - LKL</option>
+    </optgroup>
+    <optgroup label="── M ──────────────────">
+      <option value="mexico_cibacopa">Mexico - CIBACOPA</option>
+      <option value="mexico_lnbp">Mexico - LNBP</option>
+    </optgroup>
+    <optgroup label="── N ──────────────────">
+
+      <option value="nba">NBA - USA</option>
+      <option value="nznbl">New Zealand - NBL</option>
+    </optgroup>
+    <optgroup label="── P ──────────────────">
+      <option value="pba">Philippines - PBA (Philippine Cup)</option>
+      <option value="phil_mpbl">Philippines - MPBL</option>
+      <option value="plk">Poland - PLK</option>
+      <option value="poland_1liga">Poland - 1. Liga</option>
+      <option value="portugal_lpb">Portugal - LPB</option>
+      <option value="portugal_proliga">Portugal - Proliga</option>
+      <option value="portugal_taca">Portugal - Taca da Liga</option>
+      <option value="portugal_lfb_w">Portugal - Liga Feminina</option>
+      <option value="puerto_rico_bsn">Puerto Rico - BSN</option>
+    </optgroup>
+    <optgroup label="── R ──────────────────">
+      <option value="romania_ln">Romania - Liga Nationala</option>
+      <option value="rwanda">Rwanda - Basketball League</option>
+    </optgroup>
+    <optgroup label="── S ──────────────────">
+      <option value="serbia_kls">Serbia - KLS</option>
+      <option value="slovenia_1a">Slovenia - 1. A SKL</option>
+      <option value="spain_primera">Spain - Primera FEB</option>
+      <option value="spain_segunda">Spain - Segunda FEB</option>
+      <option value="sweden_sbl">Sweden - SBL</option>
+      <option value="swiss_sbl">Switzerland - SB League</option>
+    </optgroup>
+    <optgroup label="── T ──────────────────">
+      <option value="taipei_tpbl">Taiwan - TPBL / P. League+</option>
+      <option value="turkey_bsl">Turkiye - Super Lig</option>
+      <option value="turkey_tbl">Turkiye - TBL</option>
+      <option value="turkey_tb2l">Turkiye - TB2L</option>
+    </optgroup>
+    <optgroup label="── U ──────────────────">
+      <option value="united_league">United League (Intl)</option>
+      <option value="uruguay_lub">Uruguay - LUB</option>
+      <option value="uruguay_lfb_w">Uruguay - LFB Women</option>
+
+      <option value="nba">USA - NBA</option>
+      
+      <option value="nba_summer">USA - NBA Summer League</option>
+      <option value="nba_gl">USA - NBA G League</option>
+      <option value="ncaa">USA - NCAA Men's</option>
+      <option value="ncaaw">USA - NCAA Women's</option>
+      <option value="wnba">USA - WNBA</option>
+      <option value="wnba_pre">USA - WNBA Preseason</option>
+    </optgroup>
+    <optgroup label="── V ──────────────────">
+      <option value="venezuela_sl">Venezuela - SuperLiga</option>
+    </optgroup>
+    <optgroup label="── Z ──────────────────">
+      <option value="unknown">Other / Mixed League</option>
+    </optgroup>
+  </select>
+</div>
+
+<div class="section" id="espnSection">
+  <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA · WNBA · NCAA Men's · NCAA Women's · NBA G League)</span></h3>
+
+  <div id="fixtureToolbar" class="fixture-toolbar">
+    <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
+    <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
   </div>
 
-  <div class="section" id="sofascoreManualSection">
-    <h3>🔍 SofaScore Manual JSON</h3>
-    <p style="font-size:10px;color:var(--muted);font-weight:600;margin:0 0 8px;line-height:1.35;">Paste SofaScore event or form JSON. Parser fills player names and recent totals when the payload contains them. You can also type form manually below.</p>
-    <label>Paste JSON</label>
-    <textarea id="sofaJson" style="width:100%;min-height:110px;font-size:11px;font-family:ui-monospace,Consolas,monospace;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);padding:8px;margin-bottom:6px;box-sizing:border-box;" placeholder='{"event":{...}} or form history array'></textarea>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">
-      <button type="button" class="fetch-btn" id="parseJsonBtn">Parse JSON</button>
-      <button type="button" id="clearJsonBtn" style="background:#3a404c;">Clear JSON</button>
-    </div>
-    <div id="jsonStatus" style="font-size:10px;min-height:16px;margin-top:6px;font-weight:700;"></div>
-    <div id="parsedPreview" style="display:none;background:var(--panel-soft);border:1px solid var(--panel-border);padding:8px;margin-top:8px;font-size:11px;line-height:1.45;"></div>
+<label id="fixtureSelectLabel" style="font-size:12px;">Select match</label>
+<select id="fixtureSelect" class="league-box">
+
+<option value="">- Select match -</option>
+</select>
+
+<label id="teamALabel" style="font-size:12px;">Team A Name (Home)</label>
+
+  <div class="autocomplete-wrap">
+    <input id="teamAName" placeholder="e.g. Lakers" autocomplete="off" />
+    <div class="autocomplete-list" id="dropA"></div>
   </div>
 
-  <div class="section" id="marketSection">
-    <h3>Market Lines</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+<label id="teamBLabel" style="font-size:12px;margin-top:6px;">Team B Name (Away)</label>
+
+  <div class="autocomplete-wrap">
+    <input id="teamBName" placeholder="e.g. Celtics" autocomplete="off" />
+    <div class="autocomplete-list" id="dropB"></div>
+  </div>
+
+<button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
+
+  <div id="fetchStatus"></div>
+
+  <div class="injury-box" id="injuryBoxA">
+    <div class="inj-title">Team A - Injury Report</div>
+    <div id="injuryContentA"></div>
+  </div>
+
+  <div class="injury-box" id="injuryBoxB">
+    <div class="inj-title">Team B - Injury Report</div>
+    <div id="injuryContentB"></div>
+  </div>
+</div>
+<div class="section" id="sofascoreManualSection" style="display:none;">
+  <h3>🔍 Player Lookup <span style="font-size:11px;color:#aaa;">(Manual leagues — SofaScore)</span></h3>
+
+  <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
+    <label>Player A Name (Home)</label>
+    <div style="display:flex;gap:6px;margin-bottom:4px;">
+      <input id="ssTeamAName" placeholder="Player / Team A" style="margin-bottom:0;flex:1;" />
+      <input id="ssPasteA" placeholder="Paste JSON A" oninput="parseSofascoreIndividual('A')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
+      <button type="button" onclick="searchSofascorePlayer('A')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search basketball team">🔍</button>
+      <button type="button" onclick="clearPasteJSON('A')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input id="ssTeamAId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('A')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
+      <a id="ssTeamALink" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 Open JSON A</a>
+    </div>
+  </div>
+
+  <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
+    <label>Player B Name (Away)</label>
+    <div style="display:flex;gap:6px;margin-bottom:4px;">
+      <input id="ssTeamBName" placeholder="Player / Team B" style="margin-bottom:0;flex:1;" />
+      <input id="ssPasteB" placeholder="Paste JSON B" oninput="parseSofascoreIndividual('B')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
+      <button type="button" onclick="searchSofascorePlayer('B')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search basketball team">🔍</button>
+      <button type="button" onclick="clearPasteJSON('B')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <input id="ssTeamBId" placeholder="Enter Numerical ID" oninput="updateSofascoreLinks('B')" style="margin-bottom:0;font-size:11px;padding:4px 6px;" />
+      <a id="ssTeamBLink" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p0</a>
+      <a id="ssTeamBLink1" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p1</a>
+      <a id="ssTeamBLink2" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p2</a>
+      <a id="ssTeamBLink3" href="#" target="_blank" style="color:#4ea9ff;font-size:12px;font-weight:800;text-decoration:underline;display:none;white-space:nowrap;">🔗 p3</a>
+    </div>
+  </div>
+
+  <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--panel-border);">
+    <label style="font-size:11px;font-weight:800;">Tournament ID <span style="color:var(--muted);font-weight:600;">(auto-detected from paste · enter manually to override)</span></label>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <input id="ssTournamentId" placeholder="e.g. 12345" style="margin-bottom:0;font-size:11px;padding:4px 6px;width:180px;flex-shrink:0;" oninput="onTournamentIdInput()" />
+      <span id="ssTournamentName" style="font-size:10px;font-weight:800;color:var(--muted);"></span>
+    </div>
+  </div>
+  <div id="ssFetchStatus" style="font-size:10px;min-height:16px;margin-top:6px;"></div>
+</div>
+<div class="section" id="marketSection">
+  <h3>Market Lines</h3>
+
+  <div id="ftH1MarketRow" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+    <div><label id="ftMarketLabel">FT Total</label><input id="ftMarket" placeholder="150.5 - 160.5" /></div>
+    <div id="h1MarketSection"><label>1H Total</label><input id="h1Market" placeholder="75.5 - 85.5" /></div>
+  </div>
+
+  <div id="teamMarketSection" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
+    <div><label id="teamAMarketLabel">Team A Total</label><input id="teamAMarket" placeholder="75.5 - 79.5" /></div>
+    <div><label id="teamBMarketLabel">Team B Total</label><input id="teamBMarket" placeholder="75.5 - 79.5" /></div>
+  </div>
+
+      <div id="q1q2MarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
+      <div><label>Q1 Total</label><input id="q1Market" placeholder="45.5 - 55.5" /></div>
+      <div><label>Q2 Total</label><input id="q2Market" placeholder="45.5 - 55.5" /></div>
+    </div>
+    
+    <div id="q3q4MarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
+      <div><label>Q3 Total</label><input id="q3Market" placeholder="45.5 - 55.5" /></div>
+      <div><label>Q4 Total</label><input id="q4Market" placeholder="45.5 - 55.5" /></div>
+    </div>
+
+  <div id="h1TeamMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
+    <div><label>1H Team A</label><input id="h1TeamAMarket" placeholder="52.5" /></div>
+    <div><label>1H Team B</label><input id="h1TeamBMarket" placeholder="53.5" /></div>
+  </div>
+
+  <div id="highLowQMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
+    <div><label>Highest Q Total</label><input id="highQTotalMarket" placeholder="62.5 - 65.5" /></div>
+    <div><label>Lowest Q Total</label><input id="lowQTotalMarket" placeholder="32.5 - 35.5" /></div>
+  </div>
+
+  <div id="q1TeamMarketSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
+    <div><label>Q1 Team A</label><input id="q1TeamAMarket" placeholder="25.5 - 29.5" /></div>
+    <div><label>Q1 Team B</label><input id="q1TeamBMarket" placeholder="26.5 - 30.5" /></div>
+  </div>
+
+</div>
+
+<div class="section" id="teamASection">
+  <h3>Team A - Last 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+    <div>
+      <label id="aFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
+      <input id="aFTScored" placeholder="85,79,88,74,82,92,76,80,86,90" />
+    </div>
+    <div id="aFTAllowedSection">
+      <label id="aFTAllowedLabel">FT Allowed</label>
+      <input id="aFTAllowed" placeholder="80,76,84,72,79,88,70,83,85,75" />
+    </div>
+  </div>
+
+    <div id="a1HSection" style="display:none;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
       <div>
-        <label>Match Total Points</label>
-        <input id="ftMarket" placeholder="e.g. 72.5 or 70.5-74.5" />
+        <label id="a1HScoredLabel">1H Scored</label>
+        <input id="a1HScored" placeholder="42,38,45,40,41,43,39,44,37,42" />
       </div>
       <div>
-        <label>1st Set Total Points</label>
-        <input id="h1Market" placeholder="e.g. 18.5 or 17.5-19.5" />
+        <label>1H Allowed</label>
+        <input id="a1HAllowed" placeholder="39,36,41,35,38,40,37,42,36,39" />
       </div>
     </div>
   </div>
 
-  <div class="section" id="teamASection">
-    <h3>Player A — Recent Form</h3>
-    <label>Player A name</label>
-    <input id="teamAName" placeholder="Player A" autocomplete="off" />
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-      <div>
-        <label>Match totals <span style="font-size:10px;color:#888;">(newest → oldest)</span></label>
-        <input id="aFTScored" placeholder="78,72,85,69,81" />
-      </div>
-      <div>
-        <label>Opp match totals</label>
-        <input id="aFTAllowed" placeholder="74,70,80,66,77" />
-      </div>
+  <div id="aQSection" style="display:none; margin-top: 6px;">
+    <label style="color:var(--muted); text-transform:uppercase; font-size:10px; margin-bottom:8px; display:block;">Quarter-by-Quarter Form</label>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div><label>Q1 Scored</label><input id="aQ1Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
+      <div><label>Q1 Allowed</label><input id="aQ1Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
+      <div><label>Q2 Scored</label><input id="aQ2Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
+      <div><label>Q2 Allowed</label><input id="aQ2Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
+      <div><label>Q3 Scored</label><input id="aQ3Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
+      <div><label>Q3 Allowed</label><input id="aQ3Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
+      <div><label>Q4 Scored</label><input id="aQ4Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
+      <div><label>Q4 Allowed</label><input id="aQ4Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
+  </div>
+
+</div>
+
+<div class="section" id="teamBSection">
+  <h3>Team B - Last 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+    <div>
+      <label id="bFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
+      <input id="bFTScored" placeholder="83,77,81,79,80,85,82,78,90,86" />
+    </div>
+    <div id="bFTAllowedSection">
+      <label id="bFTAllowedLabel">FT Allowed</label>
+      <input id="bFTAllowed" placeholder="78,80,77,76,81,84,79,85,75,82" />
+    </div>
+  </div>
+
+    <div id="b1HSection" style="display:none;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
       <div>
-        <label>1st-set totals</label>
-        <input id="a1HScored" placeholder="19,17,21,18,20" />
+        <label id="b1HScoredLabel">1H Scored</label>
+        <input id="b1HScored" placeholder="40,39,42,38,41,43,40,44,37,42" />
       </div>
       <div>
-        <label>1st-set opp totals</label>
-        <input id="a1HAllowed" placeholder="18,16,20,17,19" />
+        <label>1H Allowed</label>
+        <input id="b1HAllowed" placeholder="38,39,37,36,40,41,38,42,35,39" />
       </div>
     </div>
   </div>
 
-  <div class="section" id="teamBSection">
-    <h3>Player B — Recent Form</h3>
-    <label>Player B name</label>
-    <input id="teamBName" placeholder="Player B" autocomplete="off" />
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-      <div>
-        <label>Match totals <span style="font-size:10px;color:#888;">(newest → oldest)</span></label>
-        <input id="bFTScored" placeholder="74,80,70,76,82" />
-      </div>
-      <div>
-        <label>Opp match totals</label>
-        <input id="bFTAllowed" placeholder="70,76,68,72,78" />
+  <div id="bQSection" style="display:none; margin-top: 6px;">
+    <label style="color:var(--muted); text-transform:uppercase; font-size:10px; margin-bottom:8px; display:block;">Quarter-by-Quarter Form</label>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div><label>Q1 Scored</label><input id="bQ1Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
+      <div><label>Q1 Allowed</label><input id="bQ1Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
+      <div><label>Q2 Scored</label><input id="bQ2Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
+      <div><label>Q2 Allowed</label><input id="bQ2Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
+      <div><label>Q3 Scored</label><input id="bQ3Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
+      <div><label>Q3 Allowed</label><input id="bQ3Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
+      <div><label>Q4 Scored</label><input id="bQ4Scored" placeholder="22,19,25,18,20,21,17,24,19,22" /></div>
+      <div><label>Q4 Allowed</label><input id="bQ4Allowed" placeholder="20,18,22,17,21,19,16,23,18,20" /></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" id="h2hSection">
+  <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2022+, decay-weighted, OT stripped)</span></h3>
+
+  <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" /> Use FT H2H (min 2 games)</label>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+    <input id="aFTH2H" placeholder="82,78,84,76,82" />
+    <input id="bFTH2H" placeholder="79,81,77,80,78" />
+  </div>
+
+  <div id="h2h1HSection" style="display:none; margin-top: 6px;">
+    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" /> Use 1H H2H (min 2 games)</label>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+      <input id="a1HH2H" placeholder="41,39,43,38,41" />
+      <input id="b1HH2H" placeholder="39,41,38,42,39" />
+    </div>
+  </div>
+
+  <div id="h2hQSection" style="display:none; margin-top: 10px; border-top: 1px solid var(--panel-border); padding-top: 10px;">
+    <label style="color:var(--muted); text-transform:uppercase; font-size:10px; margin-bottom:8px; display:block;">H2H Quarter Breakdown</label>
+    
+    <div style="margin-top:4px;">
+      <label><input type="checkbox" id="useQ1H2H" /> Use Q1 H2H</label>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+        <input id="aQ1H2H" placeholder="22,19,25,18,20" />
+        <input id="bQ1H2H" placeholder="20,18,22,17,21" />
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
-      <div>
-        <label>1st-set totals</label>
-        <input id="b1HScored" placeholder="18,20,16,19,21" />
+
+    <div style="margin-top:6px;">
+      <label><input type="checkbox" id="useQ2H2H" /> Use Q2 H2H</label>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+        <input id="aQ2H2H" placeholder="22,19,25,18,20" />
+        <input id="bQ2H2H" placeholder="20,18,22,17,21" />
       </div>
-      <div>
-        <label>1st-set opp totals</label>
-        <input id="b1HAllowed" placeholder="17,19,15,18,20" />
+    </div>
+
+    <div style="margin-top:6px;">
+      <label><input type="checkbox" id="useQ3H2H" /> Use Q3 H2H</label>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+        <input id="aQ3H2H" placeholder="22,19,25,18,20" />
+        <input id="bQ3H2H" placeholder="20,18,22,17,21" />
+      </div>
+    </div>
+
+    <div style="margin-top:6px;">
+      <label><input type="checkbox" id="useQ4H2H" /> Use Q4 H2H</label>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+        <input id="aQ4H2H" placeholder="22,19,25,18,20" />
+        <input id="bQ4H2H" placeholder="20,18,22,17,21" />
       </div>
     </div>
   </div>
 
 </div>
 
-<div class="actions">
-  <button id="runBtn" type="button">Run</button>
-  <button id="clearBtn" type="button">Clear</button>
-</div>
+  </div>
 
-<div class="table-wrap">
-  <table id="results" style="display:none;">
+  <div style="display:none;" aria-hidden="true">
+    <input id="aFormIntel" /><input id="bFormIntel" />
+    <input id="aSpreadIntel" /><input id="bSpreadIntel" />
+    <input id="aHitIntel" /><input id="bHitIntel" />
+  </div>
+
+  <div class="actions">
+    <button id="runBtn" type="button">Run</button>
+    <button id="clearBtn" type="button">Clear</button>
+    <button id="auditCopyBtn" type="button" title="Copy Audit" style="background: #d4af37 !important; color: #111 !important; box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important; font-weight: 700 !important; border: none !important; padding: 5px 14px !important; font-size: 12px !important; cursor: pointer !important; width: auto !important; min-width: 0 !important;">📋</button>
+    <button id="inputsCopyBtn" type="button" title="Copy Inputs &amp; Market Lines" style="background: #d4af37 !important; color: #111 !important; box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important; font-weight: 700 !important; border: none !important; padding: 5px 14px !important; font-size: 12px !important; cursor: pointer !important; width: auto !important; min-width: 0 !important;">🗒️</button>
+
+  </div>
+
+  <div class="table-wrap">
+    <table id="results" style="display:none;">
+      <tr>
+        <th>Pick</th>
+        <th>Projection</th>
+        <th>Edge</th>
+<th>Model Grade</th>
+        <th>Prediction</th>
+      </tr>
+    </table>
+  </div>
+
+  <div id="trackerModal" class="tracker-modal" aria-hidden="true">
+    <div class="tracker-panel">
+      <div class="tracker-head">
+        <span id="trackerHeadTitle">Tracked Picks</span>
+        <span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:12px;font-weight:900;pointer-events:none;white-space:nowrap;"></span>
+                       <div class="tracker-head-actions">
+<button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Single-click: Military Raid · Double-click: Toggle debug view" onclick="triggerTrackerMilitaryRaid()">🚨</button>
+<button type="button" id="trackerHealthBtn" class="tracker-insights-btn" title="Engine health dashboard">❤️</button>
+<button type="button" id="trackerSeasonBacktestBtn" class="tracker-insights-btn" title="Season Backtest panel (Joint search + Lock Optimal Parameters)">📊</button>
+<button type="button" id="trackerBacktestBtn" class="tracker-insights-btn" title="Max-power backtest: run 1 replay test">⚡</button>
+<button type="button" id="trackerConfigBtn" class="tracker-insights-btn" title="View/Edit verified configs">⚙️</button>
+<button type="button" id="trackerCopyDataBtn" class="tracker-insights-btn" title="Copy tracker data to clipboard">📑</button>
+<button type="button" id="trackerCopyDataJsonBtn" class="tracker-insights-btn" title="Copy tracker data as JSON">🧾</button>
+          <span class="engine-battery" id="engineHealthBatteryWrap" title="Rolling engine performance">
+            <span class="engine-battery-shell"><span class="engine-battery-fill" id="enginePerfFill" style="width:0%;"></span></span>
+            <span class="engine-battery-pct" id="enginePerfPct">—</span>
+          </span>
+          <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
+        </div>
+      </div>
+          <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
+<div class="tracker-market-summary" id="trackerMarketSummary"></div>
+
+<div class="tracker-body-scroll" id="trackedPicksWrap">
+  <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
+
+  <div id="trackerEmpty" class="tracker-empty">
+    No tracked picks saved yet.
+  </div>
+
+  <div class="table-wrap tracker-table-wrap">
+<table id="trackedPicksTable">
+  <thead>
     <tr>
+      <th>Date</th>
+      <th>League</th>
+      <th>Match</th>
       <th>Market</th>
-      <th>Projection</th>
-      <th>Edge</th>
+      <th>Line</th>
+      <th>Pick</th>
       <th>Grade</th>
-      <th>Prediction</th>
+      <th>Status</th>
     </tr>
-  </table>
-</div>
-
-<div id="trackerModal" class="tracker-modal" aria-hidden="true">
-  <div class="tracker-panel">
-    <div class="tracker-head">
-      <span id="trackerHeadTitle">Tracked Picks</span>
-      <div class="tracker-head-actions">
-        <button type="button" id="trackerCopyDataBtn" class="tracker-insights-btn" title="Copy tracker report">📑</button>
-        <button type="button" id="trackerCopyDataJsonBtn" class="tracker-insights-btn" title="Copy JSON">🧾</button>
-        <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
-      </div>
-    </div>
-    <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
-    <div class="tracker-market-summary" id="trackerMarketSummary"></div>
-    <div class="tracker-body-scroll" id="trackedPicksWrap">
-      <div id="trackerEmpty" class="tracker-empty">No tracked picks saved yet.</div>
-      <div class="table-wrap tracker-table-wrap">
-        <table id="trackedPicksTable">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>League</th>
-              <th>Match</th>
-              <th>Market</th>
-              <th>Line</th>
-              <th>Pick</th>
-              <th>Grade</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="trackedPicksBody"></tbody>
-        </table>
-      </div>
-    </div>
+  </thead>
+  <tbody id="trackedPicksBody"></tbody>
+</table>
   </div>
 </div>
+  </div>
+</div>
+
 
 <div id="afdbOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,0.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
   <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;"></div>
 </div>
 
-<script>
-(function () {
-  "use strict";
 
-  const LEAGUE = "setka_cup";
-  const LEAGUE_LABEL = "Setka Cup";
-  const STORAGE_TRACKER = "TT_SETKA_TRACKER_V2";
-  const STORAGE_THEME = "theme";
-  const BASE_MATCH = 72;
-  const BASE_SET1 = 18.5;
-  const EDGE_MATCH = 3.5;
-  const EDGE_SET1 = 1.25;
 
-  // ── utils ──
-  function clamp(n, lo, hi) { n = Number(n); return isFinite(n) ? Math.max(lo, Math.min(hi, n)) : lo; }
-  function avg(a) {
-    a = (a || []).filter(function (x) { return isFinite(Number(x)); }).map(Number);
-    return a.length ? a.reduce(function (s, x) { return s + x; }, 0) / a.length : NaN;
-  }
-  function stdDev(a) {
-    a = (a || []).filter(function (x) { return isFinite(Number(x)); }).map(Number);
-    if (a.length < 2) return 0;
-    var m = avg(a);
-    return Math.sqrt(a.reduce(function (s, x) { return s + (x - m) * (x - m); }, 0) / (a.length - 1));
-  }
-  function parseNums(str) {
-    return String(str || "").split(/[,;\s]+/).map(function (s) { return s.trim(); }).filter(Boolean).map(Number).filter(isFinite);
-  }
-  function parseLine(raw) {
-    var s = String(raw || "").trim();
-    if (!s) return null;
-    var m = s.match(/^(-?\d+(?:\.\d+)?)\s*[-–]\s*(-?\d+(?:\.\d+)?)$/);
-    if (m) {
-      var a = Number(m[1]), b = Number(m[2]);
-      if (!isFinite(a) || !isFinite(b)) return null;
-      var lo = Math.min(a, b), hi = Math.max(a, b);
-      return { mid: (lo + hi) / 2, lo: lo, hi: hi, raw: s };
-    }
-    var n = Number(s);
-    return isFinite(n) ? { mid: n, lo: n, hi: n, raw: s } : null;
-  }
-  function displayLine(n) {
-    if (!isFinite(n)) return "—";
-    var r = Math.round(n * 2) / 2;
-    return (r % 1 === 0) ? r.toFixed(1) : String(r);
-  }
-  function weighted(arr) {
-    var a = (arr || []).filter(function (x) { return isFinite(Number(x)); }).map(Number);
-    if (!a.length) return NaN;
-    var w = [1.5, 1.25, 1.0, 0.85, 0.7, 0.55, 0.4, 0.3], sx = 0, sw = 0;
-    for (var i = 0; i < a.length; i++) {
-      var wi = w[i] != null ? w[i] : 0.25;
-      sx += a[i] * wi; sw += wi;
-    }
-    return sw ? sx / sw : NaN;
-  }
-  function el(id) { return document.getElementById(id); }
-  function setStatus(node, msg, color) {
-    if (!node) return;
-    node.textContent = msg || "";
-    node.style.color = color || "var(--muted)";
-  }
-
-  // ── AFDB debug (kept) ──
-  const AFDB = (function () {
-    var LOG_LIMIT = 400, _log = [], _isOpen = false, _level = "ALL";
-    var LEVELS = {
-      ENGINE: { color: "#d4af37" }, TRACKER: { color: "#4ea9ff" },
-      ERROR: { color: "#ff5c61" }, WARN: { color: "#ffcf73" },
-      INFO: { color: "#aaa" }, SUCCESS: { color: "#49d45f" }
-    };
-    function esc(s) {
-      return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    }
-    function log(level, section, msg, data) {
-      _log.unshift({ ts: new Date().toLocaleTimeString([], { hour12: false }), level: level, section: section || "CORE", msg: msg, data: data != null ? data : null });
-      if (_log.length > LOG_LIMIT) _log = _log.slice(0, LOG_LIMIT);
-      if (_isOpen) render();
-    }
-    function render() {
-      var panel = el("afdbPanel");
-      if (!panel) return;
-      var rows = _log.filter(function (e) {
-        return _level === "ALL" || e.level === _level || (_level === "ERROR" && (e.level === "ERROR" || e.level === "WARN"));
-      }).map(function (e) {
-        var c = (LEVELS[e.level] || LEVELS.INFO).color;
-        var dataHtml = "";
-        if (e.data != null) {
-          try { dataHtml = "<pre style=\"color:#888;font-size:9px;margin:4px 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;\">" + esc(typeof e.data === "object" ? JSON.stringify(e.data, null, 2) : String(e.data)) + "</pre>"; }
-          catch (x) {}
-        }
-        return "<div style=\"padding:8px;border-bottom:1px solid #151515;\"><span style=\"color:#555;font-size:9px;\">" + esc(e.ts) + "</span> <span style=\"color:" + c + ";font-size:10px;font-weight:900;\">" + esc(e.level) + "</span> <span style=\"color:#777;font-size:9px;\">[" + esc(e.section) + "]</span> <span style=\"color:" + c + ";font-size:11px;font-weight:700;\">" + esc(e.msg) + "</span>" + dataHtml + "</div>";
-      }).join("");
-      panel.innerHTML =
-        "<div style=\"background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;\">" +
-        "<div style=\"color:#d4af37;font-size:14px;font-weight:900;\">🔬 TT SETKA DEBUG</div>" +
-        "<div style=\"display:flex;gap:8px;flex-wrap:wrap;\">" +
-        "<button type=\"button\" id=\"afdbCopyBtn\" style=\"background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;\">📋 Copy</button>" +
-        "<button type=\"button\" id=\"afdbClearBtn\" style=\"background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;\">🗑️ Clear</button>" +
-        "<button type=\"button\" id=\"afdbCloseBtn\" style=\"background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;\">✕ Close</button>" +
-        "</div></div>" +
-        "<div style=\"flex:1;overflow-y:auto;background:#0a0a0a;\">" + (rows || "<div style=\"color:#555;text-align:center;padding:30px;\">No log entries.</div>") + "</div>";
-      var c1 = el("afdbCopyBtn"), c2 = el("afdbClearBtn"), c3 = el("afdbCloseBtn");
-      if (c1) c1.onclick = function () {
-        var t = _log.slice().reverse().map(function (e) {
-          return "[" + e.ts + "] [" + e.level + "] [" + e.section + "] " + e.msg;
-        }).join("\n");
-        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t);
-      };
-      if (c2) c2.onclick = function () { _log = []; render(); };
-      if (c3) c3.onclick = close;
-    }
-    function open() { _isOpen = true; var ov = el("afdbOverlay"); if (ov) { ov.style.display = "flex"; render(); } }
-    function close() { _isOpen = false; var ov = el("afdbOverlay"); if (ov) ov.style.display = "none"; }
-    return { log: log, open: open, close: close };
-  })();
-  window.AFDB = AFDB;
-  function engineDebug(msg, extra) {
-    var isErr = /error|fail|critical|crash/i.test(String(msg));
-    AFDB.log(isErr ? "ERROR" : "ENGINE", "ENGINE", msg, extra);
-  }
-  window.engineDebug = engineDebug;
-
-  // ── theme ──
-  function toggleTheme() {
-    var dark = document.body.classList.toggle("dark-mode");
-    try { localStorage.setItem(STORAGE_THEME, dark ? "dark" : "light"); } catch (e) {}
-  }
-  if (localStorage.getItem(STORAGE_THEME) === "dark") document.body.classList.add("dark-mode");
-
-  // ── tracker + manual settlement (kept) ──
-  var g_trackerState = { activePicks: [], archivedPicks: [], stats: { settled: 0, wins: 0, losses: 0, pushes: 0 } };
-
-  function loadTracker() {
-    try {
-      var raw = localStorage.getItem(STORAGE_TRACKER);
-      var d = raw ? JSON.parse(raw) : null;
-      if (d && Array.isArray(d.activePicks)) {
-        g_trackerState = d;
-        if (!g_trackerState.archivedPicks) g_trackerState.archivedPicks = [];
-        if (!g_trackerState.stats) g_trackerState.stats = { settled: 0, wins: 0, losses: 0, pushes: 0 };
-      }
-    } catch (e) {}
-    rebuildStats();
-  }
-  function saveTracker() {
-    try { localStorage.setItem(STORAGE_TRACKER, JSON.stringify(g_trackerState)); } catch (e) {
-      engineDebug("Tracker save failed", e && e.message);
-    }
-  }
-  function rebuildStats() {
-    var w = 0, l = 0, p = 0;
-    (g_trackerState.archivedPicks || []).forEach(function (x) {
-      var r = String(x.resultStatus || "").toLowerCase();
-      if (r === "win") w++;
-      else if (r === "loss") l++;
-      else if (r === "push") p++;
-    });
-    g_trackerState.stats = { settled: w + l + p, wins: w, losses: l, pushes: p };
-  }
-  function openTracker() {
-    document.body.classList.add("tracker-open");
-    var m = el("trackerModal");
-    if (m) { m.classList.add("open"); m.setAttribute("aria-hidden", "false"); }
-    renderTracker();
-  }
-  function closeTracker() {
-    document.body.classList.remove("tracker-open");
-    var m = el("trackerModal");
-    if (m) { m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); }
-  }
-  function renderTracker() {
-    rebuildStats();
-    var st = g_trackerState.stats;
-    var active = g_trackerState.activePicks || [];
-    var archived = g_trackerState.archivedPicks || [];
-    var all = active.concat(archived);
-    el("trackerSummary").textContent =
-      all.length + " saved • " + st.settled + " settled • " + st.wins + " wins" +
-      (st.settled ? " • WR " + ((st.wins / (st.wins + st.losses || 1)) * 100).toFixed(1) + "%" : "");
-
-    var marketMap = {};
-    all.forEach(function (p) {
-      var mk = p.marketName || p.marketKey || "—";
-      if (!marketMap[mk]) marketMap[mk] = { w: 0, l: 0, p: 0 };
-      var r = String(p.resultStatus || "").toLowerCase();
-      if (r === "win") marketMap[mk].w++;
-      else if (r === "loss") marketMap[mk].l++;
-      else if (r === "push") marketMap[mk].p++;
-    });
-    var ms = el("trackerMarketSummary");
-    ms.innerHTML = Object.keys(marketMap).map(function (k) {
-      var s = marketMap[k], t = s.w + s.l;
-      var wr = t ? ((s.w / t) * 100).toFixed(0) + "%" : "—";
-      return "<span class=\"tracker-market-chip\">" + k + ": " + s.w + "W-" + s.l + "L (" + wr + ")</span>";
-    }).join("") || "";
-
-    var empty = el("trackerEmpty");
-    var body = el("trackedPicksBody");
-    if (!all.length) {
-      empty.style.display = "block";
-      body.innerHTML = "";
-      return;
-    }
-    empty.style.display = "none";
-    var sorted = all.slice().sort(function (a, b) {
-      return (b.createdAt || "").localeCompare(a.createdAt || "");
-    });
-    body.innerHTML = sorted.map(function (p) {
-      var res = String(p.resultStatus || "pending").toLowerCase();
-      var cls = res === "win" ? "track-win" : res === "loss" ? "track-loss" : res === "push" ? "track-push" : "track-pending";
-      var settle = res === "pending"
-        ? "<div class=\"tracker-manual-settle\">" +
-          "<button type=\"button\" class=\"tracker-manual-btn\" data-sig=\"" + p.signature + "\" data-res=\"win\">W</button>" +
-          "<button type=\"button\" class=\"tracker-manual-btn\" data-sig=\"" + p.signature + "\" data-res=\"loss\">L</button>" +
-          "<button type=\"button\" class=\"tracker-manual-btn\" data-sig=\"" + p.signature + "\" data-res=\"push\">P</button>" +
-          "</div>"
-        : res.toUpperCase();
-      var dt = p.createdAt ? new Date(p.createdAt).toLocaleDateString([], { month: "short", day: "numeric" }) : "—";
-      return "<tr>" +
-        "<td>" + dt + "</td>" +
-        "<td>" + (p.league || LEAGUE_LABEL) + "</td>" +
-        "<td>" + (p.homeTeam || "—") + " vs " + (p.awayTeam || "—") + "</td>" +
-        "<td>" + (p.marketName || "—") + "</td>" +
-        "<td>" + (p.line != null ? displayLine(p.line) : "—") + "</td>" +
-        "<td>" + (p.predictionText || "—") + "</td>" +
-        "<td>" + (p.confidenceGrade || "—") + "</td>" +
-        "<td class=\"" + cls + "\">" + settle + "</td>" +
-        "</tr>";
-    }).join("");
-  }
-
-  function applyManualSettlement(signature, result) {
-    var active = g_trackerState.activePicks || [];
-    var idx = active.findIndex(function (p) { return p.signature === signature; });
-    if (idx < 0) {
-      engineDebug("Manual settle: pick not found", signature);
-      return false;
-    }
-    var pick = active[idx];
-    pick.resultStatus = result;
-    pick.settledAt = new Date().toISOString();
-    active.splice(idx, 1);
-    g_trackerState.archivedPicks = g_trackerState.archivedPicks || [];
-    g_trackerState.archivedPicks.push(pick);
-    rebuildStats();
-    saveTracker();
-    renderTracker();
-    AFDB.log("TRACKER", "SETTLE", "Manual " + result.toUpperCase() + " → " + (pick.predictionText || ""), { match: pick.homeTeam + " vs " + pick.awayTeam });
-    return true;
-  }
-
-  function saveLastRunToTracker(run) {
-    if (!run || !run.markets) return 0;
-    var n = 0;
-    ["total", "set1"].forEach(function (k) {
-      var m = run.markets[k];
-      if (!m || m.pick === "NO PLAY" || !m.side) return;
-      var sig = [run.playerA, run.playerB, m.key, m.line && m.line.mid, run.at].join("|");
-      var exists = (g_trackerState.activePicks || []).some(function (p) { return p.signature === sig; });
-      if (exists) return;
-      g_trackerState.activePicks.push({
-        signature: sig,
-        league: LEAGUE_LABEL,
-        homeTeam: run.playerA,
-        awayTeam: run.playerB,
-        marketKey: m.key,
-        marketName: m.name,
-        line: m.line ? m.line.mid : null,
-        predictionText: m.pick,
-        confidenceGrade: m.grade,
-        edge: m.edge,
-        projection: m.projection,
-        resultStatus: "pending",
-        createdAt: run.at
-      });
-      n++;
-    });
-    if (n) { saveTracker(); engineDebug("Saved " + n + " pick(s) to tracker"); }
-    return n;
-  }
-
-  // ── SofaScore parse (lightweight) ──
-  function deepFind(obj, pred, depth) {
-    depth = depth || 0;
-    if (depth > 10 || obj == null || typeof obj !== "object") return null;
-    if (pred(obj)) return obj;
-    if (Array.isArray(obj)) {
-      for (var i = 0; i < obj.length; i++) { var r = deepFind(obj[i], pred, depth + 1); if (r) return r; }
-    } else {
-      var keys = Object.keys(obj);
-      for (var j = 0; j < keys.length; j++) { var r2 = deepFind(obj[keys[j]], pred, depth + 1); if (r2) return r2; }
-    }
-    return null;
-  }
-  function parseSofaJson(text) {
-    var data = JSON.parse(String(text || "").trim());
-    var out = { playerA: "", playerB: "", notes: [] };
-    var event = data.event || (data.homeTeam || data.awayTeam ? data : null) ||
-      deepFind(data, function (o) { return o && (o.homeTeam || o.awayTeam) && (o.id || o.startTimestamp); });
-    if (event) {
-      var home = event.homeTeam || event.home;
-      var away = event.awayTeam || event.away;
-      out.playerA = (home && (home.name || home.fullName || home.shortName)) || "";
-      out.playerB = (away && (away.name || away.fullName || away.shortName)) || "";
-      out.notes.push("Parsed event players");
-    }
-    if (data.playerA || data.A) {
-      var A = data.playerA || data.A;
-      if (A.name) out.playerA = A.name;
-      if (A.matchTotals) out.aMatch = Array.isArray(A.matchTotals) ? A.matchTotals : parseNums(A.matchTotals);
-      if (A.set1Totals) out.aSet1 = Array.isArray(A.set1Totals) ? A.set1Totals : parseNums(A.set1Totals);
-    }
-    if (data.playerB || data.B) {
-      var B = data.playerB || data.B;
-      if (B.name) out.playerB = B.name;
-      if (B.matchTotals) out.bMatch = Array.isArray(B.matchTotals) ? B.matchTotals : parseNums(B.matchTotals);
-      if (B.set1Totals) out.bSet1 = Array.isArray(B.set1Totals) ? B.set1Totals : parseNums(B.set1Totals);
-    }
-    var tourney = String(event && event.tournament && event.tournament.name || data.tournament && data.tournament.name || "").toLowerCase();
-    if (tourney && tourney.indexOf("setka") === -1) out.notes.push("⚠ Tournament may not be Setka Cup: " + tourney);
-    else if (tourney) out.notes.push("Tournament: " + tourney);
-    return out;
-  }
-
-  // ── Thin TT projection (only match total + 1st set) ──
-  function projectSeries(aArr, bArr, base) {
-    var a = weighted(aArr), b = weighted(bArr);
-    var proj;
-    if (isFinite(a) && isFinite(b)) proj = (a + b) / 2;
-    else if (isFinite(a) || isFinite(b)) proj = isFinite(a) ? a : b;
-    else proj = base;
-    var n = Math.max((aArr || []).length, (bArr || []).length);
-    var trust = clamp(n / 6, 0.25, 1);
-    proj = trust * proj + (1 - trust) * base;
-    return { projection: proj, sampleN: n, volatility: Math.max(stdDev(aArr), stdDev(bArr)), trust: trust };
-  }
-  function grade(edge, minEdge, vol, n) {
-    var abs = Math.abs(edge);
-    if (!isFinite(abs) || abs < minEdge) return "NaN";
-    var g = 1;
-    if (abs >= minEdge * 1.2) g = 2;
-    if (abs >= minEdge * 1.8) g = 3;
-    if (abs >= minEdge * 2.6) g = 4;
-    if (n < 3) g = Math.min(g, 2);
-    if (n < 5) g = Math.min(g, 3);
-    if (vol > 12) g = Math.min(g, 2);
-    return ["NaN", "D", "C", "B", "A"][g];
-  }
-  function makePick(proj, line, minEdge, vol, n) {
-    if (!line || !isFinite(line.mid) || !isFinite(proj)) {
-      return { pick: "NO PLAY", side: "", edge: NaN, grade: "NaN", line: line };
-    }
-    var edge = proj - line.mid;
-    if (Math.abs(edge) < minEdge) return { pick: "NO PLAY", side: "", edge: edge, grade: "NaN", line: line };
-    var side = edge > 0 ? "OVER" : "UNDER";
-    return { pick: side + " " + displayLine(line.mid), side: side.toLowerCase(), edge: edge, grade: grade(edge, minEdge, vol, n), line: line };
-  }
-  function confClass(g) {
-    return g === "A" ? "conf-a" : g === "B" ? "conf-b" : g === "C" ? "conf-c" : g === "D" ? "conf-d" : "conf-none";
-  }
-  function pickClass(side) {
-    return side === "over" ? "pred-over" : side === "under" ? "pred-under" : "pred-noplay";
-  }
-
-  var lastRun = null;
-
-  function runEngine() {
-    var playerA = (el("teamAName").value || "").trim() || "Player A";
-    var playerB = (el("teamBName").value || "").trim() || "Player B";
-    var aMatch = parseNums(el("aFTScored").value);
-    var bMatch = parseNums(el("bFTScored").value);
-    // If allowed filled, blend scored+allowed as match total proxy
-    var aAll = parseNums(el("aFTAllowed").value);
-    var bAll = parseNums(el("bFTAllowed").value);
-    if (!aMatch.length && aAll.length) aMatch = aAll;
-    if (!bMatch.length && bAll.length) bMatch = bAll;
-    // Prefer (scored+allowed) averages when both present
-    if (aMatch.length && aAll.length && aMatch.length === aAll.length) {
-      aMatch = aMatch.map(function (x, i) { return x + aAll[i]; });
-    }
-    if (bMatch.length && bAll.length && bMatch.length === bAll.length) {
-      bMatch = bMatch.map(function (x, i) { return x + bAll[i]; });
-    }
-    var aSet1 = parseNums(el("a1HScored").value);
-    var bSet1 = parseNums(el("b1HScored").value);
-    var aS1o = parseNums(el("a1HAllowed").value);
-    var bS1o = parseNums(el("b1HAllowed").value);
-    if (aSet1.length && aS1o.length && aSet1.length === aS1o.length) {
-      aSet1 = aSet1.map(function (x, i) { return x + aS1o[i]; });
-    }
-    if (bSet1.length && bS1o.length && bSet1.length === bS1o.length) {
-      bSet1 = bSet1.map(function (x, i) { return x + bS1o[i]; });
-    }
-
-    var matchP = projectSeries(aMatch, bMatch, BASE_MATCH);
-    var set1P = projectSeries(aSet1, bSet1, BASE_SET1);
-    var totalLine = parseLine(el("ftMarket").value);
-    var set1Line = parseLine(el("h1Market").value);
-    var matchPick = makePick(matchP.projection, totalLine, EDGE_MATCH, matchP.volatility, matchP.sampleN);
-    var set1Pick = makePick(set1P.projection, set1Line, EDGE_SET1, set1P.volatility, set1P.sampleN);
-
-    lastRun = {
-      at: new Date().toISOString(),
-      playerA: playerA,
-      playerB: playerB,
-      markets: {
-        total: Object.assign({ key: "total", name: "Match Total Points", projection: matchP.projection, sampleN: matchP.sampleN }, matchPick),
-        set1: Object.assign({ key: "set1", name: "1st Set Total Points", projection: set1P.projection, sampleN: set1P.sampleN }, set1Pick)
-      }
-    };
-
-    var table = el("results");
-    table.style.display = "table";
-    // clear old rows except header
-    while (table.rows.length > 1) table.deleteRow(1);
-    ["total", "set1"].forEach(function (k) {
-      var m = lastRun.markets[k];
-      var tr = table.insertRow(-1);
-      var edgeTxt = isFinite(m.edge) ? ((m.edge > 0 ? "+" : "") + m.edge.toFixed(2)) : "—";
-      tr.innerHTML =
-        "<td>" + m.name + "</td>" +
-        "<td>" + (isFinite(m.projection) ? m.projection.toFixed(1) : "—") + "</td>" +
-        "<td>" + edgeTxt + "</td>" +
-        "<td class=\"" + confClass(m.grade) + "\">" + m.grade + "</td>" +
-        "<td class=\"" + pickClass(m.side) + "\">" + m.pick + "</td>";
-    });
-
-    var saved = saveLastRunToTracker(lastRun);
-    engineDebug("Run complete", { match: playerA + " vs " + playerB, saved: saved });
-    AFDB.log("SUCCESS", "RUN", playerA + " vs " + playerB, {
-      total: lastRun.markets.total.pick,
-      set1: lastRun.markets.set1.pick
-    });
-  }
-
-  function clearAll() {
-    ["teamAName","teamBName","aFTScored","aFTAllowed","a1HScored","a1HAllowed",
-     "bFTScored","bFTAllowed","b1HScored","b1HAllowed","ftMarket","h1Market","sofaJson"].forEach(function (id) {
-      var n = el(id); if (n) n.value = "";
-    });
-    var table = el("results");
-    table.style.display = "none";
-    while (table.rows.length > 1) table.deleteRow(1);
-    el("parsedPreview").style.display = "none";
-    setStatus(el("jsonStatus"), "", "");
-    lastRun = null;
-  }
-
-  // ── wire UI ──
-  document.addEventListener("DOMContentLoaded", function () {
-    loadTracker();
-
-    el("themeToggleBtn").addEventListener("click", toggleTheme);
-    el("trackerToggleBtn").addEventListener("click", openTracker);
-    el("trackerCloseBtn").addEventListener("click", closeTracker);
-    el("afdbBtn").addEventListener("click", function () { AFDB.open(); });
-    el("engineRelockBtn").addEventListener("click", function () {
-      localStorage.removeItem("engineUnlocked");
-      location.reload();
-    });
-    el("runBtn").addEventListener("click", runEngine);
-    el("clearBtn").addEventListener("click", clearAll);
-
-    var modal = el("trackerModal");
-    if (modal) modal.addEventListener("click", function (e) { if (e.target === modal) closeTracker(); });
-
-    el("trackedPicksBody").addEventListener("click", function (e) {
-      var btn = e.target.closest("[data-sig][data-res]");
-      if (!btn) return;
-      applyManualSettlement(btn.getAttribute("data-sig"), btn.getAttribute("data-res"));
-    });
-
-    el("parseJsonBtn").addEventListener("click", function () {
-      try {
-        var parsed = parseSofaJson(el("sofaJson").value);
-        if (parsed.playerA) el("teamAName").value = parsed.playerA;
-        if (parsed.playerB) el("teamBName").value = parsed.playerB;
-        if (parsed.aMatch) el("aFTScored").value = parsed.aMatch.join(",");
-        if (parsed.bMatch) el("bFTScored").value = parsed.bMatch.join(",");
-        if (parsed.aSet1) el("a1HScored").value = parsed.aSet1.join(",");
-        if (parsed.bSet1) el("b1HScored").value = parsed.bSet1.join(",");
-        setStatus(el("jsonStatus"), "Parsed OK", "#2f8f4a");
-        var prev = el("parsedPreview");
-        prev.style.display = "block";
-        prev.innerHTML = "<strong>" + (parsed.playerA || "—") + "</strong> vs <strong>" + (parsed.playerB || "—") + "</strong><br>" +
-          (parsed.notes || []).join("<br>");
-        engineDebug("JSON parsed", parsed.notes);
-      } catch (e) {
-        setStatus(el("jsonStatus"), String(e.message || e), "#d92d2a");
-      }
-    });
-    el("clearJsonBtn").addEventListener("click", function () {
-      el("sofaJson").value = "";
-      setStatus(el("jsonStatus"), "", "");
-      el("parsedPreview").style.display = "none";
-    });
-
-    el("trackerCopyDataBtn").addEventListener("click", function () {
-      var active = g_trackerState.activePicks || [];
-      var archived = g_trackerState.archivedPicks || [];
-      var all = active.concat(archived);
-      var st = g_trackerState.stats || {};
-      var lines = [
-        "TT SETKA ENGINE — TRACKER REPORT",
-        "Generated: " + new Date().toLocaleString(),
-        "Record: " + (st.wins || 0) + "W-" + (st.losses || 0) + "L",
-        ""
-      ];
-      all.forEach(function (p, i) {
-        lines.push((i + 1) + ". " + (p.homeTeam || "—") + " vs " + (p.awayTeam || "—"));
-        lines.push("   " + (p.marketName || "") + " | " + (p.predictionText || "") + " | " + String(p.resultStatus || "pending").toUpperCase());
-      });
-      var text = lines.join("\n");
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
-      else prompt("Copy:", text);
-    });
-    el("trackerCopyDataJsonBtn").addEventListener("click", function () {
-      var json = JSON.stringify(g_trackerState, null, 2);
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(json);
-      else prompt("Copy JSON:", json);
-    });
-
-    engineDebug("TT Setka Cup engine ready (shell + tracker + debug + thin TT model)");
-  });
-})();
-</script>
 </body>
 </html>
