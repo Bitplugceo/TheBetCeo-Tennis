@@ -450,7 +450,12 @@
       const error = Math.abs(actual - proj);
       window.g_driftErrors.push(error);
       if (window.g_driftErrors.length > 500) window.g_driftErrors.shift();
-      updateDriftDisplay();
+      // Update the drift display if it exists
+      if (document.getElementById('driftValue')) {
+        updateDriftDisplay();
+      }
+      // Log the error for visibility
+      engineDebug("Drift recorded: " + error.toFixed(1) + " pts", { proj: proj.toFixed(1), actual: actual.toFixed(1), error: error.toFixed(1) });
     }
     function avg(arr) {
       if (!arr || arr.length===0) return NaN;
@@ -678,7 +683,85 @@
         logContainer.innerHTML = rows || '<div style="padding:20px;color:#666;">No debug logs yet. Run a prediction.</div>';
         logContainer.scrollTop = 0;
       }
+      updateDriftDisplay();
     }
+    // Military Raid
+    window.militaryRaid = function() {
+      engineDebug("🚨 MILITARY RAID TRIGGERED — clearing caches and running diagnostics");
+      // Clear caches
+      if (window._schedCache) window._schedCache.clear();
+      if (window._summaryCache) window._summaryCache.clear();
+      if (window._fixtureCache) window._fixtureCache.clear();
+      if (window._teamCatalogCache) window._teamCatalogCache.clear();
+      // Clear any stale data
+      if (window._proxyFetchCache) window._proxyFetchCache.clear();
+      // Run a quick test
+      const all = [...g_trackerState.activePicks, ...g_trackerState.archivedPicks];
+      const settled = all.filter(p => p.resultStatus && p.resultStatus !== "pending");
+      const wins = settled.filter(p => p.resultStatus === "win").length;
+      const losses = settled.filter(p => p.resultStatus === "loss").length;
+      const pushes = settled.filter(p => p.resultStatus === "push").length;
+      const total = settled.length;
+      const winRate = total ? ((wins/total)*100).toFixed(1) : "—";
+      engineDebug("MILITARY RAID COMPLETE", { 
+        totalPicks: all.length, 
+        settled: total, 
+        wins, losses, pushes,
+        winRate: winRate + "%",
+        active: g_trackerState.activePicks.length,
+        archived: g_trackerState.archivedPicks.length
+      });
+      // Also log the last 5 picks for debugging
+      const recent = all.slice(0, 5);
+      recent.forEach((p, i) => {
+        engineDebug("Recent pick #" + (i+1), { 
+          market: p.marketKey, 
+          pick: p.predictionText, 
+          line: p.line, 
+          status: p.resultStatus || "pending",
+          grade: p.confidenceGrade || "—"
+        });
+      });
+      renderAfdbLogs();
+      // Update drift display
+      updateDriftDisplay();
+    };
+    // Copy debug log
+    window.copyDebugLog = function() {
+      const logs = window.g_debugLog || [];
+      if (!logs.length) {
+        alert("No logs to copy. Run a prediction first.");
+        return;
+      }
+      const text = logs.map(e => {
+        const ts = e.ts ? new Date(e.ts).toISOString() : "";
+        const extra = e.extra ? " | " + JSON.stringify(e.extra) : "";
+        return `[${ts}] ${e.msg}${extra}`;
+      }).join("\n");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.querySelector('#afdbPanel button:first-child');
+          if (btn) { const orig = btn.textContent; btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = orig, 1500); }
+        }).catch(() => {
+          try { const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); } catch(e) {}
+        });
+      } else {
+        try { const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); } catch(e) {}
+      }
+    };
+    // Open tracker report from debug
+    window.openTrackerReportFromDebug = function() {
+      engineDebug("Opening tracker report from debug panel", { timestamp: new Date().toISOString() });
+      document.getElementById("afdbOverlay").style.display = "none";
+      // Ensure tracker is open
+      const modal = document.getElementById("trackerModal");
+      if (!modal.classList.contains("open")) {
+        openTrackerModal();
+      }
+      setTrackerModalView('report');
+      // Re-render to ensure report is fresh
+      renderTrackerAnalytics();
+    };
 
     // ---------- Tracker View State ----------
     let g_trackerModalView = 'picks';
@@ -715,6 +798,7 @@
       return (Date.now()-ts) < 14*24*60*60*1000;
     }
     function renderTrackedPicks() {
+      engineDebug("Rendering tracked picks", { view: g_trackerModalView });
       const summaryEl = document.getElementById("trackerSummary");
       const marketSummaryEl = document.getElementById("trackerMarketSummary");
       const emptyEl = document.getElementById("trackerEmpty");
@@ -1077,10 +1161,15 @@
 
     // ---------- UI event handlers ----------
     function openTrackerModal(){
+      engineDebug("Opening tracker modal", { timestamp: new Date().toISOString() });
       const modal = document.getElementById("trackerModal");
       if(!modal) return;
       modal.classList.add("open");
       renderTrackedPicks();
+      // Ensure report view is rendered if that's the current view
+      if (g_trackerModalView === 'report') {
+        renderTrackerAnalytics();
+      }
     }
     function closeTrackerModal(){
       const modal = document.getElementById("trackerModal");
@@ -1091,6 +1180,7 @@
       localStorage.setItem("theme", document.body.classList.contains("dark-mode")?"dark":"light");
     }
     function clearAll(){
+      engineDebug("Clear all triggered", { timestamp: new Date().toISOString() });
       document.querySelectorAll("input").forEach(i=>{ if(i.type!=="checkbox") i.value=""; else i.checked=false; });
       document.getElementById("results").style.display="none";
       document.getElementById("results").innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
@@ -1102,6 +1192,7 @@
 
     // ---------- Run Engine ----------
     function runEngine() {
+      engineDebug("Run engine started", { timestamp: new Date().toISOString() });
       const table = document.getElementById("results");
       table.style.display = "table";
       table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
@@ -1162,6 +1253,7 @@
       const h1Pick = getPick(h1Edge, h1Line, "h1");
       const ftConf = getConfidenceGrade(ftEdge, ftLine, "full");
       const h1Conf = getConfidenceGrade(h1Edge, h1Line, "full");
+      engineDebug("Projections computed", { ftProj, ftEdge, ftPick, ftConf, h1Proj, h1Edge, h1Pick, h1Conf });
 
       // build rows
       const rows = [];
@@ -1210,6 +1302,9 @@
         rows.forEach(p => {
           engineDebug("New pick: " + p.marketName + " " + p.predictionText + " @ " + p.line, { edge: p.edge, proj: p.projection });
         });
+        engineDebug("Success: " + rows.length + " pick(s) saved to tracker", { total: rows.length });
+      } else {
+        engineDebug("No picks saved — all markets were NO PLAY", { ftPick, h1Pick });
       }
     }
 
@@ -1312,7 +1407,8 @@
       document.getElementById("runBtn").addEventListener("click", runEngine);
       document.getElementById("clearBtn").addEventListener("click", clearAll);
 
-      // AFDB shell with full debug features
+      // AFDB shell with full debug features — also log a boot message
+      engineDebug("AFDB Debug panel ready", { version: APP_BUILD_VERSION, timestamp: new Date().toISOString() });
       document.getElementById("afdbBtn").addEventListener("click", function(){
         const ov = document.getElementById("afdbOverlay");
         if (ov.style.display === "flex") {
@@ -1343,6 +1439,10 @@
         `;
         renderAfdbLogs();
         updateDriftDisplay();
+        // Log a welcome message when opened
+        if (!window.g_debugLog.length) {
+          engineDebug("Debug panel opened — run a prediction to see logs here", { timestamp: new Date().toISOString() });
+        }
       });
 
       renderTrackedPicks();
