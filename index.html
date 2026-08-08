@@ -661,27 +661,22 @@
         log('INFO', 'THRESHOLDS', 'Live gates FT=' + th.ft + ' / 1st=' + th.h1);
       }
 
-      // 6) Required function surface (post-conversion integrity)
+      // 6) Required function surface (post-conversion integrity) — window exports only
       const requiredFns = [
         'copyTrackerData', 'updateEnginePerformanceScore', 'updateDriftDisplay',
         'proposeTtConfigUpgrades', 'applyTtVerifiedConfig', 'getTtConfigLabSnapshot',
-        'ssProcessTeamEvents', 'parseSofascoreIndividual'
+        'ssProcessTeamEvents', 'parseSofascoreIndividual', 'militaryRaid'
       ];
       requiredFns.forEach(function(name) {
-        if (typeof window[name] !== 'function' && typeof eval('typeof ' + name) === 'undefined') {
-          // window-scoped checks only for exports; local helpers validated indirectly
-        }
-        if (typeof window[name] !== 'function' && ['copyTrackerData', 'proposeTtConfigUpgrades', 'applyTtVerifiedConfig', 'getTtConfigLabSnapshot'].indexOf(name) >= 0) {
+        if (typeof window[name] !== 'function') {
           report('ERROR', 'EXPORTS', 'Missing window.' + name);
         }
       });
-      if (typeof updateEnginePerformanceScore !== 'function') report('ERROR', 'EXPORTS', 'updateEnginePerformanceScore not in scope');
-      if (typeof updateDriftDisplay !== 'function') report('ERROR', 'EXPORTS', 'updateDriftDisplay not in scope');
 
       // 7) Battery refresh as part of raid
       try {
-        if (typeof updateEnginePerformanceScore === 'function') updateEnginePerformanceScore();
-        if (typeof updateDriftDisplay === 'function') updateDriftDisplay();
+        if (typeof window.updateEnginePerformanceScore === 'function') window.updateEnginePerformanceScore();
+        if (typeof window.updateDriftDisplay === 'function') window.updateDriftDisplay();
       } catch (e) {
         report('ERROR', 'HEALTH', 'Battery/drift refresh failed: ' + (e && e.message ? e.message : String(e)));
       }
@@ -1145,6 +1140,9 @@
       }
       if (pctEl) pctEl.textContent = settled ? (pct.toFixed(0) + "%") : "—";
     }
+    // Expose for AFDB Military Raid (AFDB lives outside this IIFE)
+    window.updateDriftDisplay = updateDriftDisplay;
+    window.updateEnginePerformanceScore = updateEnginePerformanceScore;
     window.copyTrackerData = function() {
       try {
         const all = [...(g_trackerState.activePicks || []), ...(g_trackerState.archivedPicks || [])];
@@ -1295,15 +1293,9 @@
     };
 
     // ---------- Tracker View State ----------
-    let g_trackerModalView = 'picks';
-    function setTrackerModalView(view) {
-      if (view === 'picks' || view === 'report') {
-        g_trackerModalView = view;
-        renderTrackedPicks();
-        const title = document.getElementById('trackerHeadTitle');
-        if (title) title.textContent = view === 'picks' ? 'Tracked Picks' : 'Tracker Report';
-      }
-    }
+    // NOTE: g_trackerModalView + setTrackerModalView are declared ONCE under
+    // "UI event handlers" (with syncTrackerModalView). Do not redeclare here —
+    // duplicate `let` crashes the entire script with SyntaxError.
 
     function addTrackedPicks(newPicks) {
       if(!Array.isArray(newPicks)||!newPicks.length) return;
@@ -2290,6 +2282,111 @@
         section.dataset.collapsibleReady = "1";
       });
     }
+
+    // ---------- ENGINE_TEST_SUITE (TT) ----------
+    window.ENGINE_TEST_SUITE = (function() {
+      let _p = 0, _f = 0;
+      const _fails = [];
+      const _tests = [];
+      function expect(label, actual, expected) {
+        const ok = JSON.stringify(actual) === JSON.stringify(expected);
+        if (ok) _p++; else { _f++; _fails.push("FAIL: " + label + "\n  Expected: " + JSON.stringify(expected) + "\n  Got: " + JSON.stringify(actual)); }
+      }
+      function expectTrue(label, cond) {
+        if (cond) _p++; else { _f++; _fails.push("FAIL: " + label); }
+      }
+      function expectApprox(label, actual, expected, tol) {
+        tol = tol == null ? 0.05 : tol;
+        const ok = typeof actual === "number" && isFinite(actual) && Math.abs(actual - expected) <= tol;
+        if (ok) _p++; else { _f++; _fails.push("FAIL: " + label + "\n  Expected ~" + expected + " ±" + tol + ", got " + actual); }
+      }
+      function suite(name, fn) { _tests.push({ name: name, fn: fn }); }
+
+      suite("avg / weightedRecentAverage", function() {
+        expectApprox("avg [10,20,30]", avg([10, 20, 30]), 20, 0.001);
+        expectTrue("avg empty is NaN", isNaN(avg([])));
+        const w = weightedRecentAverage([100, 90, 80, 70, 60]);
+        expectTrue("weightedRecentAverage is finite and recency-biased", isFinite(w) && w > 80);
+      });
+
+      suite("parseMarketLine / displayLine / getPickSideFromText", function() {
+        expect("range mid", parseMarketLine("96.5-101.5"), 99);
+        expect("single", parseMarketLine("19.5"), 19.5);
+        expect("invalid", parseMarketLine("abc"), null);
+        expect("display .5", displayLine(98.3), "98.5");
+        expect("display null", displayLine(null), "—");
+        expect("OVER side", getPickSideFromText("OVER 99.5"), "over");
+        expect("UNDER side", getPickSideFromText("UNDER 18.5"), "under");
+        expect("NO PLAY side", getPickSideFromText("NO PLAY"), "");
+      });
+
+      suite("getSampleTier / getConfidenceGrade / getPick", function() {
+        expect("full", getSampleTier([1,2,3,4,5,6,7,8], [1,2,3,4,5,6,7,8]), "full");
+        expect("thin", getSampleTier([1,2,3,4], [1,2,3,4]), "thin");
+        expect("insufficient", getSampleTier([1], [1]), "insufficient");
+        expect("NO PLAY on null line", getPick(5, null, "ft"), "NO PLAY");
+        expect("NO PLAY on tiny edge", getPick(0.5, 100, "ft"), "NO PLAY");
+        expectTrue("positive edge OVER", String(getPick(8, 100, "ft")).indexOf("OVER") === 0);
+        expectTrue("negative edge UNDER", String(getPick(-8, 100, "ft")).indexOf("UNDER") === 0);
+        expect("NO PLAY grade NaN", getConfidenceGrade(5, 100, "insufficient"), "NaN");
+        expectTrue("strong full grade A or B", ["A", "B"].indexOf(getConfidenceGrade(12, 100, "full")) >= 0);
+      });
+
+      suite("stdDev / volatility / anchor / trap", function() {
+        if (typeof stdDev !== "function") { expectTrue("stdDev present", false); return; }
+        expectApprox("stdDev uniform 0", stdDev([10, 10, 10, 10]), 0, 0.001);
+        expectTrue("stdDev varied > 0", stdDev([8, 11, 9, 14, 10]) > 0);
+        if (typeof getVolatilityRatio === "function") {
+          expectApprox("zero vol ratio", getVolatilityRatio([10, 10, 10, 10], 5), 0, 0.01);
+          expectTrue("ratio capped at 2.5", getVolatilityRatio([1, 50, 2, 80], 3) <= 2.5);
+        }
+        if (typeof anchorProjection === "function") {
+          expectApprox("full sample unchanged", anchorProjection(110, 8, 100), 110, 0.01);
+          const blended = anchorProjection(130, 2, 100);
+          expectTrue("thin sample blends toward base", blended > 100 && blended < 130);
+        }
+        if (typeof detectTrap === "function") {
+          expect("no pick = false", detectTrap(3, 100, "NO PLAY", "ft", 2), false);
+          expect("big edge high vol = false", detectTrap(12, 100, "OVER 100.5", "ft", 2), false);
+          expect("moderate edge high vol = true", detectTrap(4, 100, "OVER 100.5", "ft", 1.5), true);
+          expect("moderate edge low vol = false", detectTrap(4, 100, "OVER 100.5", "ft", 0.5), false);
+        }
+      });
+
+      suite("Phase-2 config lab exports", function() {
+        expectTrue("proposeTtConfigUpgrades export", typeof window.proposeTtConfigUpgrades === "function");
+        expectTrue("applyTtVerifiedConfig export", typeof window.applyTtVerifiedConfig === "function");
+        expectTrue("getTtConfigLabSnapshot export", typeof window.getTtConfigLabSnapshot === "function");
+        if (typeof window.getTtConfigLabSnapshot === "function") {
+          const snap = window.getTtConfigLabSnapshot();
+          expectTrue("snapshot has live thresholds", !!(snap && snap.live && isFinite(snap.live.ft)));
+        }
+      });
+
+      suite("copyTrackerData / militaryRaid surface", function() {
+        expectTrue("copyTrackerData export", typeof window.copyTrackerData === "function");
+        expectTrue("militaryRaid export", typeof window.militaryRaid === "function");
+        expectTrue("AFDB.runTestFetch", typeof AFDB !== "undefined" && typeof AFDB.runTestFetch === "function");
+      });
+
+      function run() {
+        _p = 0; _f = 0; _fails.length = 0;
+        if (typeof engineDebug === "function") engineDebug("ENGINE_TEST_SUITE: running " + _tests.length + " suites...");
+        for (let i = 0; i < _tests.length; i++) {
+          try { _tests[i].fn(); }
+          catch (e) { _f++; _fails.push("CRASH [" + _tests[i].name + "]: " + (e && e.message ? e.message : String(e))); }
+        }
+        const total = _p + _f;
+        const label = _f === 0 ? "✅ ALL PASSED" : "❌ " + _f + " FAILED";
+        const summary = label + " | " + _p + "/" + total + " passed";
+        if (typeof engineDebug === "function") engineDebug("ENGINE_TEST_SUITE: " + summary, _f ? { failures: _fails } : null);
+        console[_f ? "error" : "log"]("%c" + summary, "color:" + (_f ? "#ff5c61" : "#3a9c35") + ";font-weight:900;font-size:14px;");
+        if (_f) _fails.forEach(function(f) { console.error(f); });
+        return { passed: _p, failed: _f, total: total, failures: _fails.slice() };
+      }
+
+      return { run: run };
+    })();
 
     // ---------- DOM ready ----------
     document.addEventListener("DOMContentLoaded", function() {
