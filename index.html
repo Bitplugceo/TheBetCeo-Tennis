@@ -590,6 +590,7 @@
         if(st) { st.style.color="#2f8f4a"; st.textContent="✅ Team "+side+" stats loaded from pasted JSON!"; }
         pasteEl.value = "";
         // auto-open only the lookup and market sections; keep others collapsed
+        document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
         document.getElementById("sofascoreManualSection").classList.remove("collapsed");
         document.getElementById("marketSection").classList.remove("collapsed");
       } catch(err) {
@@ -913,8 +914,13 @@
     // ---------- DOM ready ----------
     document.addEventListener("DOMContentLoaded", function() {
       makeSectionsCollapsible();
+      // Collapse all sections first, then open only the two we want
+      document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
       document.getElementById("sofascoreManualSection").classList.remove("collapsed");
       document.getElementById("marketSection").classList.remove("collapsed");
+
+      // Hide all auto-fill indicators initially
+      document.querySelectorAll(".autofill-indicator").forEach(el => el.style.display = "none");
 
       document.getElementById("themeToggleBtn").addEventListener("click", toggleTheme);
       if(localStorage.getItem("theme")==="dark") document.body.classList.add("dark-mode");
