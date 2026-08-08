@@ -585,54 +585,124 @@
 
     async function runTestFetch() {
       let totalSuspects = 0;
-      const inputsToCheck = ['aFTScored', 'bFTScored', 'a1HScored', 'b1HScored', 'ftMarket', 'h1Market'];
-      inputsToCheck.forEach(id => {
+      const report = function(level, section, msg, data) {
+        log(level, section, msg, data);
+        if (level === 'ERROR') totalSuspects++;
+      };
+
+      // 1) UI input integrity
+      const inputsToCheck = ['aFTScored', 'bFTScored', 'a1HScored', 'b1HScored', 'aFTAllowed', 'bFTAllowed', 'a1HAllowed', 'b1HAllowed', 'ftMarket', 'h1Market'];
+      inputsToCheck.forEach(function(id) {
         const el = document.getElementById(id);
         const val = el ? el.value.trim() : '';
         if (val && /[^0-9,.\s-]/.test(val)) {
-          log('ERROR', 'UI INPUT', 'Invalid characters detected in ' + id + ': "' + val + '". Math engine will crash.');
-          totalSuspects++;
+          report('ERROR', 'UI INPUT', 'Invalid characters in ' + id + ': "' + val + '"');
         }
       });
+
+      // 2) Tracker storage pressure + signature collisions
       const active = (typeof g_trackerState !== 'undefined' && Array.isArray(g_trackerState.activePicks)) ? g_trackerState.activePicks : [];
+      const archived = (typeof g_trackerState !== 'undefined' && Array.isArray(g_trackerState.archivedPicks)) ? g_trackerState.archivedPicks : [];
+      const allPicks = active.concat(archived);
       if (active.length > 490) {
-        log('ERROR','STORAGE','Active picks array is critically full (Limit: 500).');
-        totalSuspects++;
+        report('ERROR', 'STORAGE', 'Active picks critically full (' + active.length + '/500)');
       }
-      let edgeAnomalies = 0;
-      active.forEach(p => {
-        if (p.edgePct && Math.abs(p.edgePct) > 25) edgeAnomalies++;
+      const sigMap = {};
+      let collisions = 0;
+      allPicks.forEach(function(p) {
+        const sig = p && p.signature;
+        if (!sig) return;
+        if (sigMap[sig]) collisions++;
+        else sigMap[sig] = true;
       });
-      if (edgeAnomalies > 0) {
-        log('ERROR','MATH ENGINE', edgeAnomalies + ' picks show extreme edge anomalies (>25%).');
-        totalSuspects++;
+      if (collisions > 0) {
+        report('ERROR', 'TRACKER', collisions + ' signature collision(s) detected across active/archived');
       }
-      const settled = (typeof g_trackerState !== 'undefined' && g_trackerState.stats && g_trackerState.stats.settled) || 0;
-      const wins = (typeof g_trackerState !== 'undefined' && g_trackerState.stats && g_trackerState.stats.wins) || 0;
-      if (settled >= 20) {
-        const winRate = (wins / settled) * 100;
+
+      // 3) Math / pick integrity on active book
+      let edgeAnomalies = 0, nanEdges = 0, missingGrade = 0, badSide = 0;
+      active.forEach(function(p) {
+        if (p.edgePct != null && Math.abs(Number(p.edgePct)) > 25) edgeAnomalies++;
+        if (p.edge != null && !isFinite(Number(p.edge))) nanEdges++;
+        if (p.predictionText && p.predictionText !== 'NO PLAY' && !p.confidenceGrade) missingGrade++;
+        if (p.side && p.side !== 'over' && p.side !== 'under') badSide++;
+      });
+      if (edgeAnomalies > 0) report('ERROR', 'MATH ENGINE', edgeAnomalies + ' extreme edge anomalies (>25%)');
+      if (nanEdges > 0) report('ERROR', 'MATH ENGINE', nanEdges + ' picks carry non-finite edge');
+      if (missingGrade > 0) report('WARN', 'MATH ENGINE', missingGrade + ' actionable picks missing confidence grade');
+      if (badSide > 0) report('ERROR', 'TRACKER', badSide + ' picks with invalid side field');
+
+      // 4) Model bias gate
+      const settledN = (typeof g_trackerState !== 'undefined' && g_trackerState.stats && g_trackerState.stats.settled) || 0;
+      const winsN = (typeof g_trackerState !== 'undefined' && g_trackerState.stats && g_trackerState.stats.wins) || 0;
+      if (settledN >= 20) {
+        const winRate = (winsN / settledN) * 100;
         if (winRate < 45) {
-          log('ERROR','MODEL BIAS','System win rate dropping below safety threshold (' + winRate.toFixed(1) + '%). Recalibration required.');
-          totalSuspects++;
+          report('ERROR', 'MODEL BIAS', 'Win rate below safety threshold (' + winRate.toFixed(1) + '%)');
+        } else {
+          log('SUCCESS', 'MODEL BIAS', 'Win rate OK at ' + winRate.toFixed(1) + '% over ' + settledN + ' settled');
         }
+      } else {
+        log('INFO', 'MODEL BIAS', 'Need 20+ settled for bias gate (have ' + settledN + ')');
       }
+
+      // 5) Drift + threshold silo health
+      const driftN = (window.g_driftErrors && window.g_driftErrors.length) || 0;
+      if (driftN > 0) {
+        const last = window.g_driftErrors.slice(-20);
+        const mean = last.reduce(function(a, b) { return a + b; }, 0) / last.length;
+        log('INFO', 'DRIFT', 'Rolling mean abs error (last ' + last.length + '): ' + mean.toFixed(2) + ' pts', { samples: driftN });
+        if (mean > 8) report('WARN', 'DRIFT', 'Elevated projection drift mean ' + mean.toFixed(2) + ' pts');
+      }
+      const th = window.__ttThresholds || {};
+      if (!isFinite(th.ft) || !isFinite(th.h1)) {
+        report('ERROR', 'THRESHOLDS', 'Live __ttThresholds missing or non-finite');
+      } else {
+        log('INFO', 'THRESHOLDS', 'Live gates FT=' + th.ft + ' / 1st=' + th.h1);
+      }
+
+      // 6) Required function surface (post-conversion integrity)
+      const requiredFns = [
+        'copyTrackerData', 'updateEnginePerformanceScore', 'updateDriftDisplay',
+        'proposeTtConfigUpgrades', 'applyTtVerifiedConfig', 'getTtConfigLabSnapshot',
+        'ssProcessTeamEvents', 'parseSofascoreIndividual'
+      ];
+      requiredFns.forEach(function(name) {
+        if (typeof window[name] !== 'function' && typeof eval('typeof ' + name) === 'undefined') {
+          // window-scoped checks only for exports; local helpers validated indirectly
+        }
+        if (typeof window[name] !== 'function' && ['copyTrackerData', 'proposeTtConfigUpgrades', 'applyTtVerifiedConfig', 'getTtConfigLabSnapshot'].indexOf(name) >= 0) {
+          report('ERROR', 'EXPORTS', 'Missing window.' + name);
+        }
+      });
+      if (typeof updateEnginePerformanceScore !== 'function') report('ERROR', 'EXPORTS', 'updateEnginePerformanceScore not in scope');
+      if (typeof updateDriftDisplay !== 'function') report('ERROR', 'EXPORTS', 'updateDriftDisplay not in scope');
+
+      // 7) Battery refresh as part of raid
+      try {
+        if (typeof updateEnginePerformanceScore === 'function') updateEnginePerformanceScore();
+        if (typeof updateDriftDisplay === 'function') updateDriftDisplay();
+      } catch (e) {
+        report('ERROR', 'HEALTH', 'Battery/drift refresh failed: ' + (e && e.message ? e.message : String(e)));
+      }
+
       const verdictMsg = totalSuspects === 0
-        ? 'Raid complete.\nEngine is 100% perfect.'
-        : 'Raid complete.\nCaught ' + totalSuspects + ' Thieves and locked them behind the bars.';
+        ? 'Raid complete. Engine integrity clean.'
+        : 'Raid complete. Caught ' + totalSuspects + ' issue(s).';
       const verdictEntry = {
-        ts: new Date().toLocaleTimeString([],{hour12:false}),
+        ts: new Date().toLocaleTimeString([], { hour12: false }),
         level: totalSuspects === 0 ? 'VERDICT' : 'ERROR',
         section: 'POLICE RAID',
         msg: verdictMsg,
-        data: null
+        data: { suspects: totalSuspects, active: active.length, archived: archived.length, settled: settledN }
       };
       _log.unshift(verdictEntry);
       if (_log.length > LOG_LIMIT) _log = _log.slice(0, LOG_LIMIT);
       if (_isOpen) _render();
-      setTimeout(() => {
+      setTimeout(function() {
         const idx = _log.indexOf(verdictEntry);
         if (idx !== -1) { _log.splice(idx, 1); if (_isOpen) _render(); }
-      }, 7000);
+      }, 8000);
     }
 
     return { log, clear, copy, toggleFilter, open, close, runTestFetch, get isOpen() { return _isOpen; }, get logs() { return _log; } };
@@ -1055,8 +1125,7 @@
     // ---------- Debug Log (routes into real AFDB module — same as basketball) ----------
     window.g_debugLog = [];
     function updateDriftDisplay() {
-      // Drift strip is rendered by AFDB._render(); keep this as a safe no-op
-      // so legacy callers never throw ReferenceError.
+      // Drift strip is owned by AFDB._render(); safe no-op for legacy callers.
       if (typeof AFDB !== "undefined" && AFDB.isOpen) {
         try { AFDB.log("INFO", "DRIFT", "Drift samples: " + ((window.g_driftErrors || []).length)); } catch (e) {}
       }
@@ -1123,6 +1192,7 @@
         if (typeof engineDebug === "function") engineDebug("copyTrackerData failed", e);
       }
     };
+    // Canonical logger: AFDB is source of truth; g_debugLog is a thin mirror for legacy copy helpers.
     window.engineDebug = function(msg, extra) {
       const msgStr = String(msg || "");
       const lower = msgStr.toLowerCase();
@@ -1140,79 +1210,67 @@
         AFDB.log(isErr ? "ERROR" : "ENGINE", "ENGINE", msgStr, extra);
       }
     };
+    // Keep local engineDebug on the same single path (avoids dual writers).
+    try { engineDebug = window.engineDebug; } catch (e) {}
     window.trackerDebug = function(msg, extra) {
       window.engineDebug(msg, extra);
     };
     function renderAfdbLogs() {
-      // Legacy no-op — AFDB module owns rendering now
-      if (typeof AFDB !== "undefined" && AFDB.isOpen) {
-        // AFDB re-renders itself on log(); nothing else to do
-      }
+      // Dead legacy path removed — AFDB owns panel rendering exclusively.
     }
-    // Military Raid
+    // Military Raid: single entry → hardened AFDB.runTestFetch
     window.militaryRaid = function() {
-      engineDebug("🚨 MILITARY RAID TRIGGERED — clearing caches and running diagnostics");
-      // Clear caches
-      if (window._schedCache) window._schedCache.clear();
-      if (window._summaryCache) window._summaryCache.clear();
-      if (window._fixtureCache) window._fixtureCache.clear();
-      if (window._teamCatalogCache) window._teamCatalogCache.clear();
-      // Clear any stale data
-      if (window._proxyFetchCache) window._proxyFetchCache.clear();
-      // Run a quick test
-      const all = [...g_trackerState.activePicks, ...g_trackerState.archivedPicks];
-      const settled = all.filter(p => p.resultStatus && p.resultStatus !== "pending");
-      const wins = settled.filter(p => p.resultStatus === "win").length;
-      const losses = settled.filter(p => p.resultStatus === "loss").length;
-      const pushes = settled.filter(p => p.resultStatus === "push").length;
-      const total = settled.length;
-      const winRate = total ? ((wins/total)*100).toFixed(1) : "—";
-      engineDebug("MILITARY RAID COMPLETE", { 
-        totalPicks: all.length, 
-        settled: total, 
-        wins, losses, pushes,
-        winRate: winRate + "%",
-        active: g_trackerState.activePicks.length,
-        archived: g_trackerState.archivedPicks.length
-      });
-      // Also log the last 5 picks for debugging
-      const recent = all.slice(0, 5);
-      recent.forEach((p, i) => {
-        engineDebug("Recent pick #" + (i+1), { 
-          market: p.marketKey, 
-          pick: p.predictionText, 
-          line: p.line, 
-          status: p.resultStatus || "pending",
-          grade: p.confidenceGrade || "—"
-        });
-      });
-      renderAfdbLogs();
-      // Update drift display
-      updateDriftDisplay();
-      // Trigger engine performance update
-      updateEnginePerformanceScore();
-    };
-    // Copy debug log
-    window.copyDebugLog = function() {
-      const logs = window.g_debugLog || [];
-      if (!logs.length) {
-        alert("No logs to copy. Run a prediction first.");
-        return;
+      engineDebug("🚨 MILITARY RAID TRIGGERED");
+      try {
+        if (window._schedCache && window._schedCache.clear) window._schedCache.clear();
+        if (window._summaryCache && window._summaryCache.clear) window._summaryCache.clear();
+        if (window._fixtureCache && window._fixtureCache.clear) window._fixtureCache.clear();
+        if (window._teamCatalogCache && window._teamCatalogCache.clear) window._teamCatalogCache.clear();
+        if (window._proxyFetchCache && window._proxyFetchCache.clear) window._proxyFetchCache.clear();
+      } catch (e) {}
+      if (typeof AFDB !== "undefined" && typeof AFDB.runTestFetch === "function") {
+        AFDB.runTestFetch();
+      } else {
+        engineDebug("AFDB.runTestFetch unavailable — raid aborted");
       }
-      const text = logs.map(e => {
-        const ts = e.ts ? new Date(e.ts).toISOString() : "";
-        const extra = e.extra ? " | " + JSON.stringify(e.extra) : "";
-        return `[${ts}] ${e.msg}${extra}`;
-      }).join("\n");
+    };
+    // Copy debug log: prefer AFDB.logs, fall back to mirror
+    window.copyDebugLog = function() {
+      let text = "";
+      if (typeof AFDB !== "undefined" && AFDB.logs && AFDB.logs.length) {
+        text = AFDB.logs.slice().reverse().map(function(e) {
+          let line = "[" + (e.ts || "") + "] [" + (e.level || "") + "] [" + (e.section || "") + "] " + (e.msg || "");
+          if (e.data != null) {
+            try { line += " | " + JSON.stringify(e.data); } catch (x) { line += " | " + String(e.data); }
+          }
+          return line;
+        }).join("\n");
+      } else {
+        const logs = window.g_debugLog || [];
+        if (!logs.length) {
+          alert("No logs to copy. Run a prediction or open AFDB first.");
+          return;
+        }
+        text = logs.map(function(e) {
+          const ts = e.ts ? new Date(e.ts).toISOString() : "";
+          const extra = e.extra ? " | " + JSON.stringify(e.extra) : "";
+          return "[" + ts + "] " + e.msg + extra;
+        }).join("\n");
+      }
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-          const btn = document.querySelector('#afdbPanel button:first-child');
-          if (btn) { const orig = btn.textContent; btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = orig, 1500); }
-        }).catch(() => {
-          try { const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); } catch(e) {}
+        navigator.clipboard.writeText(text).then(function() {
+          if (typeof engineDebug === "function") engineDebug("Debug log copied (" + text.split("\n").length + " lines)");
+        }).catch(function() {
+          try {
+            const ta = document.createElement("textarea"); ta.value = text;
+            document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+          } catch (e) {}
         });
       } else {
-        try { const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); } catch(e) {}
+        try {
+          const ta = document.createElement("textarea"); ta.value = text;
+          document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+        } catch (e) {}
       }
     };
     // Open tracker report from debug
@@ -1228,50 +1286,12 @@
       // Re-render to ensure report is fresh
       renderTrackerAnalytics();
     };
-    // Toggle log level filter
+    // Log-level filter is owned by AFDB.toggleFilter() — legacy toggle kept as a safe proxy.
     window.currentLogLevel = 'ALL';
     window.toggleLogLevel = function() {
-      const levels = ['ALL', 'ERROR', 'WARN'];
-      const idx = levels.indexOf(window.currentLogLevel);
-      window.currentLogLevel = levels[(idx + 1) % levels.length];
-      document.getElementById('logLevelLabel').textContent = window.currentLogLevel;
-      renderAfdbLogs();
-    };
-    // Modify renderAfdbLogs to filter logs based on currentLogLevel
-    // We'll override renderAfdbLogs to use the filter.
-    const originalRenderAfdbLogs = renderAfdbLogs;
-    renderAfdbLogs = function() {
-      const panel = document.getElementById("afdbPanel");
-      if (!panel) return;
-      const logs = window.g_debugLog || [];
-      const filter = window.currentLogLevel || 'ALL';
-      let filtered = logs;
-      if (filter === 'ERROR') filtered = logs.filter(e => {
-        const msg = (e.msg || '').toLowerCase();
-        return msg.includes('error') || msg.includes('fail') || msg.includes('critical');
-      });
-      else if (filter === 'WARN') filtered = logs.filter(e => {
-        const msg = (e.msg || '').toLowerCase();
-        return msg.includes('warn') || msg.includes('warning');
-      });
-      const rows = filtered.slice(0, 100).map(e => {
-        const msg = e.msg || "";
-        const extra = e.extra ? " | " + JSON.stringify(e.extra) : "";
-        const ts = e.ts ? new Date(e.ts).toLocaleTimeString() : "";
-        let color = '#aaa';
-        const lower = msg.toLowerCase();
-        if (lower.includes('error') || lower.includes('fail')) color = '#ff5c61';
-        else if (lower.includes('warn')) color = '#ffcf73';
-        else if (lower.includes('success') || lower.includes('ok')) color = '#49d45f';
-        else if (lower.includes('info')) color = '#4ea9ff';
-        return `<div style="padding:4px 8px;border-bottom:1px solid #1a1a1a;font-size:11px;color:${color};font-family:monospace;white-space:pre-wrap;word-break:break-all;"><span style="color:#555;">${ts}</span> ${msg}${extra}</div>`;
-      }).join('');
-      const logContainer = panel.querySelector('#afdbLogContainer');
-      if (logContainer) {
-        logContainer.innerHTML = rows || '<div style="padding:20px;color:#666;">No logs match the current filter.</div>';
-        logContainer.scrollTop = 0;
+      if (typeof AFDB !== "undefined" && typeof AFDB.toggleFilter === "function") {
+        AFDB.toggleFilter();
       }
-      updateDriftDisplay();
     };
 
     // ---------- Tracker View State ----------
