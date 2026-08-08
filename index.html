@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -272,7 +273,7 @@
     <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show fetch/input issues">⚠️</button>
   </span>
   <span class="brand-right">
-    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏀</button>
+    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏓</button>
     <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
     <button class="theme-toggle" type="button" id="afdbBtn" title="Auto-Fetch Debugger" onclick="if(typeof AFDB!=='undefined'&&AFDB.open)AFDB.open()">🔬</button>
     <button class="theme-toggle" type="button" id="engineRelockBtn" title="Lock the engine" onclick="localStorage.removeItem('engineUnlocked'); location.reload();">🔒</button>
@@ -323,8 +324,8 @@
   <div class="section" id="marketSection">
     <h3>Market Lines</h3>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-      <div><label>Match Total Points</label><input id="ftMarket" placeholder="150.5 - 160.5" /></div>
-      <div><label>1st Set Total Points</label><input id="h1Market" placeholder="75.5 - 85.5" /></div>
+      <div><label>Match Total Points</label><input id="ftMarket" placeholder="110.5 - 120.5" /></div>
+      <div><label>1st Set Total Points</label><input id="h1Market" placeholder="25.5 - 28.5" /></div>
     </div>
   </div>
   <div class="section" id="teamASection">
@@ -332,21 +333,21 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
       <div>
         <label>Match Total Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
-        <input id="aFTScored" placeholder="85,79,88,74,82" />
+        <input id="aFTScored" placeholder="110,105,98,120,115" />
       </div>
       <div>
         <label>Match Total Allowed</label>
-        <input id="aFTAllowed" placeholder="80,76,84,72,79" />
+        <input id="aFTAllowed" placeholder="105,108,102,115,110" />
       </div>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
       <div>
         <label>1st Set Scored</label>
-        <input id="a1HScored" placeholder="42,38,45,40,41" />
+        <input id="a1HScored" placeholder="25,22,28,20,24" />
       </div>
       <div>
         <label>1st Set Allowed</label>
-        <input id="a1HAllowed" placeholder="39,36,41,35,38" />
+        <input id="a1HAllowed" placeholder="23,26,21,25,22" />
       </div>
     </div>
   </div>
@@ -355,21 +356,21 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
       <div>
         <label>Match Total Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
-        <input id="bFTScored" placeholder="83,77,81,79,80" />
+        <input id="bFTScored" placeholder="108,112,105,115,110" />
       </div>
       <div>
         <label>Match Total Allowed</label>
-        <input id="bFTAllowed" placeholder="78,80,77,76,81" />
+        <input id="bFTAllowed" placeholder="110,106,108,112,107" />
       </div>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
       <div>
         <label>1st Set Scored</label>
-        <input id="b1HScored" placeholder="40,39,42,38,41" />
+        <input id="b1HScored" placeholder="24,26,23,27,25" />
       </div>
       <div>
         <label>1st Set Allowed</label>
-        <input id="b1HAllowed" placeholder="38,39,37,36,40" />
+        <input id="b1HAllowed" placeholder="26,24,25,23,27" />
       </div>
     </div>
   </div>
@@ -377,14 +378,14 @@
     <h3>H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled</span></h3>
     <label><input type="checkbox" id="useFTH2H" /> Use Match Total H2H (min 2 games)</label>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-      <input id="aFTH2H" placeholder="82,78,84,76,82" />
-      <input id="bFTH2H" placeholder="79,81,77,80,78" />
+      <input id="aFTH2H" placeholder="115,108,120,112,118" />
+      <input id="bFTH2H" placeholder="110,115,112,118,113" />
     </div>
     <div style="margin-top: 6px;">
       <label><input type="checkbox" id="use1HH2H" /> Use 1st Set H2H (min 2 games)</label>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-        <input id="a1HH2H" placeholder="41,39,43,38,41" />
-        <input id="b1HH2H" placeholder="39,41,38,42,39" />
+        <input id="a1HH2H" placeholder="25,22,27,23,26" />
+        <input id="b1HH2H" placeholder="23,26,24,27,25" />
       </div>
     </div>
   </div>
