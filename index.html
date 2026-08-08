@@ -742,6 +742,40 @@
       if (n >= 4) return "thin";
       return "insufficient";
     }
+    function stdDev(arr) {
+      const clean = (Array.isArray(arr) ? arr : []).map(Number).filter(isFinite);
+      if (clean.length < 2) return 0;
+      const m = clean.reduce((a, b) => a + b, 0) / clean.length;
+      const v = clean.reduce((s, x) => s + (x - m) * (x - m), 0) / clean.length;
+      return Math.sqrt(v);
+    }
+    function getVolatilityRatio(series, typicalScale) {
+      const sd = stdDev(series);
+      const scale = Math.max(1, Number(typicalScale) || 10);
+      return Math.min(2.5, sd / scale);
+    }
+    /** Blend projection toward a Setka Cup league base when sample is thin. */
+    function anchorProjection(proj, n, leagueBase) {
+      if (!isFinite(proj) || !isFinite(leagueBase)) return proj;
+      const sampleN = Math.max(0, Number(n) || 0);
+      if (sampleN >= 6) return proj;
+      const w = Math.min(0.55, 0.12 * (6 - sampleN));
+      return proj * (1 - w) + leagueBase * w;
+    }
+    /**
+     * Trap zone: moderate edge + elevated volatility → treat as NO PLAY.
+     * Large edges are allowed even under high vol (real signal, not a trap).
+     */
+    function detectTrap(edge, line, pickText, marketKey, volRatio) {
+      if (!pickText || pickText === "NO PLAY") return false;
+      if (!isFinite(edge) || !isFinite(line) || line <= 0) return false;
+      const absEdge = Math.abs(edge);
+      const vol = isFinite(volRatio) ? volRatio : 0;
+      const moderateCeiling = marketKey === "h1" ? 4.5 : 9.0;
+      if (absEdge >= moderateCeiling) return false;
+      if (vol < 1.15) return false;
+      return absEdge >= 1.5 && absEdge < moderateCeiling && vol >= 1.15;
+    }
     function getConfidenceClass(conf) {
       if (conf==="A") return "conf-a";
       if (conf==="B") return "conf-b";
@@ -1764,22 +1798,52 @@
         projB1H = projB1H*(1-w) + h2h1B_avg*w;
       }
 
-      const ftProj = projAFT + projBFT;
-      const h1Proj = projA1H + projB1H;
-      const ftEdge = isFinite(ftLine) ? ftProj - ftLine : NaN;
-      const h1Edge = isFinite(h1Line) ? h1Proj - h1Line : NaN;
+      // Thin-sample anchor toward Setka Cup league bases
+      const ftN = Math.min(
+        (aFT || []).filter(isFinite).length,
+        (bFT || []).filter(isFinite).length
+      );
+      const h1N = Math.min(
+        (a1H || []).filter(isFinite).length,
+        (b1H || []).filter(isFinite).length
+      );
+      const SETKA_FT_BASE = 100;
+      const SETKA_H1_BASE = 20;
+      let ftProj = projAFT + projBFT;
+      let h1Proj = projA1H + projB1H;
+      ftProj = anchorProjection(ftProj, ftN, SETKA_FT_BASE);
+      h1Proj = anchorProjection(h1Proj, h1N, SETKA_H1_BASE);
+
+      // Volatility (combined scored series) for trap detection
+      const ftVol = getVolatilityRatio([].concat(aFT || [], bFT || []), 12);
+      const h1Vol = getVolatilityRatio([].concat(a1H || [], b1H || []), 3.5);
+
+      // Mild UNDER asymmetry (BB-style underEdgeFactor) — slightly harder to clear UNDER
+      const UNDER_EDGE_FACTOR = 1.08;
+      let ftEdge = isFinite(ftLine) ? ftProj - ftLine : NaN;
+      let h1Edge = isFinite(h1Line) ? h1Proj - h1Line : NaN;
+      if (isFinite(ftEdge) && ftEdge < 0) ftEdge = ftEdge * UNDER_EDGE_FACTOR;
+      if (isFinite(h1Edge) && h1Edge < 0) h1Edge = h1Edge * UNDER_EDGE_FACTOR;
+
       const ftSampleTier = getSampleTier(aFT, bFT);
       const h1SampleTier = getSampleTier(a1H, b1H);
-      const ftPick = (ftSampleTier === "insufficient") ? "NO PLAY" : getPick(ftEdge, ftLine, "ft");
-      const h1Pick = (h1SampleTier === "insufficient") ? "NO PLAY" : getPick(h1Edge, h1Line, "h1");
+      let ftPick = (ftSampleTier === "insufficient") ? "NO PLAY" : getPick(ftEdge, ftLine, "ft");
+      let h1Pick = (h1SampleTier === "insufficient") ? "NO PLAY" : getPick(h1Edge, h1Line, "h1");
+      const ftTrap = detectTrap(ftEdge, ftLine, ftPick, "ft", ftVol);
+      const h1Trap = detectTrap(h1Edge, h1Line, h1Pick, "h1", h1Vol);
+      if (ftTrap) ftPick = "NO PLAY";
+      if (h1Trap) h1Pick = "NO PLAY";
       const ftConf = getConfidenceGrade(ftEdge, ftLine, ftSampleTier);
       const h1Conf = getConfidenceGrade(h1Edge, h1Line, h1SampleTier);
-      engineDebug("Projections computed", { ftProj, ftEdge, ftPick, ftConf, ftSampleTier, h1Proj, h1Edge, h1Pick, h1Conf, h1SampleTier });
+      engineDebug("Projections computed", {
+        ftProj, ftEdge, ftPick, ftConf, ftSampleTier, ftVol: +ftVol.toFixed(2), ftTrap,
+        h1Proj, h1Edge, h1Pick, h1Conf, h1SampleTier, h1Vol: +h1Vol.toFixed(2), h1Trap
+      });
 
       // Build pick objects for lock selection
       const pickObjects = [
-        { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf, sampleTier: ftSampleTier, hasH2H: useH2H },
-        { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf, sampleTier: h1SampleTier, hasH2H: useH2H1 }
+        { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf, sampleTier: ftSampleTier, hasH2H: useH2H, trap: ftTrap, vol: ftVol },
+        { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf, sampleTier: h1SampleTier, hasH2H: useH2H1, trap: h1Trap, vol: h1Vol }
       ];
       // Select lock: highest confidence grade (A>B>C>D>NaN), then highest edge magnitude
       let lockIdx = -1;
