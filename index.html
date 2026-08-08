@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -185,6 +184,21 @@ S
     .tracker-report-table td.num, .tracker-report-table th.num { text-align: center; width: 12%; }
     .tracker-report-table td.rate, .tracker-report-table th.rate { text-align: center; width: 16%; }
     .tracker-analytics-panel { padding: 10px; border-bottom: 1px solid var(--panel-border); background: var(--tracker-summary-bg); display: none; }
+    .tracker-panel.analytics-view #trackerSummary,
+    .tracker-panel.analytics-view #trackerMarketSummary,
+    .tracker-panel.analytics-view #trackerEmpty,
+    .tracker-panel.analytics-view .tracker-table-wrap {
+      display: none !important;
+    }
+    .tracker-panel.analytics-view #trackerAnalyticsPanel {
+      display: block !important;
+    }
+    .tracker-panel:not(.analytics-view) #trackerAnalyticsPanel {
+      display: none !important;
+    }
+    .tracker-panel.analytics-view .tracker-body-scroll {
+      padding-top: 0;
+    }
     .tracker-analytics-shell { display: grid; gap: 10px; }
     .tracker-analytics-topbar { display: grid; gap: 4px; }
     .tracker-analytics-kicker { font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); }
@@ -437,6 +451,198 @@ S
   // TABLE TENNIS ENGINE – Setka Cup only
   // Adapted from Basketball Prediction Engine UI shell
   // =====================================================================
+  // ---------- AFDB module (100% same structure as basketball engine) ----------
+  const AFDB = (function() {
+    const LOG_LIMIT = 600;
+    let _log = [];
+    let _isOpen = false;
+    let _showOnlyErrors = true;
+    let _currentLogLevel = 'ERROR';
+
+    const LEVELS = {
+      BOOT: { color:'#7aa6ff' }, NET: { color:'#4ea9ff' },
+      FETCH: { color:'#49d45f' }, FILL: { color:'#2aff9e' },
+      PICK: { color:'#d4af37' }, H2H: { color:'#c678dd' },
+      SUCCESS: { color:'#49d45f' }, WARN: { color:'#ffcf73' },
+      ERROR: { color:'#ff5c61' }, INFO: { color:'#aaa' },
+      ENGINE: { color:'#d4af37' }, TRACKER: { color:'#4ea9ff' },
+      VERDICT: { color:'#49d45f' }
+    };
+    const ICONS = {
+      BOOT:'⚙️', NET:'🌐', FETCH:'📡', FILL:'✏️',
+      PICK:'📌', H2H:'🔄', SUCCESS:'✅', WARN:'⚠️', ERROR:'❌', INFO:'ℹ️',
+      ENGINE:'⚙️', TRACKER:'📊', VERDICT:'🏅'
+    };
+
+    function esc(s) {
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function log(level, section, msg, data) {
+      const entry = {
+        ts: new Date().toLocaleTimeString([],{hour12:false}),
+        level, section: section||'CORE', msg,
+        data: data !== undefined ? data : null
+      };
+      _log.unshift(entry);
+      if (_log.length > LOG_LIMIT) _log = _log.slice(0, LOG_LIMIT);
+      if (_isOpen) _render();
+    }
+
+    function clear() { _log = []; _render(); }
+
+    function toggleFilter() {
+      const levels = ['ALL', 'ERROR', 'WARN'];
+      _currentLogLevel = levels[(levels.indexOf(_currentLogLevel) + 1) % levels.length];
+      _showOnlyErrors = _currentLogLevel !== 'ALL';
+      _render();
+    }
+
+    function copy(btnEl) {
+      const visibleLogs = _showOnlyErrors
+        ? _log.filter(e => e.level === 'ERROR' || e.level === 'WARN' || e.level === 'VERDICT')
+        : _log;
+      const textArr = visibleLogs.slice().reverse().map(e => {
+        let line = '[' + e.ts + '] [' + e.level + '] [' + e.section + '] ' + e.msg;
+        if (e.data !== null) {
+          try { line += ' | ' + JSON.stringify(e.data); }
+          catch(x) { line += ' | ' + String(e.data); }
+        }
+        return line;
+      });
+      const text = textArr.join('\n\n');
+      try {
+        navigator.clipboard.writeText(text);
+        if (btnEl) {
+          const origText = btnEl.innerHTML;
+          btnEl.innerHTML = '✅ COPIED!';
+          setTimeout(() => { if (btnEl) btnEl.innerHTML = origText; }, 1500);
+        }
+      } catch(e) {
+        log('WARN','AFDB','Clipboard blocked — printed to console');
+      }
+    }
+
+    function _render() {
+      const panel = document.getElementById('afdbPanel');
+      if (!panel) return;
+      const visibleLogs = _log.filter(e =>
+        _currentLogLevel === 'ALL' ||
+        e.level === _currentLogLevel ||
+        (_currentLogLevel === 'ERROR' && e.level === 'VERDICT') ||
+        (_currentLogLevel === 'WARN' && (e.level === 'ERROR' || e.level === 'VERDICT'))
+      );
+      const logRows = visibleLogs.map(e => {
+        const def = LEVELS[e.level]||LEVELS.INFO;
+        const icon = ICONS[e.level]||'•';
+        let dataHtml = '';
+        if (e.data !== null) {
+          let ds;
+          try { ds = typeof e.data==='object' ? JSON.stringify(e.data,null,2) : String(e.data); }
+          catch(x) { ds = String(e.data); }
+          dataHtml = '<pre style="color:#888;font-size:9px;margin:4px 0 0 0;padding:6px;background:#070707;border-left:2px solid #222;white-space:pre-wrap;word-break:break-all;">' + esc(ds) + '</pre>';
+        }
+        return '<div style="padding:8px;border-bottom:1px solid #151515;"><div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;"><span style="color:#555;font-size:9px;min-width:65px;flex-shrink:0;">' + esc(e.ts) + '</span><span style="color:' + def.color + ';font-size:10px;font-weight:900;min-width:75px;flex-shrink:0;">' + icon + ' ' + esc(e.level) + '</span><span style="color:#777;font-size:9px;min-width:80px;flex-shrink:0;">[' + esc(e.section) + ']</span><span style="color:' + def.color + ';font-size:11px;font-weight:700;flex:1;white-space:pre-wrap;">' + esc(e.msg) + '</span></div>' + dataHtml + '</div>';
+      }).join('');
+
+      const headerBtns =
+        '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;">📋 Copy Log</button>' +
+        '<button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;">🗑️ Clear</button>' +
+        '<button onclick="AFDB.runTestFetch()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>' +
+        '<button onclick="window.openVisualReportFromDebug()" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px;">📊 Tracker Report</button>' +
+        '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ Close</button>';
+
+      const emptyMsg = _showOnlyErrors ? 'No suspects arrested. The code is clean.' : 'No log entries yet. Run a prediction.';
+      const filterLabel = '🎯 LEVEL: ' + _currentLogLevel;
+      const driftArr = (typeof window.g_driftErrors !== 'undefined' && Array.isArray(window.g_driftErrors)) ? window.g_driftErrors : [];
+      const last20 = driftArr.slice(-20);
+      const rme = last20.length ? (last20.reduce((a,b)=>a+b,0)/last20.length) : NaN;
+      const rmeDisplay = isFinite(rme) ? rme.toFixed(2) + ' pts' : '—';
+      const rmeColor = !isFinite(rme) ? '#555' : rme > 5 ? '#ff5c61' : rme > 3 ? '#ffcf73' : '#49d45f';
+
+      const driftHtml = '<div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex-shrink:0;"><span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📐 DRIFT TRACKER</span><span style="color:' + rmeColor + ';font-size:12px;font-weight:900;">Rolling Mean Error (last 20): ' + rmeDisplay + '</span><span style="color:#555;font-size:10px;">' + driftArr.length + ' samples logged</span></div>';
+
+      panel.innerHTML =
+        '<div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;flex-shrink:0;"><div style="color:#d4af37;font-size:14px;font-weight:900;letter-spacing:1px;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div><div style="display:flex;gap:8px;flex-wrap:wrap;">' + headerBtns + '</div></div>' +
+        driftHtml +
+        '<div style="display:flex;flex-direction:column;flex:1;overflow-y:auto;background:#0a0a0a;"><div style="flex:1;"><div style="padding:10px 12px;background:#111;color:#d4af37;font-size:11px;font-weight:900;text-transform:uppercase;position:sticky;top:0;z-index:10;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;"><span>📡 FETCH & ENGINE LOGS</span><button onclick="AFDB.toggleFilter()" style="background:none;border:none;color:#4ea9ff;font-size:14px;font-weight:bold;cursor:pointer;">' + filterLabel + '</button></div><div style="padding-bottom:15px;">' +
+        (logRows || ('<div style="color:#555;font-size:12px;text-align:center;padding:30px;font-weight:bold;">' + emptyMsg + '</div>')) +
+        '</div></div></div>';
+    }
+
+    function open() {
+      _isOpen = true;
+      const ov = document.getElementById('afdbOverlay');
+      if (ov) { ov.style.display = 'flex'; _render(); }
+    }
+
+    function close() {
+      _isOpen = false;
+      const ov = document.getElementById('afdbOverlay');
+      if (ov) ov.style.display = 'none';
+    }
+
+    async function runTestFetch() {
+      let totalSuspects = 0;
+      const inputsToCheck = ['aFTScored', 'bFTScored', 'a1HScored', 'b1HScored', 'ftMarket', 'h1Market'];
+      inputsToCheck.forEach(id => {
+        const el = document.getElementById(id);
+        const val = el ? el.value.trim() : '';
+        if (val && /[^0-9,.\s-]/.test(val)) {
+          log('ERROR', 'UI INPUT', 'Invalid characters detected in ' + id + ': "' + val + '". Math engine will crash.');
+          totalSuspects++;
+        }
+      });
+      const active = (typeof g_trackerState !== 'undefined' && Array.isArray(g_trackerState.activePicks)) ? g_trackerState.activePicks : [];
+      if (active.length > 490) {
+        log('ERROR','STORAGE','Active picks array is critically full (Limit: 500).');
+        totalSuspects++;
+      }
+      let edgeAnomalies = 0;
+      active.forEach(p => {
+        if (p.edgePct && Math.abs(p.edgePct) > 25) edgeAnomalies++;
+      });
+      if (edgeAnomalies > 0) {
+        log('ERROR','MATH ENGINE', edgeAnomalies + ' picks show extreme edge anomalies (>25%).');
+        totalSuspects++;
+      }
+      const settled = (typeof g_trackerState !== 'undefined' && g_trackerState.stats && g_trackerState.stats.settled) || 0;
+      const wins = (typeof g_trackerState !== 'undefined' && g_trackerState.stats && g_trackerState.stats.wins) || 0;
+      if (settled >= 20) {
+        const winRate = (wins / settled) * 100;
+        if (winRate < 45) {
+          log('ERROR','MODEL BIAS','System win rate dropping below safety threshold (' + winRate.toFixed(1) + '%). Recalibration required.');
+          totalSuspects++;
+        }
+      }
+      const verdictMsg = totalSuspects === 0
+        ? 'Raid complete.\nEngine is 100% perfect.'
+        : 'Raid complete.\nCaught ' + totalSuspects + ' Thieves and locked them behind the bars.';
+      const verdictEntry = {
+        ts: new Date().toLocaleTimeString([],{hour12:false}),
+        level: totalSuspects === 0 ? 'VERDICT' : 'ERROR',
+        section: 'POLICE RAID',
+        msg: verdictMsg,
+        data: null
+      };
+      _log.unshift(verdictEntry);
+      if (_log.length > LOG_LIMIT) _log = _log.slice(0, LOG_LIMIT);
+      if (_isOpen) _render();
+      setTimeout(() => {
+        const idx = _log.indexOf(verdictEntry);
+        if (idx !== -1) { _log.splice(idx, 1); if (_isOpen) _render(); }
+      }, 7000);
+    }
+
+    return { log, clear, copy, toggleFilter, open, close, runTestFetch, get isOpen() { return _isOpen; }, get logs() { return _log; } };
+  })();
+
+  window.openVisualReportFromDebug = function() {
+    AFDB.close();
+    if (typeof openTrackerModal === 'function') openTrackerModal();
+    if (typeof setTrackerModalView === 'function') setTrackerModalView('report');
+  };
+
   (function(){
     // ---------- Minimal global state ----------
     window.__BETCEO_SESSION_ID = "sess_" + Date.now() + "_" + Math.random().toString(36).slice(2,9);
@@ -448,16 +654,26 @@ S
     // ---------- Utility functions ----------
     // Drift error storage
     window.g_driftErrors = [];
+    function engineDebug(msg, extra) {
+      const msgStr = String(msg || "");
+      const lower = msgStr.toLowerCase();
+      if (lower.includes("fetch") || lower.includes("load failed") || lower.includes("networkerror")) return;
+      let detail = "";
+      if (extra !== null && extra !== undefined) {
+        try { detail = JSON.stringify(extra); } catch(e) { detail = String(extra); }
+      }
+      const full = detail ? (lower + " | " + detail.toLowerCase()) : lower;
+      const isErr = (full.includes("error") || full.includes("fail") || full.includes("critical") || full.includes("crash") || full.includes("blocked") || full.includes("exception")) &&
+                    !full.includes("nan");
+      if (typeof AFDB !== "undefined" && AFDB.log) {
+        AFDB.log(isErr ? "ERROR" : "ENGINE", "ENGINE", msgStr, extra);
+      }
+    }
     function recordPickError(proj, actual) {
       if (!isFinite(proj) || !isFinite(actual)) return;
       const error = Math.abs(actual - proj);
       window.g_driftErrors.push(error);
       if (window.g_driftErrors.length > 500) window.g_driftErrors.shift();
-      // Update the drift display if it exists
-      if (document.getElementById('driftValue')) {
-        updateDriftDisplay();
-      }
-      // Log the error for visibility
       engineDebug("Drift recorded: " + error.toFixed(1) + " pts", { proj: proj.toFixed(1), actual: actual.toFixed(1), error: error.toFixed(1) });
     }
     function avg(arr) {
@@ -1387,20 +1603,38 @@ S
     }
 
     // ---------- UI event handlers ----------
+    let g_trackerModalView = "picks";
+    function isTrackerPicksView() { return g_trackerModalView === "picks"; }
+    function isTrackerReportView() { return g_trackerModalView === "report"; }
+    function syncTrackerModalView() {
+      const panel = document.querySelector(".tracker-panel");
+      if (!panel) return;
+      if (g_trackerModalView === "picks") panel.classList.remove("analytics-view");
+      else panel.classList.add("analytics-view");
+      const titleEl = document.getElementById("trackerHeadTitle");
+      if (titleEl) titleEl.textContent = isTrackerReportView() ? "Engine Report" : "Tracked Picks";
+    }
+    function setTrackerModalView(view) {
+      const next = (view === "report") ? "report" : "picks";
+      g_trackerModalView = next;
+      syncTrackerModalView();
+      if (isTrackerReportView()) renderTrackerAnalytics();
+      else renderTrackedPicks();
+    }
     function openTrackerModal(){
       engineDebug("Opening tracker modal", { timestamp: new Date().toISOString() });
       const modal = document.getElementById("trackerModal");
       if(!modal) return;
       modal.classList.add("open");
-      renderTrackedPicks();
-      // Ensure report view is rendered if that's the current view
-      if (g_trackerModalView === 'report') {
-        renderTrackerAnalytics();
-      }
+      document.body.classList.add("tracker-open");
+      syncTrackerModalView();
+      if (isTrackerReportView()) renderTrackerAnalytics();
+      else renderTrackedPicks();
     }
     function closeTrackerModal(){
       const modal = document.getElementById("trackerModal");
       if(modal) modal.classList.remove("open");
+      document.body.classList.remove("tracker-open");
     }
     function toggleTheme(){
       document.body.classList.toggle("dark-mode");
@@ -1648,13 +1882,12 @@ S
       document.getElementById("trackerToggleBtn").addEventListener("click", openTrackerModal);
       document.getElementById("trackerCloseBtn").addEventListener("click", closeTrackerModal);
       document.getElementById("trackerModal").addEventListener("click", e=>{ if(e.target===e.currentTarget) closeTrackerModal(); });
-      // Tracker view toggle on title click
+      // Tracker view toggle on title click (exact BB behavior: picks <-> report)
       const headTitle = document.getElementById('trackerHeadTitle');
       if (headTitle) {
         headTitle.style.cursor = 'pointer';
         headTitle.addEventListener('click', function() {
-          const next = (g_trackerModalView === 'picks') ? 'report' : 'picks';
-          setTrackerModalView(next);
+          setTrackerModalView(isTrackerReportView() ? "picks" : "report");
         });
       }
       document.getElementById("trackedPicksBody").addEventListener("click", function(e) {
@@ -1747,45 +1980,10 @@ S
         }
       });
 
-      // AFDB shell with full debug features — also log a boot message
+      // AFDB is the real basketball module (wired below). Button only opens it.
       engineDebug("AFDB Debug panel ready", { version: APP_BUILD_VERSION, timestamp: new Date().toISOString() });
       document.getElementById("afdbBtn").addEventListener("click", function(){
-        const ov = document.getElementById("afdbOverlay");
-        if (ov.style.display === "flex") {
-          ov.style.display = "none";
-          return;
-        }
-        ov.style.display = "flex";
-        // Build the panel with full debug header and log container
-        ov.innerHTML = `
-          <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:#0a0a0a;">
-            <div style="background:#080808;border-bottom:1px solid #222;padding:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;flex-shrink:0;">
-              <div style="color:#d4af37;font-size:14px;font-weight:900;">🔬 AUTO-FETCH DEBUG BRAIN (BB)</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button onclick="window.copyDebugLog()" style="background:#111;border:1px solid #555;color:#49d45f;padding:4px 10px;font-weight:700;cursor:pointer;">📋 Copy Log</button>
-                <button onclick="window.g_debugLog=[]; renderAfdbLogs();" style="background:#111;border:1px solid #555;color:#ff5c61;padding:4px 10px;font-weight:700;cursor:pointer;">🗑️ Clear</button>
-                <button onclick="window.militaryRaid()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:4px 10px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>
-                <button onclick="window.openTrackerReportFromDebug()" style="background:#111;border:1px solid #555;color:#d4af37;padding:4px 10px;font-weight:700;cursor:pointer;">📊 Tracker Report</button>
-                <button onclick="document.getElementById('afdbOverlay').style.display='none'" style="background:#111;border:1px solid #555;color:#ccc;padding:4px 10px;font-weight:700;cursor:pointer;">✕ Close</button>
-              </div>
-            </div>
-            <div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;flex-shrink:0;">
-              <div style="display:flex;align-items:center;gap:16px;">
-                <span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📈 DRIFT TRACKER</span>
-                <span style="color:#49d45f;font-size:12px;font-weight:900;">Rolling Mean Error (last 20): <span id="driftValue">—</span></span>
-                <span style="color:#555;font-size:10px;"><span id="driftSampleCount">0</span> samples logged</span>
-              </div>
-              <button onclick="window.toggleLogLevel()" style="background:none;border:1px solid #555;color:#4ea9ff;font-size:11px;font-weight:bold;padding:2px 10px;cursor:pointer;">LEVEL: <span id="logLevelLabel">ALL</span></button>
-            </div>
-            <div id="afdbLogContainer" style="flex:1;overflow-y:auto;padding:10px;background:#0a0a0a;"></div>
-          </div>
-        `;
-        renderAfdbLogs();
-        updateDriftDisplay();
-        // Log a welcome message when opened
-        if (!window.g_debugLog.length) {
-          engineDebug("Debug panel opened — run a prediction to see logs here", { timestamp: new Date().toISOString() });
-        }
+        if (typeof AFDB !== "undefined" && AFDB.open) AFDB.open();
       });
 
       renderTrackedPicks();
