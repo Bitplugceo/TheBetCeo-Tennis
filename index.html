@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -501,12 +502,28 @@
       return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
     }
     function getConfidenceGrade(edge, line, sampleTier) {
-      if (!isFinite(edge) || !line) return "NaN";
-      const pct = Math.abs(edge/line);
-      if (pct < 0.02) return "D";
-      if (pct < 0.04) return "C";
-      if (pct < 0.07) return "B";
-      return "A";
+      if (!isFinite(edge) || !line || line <= 0) return "NaN";
+      const pct = Math.abs(edge / line);
+      let grade = "D";
+      if (pct >= 0.07) grade = "A";
+      else if (pct >= 0.04) grade = "B";
+      else if (pct >= 0.02) grade = "C";
+      // Thin / insufficient samples cannot earn top grades (mirrors BB sample-tier discipline).
+      if (sampleTier === "insufficient") return "NaN";
+      if (sampleTier === "thin") {
+        if (grade === "A") grade = "B";
+        else if (grade === "B") grade = "C";
+      }
+      return grade;
+    }
+    function getSampleTier(aSeries, bSeries) {
+      const n = Math.min(
+        (Array.isArray(aSeries) ? aSeries.filter(isFinite).length : 0),
+        (Array.isArray(bSeries) ? bSeries.filter(isFinite).length : 0)
+      );
+      if (n >= 8) return "full";
+      if (n >= 4) return "thin";
+      return "insufficient";
     }
     function getConfidenceClass(conf) {
       if (conf==="A") return "conf-a";
@@ -570,7 +587,7 @@
     }
 
     // ---------- SofaScore manual paste helpers ----------
-    window.ssIsBasketballEvent = function(ev){ return true; }; // placeholder
+    window.ssIsTableTennisEvent = function(ev){ return true; };
     window.ssProcessTeamEvents = function(events, teamId, label, fixtureTournamentId) {
       const scoredList=[], allowedList=[], h1ScoredList=[], h1AllowedList=[];
       const completed = (events||[]).filter(e => e.status?.type==="finished" || e.status?.finished===true);
@@ -1250,14 +1267,25 @@
       const status = String(resultStatus||"").toLowerCase();
       if(!["win","loss","push","pending"].includes(status)) return false;
       let pick = g_trackerState.activePicks.find(p=>p.signature===signature);
+      // Allow re-settling archived picks (same as BB tracker edit path).
+      if(!pick) pick = (g_trackerState.archivedPicks || []).find(p=>p.signature===signature);
       if(!pick) return false;
       pick.resultStatus = status;
       pick.settledAt = new Date().toISOString();
+      if(status !== "pending" && (pick.actualScore == null || pick.actualScore === "")) {
+        const raw = prompt("Optional: enter actual total points for drift tracking (e.g. 118.0). Leave blank to skip.");
+        if (raw != null && String(raw).trim() !== "") {
+          const actual = parseFloat(String(raw).trim());
+          if (isFinite(actual) && actual > 0) pick.actualScore = actual;
+        }
+      }
       if(status==="pending") {
+        g_trackerState.archivedPicks = (g_trackerState.archivedPicks || []).filter(p=>p.signature!==signature);
         g_trackerState.activePicks = g_trackerState.activePicks.filter(p=>p.signature!==signature);
         g_trackerState.activePicks.unshift(pick);
       } else {
         g_trackerState.activePicks = g_trackerState.activePicks.filter(p=>p.signature!==signature);
+        g_trackerState.archivedPicks = (g_trackerState.archivedPicks || []).filter(p=>p.signature!==signature);
         g_trackerState.archivedPicks.unshift(pick);
         if(g_trackerState.archivedPicks.length>TRACKER_ARCHIVED_LIMIT) g_trackerState.archivedPicks.length=TRACKER_ARCHIVED_LIMIT;
       }
@@ -1268,15 +1296,58 @@
       if (status !== 'pending') {
         engineDebug("Retrospective: pick settled as " + status, { market: pick.marketKey, edge: pick.edge });
         // Record error for drift tracker
-        if (isFinite(pick.projection) && pick.actualScore) {
+        if (isFinite(pick.projection) && pick.actualScore != null) {
           const actual = parseFloat(pick.actualScore);
           if (isFinite(actual)) recordPickError(pick.projection, actual);
         }
-        // Recalculate thresholds if enough data
-        renderTrackerAnalytics(); // this updates thresholds based on new data
+        // Recalculate thresholds from settled history (BB-style retrospective gate)
+        recomputeTtThresholdsFromSettled();
+        renderTrackerAnalytics();
         updateEnginePerformanceScore();
       }
       return true;
+    }
+    function recomputeTtThresholdsFromSettled() {
+      const all = [...(g_trackerState.activePicks || []), ...(g_trackerState.archivedPicks || [])];
+      const settled = all.filter(p => p.resultStatus === "win" || p.resultStatus === "loss" || p.resultStatus === "push");
+      if (settled.length < 10) {
+        window.__ttThresholds = window.__ttThresholds || { ft: 3.0, h1: 2.0 };
+        return window.__ttThresholds;
+      }
+      function bestThreshold(marketKey, fallback) {
+        const pool = settled.filter(p => p.marketKey === marketKey && isFinite(p.edge));
+        if (pool.length < 6) return fallback;
+        const candidates = [1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+        let best = fallback, bestScore = -Infinity;
+        candidates.forEach(th => {
+          let wins = 0, losses = 0, pushes = 0, taken = 0;
+          pool.forEach(p => {
+            if (Math.abs(Number(p.edge)) < th) return;
+            taken++;
+            if (p.resultStatus === "win") wins++;
+            else if (p.resultStatus === "loss") losses++;
+            else pushes++;
+          });
+          if (taken < 4) return;
+          // Net units proxy: win=+1, loss=-1, push=0, slight sample penalty
+          const score = (wins - losses) + pushes * 0.1 - Math.max(0, 8 - taken) * 0.05;
+          if (score > bestScore) { bestScore = score; best = th; }
+        });
+        return best;
+      }
+      window.__ttThresholds = {
+        ft: bestThreshold("ft", 3.0),
+        h1: bestThreshold("h1", 2.0)
+      };
+      try {
+        localStorage.setItem("TT_THRESHOLDS_SETKA", JSON.stringify({
+          ...window.__ttThresholds,
+          sample: settled.length,
+          updatedAt: new Date().toISOString()
+        }));
+      } catch (e) {}
+      engineDebug("Retrospective thresholds recomputed", window.__ttThresholds);
+      return window.__ttThresholds;
     }
     // Delete a tracked pick
     function deleteTrackedPickBySignature(signature) {
@@ -1296,19 +1367,21 @@
 
     // ---------- Out-of-sample validation ----------
     function runOutOfSampleValidation() {
-      const all = [...g_trackerState.activePicks, ...g_trackerState.archivedPicks];
+      const all = [...(g_trackerState.activePicks || []), ...(g_trackerState.archivedPicks || [])];
       const settled = all.filter(p => p.resultStatus && p.resultStatus !== "pending" && p.createdAt)
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       if (settled.length < 30) return null;
       const splitIdx = Math.floor(settled.length * 0.7);
       const testSet = settled.slice(splitIdx);
       const wins = testSet.filter(p => p.resultStatus === "win").length;
-      const result = { testSize: testSet.length, winRate: wins / testSet.length, trainSize: splitIdx };
+      const pushes = testSet.filter(p => p.resultStatus === "push").length;
+      const winRate = testSet.length ? (wins + pushes * 0.5) / testSet.length : 0;
+      const result = { testSize: testSet.length, winRate, trainSize: splitIdx, wins, pushes };
       // Store for later use
       try {
-        const store = JSON.parse(localStorage.getItem("BB_OOS_VALIDATION_RESULTS") || "{}");
+        const store = JSON.parse(localStorage.getItem("TT_OOS_VALIDATION_RESULTS") || "{}");
         store["Setka Cup"] = { ...result, league: "Setka Cup", computedAt: new Date().toISOString() };
-        localStorage.setItem("BB_OOS_VALIDATION_RESULTS", JSON.stringify(store));
+        localStorage.setItem("TT_OOS_VALIDATION_RESULTS", JSON.stringify(store));
       } catch(e) {}
       return result;
     }
@@ -1403,16 +1476,18 @@
       const h1Proj = projA1H + projB1H;
       const ftEdge = isFinite(ftLine) ? ftProj - ftLine : NaN;
       const h1Edge = isFinite(h1Line) ? h1Proj - h1Line : NaN;
-      const ftPick = getPick(ftEdge, ftLine, "ft");
-      const h1Pick = getPick(h1Edge, h1Line, "h1");
-      const ftConf = getConfidenceGrade(ftEdge, ftLine, "full");
-      const h1Conf = getConfidenceGrade(h1Edge, h1Line, "full");
-      engineDebug("Projections computed", { ftProj, ftEdge, ftPick, ftConf, h1Proj, h1Edge, h1Pick, h1Conf });
+      const ftSampleTier = getSampleTier(aFT, bFT);
+      const h1SampleTier = getSampleTier(a1H, b1H);
+      const ftPick = (ftSampleTier === "insufficient") ? "NO PLAY" : getPick(ftEdge, ftLine, "ft");
+      const h1Pick = (h1SampleTier === "insufficient") ? "NO PLAY" : getPick(h1Edge, h1Line, "h1");
+      const ftConf = getConfidenceGrade(ftEdge, ftLine, ftSampleTier);
+      const h1Conf = getConfidenceGrade(h1Edge, h1Line, h1SampleTier);
+      engineDebug("Projections computed", { ftProj, ftEdge, ftPick, ftConf, ftSampleTier, h1Proj, h1Edge, h1Pick, h1Conf, h1SampleTier });
 
       // Build pick objects for lock selection
       const pickObjects = [
-        { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf },
-        { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf }
+        { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf, sampleTier: ftSampleTier, hasH2H: useH2H },
+        { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf, sampleTier: h1SampleTier, hasH2H: useH2H1 }
       ];
       // Select lock: highest confidence grade (A>B>C>D>NaN), then highest edge magnitude
       let lockIdx = -1;
@@ -1431,7 +1506,10 @@
       // Build rows with lock indicator
       const rows = [];
       const fixtureMeta = { eventId: "manual_tt_"+Date.now(), eventDate: new Date().toISOString(), homeTeam: document.getElementById("ssTeamAName").value||"A", awayTeam: document.getElementById("ssTeamBName").value||"B" };
-      const pushRow = (name, marketKey, proj, edge, line, pick, conf, isLock) => {
+      const pushRow = (p, isLock) => {
+        const name = p.name, marketKey = p.marketKey, proj = p.proj, edge = p.edge, line = p.line, pick = p.pick, conf = p.conf;
+        const sampleTier = p.sampleTier || "full";
+        const hasH2H = !!p.hasH2H;
         const row = document.createElement("tr");
         const td1 = document.createElement("td"); td1.textContent = name; row.appendChild(td1);
         const td2 = document.createElement("td"); td2.textContent = isFinite(proj)?displayLine(proj):"NaN"; row.appendChild(td2);
@@ -1450,7 +1528,7 @@
           predSpan.appendChild(document.createTextNode(' '));
           predSpan.appendChild(lockSpan);
         }
-        const details = buildPickExplanationDetails({ pick, edge, line, sampleTier: "full", hasH2H: useH2H || useH2H1, marketKey, conf }, isLock);
+        const details = buildPickExplanationDetails({ pick, edge, line, sampleTier, hasH2H, marketKey, conf }, isLock);
         predSpan.addEventListener('click', function(e) {
           e.stopPropagation();
           details.open = !details.open;
@@ -1482,7 +1560,9 @@
             resultStatus: "pending",
             signature: fixtureMeta.eventId+"|"+marketKey+"|"+side,
             createdAt: new Date().toISOString(),
-            isLock: isLock
+            isLock: isLock,
+            sampleTier: sampleTier,
+            hasH2H: hasH2H
           };
           rows.push(payload);
         }
@@ -1490,7 +1570,7 @@
       // Push rows with lock status
       pickObjects.forEach((p, idx) => {
         const isLock = (idx === lockIdx && p.pick !== "NO PLAY");
-        pushRow(p.name, p.marketKey, p.proj, p.edge, p.line, p.pick, p.conf, isLock);
+        pushRow(p, isLock);
       });
 
       if(rows.length) {
@@ -1503,48 +1583,6 @@
       } else {
         engineDebug("No picks saved — all markets were NO PLAY", { ftPick, h1Pick });
       }
-
-      // build rows
-      const rows = [];
-      const fixtureMeta = { eventId: "manual_tt_"+Date.now(), eventDate: new Date().toISOString(), homeTeam: document.getElementById("ssTeamAName").value||"A", awayTeam: document.getElementById("ssTeamBName").value||"B" };
-      const pushRow = (name, marketKey, proj, edge, line, pick, conf) => {
-        const row = document.createElement("tr");
-        const td1 = document.createElement("td"); td1.textContent = name; row.appendChild(td1);
-        const td2 = document.createElement("td"); td2.textContent = isFinite(proj)?displayLine(proj):"NaN"; row.appendChild(td2);
-        const td3 = document.createElement("td"); td3.textContent = isFinite(edge)?(edge>0?"+":"")+edge.toFixed(1):"NaN"; row.appendChild(td3);
-        const td4 = document.createElement("td"); td4.className = pick==="NO PLAY"?"conf-none":getConfidenceClass(conf); td4.textContent = pick==="NO PLAY"?"NaN":conf; row.appendChild(td4);
-        const td5 = document.createElement("td"); td5.className = getPredictionClass(pick); td5.textContent = pick; row.appendChild(td5);
-        table.appendChild(row);
-        // tracker payload
-        if(pick!=="NO PLAY" && isFinite(line) && line>0) {
-          const side = getPickSideFromText(pick);
-          const edgePct = isFinite(edge) && line ? Math.abs((edge/line)*100) : 0;
-          const payload = {
-            eventId: fixtureMeta.eventId,
-            eventDate: fixtureMeta.eventDate,
-            homeTeam: fixtureMeta.homeTeam,
-            awayTeam: fixtureMeta.awayTeam,
-            league: "Setka Cup",
-            marketKey: marketKey,
-            marketName: name,
-            line: line,
-            projection: proj,
-            edge: edge,
-            edgePct: edgePct,
-            predictionText: pick,
-            confidenceGrade: conf,
-            side: side,
-            resultStatus: "pending",
-            signature: fixtureMeta.eventId+"|"+marketKey+"|"+side,
-            createdAt: new Date().toISOString(),
-            isLock: false
-          };
-          rows.push(payload);
-        }
-      };
-      // (This block is now handled in the new code above, so we remove the old one)
-      // The old pushRow calls are replaced by the loop above; we must remove them to avoid duplication.
-      // We'll keep the code as is and let the new loop handle everything.
     }
 
     // ---------- Collapsible sections ----------
@@ -1588,6 +1626,18 @@
 
       // Hide all auto-fill indicators initially
       document.querySelectorAll(".autofill-indicator").forEach(el => el.style.display = "none");
+
+      // Restore retrospective thresholds from localStorage (TT Setka Cup silo)
+      try {
+        const savedTh = JSON.parse(localStorage.getItem("TT_THRESHOLDS_SETKA") || "null");
+        if (savedTh && isFinite(savedTh.ft) && isFinite(savedTh.h1)) {
+          window.__ttThresholds = { ft: Number(savedTh.ft), h1: Number(savedTh.h1) };
+        } else {
+          window.__ttThresholds = { ft: 3.0, h1: 2.0 };
+        }
+      } catch (e) {
+        window.__ttThresholds = { ft: 3.0, h1: 2.0 };
+      }
 
       document.getElementById("themeToggleBtn").addEventListener("click", toggleTheme);
       if(localStorage.getItem("theme")==="dark") document.body.classList.add("dark-mode");
@@ -1697,52 +1747,6 @@
         }
       });
 
-      // Audit copy button
-      document.getElementById("auditCopyBtn").addEventListener("click", function() {
-        const state = {
-          league: "Setka Cup",
-          timestamp: new Date().toISOString(),
-          picks: g_trackerState.activePicks,
-          archived: g_trackerState.archivedPicks,
-          stats: g_trackerState.stats
-        };
-        const text = JSON.stringify(state, null, 2);
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(() => {
-            const orig = this.textContent;
-            this.textContent = "✅";
-            setTimeout(() => this.textContent = orig, 1500);
-          });
-        } else {
-          try { const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); } catch(e) {}
-        }
-      });
-      // Inputs copy button
-      document.getElementById("inputsCopyBtn").addEventListener("click", function() {
-        const ids = [
-          "ssTeamAName", "ssTeamAId", "ssTeamBName", "ssTeamBId",
-          "aFTScored", "aFTAllowed", "bFTScored", "bFTAllowed",
-          "a1HScored", "a1HAllowed", "b1HScored", "b1HAllowed",
-          "aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H",
-          "ftMarket", "h1Market"
-        ];
-        const data = {};
-        ids.forEach(id => {
-          const el = document.getElementById(id);
-          if (el && el.value) data[id] = el.value;
-        });
-        const text = JSON.stringify(data, null, 2);
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(() => {
-            const orig = this.textContent;
-            this.textContent = "✅";
-            setTimeout(() => this.textContent = orig, 1500);
-          });
-        } else {
-          try { const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); } catch(e) {}
-        }
-      });
-
       // AFDB shell with full debug features — also log a boot message
       engineDebug("AFDB Debug panel ready", { version: APP_BUILD_VERSION, timestamp: new Date().toISOString() });
       document.getElementById("afdbBtn").addEventListener("click", function(){
@@ -1764,14 +1768,6 @@
                 <button onclick="window.openTrackerReportFromDebug()" style="background:#111;border:1px solid #555;color:#d4af37;padding:4px 10px;font-weight:700;cursor:pointer;">📊 Tracker Report</button>
                 <button onclick="document.getElementById('afdbOverlay').style.display='none'" style="background:#111;border:1px solid #555;color:#ccc;padding:4px 10px;font-weight:700;cursor:pointer;">✕ Close</button>
               </div>
-            </div>
-            <div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;flex-shrink:0;">
-              <div style="display:flex;align-items:center;gap:16px;">
-                <span style="color:#555;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">📈 DRIFT TRACKER</span>
-                <span style="color:#49d45f;font-size:12px;font-weight:900;">Rolling Mean Error (last 20): <span id="driftValue">—</span></span>
-                <span style="color:#555;font-size:10px;"><span id="driftSampleCount">0</span> samples logged</span>
-              </div>
-              <button onclick="window.toggleLogLevel()" style="background:none;border:1px solid #555;color:#4ea9ff;font-size:11px;font-weight:bold;padding:2px 10px;cursor:pointer;">LEVEL: <span id="logLevelLabel">ALL</span></button>
             </div>
             <div style="padding:6px 12px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;flex-shrink:0;">
               <div style="display:flex;align-items:center;gap:16px;">
