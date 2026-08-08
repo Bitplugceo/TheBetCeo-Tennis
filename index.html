@@ -793,6 +793,85 @@
       for (let i=0; i<trunc.length; i++) { ws += trunc[i]*w[i]; wt += w[i]; }
       return wt ? ws/wt : avg(trunc);
     }
+    /**
+     * Trim high/low outliers by value rank, then apply recency weights in
+     * chronological order (index 0 = most recent). Must NOT sort the series
+     * before weighting — that was the BB trimmedAvg ordering bug.
+     */
+    function trimmedAvg(arr, weights) {
+      const clean = Array.isArray(arr) ? arr.map(Number).filter(isFinite) : [];
+      if (!clean.length) return NaN;
+      if (clean.length <= 2) return weightedRecentAverage(clean, weights);
+      const indexed = clean.map(function(v, i) { return { v: v, i: i }; });
+      indexed.sort(function(a, b) { return a.v - b.v; });
+      const drop = clean.length >= 4 ? 1 : 0;
+      const keepSet = {};
+      for (let k = drop; k < indexed.length - drop; k++) keepSet[indexed[k].i] = true;
+      const kept = [];
+      for (let i = 0; i < clean.length; i++) {
+        if (keepSet[i]) kept.push(clean[i]);
+      }
+      return weightedRecentAverage(kept, weights);
+    }
+    /**
+     * Team vs opponent blend weight by sample tier + volatility.
+     * Full sample → higher team weight; thin/insufficient + high vol → more opp.
+     */
+    function getDynamicWeights(sampleTier, volatility) {
+      let teamWeight = 0.55;
+      if (sampleTier === "full") teamWeight = 0.62;
+      else if (sampleTier === "thin") teamWeight = 0.48;
+      else teamWeight = 0.40;
+      const vol = Math.min(2.5, Math.max(0, Number(volatility) || 0));
+      const volShift = Math.min(0.12, vol * 0.05);
+      teamWeight = Math.max(0.35, Math.min(0.70, teamWeight - volShift));
+      return { teamWeight: teamWeight, oppWeight: 1 - teamWeight };
+    }
+    /**
+     * Beta-Binomial shrinkage of a win rate toward a prior.
+     * Returns null when there are no decisive (win/loss) games.
+     */
+    function getStabilizedBucketWinRate(wins, losses, priorGames, priorWinRate) {
+      const w = Math.max(0, Number(wins) || 0);
+      const l = Math.max(0, Number(losses) || 0);
+      const decisive = w + l;
+      if (decisive <= 0) return null;
+      const pg = Math.max(1, Number(priorGames) || 12);
+      const pwr = Math.max(1, Math.min(99, Number(priorWinRate) || 50));
+      const alpha = (pwr / 100) * pg;
+      const beta = pg - alpha;
+      const post = (w + alpha) / (decisive + pg);
+      return post * 100;
+    }
+    /**
+     * Two-sided z-score of observed win rate vs 50% null (or prior rate).
+     * Larger |n| → larger |z| at the same rate.
+     */
+    function getBucketSignalStrength(winRatePct, losses, n) {
+      const rate = Number(winRatePct);
+      const nn = Math.max(0, Number(n) || 0);
+      if (!isFinite(rate) || nn <= 0) return 0;
+      const p = Math.max(0.01, Math.min(0.99, rate / 100));
+      const p0 = 0.5;
+      const se = Math.sqrt(p0 * (1 - p0) / nn);
+      if (se <= 0) return 0;
+      return (p - p0) / se;
+    }
+    /**
+     * League trust skeleton — Setka Cup is trusted; unknown leagues advisory.
+     * level: trusted | advisory | blocked
+     * mode:  full | advisory | block
+     */
+    function getLeagueTrustMeta(league) {
+      const key = String(league || "").toLowerCase().replace(/\s+/g, "_");
+      if (key === "setka" || key === "setka_cup" || key === "setkacup") {
+        return { level: "trusted", mode: "full", label: "Setka Cup" };
+      }
+      if (!key || key === "unknown") {
+        return { level: "advisory", mode: "advisory", label: league || "Unknown" };
+      }
+      return { level: "advisory", mode: "advisory", label: league || key };
+    }
     function getPickSideFromText(text) {
       const raw = String(text||"").trim().toUpperCase();
       if (raw.startsWith("OVER")) return "over";
@@ -820,8 +899,9 @@
       if (Math.abs(edge) < threshold) return "NO PLAY";
       return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
     }
-    function getConfidenceGrade(edge, line, sampleTier) {
+    function getConfidenceGrade(edge, line, sampleTier, opts) {
       if (!isFinite(edge) || !line || line <= 0) return "NaN";
+      const o = opts || {};
       const pct = Math.abs(edge / line);
       let grade = "D";
       if (pct >= 0.07) grade = "A";
@@ -832,6 +912,21 @@
       if (sampleTier === "thin") {
         if (grade === "A") grade = "B";
         else if (grade === "B") grade = "C";
+      }
+      // Trap / elevated vol / missing H2H — demote one step (BB-style modifiers).
+      if (o.trap === true) {
+        if (grade === "A") grade = "B";
+        else if (grade === "B") grade = "C";
+        else if (grade === "C") grade = "D";
+      }
+      const vol = isFinite(o.volRatio) ? Number(o.volRatio) : 0;
+      if (vol >= 1.5 && !o.trap) {
+        if (grade === "A") grade = "B";
+        else if (grade === "B") grade = "C";
+      }
+      if (o.hasH2H === false && (grade === "A" || grade === "B")) {
+        if (grade === "A") grade = "B";
+        else grade = "C";
       }
       return grade;
     }
@@ -1421,7 +1516,7 @@
           <td>${p.marketName||"—"}</td>
           <td>${isFinite(p.line)?displayLine(p.line):"—"}</td>
           <td>${p.predictionText||"—"}${p.isLock?' <span class="lock">🔒</span>':''}<span class="tracker-delete-pick-btn" data-sig="${encSig}" style="cursor:pointer;margin-left:6px;font-size:10px;color:#ff5c61;" title="Delete this pick">✕</span></td>
-          <td class="${gradeClass}">${grade}</td>
+                <td class="${gradeClass}">${grade}${String(p.sampleTier||"") === "thin" ? ' <span style="font-size:8px;border:1px dashed var(--muted);padding:0 3px;margin-left:2px;color:var(--muted);" title="Thin sample">T</span>' : ""}${p.trap ? ' <span style="font-size:8px;border:1px dashed #d98a00;padding:0 3px;margin-left:2px;color:#d98a00;" title="Trap flagged at lock">⚠</span>' : ""}</td>
           <td class="${statusClass}"><div class="tracker-status-stack">${statusHtml}</div></td>
         </tr>`;
       }).join("");
@@ -1470,8 +1565,17 @@
       });
       const gradeRows = Object.entries(gradeMap).filter(([g, data]) => data.w+data.l+data.p > 0).map(([g, data]) => {
         const total = data.w+data.l+data.p;
-        const rate = total ? ((data.w + data.p*0.5)/total*100).toFixed(1) : "—";
-        return `<tr><td>Grade ${g}</td><td class="num">${total}</td><td class="num">${data.w}</td><td class="num">${data.l}</td><td class="num">${data.p}</td><td class="rate">${rate}%</td></tr>`;
+        const rawRate = total ? ((data.w + data.p*0.5)/total*100) : NaN;
+        const stab = (typeof getStabilizedBucketWinRate === "function")
+          ? getStabilizedBucketWinRate(data.w, data.l, 12, 50)
+          : null;
+        const rateStr = isFinite(rawRate) ? rawRate.toFixed(1) : "—";
+        const stabStr = (stab != null && isFinite(stab)) ? stab.toFixed(1) : "—";
+        const z = (typeof getBucketSignalStrength === "function" && isFinite(rawRate))
+          ? getBucketSignalStrength(rawRate, data.l, data.w + data.l)
+          : 0;
+        const zStr = isFinite(z) ? z.toFixed(2) : "—";
+        return `<tr><td>Grade ${g}</td><td class="num">${total}</td><td class="num">${data.w}</td><td class="num">${data.l}</td><td class="num">${data.p}</td><td class="rate">${rateStr}% <span style="color:var(--muted);font-size:9px;">(stab ${stabStr}% · z ${zStr})</span></td></tr>`;
       }).join('') || '<tr><td colspan="6" class="note">No confidence-grade data yet.</td></tr>';
 
       // Edge bucket performance
@@ -1491,9 +1595,18 @@
       });
       const edgeRows = Object.entries(edgeBuckets).filter(([b, data]) => data.w+data.l+data.p > 0).map(([b, data]) => {
         const total = data.w+data.l+data.p;
-        const rate = total ? ((data.w + data.p*0.5)/total*100).toFixed(1) : "—";
+        const rawRate = total ? ((data.w + data.p*0.5)/total*100) : NaN;
+        const stab = (typeof getStabilizedBucketWinRate === "function")
+          ? getStabilizedBucketWinRate(data.w, data.l, 12, 50)
+          : null;
+        const rateStr = isFinite(rawRate) ? rawRate.toFixed(1) : "—";
+        const stabStr = (stab != null && isFinite(stab)) ? stab.toFixed(1) : "—";
+        const z = (typeof getBucketSignalStrength === "function" && isFinite(rawRate))
+          ? getBucketSignalStrength(rawRate, data.l, data.w + data.l)
+          : 0;
+        const zStr = isFinite(z) ? z.toFixed(2) : "—";
         const label = b.charAt(0).toUpperCase() + b.slice(1) + ' Edge';
-        return `<tr><td>${label}</td><td class="num">${total}</td><td class="num">${data.w}</td><td class="num">${data.l}</td><td class="num">${data.p}</td><td class="rate">${rate}%</td></tr>`;
+        return `<tr><td>${label}</td><td class="num">${total}</td><td class="num">${data.w}</td><td class="num">${data.l}</td><td class="num">${data.p}</td><td class="rate">${rateStr}% <span style="color:var(--muted);font-size:9px;">(stab ${stabStr}% · z ${zStr})</span></td></tr>`;
       }).join('') || '<tr><td colspan="6" class="note">No edge-bucket data yet.</td></tr>';
 
       // Best pick only experiment
@@ -1557,15 +1670,20 @@
         }
       }
 
-      // God's Eye post-mortem log
+      // God's Eye post-mortem log (enriched with sample / trap / vol / trust)
       const godRows = settled.slice(0, 20).map(p => {
         const status = p.resultStatus.toUpperCase();
         const color = status === 'WIN' ? '#3a9c35' : status === 'LOSS' ? '#c91920' : '#888';
+        const tier = p.sampleTier || "—";
+        const trapFlag = p.trap ? "TRAP" : "ok";
+        const volStr = (p.volRatio != null && isFinite(p.volRatio)) ? Number(p.volRatio).toFixed(2) : "—";
+        const trust = p.leagueTrust || (typeof getLeagueTrustMeta === "function" ? getLeagueTrustMeta(p.league || "Setka Cup").level : "—");
+        const h2h = p.hasH2H ? "H2H" : "no-H2H";
         return `<tr>
-          <td><strong>${p.homeTeam||'A'} vs ${p.awayTeam||'B'}</strong><br><span style="color:var(--muted);font-size:9px;">${p.marketName||'—'}</span></td>
+          <td><strong>${p.homeTeam||'A'} vs ${p.awayTeam||'B'}</strong><br><span style="color:var(--muted);font-size:9px;">${p.marketName||'—'} · ${trust}</span></td>
           <td>${p.predictionText||'—'}</td>
           <td style="color:${color};font-weight:900;">${status}</td>
-          <td style="font-size:9px;color:var(--muted);">Edge: ${p.edgePct ? (p.edgePct>0?'+':'')+p.edgePct.toFixed(1)+'%' : '—'} | Grade: ${p.confidenceGrade||'—'}</td>
+          <td style="font-size:9px;color:var(--muted);">Edge: ${p.edgePct ? (p.edgePct>0?'+':'')+Number(p.edgePct).toFixed(1)+'%' : '—'} | Grade: ${p.confidenceGrade||'—'} | Tier: ${tier} | Vol: ${volStr} | ${trapFlag} | ${h2h}</td>
         </tr>`;
       }).join('') || '<tr><td colspan="4" class="note">No settled picks yet.</td></tr>';
 
@@ -2133,10 +2251,19 @@
       const b1H_avg = weightedRecentAverage(b1H);
       const b1A_avg = weightedRecentAverage(b1A);
 
-      let projAFT = (aFT_avg + bFA_avg) / 2;
-      let projBFT = (bFT_avg + aFA_avg) / 2;
-      let projA1H = (a1H_avg + b1A_avg) / 2;
-      let projB1H = (b1H_avg + a1A_avg) / 2;
+      // Sample tiers + volatility early so dynamic weights can shape the blend.
+      const ftSampleTierEarly = getSampleTier(aFT, bFT);
+      const h1SampleTierEarly = getSampleTier(a1H, b1H);
+      const ftVolEarly = getVolatilityRatio([].concat(aFT || [], bFT || []), 12);
+      const h1VolEarly = getVolatilityRatio([].concat(a1H || [], b1H || []), 3.5);
+      const ftW = getDynamicWeights(ftSampleTierEarly, ftVolEarly);
+      const h1W = getDynamicWeights(h1SampleTierEarly, h1VolEarly);
+
+      // Team scored * teamWeight + opponent allowed * oppWeight (replaces fixed 50/50).
+      let projAFT = aFT_avg * ftW.teamWeight + bFA_avg * ftW.oppWeight;
+      let projBFT = bFT_avg * ftW.teamWeight + aFA_avg * ftW.oppWeight;
+      let projA1H = a1H_avg * h1W.teamWeight + b1A_avg * h1W.oppWeight;
+      let projB1H = b1H_avg * h1W.teamWeight + a1A_avg * h1W.oppWeight;
 
       if(useH2H && h2hA.length>=2 && h2hB.length>=2) {
         const h2hA_avg = avg(h2hA);
@@ -2169,9 +2296,9 @@
       ftProj = anchorProjection(ftProj, ftN, SETKA_FT_BASE);
       h1Proj = anchorProjection(h1Proj, h1N, SETKA_H1_BASE);
 
-      // Volatility (combined scored series) for trap detection
-      const ftVol = getVolatilityRatio([].concat(aFT || [], bFT || []), 12);
-      const h1Vol = getVolatilityRatio([].concat(a1H || [], b1H || []), 3.5);
+      // Volatility reused from early calc (same series / scale) for trap detection
+      const ftVol = ftVolEarly;
+      const h1Vol = h1VolEarly;
 
       // Mild UNDER asymmetry (BB-style underEdgeFactor) — slightly harder to clear UNDER
       const UNDER_EDGE_FACTOR = 1.08;
@@ -2180,19 +2307,21 @@
       if (isFinite(ftEdge) && ftEdge < 0) ftEdge = ftEdge * UNDER_EDGE_FACTOR;
       if (isFinite(h1Edge) && h1Edge < 0) h1Edge = h1Edge * UNDER_EDGE_FACTOR;
 
-      const ftSampleTier = getSampleTier(aFT, bFT);
-      const h1SampleTier = getSampleTier(a1H, b1H);
+      const ftSampleTier = ftSampleTierEarly;
+      const h1SampleTier = h1SampleTierEarly;
       let ftPick = (ftSampleTier === "insufficient") ? "NO PLAY" : getPick(ftEdge, ftLine, "ft");
       let h1Pick = (h1SampleTier === "insufficient") ? "NO PLAY" : getPick(h1Edge, h1Line, "h1");
       const ftTrap = detectTrap(ftEdge, ftLine, ftPick, "ft", ftVol);
       const h1Trap = detectTrap(h1Edge, h1Line, h1Pick, "h1", h1Vol);
       if (ftTrap) ftPick = "NO PLAY";
       if (h1Trap) h1Pick = "NO PLAY";
-      const ftConf = getConfidenceGrade(ftEdge, ftLine, ftSampleTier);
-      const h1Conf = getConfidenceGrade(h1Edge, h1Line, h1SampleTier);
+      const ftConf = getConfidenceGrade(ftEdge, ftLine, ftSampleTier, { trap: ftTrap, volRatio: ftVol, hasH2H: useH2H });
+      const h1Conf = getConfidenceGrade(h1Edge, h1Line, h1SampleTier, { trap: h1Trap, volRatio: h1Vol, hasH2H: useH2H1 });
       engineDebug("Projections computed", {
         ftProj, ftEdge, ftPick, ftConf, ftSampleTier, ftVol: +ftVol.toFixed(2), ftTrap,
-        h1Proj, h1Edge, h1Pick, h1Conf, h1SampleTier, h1Vol: +h1Vol.toFixed(2), h1Trap
+        ftW: { team: +ftW.teamWeight.toFixed(3), opp: +ftW.oppWeight.toFixed(3) },
+        h1Proj, h1Edge, h1Pick, h1Conf, h1SampleTier, h1Vol: +h1Vol.toFixed(2), h1Trap,
+        h1W: { team: +h1W.teamWeight.toFixed(3), opp: +h1W.oppWeight.toFixed(3) }
       });
 
       // Build pick objects for lock selection
@@ -2200,6 +2329,7 @@
         { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf, sampleTier: ftSampleTier, hasH2H: useH2H, trap: ftTrap, vol: ftVol },
         { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf, sampleTier: h1SampleTier, hasH2H: useH2H1, trap: h1Trap, vol: h1Vol }
       ];
+      const leagueTrust = getLeagueTrustMeta("Setka Cup");
       // Select lock: highest confidence grade (A>B>C>D>NaN), then highest edge magnitude
       let lockIdx = -1;
       let bestScore = -1;
@@ -2259,6 +2389,7 @@
             homeTeam: fixtureMeta.homeTeam,
             awayTeam: fixtureMeta.awayTeam,
             league: "Setka Cup",
+            leagueTrust: leagueTrust.level,
             marketKey: marketKey,
             marketName: name,
             line: line,
@@ -2273,7 +2404,9 @@
             createdAt: new Date().toISOString(),
             isLock: isLock,
             sampleTier: sampleTier,
-            hasH2H: hasH2H
+            hasH2H: hasH2H,
+            trap: !!p.trap,
+            volRatio: isFinite(p.vol) ? Number(p.vol) : null
           };
           rows.push(payload);
         }
@@ -2353,6 +2486,26 @@
         expectTrue("weightedRecentAverage is finite and recency-biased", isFinite(w) && w > 80);
       });
 
+      suite("trimmedAvg chrono-order + getDynamicWeights", function() {
+        expectTrue("trimmedAvg export", typeof trimmedAvg === "function");
+        expectTrue("getDynamicWeights export", typeof getDynamicWeights === "function");
+        const uptrend = [130, 128, 125, 120, 115, 110, 108, 105, 102, 100];
+        const downtrend = uptrend.slice().reverse();
+        const flatMean = avg(uptrend);
+        const upRes = trimmedAvg(uptrend);
+        const downRes = trimmedAvg(downtrend);
+        expectTrue("trimmedAvg(uptrend) ABOVE flat mean", isFinite(upRes) && upRes > flatMean);
+        expectTrue("trimmedAvg(downtrend) BELOW flat mean", isFinite(downRes) && downRes < flatMean);
+        expectTrue("trimmedAvg(uptrend) > trimmedAvg(downtrend)", upRes > downRes);
+        const wFull = getDynamicWeights("full", 0);
+        const wThin = getDynamicWeights("thin", 0);
+        expectTrue("weights sum to 1", Math.abs(wFull.teamWeight + wFull.oppWeight - 1) < 0.001);
+        expectTrue("thin teamWeight <= full teamWeight", wThin.teamWeight <= wFull.teamWeight);
+        const lowVolOpp = getDynamicWeights("full", 0.1).oppWeight;
+        const highVolOpp = getDynamicWeights("full", 0.9).oppWeight;
+        expectTrue("high-vol oppWeight > low-vol oppWeight", highVolOpp > lowVolOpp);
+      });
+
       suite("parseMarketLine / displayLine / getPickSideFromText", function() {
         expect("range mid", parseMarketLine("96.5-101.5"), 99);
         expect("single", parseMarketLine("19.5"), 19.5);
@@ -2374,6 +2527,12 @@
         expectTrue("negative edge UNDER", String(getPick(-8, 100, "ft")).indexOf("UNDER") === 0);
         expect("NO PLAY grade NaN", getConfidenceGrade(5, 100, "insufficient"), "NaN");
         expectTrue("strong full grade A or B", ["A", "B"].indexOf(getConfidenceGrade(12, 100, "full")) >= 0);
+        const gBase = getConfidenceGrade(12, 100, "full", { trap: false, volRatio: 0.5, hasH2H: true });
+        const gTrap = getConfidenceGrade(12, 100, "full", { trap: true, volRatio: 0.5, hasH2H: true });
+        const rank = { A: 4, B: 3, C: 2, D: 1, NaN: 0 };
+        expectTrue("trap demotes grade", (rank[gTrap] || 0) < (rank[gBase] || 0));
+        const gNoH2H = getConfidenceGrade(12, 100, "full", { trap: false, volRatio: 0.5, hasH2H: false });
+        expectTrue("missing H2H demotes A/B", (rank[gNoH2H] || 0) <= (rank[gBase] || 0));
       });
 
       suite("stdDev / volatility / anchor / trap", function() {
@@ -2413,6 +2572,28 @@
         expectTrue("AFDB.runTestFetch", typeof AFDB !== "undefined" && typeof AFDB.runTestFetch === "function");
       });
 
+      suite("stabilized bucket + signal strength", function() {
+        expectTrue("getStabilizedBucketWinRate export", typeof getStabilizedBucketWinRate === "function");
+        expectTrue("getBucketSignalStrength export", typeof getBucketSignalStrength === "function");
+        expect("no decisive = null", getStabilizedBucketWinRate(0, 0, 12, 50), null);
+        const small = getStabilizedBucketWinRate(3, 0, 12, 50);
+        expectTrue("3-0 pulled toward prior, not 100%", small != null && small < 100 && small > 50);
+        const large = getStabilizedBucketWinRate(80, 20, 12, 50);
+        expectTrue("large sample near raw (~80%)", large != null && large > 75 && large < 82);
+        expectApprox("50% any n → z near 0", getBucketSignalStrength(50, 0, 10), 0, 0.05);
+        const zSmall = Math.abs(getBucketSignalStrength(70, 0, 5));
+        const zLarge = Math.abs(getBucketSignalStrength(70, 0, 50));
+        expectTrue("same rate, larger n → larger |z|", zLarge > zSmall);
+      });
+
+      suite("league trust skeleton", function() {
+        expectTrue("getLeagueTrustMeta export", typeof getLeagueTrustMeta === "function");
+        expect("Setka trusted", getLeagueTrustMeta("Setka Cup").level, "trusted");
+        expect("Setka mode full", getLeagueTrustMeta("setka").mode, "full");
+        expect("unknown advisory", getLeagueTrustMeta("unknown").level, "advisory");
+        expect("empty advisory", getLeagueTrustMeta("").level, "advisory");
+      });
+
       function run() {
         _p = 0; _f = 0; _fails.length = 0;
         if (typeof engineDebug === "function") engineDebug("ENGINE_TEST_SUITE: running " + _tests.length + " suites...");
@@ -2430,6 +2611,136 @@
       }
 
       return { run: run };
+    })();
+
+    // ---------- Golden regression harness (TT set-total scenarios) ----------
+    window.REGRESSION_TEST_SUITE = (function() {
+      const GOLDEN_KEY = "TT_REGRESSION_GOLDEN";
+      const TOLERANCE = 0.25;
+      const SCENARIOS = [
+        {
+          name: "setka_ft_standard",
+          fields: {
+            aFTScored: "52,50,55,49,51,48,53,50,52,51",
+            aFTAllowed: "47,49,46,50,48,51,47,49,48,50",
+            bFTScored: "50,53,48,51,49,52,50,51,49,50",
+            bFTAllowed: "48,46,52,49,50,47,51,48,50,49",
+            a1HScored: "", a1HAllowed: "", b1HScored: "", b1HAllowed: "",
+            aFTH2H: "", bFTH2H: "", a1HH2H: "", b1HH2H: "",
+            ftMarket: "100.5", h1Market: ""
+          }
+        },
+        {
+          name: "setka_h1_with_h2h",
+          fields: {
+            aFTScored: "51,49,53,50,52",
+            aFTAllowed: "48,50,47,49,48",
+            bFTScored: "50,52,49,51,50",
+            bFTAllowed: "49,47,51,48,50",
+            a1HScored: "11,9,11,10,11",
+            a1HAllowed: "8,11,7,9,8",
+            b1HScored: "10,11,9,11,10",
+            b1HAllowed: "9,8,11,9,10",
+            aFTH2H: "", bFTH2H: "",
+            a1HH2H: "11,10,11", b1HH2H: "9,11,8",
+            ftMarket: "", h1Market: "19.5"
+          }
+        }
+      ];
+      function loadGolden() {
+        try { return JSON.parse(localStorage.getItem(GOLDEN_KEY) || "{}"); }
+        catch (e) { return {}; }
+      }
+      function saveGolden(store) {
+        try { localStorage.setItem(GOLDEN_KEY, JSON.stringify(store)); }
+        catch (e) { if (typeof engineDebug === "function") engineDebug("REGRESSION save failed", e); }
+      }
+      function setVal(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      }
+      function extractSnapshot() {
+        const rows = document.querySelectorAll("#results tr");
+        const out = { ftProj: null, ftEdge: null, ftGrade: null, h1Proj: null, h1Edge: null, h1Grade: null };
+        for (let i = 1; i < rows.length; i++) {
+          const cells = rows[i].querySelectorAll("td");
+          if (cells.length < 5) continue;
+          const name = (cells[0].textContent || "").toLowerCase();
+          const proj = parseFloat(cells[1].textContent);
+          const edge = parseFloat(String(cells[2].textContent).replace("+", ""));
+          const grade = String(cells[3].textContent || "").trim();
+          if (name.indexOf("match") >= 0) {
+            out.ftProj = isFinite(proj) ? proj : null;
+            out.ftEdge = isFinite(edge) ? edge : null;
+            out.ftGrade = grade || null;
+          } else if (name.indexOf("1st") >= 0 || name.indexOf("set") >= 0) {
+            out.h1Proj = isFinite(proj) ? proj : null;
+            out.h1Edge = isFinite(edge) ? edge : null;
+            out.h1Grade = grade || null;
+          }
+        }
+        return out;
+      }
+      function withinTol(g, f) {
+        if (g === null || f === null) return g === f;
+        if (typeof g === "string" || typeof f === "string") return g === f;
+        if (!isFinite(g) || !isFinite(f)) return g === f;
+        return Math.abs(g - f) <= TOLERANCE;
+      }
+      async function runScenario(scenario, goldenStore, results) {
+        Object.keys(scenario.fields).forEach(function(id) { setVal(id, scenario.fields[id]); });
+        const useFt = document.getElementById("useFTH2H");
+        const use1h = document.getElementById("use1HH2H");
+        if (useFt) useFt.checked = !!(scenario.fields.aFTH2H && scenario.fields.aFTH2H.length);
+        if (use1h) use1h.checked = !!(scenario.fields.a1HH2H && String(scenario.fields.a1HH2H).split(",").filter(Boolean).length >= 2);
+        if (typeof runEngine === "function") runEngine();
+        else if (typeof window.runEngine === "function") window.runEngine();
+        const snap = extractSnapshot();
+        const golden = goldenStore[scenario.name];
+        if (!golden) {
+          goldenStore[scenario.name] = snap;
+          results.push({ label: scenario.name + ": recorded new golden baseline", pass: true, recorded: true });
+          return;
+        }
+        let ok = true;
+        Object.keys(snap).forEach(function(key) {
+          const pass = withinTol(golden[key], snap[key]);
+          if (!pass) ok = false;
+          results.push({
+            label: scenario.name + "." + key + " (golden=" + golden[key] + ", fresh=" + snap[key] + ")",
+            pass: pass
+          });
+        });
+        if (!ok) results.push({ label: scenario.name + ": DRIFTED from golden baseline", pass: false });
+      }
+      async function run() {
+        const results = [];
+        const goldenStore = loadGolden();
+        try {
+          for (let i = 0; i < SCENARIOS.length; i++) {
+            await runScenario(SCENARIOS[i], goldenStore, results);
+          }
+          saveGolden(goldenStore);
+        } catch (err) {
+          results.push({ label: "Regression threw: " + (err && err.message ? err.message : String(err)), pass: false });
+        } finally {
+          try { if (typeof clearAll === "function") clearAll(); } catch (e) {}
+        }
+        const passed = results.filter(function(r) { return r.pass; }).length;
+        const failed = results.length - passed;
+        const summary = (failed === 0 ? "✅ ALL PASSED" : "❌ " + failed + " FAILED") + " | " + passed + "/" + results.length + " passed";
+        console[failed ? "error" : "log"]("%cREGRESSION_TEST_SUITE: " + summary, "color:" + (failed ? "#ff5c61" : "#3a9c35") + ";font-weight:900;font-size:14px;");
+        results.filter(function(r) { return !r.pass; }).forEach(function(r) { console.error("FAIL: " + r.label); });
+        if (typeof engineDebug === "function") engineDebug("REGRESSION_TEST_SUITE: " + summary, { failures: results.filter(function(r) { return !r.pass; }).map(function(r) { return r.label; }) });
+        return { passed: passed, failed: failed, total: results.length, results: results };
+      }
+      function resetGolden(name) {
+        if (!name) { localStorage.removeItem(GOLDEN_KEY); return; }
+        const store = loadGolden();
+        delete store[name];
+        saveGolden(store);
+      }
+      return { run: run, resetGolden: resetGolden };
     })();
 
     // ---------- DOM ready ----------
