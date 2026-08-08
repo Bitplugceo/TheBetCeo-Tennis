@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -280,13 +279,7 @@
     PREDICTIONS
   </span>
 </header>
-<div class="wrapper">
-  <div class="section" id="leagueSection">
-    <h3>Setka Cup — Table Tennis</h3>
-    <div style="padding: 10px; font-size: 12px; font-weight: 600; color: var(--text);">
-      League: Setka Cup (Fixed) — manual data via SofaScore
-    </div>
-  </div>
+  <div class="wrapper">
   <div class="section" id="sofascoreManualSection">
     <h3>🔍 Player Lookup <span style="font-size:11px;color:#aaa;">(SofaScore — paste JSON)</span></h3>
     <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
@@ -754,7 +747,6 @@
       document.getElementById("results").innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
       document.querySelectorAll(".autofill-indicator").forEach(el=>el.style.display="none");
       document.querySelectorAll(".section").forEach(s=>s.classList.add("collapsed"));
-      document.getElementById("leagueSection").classList.remove("collapsed");
       document.getElementById("sofascoreManualSection").classList.remove("collapsed");
       document.getElementById("marketSection").classList.remove("collapsed");
     }
@@ -898,7 +890,6 @@
     // ---------- DOM ready ----------
     document.addEventListener("DOMContentLoaded", function() {
       makeSectionsCollapsible();
-      document.getElementById("leagueSection").classList.remove("collapsed");
       document.getElementById("sofascoreManualSection").classList.remove("collapsed");
       document.getElementById("marketSection").classList.remove("collapsed");
 
@@ -965,4 +956,3 @@
 </script>
 </body>
 </html>
-```
