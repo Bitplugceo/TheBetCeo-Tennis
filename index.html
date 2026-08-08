@@ -146,6 +146,7 @@
     .conf-c { background: #d98a00 !important; color: #fff !important; font-weight: 800 !important; }
     .conf-d { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
     .conf-none { background: var(--panel-soft-2) !important; color: var(--muted) !important; font-weight: 700 !important; }
+    .autofill-indicator { display: none; font-size: 11px; color: #2f8f4a; font-weight: 700; margin-left: 6px; }
     .why-pick-details { display: block; margin-top: 0; font-size: 10px; font-weight: 600; white-space: normal; }
     .why-pick-details[open] { margin-top: 6px; }
     .why-pick-details summary { cursor: pointer; color: var(--muted); font-size: 10px; font-weight: 700; list-style: none; outline: none; display: none; }
@@ -300,7 +301,7 @@
     <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
       <label>Player A Name (Home)</label>
       <div style="display:flex;gap:6px;margin-bottom:4px;">
-        <input id="ssTeamAName" placeholder="Player A" style="margin-bottom:0;flex:1;" />
+        <input id="ssTeamAName" placeholder="e.g. Fan Zhendong" style="margin-bottom:0;flex:1;" />
         <input id="ssPasteA" placeholder="Paste JSON A" oninput="parseSofascoreIndividual('A')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
         <button type="button" onclick="searchSofascorePlayer('A')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search player">🔍</button>
         <button type="button" onclick="clearPasteJSON('A')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
@@ -313,7 +314,7 @@
     <div style="margin-bottom:12px;border-bottom:1px dashed var(--panel-border);padding-bottom:10px;">
       <label>Player B Name (Away)</label>
       <div style="display:flex;gap:6px;margin-bottom:4px;">
-        <input id="ssTeamBName" placeholder="Player B" style="margin-bottom:0;flex:1;" />
+        <input id="ssTeamBName" placeholder="e.g. Ma Long" style="margin-bottom:0;flex:1;" />
         <input id="ssPasteB" placeholder="Paste JSON B" oninput="parseSofascoreIndividual('B')" style="margin:0;padding:6px 8px;font-size:10px;width:100px;flex-shrink:0;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);" />
         <button type="button" onclick="searchSofascorePlayer('B')" style="background:#3a404c;margin:0;padding:4px 8px;font-size:12px;line-height:1;width:auto;flex-shrink:0;cursor:pointer;" title="Search player">🔍</button>
         <button type="button" onclick="clearPasteJSON('B')" title="Clear pasted JSON" style="background:#d91f26;color:#fff;border:none;margin:0;padding:4px 8px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1;">✕</button>
@@ -338,8 +339,8 @@
   <div class="section" id="marketSection">
     <h3>Market Lines</h3>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-      <div><label>Match Total Points</label><input id="ftMarket" placeholder="110.5 - 120.5" /></div>
-      <div><label>1st Set Total Points</label><input id="h1Market" placeholder="25.5 - 28.5" /></div>
+      <div><label>Match Total Points</label><input id="ftMarket" placeholder="e.g. 98.5 or 96.5-101.5" /></div>
+      <div><label>1st Set Total Points</label><input id="h1Market" placeholder="e.g. 19.5 or 18.5-20.5" /></div>
     </div>
   </div>
   <div class="section" id="teamASection">
@@ -347,21 +348,21 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
       <div>
         <label>Match Total Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
-        <input id="aFTScored" placeholder="110,105,98,120,115" />
+        <input id="aFTScored" placeholder="e.g. 52,48,55,50,49" />
       </div>
       <div>
         <label>Match Total Allowed</label>
-        <input id="aFTAllowed" placeholder="105,108,102,115,110" />
+        <input id="aFTAllowed" placeholder="e.g. 47,51,46,50,48" />
       </div>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
       <div>
         <label>1st Set Scored</label>
-        <input id="a1HScored" placeholder="25,22,28,20,24" />
+        <input id="a1HScored" placeholder="e.g. 11,9,11,8,11" />
       </div>
       <div>
         <label>1st Set Allowed</label>
-        <input id="a1HAllowed" placeholder="23,26,21,25,22" />
+        <input id="a1HAllowed" placeholder="e.g. 7,11,6,11,9" />
       </div>
     </div>
   </div>
@@ -370,21 +371,21 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
       <div>
         <label>Match Total Scored <span style="font-size:10px;color:#888;">(recent → oldest, max 10)</span></label>
-        <input id="bFTScored" placeholder="108,112,105,115,110" />
+        <input id="bFTScored" placeholder="e.g. 50,53,47,51,49" />
       </div>
       <div>
         <label>Match Total Allowed</label>
-        <input id="bFTAllowed" placeholder="110,106,108,112,107" />
+        <input id="bFTAllowed" placeholder="e.g. 48,46,52,49,50" />
       </div>
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px;">
       <div>
         <label>1st Set Scored</label>
-        <input id="b1HScored" placeholder="24,26,23,27,25" />
+        <input id="b1HScored" placeholder="e.g. 11,11,8,11,9" />
       </div>
       <div>
         <label>1st Set Allowed</label>
-        <input id="b1HAllowed" placeholder="26,24,25,23,27" />
+        <input id="b1HAllowed" placeholder="e.g. 9,7,11,8,11" />
       </div>
     </div>
   </div>
@@ -392,14 +393,14 @@
     <h3>H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled</span></h3>
     <label><input type="checkbox" id="useFTH2H" /> Use Match Total H2H (min 2 games)</label>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-      <input id="aFTH2H" placeholder="115,108,120,112,118" />
-      <input id="bFTH2H" placeholder="110,115,112,118,113" />
+      <input id="aFTH2H" placeholder="Player A match totals vs B" />
+      <input id="bFTH2H" placeholder="Player B match totals vs A" />
     </div>
     <div style="margin-top: 6px;">
       <label><input type="checkbox" id="use1HH2H" /> Use 1st Set H2H (min 2 games)</label>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-        <input id="a1HH2H" placeholder="25,22,27,23,26" />
-        <input id="b1HH2H" placeholder="23,26,24,27,25" />
+        <input id="a1HH2H" placeholder="Player A 1st-set scores vs B" />
+        <input id="b1HH2H" placeholder="Player B 1st-set scores vs A" />
       </div>
     </div>
   </div>
@@ -886,13 +887,13 @@
         }
         const tag = document.getElementById(prefix+"AutoTag");
         if(tag) tag.style.display = "inline";
+        // After paste, open the form section that was filled so the user can verify
+        const formSectionId = side === "A" ? "teamASection" : "teamBSection";
+        const formSection = document.getElementById(formSectionId);
+        if (formSection) formSection.classList.remove("collapsed");
         const st = document.getElementById("ssFetchStatus");
-        if(st) { st.style.color="#2f8f4a"; st.textContent="✅ Team "+side+" stats loaded from pasted JSON!"; }
+        if(st) { st.style.color="#2f8f4a"; st.textContent="✅ Player "+side+" stats loaded from pasted JSON!"; }
         pasteEl.value = "";
-        // auto-open only the lookup and market sections; keep others collapsed
-        document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
-        document.getElementById("sofascoreManualSection").classList.remove("collapsed");
-        document.getElementById("marketSection").classList.remove("collapsed");
       } catch(err) {
         const st = document.getElementById("ssFetchStatus");
         if(st) { st.style.color="#d92d2a"; st.textContent="❌ Parse failed: "+err.message; }
@@ -926,48 +927,55 @@
     }
     loadTrackerState();
 
-    // ---------- Debug Log ----------
+    // ---------- Debug Log (routes into real AFDB module — same as basketball) ----------
     window.g_debugLog = [];
+    function updateDriftDisplay() {
+      // Drift strip is rendered by AFDB._render(); keep this as a safe no-op
+      // so legacy callers never throw ReferenceError.
+      if (typeof AFDB !== "undefined" && AFDB.isOpen) {
+        try { AFDB.log("INFO", "DRIFT", "Drift samples: " + ((window.g_driftErrors || []).length)); } catch (e) {}
+      }
+    }
+    function updateEnginePerformanceScore() {
+      const fill = document.getElementById("enginePerfFill");
+      const pctEl = document.getElementById("enginePerfPct");
+      const stats = g_trackerState.stats || {};
+      const settled = Number(stats.settled || 0);
+      const wins = Number(stats.wins || 0);
+      const pushes = Number(stats.pushes || 0);
+      let pct = 0;
+      if (settled > 0) pct = ((wins + pushes * 0.5) / settled) * 100;
+      if (fill) {
+        fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+        fill.style.background = pct >= 55 ? "#49d45f" : pct >= 45 ? "#d98a00" : "#c91920";
+      }
+      if (pctEl) pctEl.textContent = settled ? (pct.toFixed(0) + "%") : "—";
+    }
     window.engineDebug = function(msg, extra) {
-      const entry = { ts: new Date().toISOString(), msg: msg, extra: extra || null };
-      window.g_debugLog.unshift(entry);
+      const msgStr = String(msg || "");
+      const lower = msgStr.toLowerCase();
+      if (lower.includes("fetch") || lower.includes("load failed") || lower.includes("networkerror")) return;
+      let detail = "";
+      if (extra !== null && extra !== undefined) {
+        try { detail = JSON.stringify(extra); } catch(e) { detail = String(extra); }
+      }
+      const full = detail ? (lower + " | " + detail.toLowerCase()) : lower;
+      const isErr = (full.includes("error") || full.includes("fail") || full.includes("critical") || full.includes("crash") || full.includes("blocked") || full.includes("exception")) &&
+                    !full.includes("nan");
+      window.g_debugLog.unshift({ ts: new Date().toISOString(), msg: msgStr, extra: extra || null });
       if (window.g_debugLog.length > 500) window.g_debugLog.length = 500;
-      console.log("[ENGINE]", msg, extra || '');
-      if (document.getElementById("afdbOverlay")?.style.display === "flex") {
-        renderAfdbLogs();
+      if (typeof AFDB !== "undefined" && AFDB.log) {
+        AFDB.log(isErr ? "ERROR" : "ENGINE", "ENGINE", msgStr, extra);
       }
     };
     window.trackerDebug = function(msg, extra) {
-      const entry = { ts: new Date().toISOString(), msg: msg, extra: extra || null };
-      window.g_debugLog.unshift(entry);
-      if (window.g_debugLog.length > 500) window.g_debugLog.length = 500;
-      console.log("[TRACKER]", msg, extra || '');
-      if (document.getElementById("afdbOverlay")?.style.display === "flex") {
-        renderAfdbLogs();
-      }
+      window.engineDebug(msg, extra);
     };
     function renderAfdbLogs() {
-      const panel = document.getElementById("afdbPanel");
-      if (!panel) return;
-      const logs = window.g_debugLog || [];
-      const rows = logs.slice(0, 100).map(e => {
-        const msg = e.msg || "";
-        const extra = e.extra ? " | " + JSON.stringify(e.extra) : "";
-        const ts = e.ts ? new Date(e.ts).toLocaleTimeString() : "";
-        let color = '#aaa';
-        const lower = msg.toLowerCase();
-        if (lower.includes('error') || lower.includes('fail')) color = '#ff5c61';
-        else if (lower.includes('warn')) color = '#ffcf73';
-        else if (lower.includes('success') || lower.includes('ok')) color = '#49d45f';
-        else if (lower.includes('info')) color = '#4ea9ff';
-        return `<div style="padding:4px 8px;border-bottom:1px solid #1a1a1a;font-size:11px;color:${color};font-family:monospace;white-space:pre-wrap;word-break:break-all;"><span style="color:#555;">${ts}</span> ${msg}${extra}</div>`;
-      }).join('');
-      const logContainer = panel.querySelector('#afdbLogContainer');
-      if (logContainer) {
-        logContainer.innerHTML = rows || '<div style="padding:20px;color:#666;">No debug logs yet. Run a prediction.</div>';
-        logContainer.scrollTop = 0;
+      // Legacy no-op — AFDB module owns rendering now
+      if (typeof AFDB !== "undefined" && AFDB.isOpen) {
+        // AFDB re-renders itself on log(); nothing else to do
       }
-      updateDriftDisplay();
     }
     // Military Raid
     window.militaryRaid = function() {
@@ -1636,6 +1644,10 @@
       if(modal) modal.classList.remove("open");
       document.body.classList.remove("tracker-open");
     }
+    // Expose for AFDB Tracker Report button (openVisualReportFromDebug lives outside this IIFE)
+    window.openTrackerModal = openTrackerModal;
+    window.closeTrackerModal = closeTrackerModal;
+    window.setTrackerModalView = setTrackerModalView;
     function toggleTheme(){
       document.body.classList.toggle("dark-mode");
       localStorage.setItem("theme", document.body.classList.contains("dark-mode")?"dark":"light");
@@ -1646,9 +1658,8 @@
       document.getElementById("results").style.display="none";
       document.getElementById("results").innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
       document.querySelectorAll(".autofill-indicator").forEach(el=>el.style.display="none");
+      // Collapse every section after clear — same as cold load
       document.querySelectorAll(".section").forEach(s=>s.classList.add("collapsed"));
-      document.getElementById("sofascoreManualSection").classList.remove("collapsed");
-      document.getElementById("marketSection").classList.remove("collapsed");
     }
 
     // ---------- Run Engine ----------
@@ -1853,12 +1864,10 @@
     // ---------- DOM ready ----------
     document.addEventListener("DOMContentLoaded", function() {
       makeSectionsCollapsible();
-      // Collapse all sections first, then open only the two we want
+      // ALL sections start collapsed — user opens what they need
       document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
-      document.getElementById("sofascoreManualSection").classList.remove("collapsed");
-      document.getElementById("marketSection").classList.remove("collapsed");
 
-      // Hide all auto-fill indicators initially
+      // Hide all auto-fill indicators initially (CSS also defaults them to none)
       document.querySelectorAll(".autofill-indicator").forEach(el => el.style.display = "none");
 
       // Restore retrospective thresholds from localStorage (TT Setka Cup silo)
@@ -1875,9 +1884,6 @@
 
       document.getElementById("themeToggleBtn").addEventListener("click", toggleTheme);
       if(localStorage.getItem("theme")==="dark") document.body.classList.add("dark-mode");
-
-      // Ensure auto-fill indicators are hidden initially
-      document.querySelectorAll(".autofill-indicator").forEach(el => el.style.display = "none");
 
       document.getElementById("trackerToggleBtn").addEventListener("click", openTrackerModal);
       document.getElementById("trackerCloseBtn").addEventListener("click", closeTrackerModal);
