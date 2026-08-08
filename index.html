@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -371,6 +370,10 @@ S
         <input id="ssTournamentId" placeholder="e.g. 12345" style="margin-bottom:0;font-size:11px;padding:4px 6px;width:180px;flex-shrink:0;" oninput="onTournamentIdInput()" />
         <span id="ssTournamentName" style="font-size:10px;font-weight:800;color:var(--muted);"></span>
       </div>
+    </div>
+    <div style="margin-top:8px;">
+      <label style="font-size:11px;font-weight:800;">League <span style="color:var(--muted);font-weight:600;">(only Setka Cup has tuned retrospective thresholds — others run in advisory mode)</span></label>
+      <input id="leagueName" placeholder="e.g. Setka Cup" value="Setka Cup" style="margin-bottom:0;font-size:11px;padding:4px 6px;width:180px;" />
     </div>
     <div id="ssFetchStatus" style="font-size:10px;min-height:16px;margin-top:6px;"></div>
   </div>
@@ -1187,6 +1190,129 @@ S
       if (sampleTier === "insufficient") return false;
       return isFinite(volRatio) && volRatio >= TT_MARKOV.INTEGRITY_VOL_CEILING;
     }
+    /**
+     * Pattern-based integrity check, complementary to the aggregate volatility
+     * ceiling above. Flags a specific shape rather than just "noisy": a game
+     * decided by a wide margin sitting immediately next to a game decided by
+     * the tightest possible margin, repeated more than once in the recent
+     * series. One such swing happens in normal competitive play; a cluster of
+     * them is the kind of pattern worth a second look — still a coarse screen,
+     * not a verdict.
+     */
+    function detectMarginSwingAnomaly(scoredArr, allowedArr, wideThreshold, tightThreshold) {
+      const scored = (scoredArr || []).map(Number).filter(isFinite);
+      const allowed = (allowedArr || []).map(Number).filter(isFinite);
+      const n = Math.min(scored.length, allowed.length);
+      if (n < 4) return false;
+      const wide = isFinite(wideThreshold) ? wideThreshold : 8;
+      const tight = isFinite(tightThreshold) ? tightThreshold : 2;
+      const margins = [];
+      for (let i = 0; i < n; i++) margins.push(scored[i] - allowed[i]);
+      let swings = 0;
+      for (let i = 0; i < margins.length - 1; i++) {
+        const a = Math.abs(margins[i]);
+        const b = Math.abs(margins[i + 1]);
+        if ((a >= wide && b <= tight) || (b >= wide && a <= tight)) swings++;
+      }
+      return swings >= 2;
+    }
+    /**
+     * ---------- ELO rating layer ----------
+     * Folds who-actually-won-the-match history into the same point-process
+     * model above instead of bolting on a second, incompatible probability.
+     * ELO naturally yields a match-level win probability; it's inverted down
+     * through the match-length structure and then the game structure to land
+     * on an equivalent per-point probability — the same currency the rest of
+     * the pipeline already works in.
+     */
+    const TT_ELO_DEFAULT_RATING = 1500;
+    const TT_ELO_K_FACTOR = 24;
+    function loadEloRatings() {
+      try { return JSON.parse(localStorage.getItem("TT_ELO_RATINGS") || "{}") || {}; }
+      catch (e) { return {}; }
+    }
+    function saveEloRatings(ratings) {
+      try { localStorage.setItem("TT_ELO_RATINGS", JSON.stringify(ratings)); } catch (e) {}
+    }
+    /** Prefer the stable numeric SofaScore ID; fall back to a normalized name. */
+    function getEloKey(name, id) {
+      const idStr = String(id || "").trim();
+      if (idStr) return "id:" + idStr;
+      return "name:" + String(name || "").trim().toLowerCase();
+    }
+    function getEloEntry(key) {
+      const ratings = loadEloRatings();
+      const entry = ratings[key];
+      return {
+        rating: entry && isFinite(entry.rating) ? entry.rating : TT_ELO_DEFAULT_RATING,
+        matches: entry && isFinite(entry.matches) ? entry.matches : 0
+      };
+    }
+    function eloMatchWinProb(ratingA, ratingB) {
+      return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+    }
+    /** Trust ELO more once both players have real rating history; not at all with none. */
+    function getEloWeight(matchesA, matchesB) {
+      const minMatches = Math.min(Number(matchesA) || 0, Number(matchesB) || 0);
+      if (minMatches >= 15) return 0.45;
+      if (minMatches >= 5) return 0.30;
+      if (minMatches >= 1) return 0.15;
+      return 0;
+    }
+    /** Binary-search inversion: match-level win prob -> equivalent per-game win prob. */
+    function inferGameWinProbFromMatchWinProb(targetMatchWinProb, bestOf) {
+      if (!isFinite(targetMatchWinProb)) return 0.5;
+      const target = Math.max(0.001, Math.min(0.999, targetMatchWinProb));
+      let lo = 0.001, hi = 0.999;
+      for (let i = 0; i < 40; i++) {
+        const mid = (lo + hi) / 2;
+        const pMatch = computeMatchGamesDistribution(mid, bestOf).pUsWinsMatch;
+        if (pMatch < target) lo = mid; else hi = mid;
+      }
+      return (lo + hi) / 2;
+    }
+    /** Binary-search inversion: game-level win prob -> equivalent per-point win prob. */
+    function inferPointWinProbFromGameWinProb(targetGameWinProb, target) {
+      if (!isFinite(targetGameWinProb)) return 0.5;
+      const t = Math.max(0.001, Math.min(0.999, targetGameWinProb));
+      let lo = 0.001, hi = 0.999;
+      for (let i = 0; i < 40; i++) {
+        const mid = (lo + hi) / 2;
+        const pWin = computeGamePointModel(mid, target).pWin;
+        if (pWin < t) lo = mid; else hi = mid;
+      }
+      return (lo + hi) / 2;
+    }
+    /** Full ELO -> per-point-probability pipeline, ready to blend with the score-share estimate. */
+    function getEloImpliedPointProb(keyA, keyB, bestOf) {
+      const a = getEloEntry(keyA);
+      const b = getEloEntry(keyB);
+      const pMatch = eloMatchWinProb(a.rating, b.rating);
+      const pGame = inferGameWinProbFromMatchWinProb(pMatch, bestOf);
+      const pPoint = inferPointWinProbFromGameWinProb(pGame, 11);
+      return {
+        pPoint: pPoint,
+        weight: getEloWeight(a.matches, b.matches),
+        ratingA: a.rating,
+        ratingB: b.rating,
+        matchesA: a.matches,
+        matchesB: b.matches
+      };
+    }
+    /** Standard ELO update — call exactly once per real match result, never once per pick. */
+    function updateEloForMatch(keyA, keyB, aWon) {
+      const ratings = loadEloRatings();
+      const ra = ratings[keyA] && isFinite(ratings[keyA].rating) ? ratings[keyA].rating : TT_ELO_DEFAULT_RATING;
+      const rb = ratings[keyB] && isFinite(ratings[keyB].rating) ? ratings[keyB].rating : TT_ELO_DEFAULT_RATING;
+      const expectedA = eloMatchWinProb(ra, rb);
+      const actualA = aWon ? 1 : 0;
+      const newRa = ra + TT_ELO_K_FACTOR * (actualA - expectedA);
+      const newRb = rb + TT_ELO_K_FACTOR * ((1 - actualA) - (1 - expectedA));
+      ratings[keyA] = { rating: newRa, matches: ((ratings[keyA] && ratings[keyA].matches) || 0) + 1, updatedAt: new Date().toISOString() };
+      ratings[keyB] = { rating: newRb, matches: ((ratings[keyB] && ratings[keyB].matches) || 0) + 1, updatedAt: new Date().toISOString() };
+      saveEloRatings(ratings);
+      return { ratingA: newRa, ratingB: newRb };
+    }
     function getConfidenceClass(conf) {
       if (conf==="A") return "conf-a";
       if (conf==="B") return "conf-b";
@@ -1217,6 +1343,12 @@ S
         const overPct = (p.probOver * 100).toFixed(1);
         const underPct = ((1 - p.probOver) * 100).toFixed(1);
         factors.push(`Point-process model: ${overPct}% chance the total goes OVER this line (${underPct}% UNDER) — derived from the actual game/match scoring structure, not just the point edge.`);
+      }
+      if (isFinite(p.eloRatingA) && isFinite(p.eloRatingB)) {
+        const w = isFinite(p.eloWeight) ? p.eloWeight : 0;
+        factors.push(w > 0
+          ? `ELO: A ${Math.round(p.eloRatingA)} vs B ${Math.round(p.eloRatingB)} — carried ${(w * 100).toFixed(0)}% weight in the probability blend based on rating history depth.`
+          : `ELO: A ${Math.round(p.eloRatingA)} vs B ${Math.round(p.eloRatingB)} — not yet weighted in (too little settled match history for one or both players).`);
       }
       if (p.integrityFlag) factors.push("⚠️ Irregular scoring volatility flagged for this player pair — this is a coarse screen, not a fix detector. Verify before trusting this pick.");
       if (isLock) factors.push("🔒 Selected as the Lock pick (highest confidence + edge among this game's actionable markets).");
@@ -1289,6 +1421,22 @@ S
         return true;
       });
       completed.sort(function(a, b) { return (b.startTimestamp || 0) - (a.startTimestamp || 0); });
+      // Same-day match count — a real fatigue signal instead of manual guesswork.
+      // "Today" is the browser's real current calendar day (UTC), not the date
+      // of the player's most recent match — a stale last-match date must not
+      // be reported as "matches played today".
+      let matchesToday = 0;
+      const anchorDateStr = new Date().toISOString().slice(0, 10);
+      if (anchorDateStr && teamId) {
+        completed.forEach(function(ev) {
+          const isHome = String(ev.homeTeam?.id) === String(teamId);
+          const isAway = String(ev.awayTeam?.id) === String(teamId);
+          if (!isHome && !isAway) return;
+          if (!ev.startTimestamp) return;
+          const dateStr = new Date(ev.startTimestamp * 1000).toISOString().slice(0, 10);
+          if (dateStr === anchorDateStr) matchesToday++;
+        });
+      }
       completed.slice(0, 10).forEach(function(ev) {
         const isHome = String(ev.homeTeam?.id) === String(teamId);
         // If teamId missing, skip (caller should resolve ID first)
@@ -1319,6 +1467,7 @@ S
         h1AllowedList,
         gamesUsed: scoredList.length,
         h1GamesUsed: h1ScoredList.length,
+        matchesToday: matchesToday,
         lastGameDate: completed[0]?.startTimestamp
           ? new Date(completed[0].startTimestamp * 1000).toISOString()
           : ""
@@ -1338,6 +1487,7 @@ S
             if(el){ el.href="https://api.sofascore.com/api/v1/team/"+idVal+"/events/last/"+(i+1); el.style.display="inline-block"; }
           });
         }
+        if (typeof window.ssTryAutoFillH2H === "function") window.ssTryAutoFillH2H();
       } else { linkEl.style.display="none"; if(side==="B"){ ["ssTeamBLink1","ssTeamBLink2","ssTeamBLink3"].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; }); } }
     };
     window.clearPasteJSON = function(side){
@@ -1362,6 +1512,68 @@ S
         st.textContent = "🔍 Search opened for " + side + " — find the entry with sport.slug \"table-tennis\", copy its id, then open /events/last/0 and paste the JSON here.";
       }
     };
+    // ---- H2H auto-fill: raw event cache + opponent-match extraction ----
+    window.__ssRawEvents = window.__ssRawEvents || { A: null, B: null };
+    function ssExtractH2HFromEvents(events, myTeamId, oppTeamId) {
+      const ftMine = [], ftOpp = [], h1Mine = [], h1Opp = [];
+      (events || []).forEach(function(ev) {
+        const finished = ev.status?.type === "finished" || ev.status?.finished === true;
+        if (!finished || !window.ssIsTableTennisEvent(ev)) return;
+        const isHome = String(ev.homeTeam?.id) === String(myTeamId);
+        const isAway = String(ev.awayTeam?.id) === String(myTeamId);
+        if (!isHome && !isAway) return;
+        const oppId = isHome ? ev.awayTeam?.id : ev.homeTeam?.id;
+        if (String(oppId) !== String(oppTeamId)) return;
+        const myScore = isHome ? ev.homeScore : ev.awayScore;
+        const oppScore = isHome ? ev.awayScore : ev.homeScore;
+        if (!myScore || !oppScore) return;
+        const myFT = ssSumSetPoints(myScore);
+        const oppFT = ssSumSetPoints(oppScore);
+        if (myFT > 0 && oppFT > 0) { ftMine.push(myFT); ftOpp.push(oppFT); }
+        const myQ1 = Number(myScore.period1 ?? 0);
+        const oppQ1 = Number(oppScore.period1 ?? 0);
+        if (myQ1 > 0 && oppQ1 > 0) { h1Mine.push(myQ1); h1Opp.push(oppQ1); }
+      });
+      return { ftMine, ftOpp, h1Mine, h1Opp };
+    }
+    window.ssTryAutoFillH2H = function() {
+      const idA = (document.getElementById("ssTeamAId")?.value || "").trim();
+      const idB = (document.getElementById("ssTeamBId")?.value || "").trim();
+      const eventsA = window.__ssRawEvents.A;
+      const eventsB = window.__ssRawEvents.B;
+      if (!idA || !idB || (!eventsA && !eventsB)) return;
+      const fromA = eventsA ? ssExtractH2HFromEvents(eventsA, idA, idB) : null;
+      const fromB = eventsB ? ssExtractH2HFromEvents(eventsB, idB, idA) : null;
+      const ftA = (fromA && fromA.ftMine.length) ? fromA.ftMine : (fromB ? fromB.ftOpp : []);
+      const ftB = (fromA && fromA.ftOpp.length) ? fromA.ftOpp : (fromB ? fromB.ftMine : []);
+      const h1A = (fromA && fromA.h1Mine.length) ? fromA.h1Mine : (fromB ? fromB.h1Opp : []);
+      const h1B = (fromA && fromA.h1Opp.length) ? fromA.h1Opp : (fromB ? fromB.h1Mine : []);
+      const setVal = function(id, val) { const el = document.getElementById(id); if (el) el.value = val; };
+      let filledAny = false;
+      if (ftA.length >= 2 && ftB.length >= 2) {
+        setVal("aFTH2H", ftA.slice(0, 10).join(","));
+        setVal("bFTH2H", ftB.slice(0, 10).join(","));
+        const cb = document.getElementById("useFTH2H");
+        if (cb) cb.checked = true;
+        filledAny = true;
+      }
+      if (h1A.length >= 2 && h1B.length >= 2) {
+        setVal("a1HH2H", h1A.slice(0, 10).join(","));
+        setVal("b1HH2H", h1B.slice(0, 10).join(","));
+        const cb1 = document.getElementById("use1HH2H");
+        if (cb1) cb1.checked = true;
+        filledAny = true;
+      }
+      const tag = document.getElementById("h2hAutoTag");
+      if (tag) tag.style.display = filledAny ? "inline" : "none";
+      if (filledAny) {
+        const h2hSection = document.getElementById("h2hSection");
+        if (h2hSection) h2hSection.classList.remove("collapsed");
+        if (typeof engineDebug === "function") {
+          engineDebug("H2H auto-filled", { ftGames: ftA.length, h1Games: h1A.length });
+        }
+      }
+    };
     window.parseSofascoreIndividual = function(side){
       const pasteEl = document.getElementById(side==='A'?'ssPasteA':'ssPasteB');
       const raw = (pasteEl?.value||"").trim();
@@ -1370,6 +1582,7 @@ S
         const parsed = JSON.parse(raw);
         const events = parsed.events || [];
         if(!events.length) throw new Error("No events found in JSON.");
+        window.__ssRawEvents[side] = events;
         let idVal = (document.getElementById(side==='A'?'ssTeamAId':'ssTeamBId')?.value||"").trim();
         if(!idVal) {
           const counts={};
@@ -1419,6 +1632,11 @@ S
           setVal(prefix+"1HScored", stats.h1ScoredList.slice(0,10).join(","));
           setVal(prefix+"1HAllowed", stats.h1AllowedList.slice(0,10).join(","));
         }
+        const fatigueEl = document.getElementById(prefix+"FatigueToday");
+        if (fatigueEl && !fatigueEl.value.trim() && isFinite(stats.matchesToday)) {
+          fatigueEl.value = stats.matchesToday;
+          fatigueEl.title = "Auto-filled from same-day completed matches in the pasted feed — edit if you know better.";
+        }
         const tag = document.getElementById(prefix+"AutoTag");
         if(tag) tag.style.display = "inline";
         const formSectionId = side === "A" ? "teamASection" : "teamBSection";
@@ -1428,10 +1646,11 @@ S
         if(st) {
           st.style.color = stats.scoredList.length ? "#2f8f4a" : "#d98a00";
           st.textContent = stats.scoredList.length
-            ? ("✅ Player " + side + ": " + stats.gamesUsed + " match totals, " + stats.h1GamesUsed + " 1st-set rows" +
+            ? ("✅ Player " + side + ": " + stats.gamesUsed + " match totals, " + stats.h1GamesUsed + " 1st-set rows, " + stats.matchesToday + " played same day" +
                (tournamentId ? " (tournament " + tournamentId + ")" : "") + ".")
             : ("⚠️ Player " + side + ": JSON parsed but no usable set-point rows (check ID / tournament filter).");
         }
+        window.ssTryAutoFillH2H();
         pasteEl.value = "";
       } catch(err) {
         const st = document.getElementById("ssFetchStatus");
@@ -1513,7 +1732,7 @@ S
         lines.push("");
         all.forEach(function(p, i) {
           lines.push((i + 1) + ". " + (p.homeTeam || "A") + " vs " + (p.awayTeam || "B"));
-          lines.push("   " + (p.marketName || p.marketKey || "—") + " | SETKA CUP");
+          lines.push("   " + (p.marketName || p.marketKey || "—") + " | " + (p.league || "Setka Cup"));
           lines.push("   " + String(p.resultStatus || "pending").toUpperCase() + ": " + (p.predictionText || "—") + " @ " + (isFinite(p.line) ? p.line : "—"));
           if (p.actualScore != null) lines.push("   Final: " + p.actualScore);
           lines.push("");
@@ -1569,9 +1788,6 @@ S
     window.trackerDebug = function(msg, extra) {
       window.engineDebug(msg, extra);
     };
-    function renderAfdbLogs() {
-      // Dead legacy path removed — AFDB owns panel rendering exclusively.
-    }
     // Military Raid: single entry → hardened AFDB.runTestFetch
     window.militaryRaid = function() {
       engineDebug("🚨 MILITARY RAID TRIGGERED");
@@ -1735,7 +1951,7 @@ S
         }
         return `<tr>
           <td>${p.eventDate ? new Date(p.eventDate).toLocaleDateString() : "—"}</td>
-          <td>SETKA CUP</td>
+          <td>${(p.league || "Setka Cup").toUpperCase()}</td>
           <td>${p.homeTeam||"A"} vs ${p.awayTeam||"B"}</td>
           <td>${p.marketName||"—"}</td>
           <td>${isFinite(p.line)?displayLine(p.line):"—"}</td>
@@ -2092,6 +2308,23 @@ S
           if (isFinite(actual) && actual > 0) pick.actualScore = actual;
         }
       }
+      // ELO update — once per real match (an eventId can carry both an ft and
+      // an h1 pick; ELO must only move once per actual result, not per pick).
+      if (status !== "pending" && pick.eloKeyA && pick.eloKeyB && pick.eventId) {
+        g_trackerState.eloUpdatedEvents = g_trackerState.eloUpdatedEvents || [];
+        if (!g_trackerState.eloUpdatedEvents.includes(pick.eventId)) {
+          const winnerRaw = prompt("Optional, for ELO: who won the match — \"" + (pick.homeTeam||"A") + "\" or \"" + (pick.awayTeam||"B") + "\"? Type A, B, or leave blank to skip.");
+          if (winnerRaw != null && String(winnerRaw).trim() !== "") {
+            const w = String(winnerRaw).trim().toUpperCase();
+            if (w === "A" || w === "B") {
+              updateEloForMatch(pick.eloKeyA, pick.eloKeyB, w === "A");
+              g_trackerState.eloUpdatedEvents.push(pick.eventId);
+              if (g_trackerState.eloUpdatedEvents.length > 2000) g_trackerState.eloUpdatedEvents = g_trackerState.eloUpdatedEvents.slice(-2000);
+              engineDebug("ELO updated for match", { eventId: pick.eventId, winner: w });
+            }
+          }
+        }
+      }
       if(status==="pending") {
         g_trackerState.archivedPicks = (g_trackerState.archivedPicks || []).filter(p=>p.signature!==signature);
         g_trackerState.activePicks = g_trackerState.activePicks.filter(p=>p.signature!==signature);
@@ -2436,6 +2669,7 @@ S
       document.getElementById("results").style.display="none";
       document.getElementById("results").innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
       document.querySelectorAll(".autofill-indicator").forEach(el=>el.style.display="none");
+      window.__ssRawEvents = { A: null, B: null };
       // Collapse every section after clear — same as cold load
       document.querySelectorAll(".section").forEach(s=>s.classList.add("collapsed"));
     }
@@ -2516,9 +2750,20 @@ S
       const h1SampleTier = h1SampleTierEarly;
       const pGame1Raw = derivePointWinProb(projA1H, projB1H);
       const pMatchProxyRaw = derivePointWinProb(projAFT, projBFT, TT_MARKOV.MATCH_PROXY_DAMPING);
-      const pGame1 = applyFatigueAdjustment(pGame1Raw, aFatigueToday, bFatigueToday);
-      const pCombinedRaw = deriveMatchPointWinProb(pGame1Raw, pMatchProxyRaw, h1SampleTier);
-      const pCombined = applyFatigueAdjustment(pCombinedRaw, aFatigueToday, bFatigueToday);
+
+      // ELO layer: blend in who-actually-won history when enough of it
+      // exists, folded into the same per-point currency via the inversion
+      // chain (match win prob -> game win prob -> point win prob) so it's
+      // not a second, incompatible probability bolted on top.
+      const eloKeyA = getEloKey(document.getElementById("ssTeamAName").value, document.getElementById("ssTeamAId").value);
+      const eloKeyB = getEloKey(document.getElementById("ssTeamBName").value, document.getElementById("ssTeamBId").value);
+      const eloResult = getEloImpliedPointProb(eloKeyA, eloKeyB, matchFormat);
+      const pGame1Blended = pGame1Raw * (1 - eloResult.weight) + eloResult.pPoint * eloResult.weight;
+      const pCombinedPreElo = deriveMatchPointWinProb(pGame1Raw, pMatchProxyRaw, h1SampleTier);
+      const pCombinedBlended = pCombinedPreElo * (1 - eloResult.weight) + eloResult.pPoint * eloResult.weight;
+
+      const pGame1 = applyFatigueAdjustment(pGame1Blended, aFatigueToday, bFatigueToday);
+      const pCombined = applyFatigueAdjustment(pCombinedBlended, aFatigueToday, bFatigueToday);
       const h1Markov = computeGamePointModel(pGame1, 11);
       const matchMarkov = computeMatchTotalModel(pCombined, matchFormat, 11);
 
@@ -2555,8 +2800,10 @@ S
       // independent of the point-edge heuristic above.
       const ftProbOver = isFinite(ftLine) ? probOverLine(matchMarkov.expectedTotal, matchMarkov.varianceTotal, ftLine) : NaN;
       const h1ProbOver = isFinite(h1Line) ? probOverLine(h1Markov.expectedTotal, h1Markov.varianceTotal, h1Line) : NaN;
-      const ftIntegrityFlag = flagIntegrityRisk(ftVol, ftSampleTier);
-      const h1IntegrityFlag = flagIntegrityRisk(h1Vol, h1SampleTier);
+      const ftMarginSwing = detectMarginSwingAnomaly(aFT, aFA) || detectMarginSwingAnomaly(bFT, bFA);
+      const h1MarginSwing = detectMarginSwingAnomaly(a1H, a1A) || detectMarginSwingAnomaly(b1H, b1A);
+      const ftIntegrityFlag = flagIntegrityRisk(ftVol, ftSampleTier) || ftMarginSwing;
+      const h1IntegrityFlag = flagIntegrityRisk(h1Vol, h1SampleTier) || h1MarginSwing;
 
       let ftPick = (ftSampleTier === "insufficient") ? "NO PLAY" : getPick(ftEdge, ftLine, "ft");
       let h1Pick = (h1SampleTier === "insufficient") ? "NO PLAY" : getPick(h1Edge, h1Line, "h1");
@@ -2574,15 +2821,16 @@ S
         h1Proj, h1Edge, h1Pick, h1Conf, h1SampleTier, h1Vol: +h1Vol.toFixed(2), h1Trap,
         h1ProbOver: isFinite(h1ProbOver) ? +h1ProbOver.toFixed(3) : null, h1IntegrityFlag,
         pGame1: +pGame1.toFixed(3),
-        h1W: { team: +h1W.teamWeight.toFixed(3), opp: +h1W.oppWeight.toFixed(3) }
+        h1W: { team: +h1W.teamWeight.toFixed(3), opp: +h1W.oppWeight.toFixed(3) },
+        elo: { ratingA: +eloResult.ratingA.toFixed(0), ratingB: +eloResult.ratingB.toFixed(0), weight: eloResult.weight, matchesA: eloResult.matchesA, matchesB: eloResult.matchesB }
       });
 
       // Build pick objects for lock selection
       const pickObjects = [
-        { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf, sampleTier: ftSampleTier, hasH2H: useH2H, trap: ftTrap, vol: ftVol, probOver: ftProbOver, integrityFlag: ftIntegrityFlag, expectedGames: matchMarkov.expectedGames, pWinMatchModel: matchMarkov.pUsWinsMatch },
-        { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf, sampleTier: h1SampleTier, hasH2H: useH2H1, trap: h1Trap, vol: h1Vol, probOver: h1ProbOver, integrityFlag: h1IntegrityFlag, expectedGames: null, pWinMatchModel: h1Markov.pWin }
+        { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf, sampleTier: ftSampleTier, hasH2H: useH2H, trap: ftTrap, vol: ftVol, probOver: ftProbOver, integrityFlag: ftIntegrityFlag, expectedGames: matchMarkov.expectedGames, pWinMatchModel: matchMarkov.pUsWinsMatch, eloRatingA: eloResult.ratingA, eloRatingB: eloResult.ratingB, eloWeight: eloResult.weight },
+        { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf, sampleTier: h1SampleTier, hasH2H: useH2H1, trap: h1Trap, vol: h1Vol, probOver: h1ProbOver, integrityFlag: h1IntegrityFlag, expectedGames: null, pWinMatchModel: h1Markov.pWin, eloRatingA: eloResult.ratingA, eloRatingB: eloResult.ratingB, eloWeight: eloResult.weight }
       ];
-      const leagueTrust = getLeagueTrustMeta("Setka Cup");
+      const leagueTrust = getLeagueTrustMeta(document.getElementById("leagueName").value || "Setka Cup");
       // Select lock: highest confidence grade (A>B>C>D>NaN), then highest edge magnitude
       let lockIdx = -1;
       let bestScore = -1;
@@ -2599,7 +2847,17 @@ S
       });
       // Build rows with lock indicator
       const rows = [];
-      const fixtureMeta = { eventId: "manual_tt_"+Date.now(), eventDate: new Date().toISOString(), homeTeam: document.getElementById("ssTeamAName").value||"A", awayTeam: document.getElementById("ssTeamBName").value||"B" };
+      const fixtureMeta = {
+        eventId: "manual_tt_"+Date.now(),
+        eventDate: new Date().toISOString(),
+        homeTeam: document.getElementById("ssTeamAName").value||"A",
+        awayTeam: document.getElementById("ssTeamBName").value||"B",
+        homeTeamId: document.getElementById("ssTeamAId").value||"",
+        awayTeamId: document.getElementById("ssTeamBId").value||"",
+        eloKeyA: eloKeyA,
+        eloKeyB: eloKeyB,
+        league: document.getElementById("leagueName").value || "Setka Cup"
+      };
       const pushRow = (p, isLock) => {
         const name = p.name, marketKey = p.marketKey, proj = p.proj, edge = p.edge, line = p.line, pick = p.pick, conf = p.conf;
         const sampleTier = p.sampleTier || "full";
@@ -2632,7 +2890,7 @@ S
           predSpan.appendChild(document.createTextNode(' '));
           predSpan.appendChild(riskSpan);
         }
-        const details = buildPickExplanationDetails({ pick, edge, line, sampleTier, hasH2H, marketKey, conf, probOver, integrityFlag }, isLock);
+        const details = buildPickExplanationDetails({ pick, edge, line, sampleTier, hasH2H, marketKey, conf, probOver, integrityFlag, eloRatingA: p.eloRatingA, eloRatingB: p.eloRatingB, eloWeight: p.eloWeight }, isLock);
         predSpan.addEventListener('click', function(e) {
           e.stopPropagation();
           details.open = !details.open;
@@ -2651,7 +2909,11 @@ S
             eventDate: fixtureMeta.eventDate,
             homeTeam: fixtureMeta.homeTeam,
             awayTeam: fixtureMeta.awayTeam,
-            league: "Setka Cup",
+            homeTeamId: fixtureMeta.homeTeamId,
+            awayTeamId: fixtureMeta.awayTeamId,
+            eloKeyA: fixtureMeta.eloKeyA,
+            eloKeyB: fixtureMeta.eloKeyB,
+            league: fixtureMeta.league,
             leagueTrust: leagueTrust.level,
             marketKey: marketKey,
             marketName: name,
@@ -2902,6 +3164,52 @@ S
         expectTrue("near-coinflip model read demotes the grade", (rank[coinflipModel] || 0) <= (rank[base] || 0));
       });
 
+      suite("ELO rating layer", function() {
+        expectTrue("getEloKey export", typeof getEloKey === "function");
+        expectTrue("eloMatchWinProb export", typeof eloMatchWinProb === "function");
+        expectApprox("equal ELO ratings give 50/50 match win prob", eloMatchWinProb(1500, 1500), 0.5, 0.001);
+        expectTrue("200pt ELO favorite is a clear favorite", eloMatchWinProb(1700, 1500) > 0.7);
+        expectTrue("getEloWeight is 0 with no rating history", getEloWeight(0, 0) === 0);
+        expectTrue("getEloWeight rises with more matches", getEloWeight(20, 20) > getEloWeight(3, 3));
+
+        // Round-trip: match win prob -> game win prob -> point win prob -> back
+        // up through the same forward model should reproduce the match win prob.
+        const pMatch = eloMatchWinProb(1650, 1500);
+        const pGame = inferGameWinProbFromMatchWinProb(pMatch, 5);
+        const pPoint = inferPointWinProbFromGameWinProb(pGame, 11);
+        const forwardGame = computeGamePointModel(pPoint, 11);
+        const forwardMatch = computeMatchGamesDistribution(forwardGame.pWin, 5);
+        expectApprox("ELO inversion round-trips back to the same match win prob", forwardMatch.pUsWinsMatch, pMatch, 0.001);
+
+        // Isolated update using throwaway keys so real rating data is untouched.
+        const testKeyA = "test:_qa_elo_a_" + Date.now();
+        const testKeyB = "test:_qa_elo_b_" + Date.now();
+        const before = getEloEntry(testKeyA);
+        expect("new player starts at default rating", before.rating, TT_ELO_DEFAULT_RATING);
+        updateEloForMatch(testKeyA, testKeyB, true);
+        const afterA = getEloEntry(testKeyA);
+        const afterB = getEloEntry(testKeyB);
+        expectTrue("winner's rating rises after an even-odds win", afterA.rating > TT_ELO_DEFAULT_RATING);
+        expectTrue("loser's rating falls after an even-odds loss", afterB.rating < TT_ELO_DEFAULT_RATING);
+        expectApprox("ELO is zero-sum for an even match", (afterA.rating - TT_ELO_DEFAULT_RATING), -(afterB.rating - TT_ELO_DEFAULT_RATING), 0.01);
+        // Cleanup — don't leave test fixtures in the user's real ratings store.
+        const ratings = loadEloRatings();
+        delete ratings[testKeyA];
+        delete ratings[testKeyB];
+        saveEloRatings(ratings);
+      });
+
+      suite("margin-swing integrity pattern", function() {
+        expectTrue("detectMarginSwingAnomaly export", typeof detectMarginSwingAnomaly === "function");
+        const steady = [50, 48, 52, 49, 51, 50, 49, 51, 50, 48];
+        const steadyAllowed = [45, 44, 47, 45, 46, 45, 44, 46, 45, 44];
+        expectTrue("consistent margins don't trip the flag", detectMarginSwingAnomaly(steady, steadyAllowed) === false);
+        const swingy = [60, 30, 61, 29, 60, 31, 59, 30, 60, 29];
+        const swingyAllowed = [40, 29, 41, 28, 40, 30, 39, 29, 40, 28];
+        expectTrue("repeated blowout/tight alternation trips the flag", detectMarginSwingAnomaly(swingy, swingyAllowed) === true);
+        expectTrue("too short a series never trips the flag", detectMarginSwingAnomaly([60, 30], [40, 29]) === false);
+      });
+
       function run() {
         _p = 0; _f = 0; _fails.length = 0;
         if (typeof engineDebug === "function") engineDebug("ENGINE_TEST_SUITE: running " + _tests.length + " suites...");
@@ -3143,7 +3451,7 @@ S
       // Audit copy button
       document.getElementById("auditCopyBtn").addEventListener("click", function() {
         const state = {
-          league: "Setka Cup",
+          league: document.getElementById("leagueName")?.value || "Setka Cup",
           timestamp: new Date().toISOString(),
           picks: g_trackerState.activePicks,
           archived: g_trackerState.archivedPicks,
