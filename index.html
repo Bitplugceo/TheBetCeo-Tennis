@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2917,7 +2918,12 @@ title="Show issues">
     const t = document.createElement("div");
     t.id = "fatalGodModeTerminal";
     t.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.98); z-index:1000000; padding:20px; box-sizing:border-box; overflow-y:auto; font-family: ui-monospace, Consolas, monospace; color: #0f0;";
-    
+    // FIX #25: msg/file/stack come from window.onerror / rejected promises and
+    // were interpolated into innerHTML unescaped. Escaping them here closes
+    // that off, matching the htmlEscape() pattern already used for tracker
+    // analytics rows.
+    const esc = (window.htmlEscape || function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); });
+    msg = esc(msg); stack = esc(stack); file = esc(file);
        t.innerHTML = `
       <div style="border:2px solid #ff5c61; background:#111; max-width:900px; margin:20px auto; box-shadow: 0 0 50px rgba(255, 0, 0, 0.3);">
         <div style="background:#3b0000; color:#ff5c61; padding:15px; font-size:16px; font-weight:900; border-bottom:2px solid #ff5c61; display:flex; justify-content:space-between; text-transform:uppercase;">
@@ -2946,6 +2952,28 @@ title="Show issues">
     document.body ? document.body.appendChild(t) : document.addEventListener("DOMContentLoaded", () => document.body.appendChild(t));
   }
 
+  // FIX #26: previously ANY uncaught error anywhere in the app, at any point
+  // in the session, triggered the same full-screen SYSTEM LOCK takeover as a
+  // genuine boot failure. A single dead function reference deep in init
+  // (unrelated to rendering/interaction) was enough to hard-lock the whole
+  // UI. Non-boot errors now surface as a dismissible banner instead —
+  // visible and logged, but not a forced page-nuke — while true early
+  // boot failures (before the app has painted anything) still get the
+  // full terminal, since the UI genuinely can't be trusted at that point.
+  function spawnErrorBanner(msg, file, line, col) {
+    const esc = (window.htmlEscape || function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); });
+    let b = document.getElementById("nonFatalEngineBanner");
+    if (!b) {
+      b = document.createElement("div");
+      b.id = "nonFatalEngineBanner";
+      b.style.cssText = "position:fixed; top:0; left:0; width:100%; z-index:999999; background:#3b0000; color:#ff9d9d; font-family: ui-monospace, Consolas, monospace; font-size:12px; padding:10px 14px; box-sizing:border-box; display:flex; justify-content:space-between; align-items:center; gap:12px; border-bottom:2px solid #ff5c61;";
+      document.body ? document.body.appendChild(b) : document.addEventListener("DOMContentLoaded", () => document.body.appendChild(b));
+    }
+    b.innerHTML = `<span>⚠ Engine error (non-fatal): ${esc(msg)} — ${esc(file)}:${line}:${col}. App may still work; check console/debug log.</span><button id="nonFatalEngineBannerClose" style="background:#ff5c61; color:#fff; border:none; padding:4px 10px; font-weight:900; cursor:pointer; font-family:inherit;">DISMISS</button>`;
+    const closeBtn = document.getElementById("nonFatalEngineBannerClose");
+    if (closeBtn) closeBtn.onclick = () => b.remove();
+  }
+
     
     window.addEventListener("error", function (e) {
     
@@ -2954,7 +2982,11 @@ title="Show issues">
     const file = e.filename ? e.filename.split('/').pop() : "Inline Script";
     
     
-    spawnFatalTerminal(e.message, file, e.lineno, e.colno, e.error?.stack);
+    if (!window.__TENNISCEO_ENGINE_BOOT_SEEN) {
+      spawnFatalTerminal(e.message, file, e.lineno, e.colno, e.error?.stack);
+    } else {
+      spawnErrorBanner(e.message, file, e.lineno, e.colno);
+    }
 
     
     if (typeof window.engineDebug === "function") {
@@ -3121,12 +3153,16 @@ let g_clearDebug = {
     try {
       const raw = localStorage.getItem("tennis_line_memory");
       if (raw) g_lineMemory = JSON.parse(raw);
-    } catch (e) {}
+    } catch (e) {
+      if (typeof window.engineDebug === "function") window.engineDebug("loadLineMemory failed", { message: e && e.message });
+    }
   }
   function saveLineMemory() {
     try {
       localStorage.setItem("tennis_line_memory", JSON.stringify(g_lineMemory));
-    } catch (e) {}
+    } catch (e) {
+      if (typeof window.engineDebug === "function") window.engineDebug("saveLineMemory failed", { message: e && e.message });
+    }
   }
   function resolveLineWithMemory(marketKey, playerAId, playerBId, surface, currentLine, currentPick) {
     const key = `${marketKey}|${playerAId}|${playerBId}|${surface}`;
@@ -3175,12 +3211,16 @@ let g_clearDebug = {
     try {
       const raw = localStorage.getItem("tennis_bucket_performance");
       if (raw) g_bucketPerformance = JSON.parse(raw);
-    } catch (e) {}
+    } catch (e) {
+      if (typeof window.engineDebug === "function") window.engineDebug("loadBucketPerformance failed", { message: e && e.message });
+    }
   }
   function saveBucketPerformance() {
     try {
       localStorage.setItem("tennis_bucket_performance", JSON.stringify(g_bucketPerformance));
-    } catch (e) {}
+    } catch (e) {
+      if (typeof window.engineDebug === "function") window.engineDebug("saveBucketPerformance failed", { message: e && e.message });
+    }
   }
   function updateBucketPerformance(item, result, actualTotal, closingLine) {
     if (!item || !result) return;
@@ -6669,10 +6709,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         try {
           const res = await fetch(base + "?_=" + Date.now(), { cache: "no-store" });
           if (res.ok) { data = await res.json(); break; }
-        } catch (e) {}
+        } catch (e) {
+          if (typeof window.engineDebug === "function") window.engineDebug("ESPN scoreboard fetch failed", { url: base, message: e && e.message });
+        }
       }
       if (!data) {
-        try { data = await proxyFetch(baseUrls[0], 8000); } catch (e) {}
+        try { data = await proxyFetch(baseUrls[0], 8000); } catch (e) {
+          if (typeof window.engineDebug === "function") window.engineDebug("ESPN scoreboard proxyFetch fallback failed", { url: baseUrls[0], message: e && e.message });
+        }
       }
       if (!data || !Array.isArray(data.events)) continue;
 
@@ -8044,7 +8088,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           },
           seenMatchIds: _seenIdsArr
         }));
-      } catch (e) {}
+      } catch (e) {
+        if (typeof window.engineDebug === "function") window.engineDebug("Elo ratings save failed", { message: e && e.message });
+      }
 
       const eloSurfMap = surfaceKey === "clay" ? eloState.clay : surfaceKey === "grass" ? eloState.grass : surfaceKey === "hard" ? eloState.hard : eloState.all;
       const _playerAKey = String(playerAId), _playerBKey = String(playerBId);
@@ -8521,10 +8567,23 @@ document.addEventListener("DOMContentLoaded", function () {
       g_clearDebug.lastError = "init reset failed: " + (err && err.message ? err.message : String(err));
     }
 
-    loadLineMemory();
-    loadBucketPerformance();
-    updateTrackerUI();
-    renderTrackerDebug();
+    // FIX #27: these init steps ran as one unguarded synchronous sequence.
+    // loadTennisHistoricalLines() was an orphaned call (no such function
+    // existed anywhere in the file), so it threw and silently aborted
+    // updateTrackerUI/renderTrackerDebug/hydrateTrackerState/setInterval/
+    // setTrackerView below it too - not just itself. Running each step
+    // independently means one broken call can't take out its siblings.
+    function runInitStep(label, fn) {
+      try { fn(); } catch (err) {
+        if (typeof window.engineDebug === "function") {
+          window.engineDebug("INIT STEP FAILED: " + label, { message: err && err.message ? err.message : String(err) });
+        }
+      }
+    }
+    runInitStep("loadLineMemory", loadLineMemory);
+    runInitStep("loadBucketPerformance", loadBucketPerformance);
+    runInitStep("updateTrackerUI", updateTrackerUI);
+    runInitStep("renderTrackerDebug", renderTrackerDebug);
     hydrateTrackerState(true).then(function () {
       updateTrackerUI();
       renderTrackerDebug();
