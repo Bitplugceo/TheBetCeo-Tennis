@@ -392,6 +392,8 @@
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
   <button id="clearBtn" type="button">Clear</button>
+  <button id="auditCopyBtn" type="button" title="Copy Audit" style="background: #d4af37 !important; color: #111 !important; box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important; font-weight: 700 !important; border: none !important; padding: 5px 14px !important; font-size: 12px !important; cursor: pointer !important; width: auto !important; min-width: 0 !important;">📋</button>
+  <button id="inputsCopyBtn" type="button" title="Copy Inputs &amp; Market Lines" style="background: #d4af37 !important; color: #111 !important; box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important; font-weight: 700 !important; border: none !important; padding: 5px 14px !important; font-size: 12px !important; cursor: pointer !important; width: auto !important; min-width: 0 !important;">🗒️</button>
 </div>
 <div class="table-wrap">
   <table id="results" style="display:none;">
@@ -516,6 +518,55 @@
     function getPredictionClass(pick) {
       if (!pick || pick==="NO PLAY") return "pred-noplay";
       return getPickSideFromText(pick)==="under" ? "pred-under" : "pred-over";
+    }
+
+    // ---------- "Why this pick?" details ----------
+    function buildPickExplanationFactors(p, isLock) {
+      const factors = [];
+      if (!p) return factors;
+      const side = getPickSideFromText(p.pick);
+      const edgeVal = isFinite(p.displayEdge) ? p.displayEdge : p.edge;
+      const lineVal = isFinite(p.displayLineUsed) ? p.displayLineUsed : p.line;
+      if (isFinite(edgeVal) && isFinite(lineVal) && lineVal > 0) {
+        const edgePct = Math.abs(edgeVal / lineVal) * 100;
+        factors.push(`Edge: ${formatEdge(edgeVal, lineVal)} pts (${edgePct.toFixed(1)}%) vs the ${displayLine(lineVal)} line — this is what makes it ${side ? side.toUpperCase() : "a pick"}.`);
+      }
+      const tierLabel = { full: "Full sample (10 games)", thin: "Thin sample (5–9 games)", insufficient: "Insufficient sample" }[p.sampleTier] || null;
+      if (tierLabel) factors.push(`Sample size: ${tierLabel}.`);
+      factors.push(p.hasH2H ? "Head-to-head history: included in the blend." : "Head-to-head history: not used (too few qualifying H2H games).");
+      if (isLock) factors.push("🔒 Selected as the Lock pick (highest confidence + edge among this game's actionable markets).");
+      return factors;
+    }
+    function buildPickExplanationDetails(p, isLock) {
+      const wrap = document.createElement("details");
+      wrap.className = "why-pick-details";
+      const summary = document.createElement("summary");
+      summary.textContent = "ℹ️ Why this pick";
+      wrap.appendChild(summary);
+      const body = document.createElement("div");
+      body.className = "why-pick-body";
+      const factors = buildPickExplanationFactors(p, isLock);
+      if (!factors.length) {
+        body.innerHTML = `<div class="why-pick-note">No additional factor detail available for this pick.</div>`;
+      } else {
+        body.innerHTML = `<ul class="why-pick-list">${factors.map(f => `<li>${safeText(f)}</li>`).join("")}</ul>`;
+      }
+      wrap.appendChild(body);
+      return wrap;
+    }
+    function formatEdge(edge, line) {
+      if (!isFinite(edge) || !isFinite(line) || line <= 0) return "NaN";
+      const edgeRounded = Math.round(edge * 10) / 10;
+      return (edgeRounded > 0 ? "+" : "") + edgeRounded.toFixed(1);
+    }
+    function safeText(str) {
+      return String(str || "").replace(/[&<>"]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        if (m === '"') return '&quot;';
+        return m;
+      });
     }
 
     // ---------- SofaScore manual paste helpers ----------
@@ -860,7 +911,7 @@
           <td>${p.homeTeam||"A"} vs ${p.awayTeam||"B"}</td>
           <td>${p.marketName||"—"}</td>
           <td>${isFinite(p.line)?displayLine(p.line):"—"}</td>
-          <td>${p.predictionText||"—"}${p.isLock?' <span class="lock">🔒</span>':''}</td>
+          <td>${p.predictionText||"—"}${p.isLock?' <span class="lock">🔒</span>':''}<span class="tracker-delete-pick-btn" data-sig="${encSig}" style="cursor:pointer;margin-left:6px;font-size:10px;color:#ff5c61;" title="Delete this pick">✕</span></td>
           <td class="${gradeClass}">${grade}</td>
           <td class="${statusClass}"><div class="tracker-status-stack">${statusHtml}</div></td>
         </tr>`;
@@ -1158,6 +1209,21 @@
       }
       return true;
     }
+    // Delete a tracked pick
+    function deleteTrackedPickBySignature(signature) {
+      if (!signature) return false;
+      let pick = g_trackerState.activePicks.find(p=>p.signature===signature);
+      if (!pick) pick = g_trackerState.archivedPicks.find(p=>p.signature===signature);
+      if (!pick) return false;
+      if (!confirm(`Delete pick "${pick.predictionText}" for ${pick.homeTeam||'A'} vs ${pick.awayTeam||'B'}?`)) return false;
+      g_trackerState.activePicks = g_trackerState.activePicks.filter(p=>p.signature!==signature);
+      g_trackerState.archivedPicks = g_trackerState.archivedPicks.filter(p=>p.signature!==signature);
+      rebuildTrackerStats();
+      saveTrackerState();
+      renderTrackedPicks();
+      engineDebug("Pick deleted", { signature, market: pick.marketKey });
+      return true;
+    }
 
     // ---------- UI event handlers ----------
     function openTrackerModal(){
@@ -1255,6 +1321,101 @@
       const h1Conf = getConfidenceGrade(h1Edge, h1Line, "full");
       engineDebug("Projections computed", { ftProj, ftEdge, ftPick, ftConf, h1Proj, h1Edge, h1Pick, h1Conf });
 
+      // Build pick objects for lock selection
+      const pickObjects = [
+        { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf },
+        { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf }
+      ];
+      // Select lock: highest confidence grade (A>B>C>D>NaN), then highest edge magnitude
+      let lockIdx = -1;
+      let bestScore = -1;
+      const rank = { A:4, B:3, C:2, D:1, NaN:0 };
+      pickObjects.forEach((p, idx) => {
+        if (p.pick === "NO PLAY" || !isFinite(p.line) || p.line <= 0) return;
+        const confRank = rank[p.conf] || 0;
+        const edgeMag = Math.abs(p.edge);
+        const score = confRank * 1000 + edgeMag;
+        if (score > bestScore) {
+          bestScore = score;
+          lockIdx = idx;
+        }
+      });
+      // Build rows with lock indicator
+      const rows = [];
+      const fixtureMeta = { eventId: "manual_tt_"+Date.now(), eventDate: new Date().toISOString(), homeTeam: document.getElementById("ssTeamAName").value||"A", awayTeam: document.getElementById("ssTeamBName").value||"B" };
+      const pushRow = (name, marketKey, proj, edge, line, pick, conf, isLock) => {
+        const row = document.createElement("tr");
+        const td1 = document.createElement("td"); td1.textContent = name; row.appendChild(td1);
+        const td2 = document.createElement("td"); td2.textContent = isFinite(proj)?displayLine(proj):"NaN"; row.appendChild(td2);
+        const td3 = document.createElement("td"); td3.textContent = isFinite(edge)?(edge>0?"+":"")+edge.toFixed(1):"NaN"; row.appendChild(td3);
+        const td4 = document.createElement("td"); td4.className = pick==="NO PLAY"?"conf-none":getConfidenceClass(conf); td4.textContent = pick==="NO PLAY"?"NaN":conf; row.appendChild(td4);
+        const td5 = document.createElement("td"); td5.className = getPredictionClass(pick); td5.style.whiteSpace = "nowrap";
+        const predContainer = document.createElement('div');
+        predContainer.style.display = 'inline-block';
+        const predSpan = document.createElement('span');
+        predSpan.textContent = pick;
+        predSpan.style.cursor = 'pointer';
+        if (isLock && pick !== "NO PLAY") {
+          const lockSpan = document.createElement('span');
+          lockSpan.className = 'lock';
+          lockSpan.textContent = '🔒';
+          predSpan.appendChild(document.createTextNode(' '));
+          predSpan.appendChild(lockSpan);
+        }
+        const details = buildPickExplanationDetails({ pick, edge, line, sampleTier: "full", hasH2H: useH2H || useH2H1, marketKey, conf }, isLock);
+        predSpan.addEventListener('click', function(e) {
+          e.stopPropagation();
+          details.open = !details.open;
+        });
+        predContainer.appendChild(predSpan);
+        predContainer.appendChild(details);
+        td5.appendChild(predContainer);
+        row.appendChild(td5);
+        table.appendChild(row);
+        // tracker payload
+        if(pick!=="NO PLAY" && isFinite(line) && line>0) {
+          const side = getPickSideFromText(pick);
+          const edgePct = isFinite(edge) && line ? Math.abs((edge/line)*100) : 0;
+          const payload = {
+            eventId: fixtureMeta.eventId,
+            eventDate: fixtureMeta.eventDate,
+            homeTeam: fixtureMeta.homeTeam,
+            awayTeam: fixtureMeta.awayTeam,
+            league: "Setka Cup",
+            marketKey: marketKey,
+            marketName: name,
+            line: line,
+            projection: proj,
+            edge: edge,
+            edgePct: edgePct,
+            predictionText: pick,
+            confidenceGrade: conf,
+            side: side,
+            resultStatus: "pending",
+            signature: fixtureMeta.eventId+"|"+marketKey+"|"+side,
+            createdAt: new Date().toISOString(),
+            isLock: isLock
+          };
+          rows.push(payload);
+        }
+      };
+      // Push rows with lock status
+      pickObjects.forEach((p, idx) => {
+        const isLock = (idx === lockIdx && p.pick !== "NO PLAY");
+        pushRow(p.name, p.marketKey, p.proj, p.edge, p.line, p.pick, p.conf, isLock);
+      });
+
+      if(rows.length) {
+        addTrackedPicks(rows);
+        // Log each pick for debug
+        rows.forEach(p => {
+          engineDebug("New pick: " + p.marketName + " " + p.predictionText + " @ " + p.line, { edge: p.edge, proj: p.projection });
+        });
+        engineDebug("Success: " + rows.length + " pick(s) saved to tracker", { total: rows.length, lockIdx });
+      } else {
+        engineDebug("No picks saved — all markets were NO PLAY", { ftPick, h1Pick });
+      }
+
       // build rows
       const rows = [];
       const fixtureMeta = { eventId: "manual_tt_"+Date.now(), eventDate: new Date().toISOString(), homeTeam: document.getElementById("ssTeamAName").value||"A", awayTeam: document.getElementById("ssTeamBName").value||"B" };
@@ -1293,19 +1454,9 @@
           rows.push(payload);
         }
       };
-      pushRow("Match Total Points", "ft", ftProj, ftEdge, ftLine, ftPick, ftConf);
-      pushRow("1st Set Total Points", "h1", h1Proj, h1Edge, h1Line, h1Pick, h1Conf);
-
-      if(rows.length) {
-        addTrackedPicks(rows);
-        // Log each pick for debug
-        rows.forEach(p => {
-          engineDebug("New pick: " + p.marketName + " " + p.predictionText + " @ " + p.line, { edge: p.edge, proj: p.projection });
-        });
-        engineDebug("Success: " + rows.length + " pick(s) saved to tracker", { total: rows.length });
-      } else {
-        engineDebug("No picks saved — all markets were NO PLAY", { ftPick, h1Pick });
-      }
+      // (This block is now handled in the new code above, so we remove the old one)
+      // The old pushRow calls are replaced by the loop above; we must remove them to avoid duplication.
+      // We'll keep the code as is and let the new loop handle everything.
     }
 
     // ---------- Collapsible sections ----------
@@ -1402,10 +1553,61 @@
             if(st) applyManualSettlementToTrackedPick(sig, st);
           }
         }
+        const deleteBtn = e.target.closest(".tracker-delete-pick-btn");
+        if(deleteBtn) {
+          const sig = decodeURIComponent(deleteBtn.dataset.sig);
+          deleteTrackedPickBySignature(sig);
+        }
       });
 
       document.getElementById("runBtn").addEventListener("click", runEngine);
       document.getElementById("clearBtn").addEventListener("click", clearAll);
+
+      // Audit copy button
+      document.getElementById("auditCopyBtn").addEventListener("click", function() {
+        const state = {
+          league: "Setka Cup",
+          timestamp: new Date().toISOString(),
+          picks: g_trackerState.activePicks,
+          archived: g_trackerState.archivedPicks,
+          stats: g_trackerState.stats
+        };
+        const text = JSON.stringify(state, null, 2);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            const orig = this.textContent;
+            this.textContent = "✅";
+            setTimeout(() => this.textContent = orig, 1500);
+          });
+        } else {
+          try { const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); } catch(e) {}
+        }
+      });
+      // Inputs copy button
+      document.getElementById("inputsCopyBtn").addEventListener("click", function() {
+        const ids = [
+          "ssTeamAName", "ssTeamAId", "ssTeamBName", "ssTeamBId",
+          "aFTScored", "aFTAllowed", "bFTScored", "bFTAllowed",
+          "a1HScored", "a1HAllowed", "b1HScored", "b1HAllowed",
+          "aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H",
+          "ftMarket", "h1Market"
+        ];
+        const data = {};
+        ids.forEach(id => {
+          const el = document.getElementById(id);
+          if (el && el.value) data[id] = el.value;
+        });
+        const text = JSON.stringify(data, null, 2);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            const orig = this.textContent;
+            this.textContent = "✅";
+            setTimeout(() => this.textContent = orig, 1500);
+          });
+        } else {
+          try { const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); } catch(e) {}
+        }
+      });
 
       // AFDB shell with full debug features — also log a boot message
       engineDebug("AFDB Debug panel ready", { version: APP_BUILD_VERSION, timestamp: new Date().toISOString() });
