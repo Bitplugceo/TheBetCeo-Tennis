@@ -838,28 +838,74 @@
     }
 
     // ---------- SofaScore manual paste helpers ----------
-    window.ssIsTableTennisEvent = function(ev){ return true; };
+    window.ssIsTableTennisEvent = function(ev) {
+      if (!ev) return false;
+      const sport = String(ev.sport?.slug || ev.sport?.name || ev.tournament?.category?.sport?.slug || "").toLowerCase();
+      if (sport.includes("table") || sport.includes("ping") || sport === "tabletennis") return true;
+      // Soft accept when periods look like TT set scores (typical 5–15 range)
+      const p1 = Number(ev.homeScore?.period1 ?? ev.awayScore?.period1 ?? 0);
+      if (p1 >= 5 && p1 <= 20) return true;
+      return !sport || sport === "unknown";
+    };
+    /** Sum set-point periods for one side (TT match total points, not sets won). */
+    function ssSumSetPoints(scoreObj) {
+      if (!scoreObj || typeof scoreObj !== "object") return 0;
+      let total = 0;
+      let found = false;
+      for (let i = 1; i <= 7; i++) {
+        const v = Number(scoreObj["period" + i]);
+        if (isFinite(v) && v > 0) { total += v; found = true; }
+      }
+      return found ? total : 0;
+    }
     window.ssProcessTeamEvents = function(events, teamId, label, fixtureTournamentId) {
-      const scoredList=[], allowedList=[], h1ScoredList=[], h1AllowedList=[];
-      const completed = (events||[]).filter(e => e.status?.type==="finished" || e.status?.finished===true);
-      completed.sort((a,b)=>(b.startTimestamp||0)-(a.startTimestamp||0));
-      completed.slice(0,10).forEach(ev => {
-        const isHome = String(ev.homeTeam?.id)===String(teamId);
+      const scoredList = [], allowedList = [], h1ScoredList = [], h1AllowedList = [];
+      const tid = fixtureTournamentId ? String(fixtureTournamentId).trim() : "";
+      let completed = (events || []).filter(function(e) {
+        const finished = e.status?.type === "finished" || e.status?.finished === true;
+        if (!finished) return false;
+        if (!window.ssIsTableTennisEvent(e)) return false;
+        if (tid) {
+          const evTid = String(e.tournament?.id || e.tournament?.uniqueTournament?.id || "");
+          if (evTid && evTid !== tid) return false;
+        }
+        return true;
+      });
+      completed.sort(function(a, b) { return (b.startTimestamp || 0) - (a.startTimestamp || 0); });
+      completed.slice(0, 10).forEach(function(ev) {
+        const isHome = String(ev.homeTeam?.id) === String(teamId);
+        // If teamId missing, skip (caller should resolve ID first)
+        if (!teamId) return;
+        if (!isHome && String(ev.awayTeam?.id) !== String(teamId)) return;
         const myScore = isHome ? ev.homeScore : ev.awayScore;
         const oppScore = isHome ? ev.awayScore : ev.homeScore;
-        if (myScore && oppScore) {
-          const myFT = Number(myScore.normaltime ?? myScore.current ?? myScore.display ?? 0);
-          const oppFT = Number(oppScore.normaltime ?? oppScore.current ?? oppScore.display ?? 0);
-          if (myFT>0) {
-            scoredList.push(myFT);
-            allowedList.push(oppFT);
-            const myQ1 = Number(myScore.period1 ?? 0);
-            const oppQ1 = Number(oppScore.period1 ?? 0);
-            if (myQ1>0) { h1ScoredList.push(myQ1); h1AllowedList.push(oppQ1); }
-          }
+        if (!myScore || !oppScore) return;
+        // Match total points = sum of set points (NOT sets-won in current/display)
+        const myFT = ssSumSetPoints(myScore);
+        const oppFT = ssSumSetPoints(oppScore);
+        if (myFT > 0 && oppFT > 0) {
+          scoredList.push(myFT);
+          allowedList.push(oppFT);
+        }
+        // 1st set points
+        const myQ1 = Number(myScore.period1 ?? 0);
+        const oppQ1 = Number(oppScore.period1 ?? 0);
+        if (myQ1 > 0 && oppQ1 > 0) {
+          h1ScoredList.push(myQ1);
+          h1AllowedList.push(oppQ1);
         }
       });
-      return { scoredList, allowedList, h1ScoredList, h1AllowedList, lastGameDate: completed[0]?.startTimestamp ? new Date(completed[0].startTimestamp*1000).toISOString() : "" };
+      return {
+        scoredList,
+        allowedList,
+        h1ScoredList,
+        h1AllowedList,
+        gamesUsed: scoredList.length,
+        h1GamesUsed: h1ScoredList.length,
+        lastGameDate: completed[0]?.startTimestamp
+          ? new Date(completed[0].startTimestamp * 1000).toISOString()
+          : ""
+      };
     };
     window.updateSofascoreLinks = function(side) {
       const idInput = document.getElementById(side==="A" ? "ssTeamAId" : "ssTeamBId");
@@ -884,10 +930,16 @@
     window.searchSofascorePlayer = function(side){
       const nameEl = document.getElementById(side==='A'?'ssTeamAName':'ssTeamBName');
       const rawName = (nameEl?.value||"").trim();
-      if(!rawName){ alert("Enter a player/team name first."); return; }
+      if(!rawName){ alert("Enter a player name first."); return; }
       const searchName = rawName.split(",")[0].trim();
+      // Paste-only workflow: open SofaScore search JSON so the user can copy events
       const url = "https://api.sofascore.com/api/v1/search/teams?q=" + encodeURIComponent(searchName) + "&sport=tabletennis";
       window.open(url, "_blank");
+      const st = document.getElementById("ssFetchStatus");
+      if (st) {
+        st.style.color = "#d98a00";
+        st.textContent = "🔍 Search opened for " + side + " — copy the team id, then open /events/last/0 and paste the JSON here.";
+      }
     };
     window.parseSofascoreIndividual = function(side){
       const pasteEl = document.getElementById(side==='A'?'ssPasteA':'ssPasteB');
@@ -896,21 +948,48 @@
       try {
         const parsed = JSON.parse(raw);
         const events = parsed.events || [];
-        if(!events.length) throw new Error("No events found.");
-        const idVal = (document.getElementById(side==='A'?'ssTeamAId':'ssTeamBId')?.value||"").trim();
+        if(!events.length) throw new Error("No events found in JSON.");
+        let idVal = (document.getElementById(side==='A'?'ssTeamAId':'ssTeamBId')?.value||"").trim();
         if(!idVal) {
           const counts={};
-          events.forEach(ev => { if(ev.homeTeam?.id) counts[ev.homeTeam.id]=(counts[ev.homeTeam.id]||0)+1; if(ev.awayTeam?.id) counts[ev.awayTeam.id]=(counts[ev.awayTeam.id]||0)+1; });
+          events.forEach(function(ev) {
+            if(ev.homeTeam?.id) counts[ev.homeTeam.id]=(counts[ev.homeTeam.id]||0)+1;
+            if(ev.awayTeam?.id) counts[ev.awayTeam.id]=(counts[ev.awayTeam.id]||0)+1;
+          });
           let bestId=null, max=0;
           for(const id in counts){ if(counts[id]>max){ max=counts[id]; bestId=id; } }
           if(bestId) {
             const idEl = document.getElementById(side==='A'?'ssTeamAId':'ssTeamBId');
-            if(idEl) { idEl.value=bestId; updateSofascoreLinks(side); }
+            if(idEl) { idEl.value=bestId; idVal = String(bestId); updateSofascoreLinks(side); }
           }
         }
-        const stats = window.ssProcessTeamEvents(events, idVal, side, null);
+        if (!idVal) throw new Error("Could not resolve player ID — enter Numerical ID manually.");
+
+        // Auto-detect tournament ID from events if field empty
+        const tidEl = document.getElementById("ssTournamentId");
+        const nameEl = document.getElementById("ssTournamentName");
+        let tournamentId = (tidEl && tidEl.value.trim()) || "";
+        if (!tournamentId) {
+          const firstEv = events.find(function(e) {
+            return e.tournament && (e.tournament.id || e.tournament.uniqueTournament?.id);
+          });
+          if (firstEv) {
+            tournamentId = String(firstEv.tournament.id || firstEv.tournament.uniqueTournament?.id || "");
+            if (tidEl && tournamentId) tidEl.value = tournamentId;
+            if (nameEl) {
+              nameEl.textContent = firstEv.tournament.name || firstEv.tournament.uniqueTournament?.name || "";
+            }
+          }
+        } else if (nameEl && !nameEl.textContent) {
+          const matchEv = events.find(function(e) {
+            return String(e.tournament?.id || e.tournament?.uniqueTournament?.id || "") === tournamentId;
+          });
+          if (matchEv) nameEl.textContent = matchEv.tournament?.name || matchEv.tournament?.uniqueTournament?.name || "";
+        }
+
+        const stats = window.ssProcessTeamEvents(events, idVal, side, tournamentId || null);
         const prefix = side==='A'?'a':'b';
-        const setVal = (id,val) => { const el=document.getElementById(id); if(el) el.value=val; };
+        const setVal = function(id, val) { const el=document.getElementById(id); if(el) el.value=val; };
         if(stats.scoredList.length) {
           setVal(prefix+"FTScored", stats.scoredList.slice(0,10).join(","));
           setVal(prefix+"FTAllowed", stats.allowedList.slice(0,10).join(","));
@@ -921,19 +1000,31 @@
         }
         const tag = document.getElementById(prefix+"AutoTag");
         if(tag) tag.style.display = "inline";
-        // After paste, open the form section that was filled so the user can verify
         const formSectionId = side === "A" ? "teamASection" : "teamBSection";
         const formSection = document.getElementById(formSectionId);
         if (formSection) formSection.classList.remove("collapsed");
         const st = document.getElementById("ssFetchStatus");
-        if(st) { st.style.color="#2f8f4a"; st.textContent="✅ Player "+side+" stats loaded from pasted JSON!"; }
+        if(st) {
+          st.style.color = stats.scoredList.length ? "#2f8f4a" : "#d98a00";
+          st.textContent = stats.scoredList.length
+            ? ("✅ Player " + side + ": " + stats.gamesUsed + " match totals, " + stats.h1GamesUsed + " 1st-set rows" +
+               (tournamentId ? " (tournament " + tournamentId + ")" : "") + ".")
+            : ("⚠️ Player " + side + ": JSON parsed but no usable set-point rows (check ID / tournament filter).");
+        }
         pasteEl.value = "";
       } catch(err) {
         const st = document.getElementById("ssFetchStatus");
         if(st) { st.style.color="#d92d2a"; st.textContent="❌ Parse failed: "+err.message; }
       }
     };
-    window.onTournamentIdInput = function(){};
+    window.onTournamentIdInput = function(){
+      const tidEl = document.getElementById("ssTournamentId");
+      const nameEl = document.getElementById("ssTournamentName");
+      if (!tidEl) return;
+      const tid = tidEl.value.trim();
+      if (!tid && nameEl) nameEl.textContent = "";
+      // Name is filled on next paste; field is used as a hard filter in ssProcessTeamEvents
+    };
 
     // ---------- Tracker (minimal) ----------
     let g_trackerState = {
@@ -1563,6 +1654,25 @@
             <strong>Retrospective thresholds:</strong> FT=${th.ft.toFixed(1)}, 1st=${th.h1.toFixed(1)}
             ${settled.length < 10 ? ' (need 10+ settled for auto-tuning)' : ''}
           </div>
+          ${(() => {
+            try {
+              const props = window.__ttConfigProposals || (typeof proposeTtConfigUpgrades === "function" ? proposeTtConfigUpgrades(false) : null);
+              if (!props) return "";
+              const ftP = props.ft || {};
+              const h1P = props.h1 || {};
+              const line = function(p, label) {
+                if (!p) return label + ": —";
+                if (p.status === "PROPOSE_ONLY") {
+                  return label + ": PROPOSE th " + p.proposedThreshold + " (live " + p.liveThreshold + ", net +" + p.netDelta + " / n=" + p.sampleCount + ")";
+                }
+                return label + ": HOLD @ " + p.liveThreshold + (p.verifiedLocked ? " 🔒 verified" : "");
+              };
+              return '<div style="padding:8px 10px;font-size:10px;color:var(--tracker-subtext);border-top:1px dashed var(--panel-border);">' +
+                '<strong style="color:var(--tracker-strong);">Phase-2 Config Lab</strong> (propose only — call applyTtVerifiedConfig("ft"|"h1") to lock)<br>' +
+                line(ftP, "FT") + "<br>" + line(h1P, "1st") +
+                '</div>';
+            } catch (e) { return ""; }
+          })()}
         </div>
       `;
       panel.style.display = "block";
@@ -1607,6 +1717,8 @@
         }
         // Recalculate thresholds from settled history (BB-style retrospective gate)
         recomputeTtThresholdsFromSettled();
+        // Refresh Phase-2 proposals after each settle (still propose-only)
+        try { proposeTtConfigUpgrades(true); } catch (e) {}
         renderTrackerAnalytics();
         updateEnginePerformanceScore();
       }
@@ -1652,8 +1764,195 @@
         }));
       } catch (e) {}
       engineDebug("Retrospective thresholds recomputed", window.__ttThresholds);
+      // Phase-2: update candidate scores + proposals (never auto-applies verified)
+      try { updateTtCandidateScoresFromSettled(settled); } catch (e) {
+        engineDebug("Candidate score update failed", e);
+      }
       return window.__ttThresholds;
     }
+
+    // ---------- Phase-2 Config Lab (propose only — never auto-write live gates) ----------
+    const TT_CONFIG_LEAGUE = "setka";
+    function ttCandidateKey(marketKey) {
+      return "TT_CANDIDATE_SCORES_" + TT_CONFIG_LEAGUE + "_" + marketKey;
+    }
+    function ttVerifiedKey(marketKey) {
+      return "TT_VERIFIED_CONFIG_" + TT_CONFIG_LEAGUE + "_" + marketKey;
+    }
+    function loadTtCandidateScores(marketKey) {
+      try { return JSON.parse(localStorage.getItem(ttCandidateKey(marketKey)) || "{}") || {}; }
+      catch (e) { return {}; }
+    }
+    function saveTtCandidateScores(marketKey, scores) {
+      try { localStorage.setItem(ttCandidateKey(marketKey), JSON.stringify(scores)); } catch (e) {}
+    }
+    function loadTtVerifiedConfig(marketKey) {
+      try {
+        const raw = JSON.parse(localStorage.getItem(ttVerifiedKey(marketKey)) || "null");
+        return raw && raw.verified ? raw : null;
+      } catch (e) { return null; }
+    }
+    function saveTtVerifiedConfig(marketKey, data) {
+      try { localStorage.setItem(ttVerifiedKey(marketKey), JSON.stringify(data)); } catch (e) {}
+    }
+    function makeTtConfigKey(threshold) {
+      return "th_" + Number(threshold).toFixed(1);
+    }
+    /** Replay settled picks under a candidate threshold; return netDelta + count. */
+    function scoreTtThresholdCandidate(pool, threshold) {
+      let wins = 0, losses = 0, pushes = 0, taken = 0;
+      pool.forEach(function(p) {
+        if (!isFinite(p.edge) || Math.abs(Number(p.edge)) < threshold) return;
+        taken++;
+        if (p.resultStatus === "win") wins++;
+        else if (p.resultStatus === "loss") losses++;
+        else if (p.resultStatus === "push") pushes++;
+      });
+      return {
+        netDelta: wins - losses,
+        wins: wins,
+        losses: losses,
+        pushes: pushes,
+        count: taken,
+        winRate: taken ? (wins + pushes * 0.5) / taken : 0
+      };
+    }
+    function updateTtCandidateScoresFromSettled(settled) {
+      const markets = ["ft", "h1"];
+      const candidateThs = [1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+      markets.forEach(function(mk) {
+        const pool = (settled || []).filter(function(p) {
+          return p.marketKey === mk && (p.resultStatus === "win" || p.resultStatus === "loss" || p.resultStatus === "push");
+        });
+        if (pool.length < 6) return;
+        const scores = loadTtCandidateScores(mk);
+        candidateThs.forEach(function(th) {
+          const ck = makeTtConfigKey(th);
+          const s = scoreTtThresholdCandidate(pool, th);
+          if (s.count < 4) return;
+          scores[ck] = {
+            netDelta: s.netDelta,
+            count: s.count,
+            wins: s.wins,
+            losses: s.losses,
+            pushes: s.pushes,
+            winRate: +s.winRate.toFixed(3),
+            threshold: th,
+            updatedAt: new Date().toISOString()
+          };
+        });
+        saveTtCandidateScores(mk, scores);
+      });
+      window.__ttConfigProposals = proposeTtConfigUpgrades(false);
+    }
+    /**
+     * Phase-2: propose best candidate per market if it beats the live threshold.
+     * Never writes TT_VERIFIED or live __ttThresholds unless applyTtVerifiedConfig is called.
+     */
+    function proposeTtConfigUpgrades(logToEngine) {
+      const proposals = {};
+      ["ft", "h1"].forEach(function(mk) {
+        const scores = loadTtCandidateScores(mk);
+        const liveTh = (window.__ttThresholds && window.__ttThresholds[mk]) || (mk === "h1" ? 2.0 : 3.0);
+        let best = null;
+        Object.keys(scores).forEach(function(ck) {
+          const d = scores[ck];
+          if (!d || d.count < 6) return;
+          if (!best || d.netDelta > best.netDelta || (d.netDelta === best.netDelta && d.count > best.count)) {
+            best = { configKey: ck, threshold: d.threshold, netDelta: d.netDelta, count: d.count, winRate: d.winRate };
+          }
+        });
+        const verified = loadTtVerifiedConfig(mk);
+        if (best && best.threshold !== liveTh && best.netDelta > 0) {
+          proposals[mk] = {
+            marketKey: mk,
+            liveThreshold: liveTh,
+            proposedThreshold: best.threshold,
+            configKey: best.configKey,
+            netDelta: best.netDelta,
+            sampleCount: best.count,
+            winRate: best.winRate,
+            verifiedLocked: !!(verified && verified.verified),
+            status: "PROPOSE_ONLY"
+          };
+        } else {
+          proposals[mk] = {
+            marketKey: mk,
+            liveThreshold: liveTh,
+            proposedThreshold: liveTh,
+            configKey: makeTtConfigKey(liveTh),
+            netDelta: 0,
+            sampleCount: 0,
+            status: "HOLD",
+            verifiedLocked: !!(verified && verified.verified)
+          };
+        }
+      });
+      window.__ttConfigProposals = proposals;
+      if (logToEngine !== false) {
+        engineDebug("Phase-2 config proposals (not applied)", proposals);
+      }
+      return proposals;
+    }
+    /** Manual lock: write verified silo + optionally adopt into live thresholds. */
+    function applyTtVerifiedConfig(marketKey, opts) {
+      const mk = String(marketKey || "").toLowerCase();
+      if (mk !== "ft" && mk !== "h1") return false;
+      const options = opts || {};
+      const proposals = window.__ttConfigProposals || proposeTtConfigUpgrades(false);
+      const prop = proposals[mk];
+      if (!prop || prop.status !== "PROPOSE_ONLY") {
+        engineDebug("No Phase-2 proposal to apply for " + mk, prop);
+        return false;
+      }
+      const payload = {
+        verified: true,
+        configKey: prop.configKey,
+        threshold: prop.proposedThreshold,
+        netDelta: prop.netDelta,
+        sampleCount: prop.sampleCount,
+        winRate: prop.winRate,
+        manualOverride: true,
+        league: TT_CONFIG_LEAGUE,
+        marketKey: mk,
+        updatedAt: new Date().toISOString()
+      };
+      saveTtVerifiedConfig(mk, payload);
+      if (options.adoptLive !== false) {
+        window.__ttThresholds = window.__ttThresholds || { ft: 3.0, h1: 2.0 };
+        window.__ttThresholds[mk] = prop.proposedThreshold;
+        try {
+          localStorage.setItem("TT_THRESHOLDS_SETKA", JSON.stringify({
+            ...window.__ttThresholds,
+            sample: prop.sampleCount,
+            updatedAt: new Date().toISOString(),
+            source: "verified_" + mk
+          }));
+        } catch (e) {}
+      }
+      engineDebug("Verified config locked for " + mk, payload);
+      proposeTtConfigUpgrades(false);
+      return true;
+    }
+    function getTtConfigLabSnapshot() {
+      const snap = {
+        live: window.__ttThresholds || { ft: 3.0, h1: 2.0 },
+        proposals: window.__ttConfigProposals || proposeTtConfigUpgrades(false),
+        verified: {
+          ft: loadTtVerifiedConfig("ft"),
+          h1: loadTtVerifiedConfig("h1")
+        },
+        candidates: {
+          ft: loadTtCandidateScores("ft"),
+          h1: loadTtCandidateScores("h1")
+        }
+      };
+      return snap;
+    }
+    window.proposeTtConfigUpgrades = proposeTtConfigUpgrades;
+    window.applyTtVerifiedConfig = applyTtVerifiedConfig;
+    window.getTtConfigLabSnapshot = getTtConfigLabSnapshot;
+
     // Delete a tracked pick
     function deleteTrackedPickBySignature(signature) {
       if (!signature) return false;
@@ -1992,6 +2291,16 @@
       } catch (e) {
         window.__ttThresholds = { ft: 3.0, h1: 2.0 };
       }
+      // Prefer verified silos when present (manual locks from Phase-2)
+      try {
+        ["ft", "h1"].forEach(function(mk) {
+          const v = loadTtVerifiedConfig(mk);
+          if (v && v.verified && isFinite(v.threshold)) {
+            window.__ttThresholds[mk] = Number(v.threshold);
+          }
+        });
+      } catch (e) {}
+      try { proposeTtConfigUpgrades(false); } catch (e) {}
 
       document.getElementById("themeToggleBtn").addEventListener("click", toggleTheme);
       if(localStorage.getItem("theme")==="dark") document.body.classList.add("dark-mode");
