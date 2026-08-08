@@ -1,3 +1,4 @@
+K
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1494,10 +1495,62 @@
       const el = document.getElementById(side==='A'?'ssPasteA':'ssPasteB');
       if(el) el.value='';
     };
-    window.searchSofascorePlayer = function(side){
+    // ---- Player Lookup resolver: name normalization + candidate ranking ----
+    // Turns "Surname, First" or "First Surname" into order-independent parts
+    // so both input styles compare equal, and strips punctuation/case so
+    // "Ponomarenko, Tymur" and "tymur ponomarenko" match identically.
+    function ssNormalizeNameParts(rawName) {
+      const cleaned = String(rawName || "").replace(/[".]/g, "").replace(/\s+/g, " ").trim();
+      if (!cleaned) return { first: "", last: "", full: "", display: "" };
+      let first = "", last = "";
+      if (cleaned.indexOf(",") !== -1) {
+        const parts = cleaned.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+        last = parts[0] || "";
+        first = parts.slice(1).join(" ") || "";
+      } else {
+        const tokens = cleaned.split(" ").filter(Boolean);
+        if (tokens.length >= 2) { first = tokens[0]; last = tokens.slice(1).join(" "); }
+        else { last = tokens[0] || ""; }
+      }
+      const norm = function(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9 ]/gi, "").trim(); };
+      const firstN = norm(first);
+      const lastN = norm(last);
+      const full = [firstN, lastN].filter(Boolean).sort().join(" ");
+      return { first: firstN, last: lastN, full: full, display: cleaned };
+    }
+    function ssIsPlayerResult(r) {
+      const t = String(r?.type || r?.entity?.type || "").toLowerCase();
+      if (!t) return true;
+      return t === "player";
+    }
+    function ssGetCandidateSportSlug(candidate) {
+      const entity = candidate?.entity || candidate || {};
+      return String(entity?.sport?.slug || entity?.team?.sport?.slug || entity?.category?.sport?.slug || "").toLowerCase();
+    }
+    // Ranking, highest tier wins. 4/3 = safe full-name match (auto-select).
+    // 2 = surname + sport agree but full name doesn't (shown as fuzzy, needs
+    // verification). 1 = surname only, no sport confirmation (never auto-
+    // selected — this is exactly the unsafe case the resolver exists to stop).
+    function ssScoreCandidate(candidate, requested) {
+      const rawName = candidate?.entity?.name || candidate?.name || "";
+      const candParts = ssNormalizeNameParts(rawName);
+      const sportSlug = ssGetCandidateSportSlug(candidate);
+      const sportMatch = sportSlug === "table-tennis";
+      const fullExact = candParts.full && requested.full && candParts.full === requested.full;
+      const firstLastExact = requested.first && requested.last && candParts.first === requested.first && candParts.last === requested.last;
+      let tier = 0, label = "NONE";
+      if ((firstLastExact || fullExact) && sportMatch) { tier = 4; label = "EXACT_FULLNAME_SPORT"; }
+      else if (firstLastExact || fullExact) { tier = 3; label = "EXACT_FULLNAME"; }
+      else if (candParts.last && requested.last && candParts.last === requested.last && sportMatch) { tier = 2; label = "SURNAME_SPORT_FALLBACK"; }
+      else if (candParts.last && requested.last && candParts.last === requested.last) { tier = 1; label = "SURNAME_ONLY_UNSAFE"; }
+      const id = candidate?.entity?.id || candidate?.id;
+      return { tier: tier, label: label, sportMatch: sportMatch, rawName: rawName, sportSlug: sportSlug, id: id };
+    }
+    window.searchSofascorePlayer = async function(side){
       const nameEl = document.getElementById(side==='A'?'ssTeamAName':'ssTeamBName');
       const rawName = (nameEl?.value||"").trim();
       if(!rawName){ alert("Enter a player name first."); return; }
+      const requested = ssNormalizeNameParts(rawName);
       const searchName = rawName.split(",")[0].trim();
       // Paste-only workflow: open SofaScore search JSON so the user can copy events.
       // NOTE: "search/teams" with a "sport" filter is not a real SofaScore endpoint —
@@ -1505,11 +1558,43 @@
       // returns mixed sports, so the user has to pick the entry whose sport.slug is
       // "table-tennis" out of the list.
       const url = "https://api.sofascore.com/api/v1/search/all?q=" + encodeURIComponent(searchName);
-      window.open(url, "_blank");
       const st = document.getElementById("ssFetchStatus");
-      if (st) {
-        st.style.color = "#d98a00";
-        st.textContent = "🔍 Search opened for " + side + " — find the entry with sport.slug \"table-tennis\", copy its id, then open /events/last/0 and paste the JSON here.";
+      if (st) { st.style.color = "#d98a00"; st.textContent = "🔎 Resolving " + side + ": " + rawName + "…"; }
+      engineDebug("[PLAYER RESOLVER] Requested", { side: side, requested: rawName, normalized: requested.first + " | " + requested.last, sport: "table-tennis" });
+      let data = null;
+      try {
+        const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        data = await resp.json();
+      } catch (err) {
+        engineDebug("[PLAYER RESOLVER] Network lookup blocked — falling back to manual tab", { error: err && err.message ? err.message : String(err) });
+        window.open(url, "_blank");
+        if (st) {
+          st.style.color = "#d98a00";
+          st.textContent = "⚠️ Auto-resolve unavailable (likely CORS) — opened raw search for " + side + ". Find the table-tennis entry and paste its ID manually.";
+        }
+        return;
+      }
+      const results = Array.isArray(data?.results) ? data.results : [];
+      const scored = results.filter(ssIsPlayerResult).map(function(r) { return ssScoreCandidate(r, requested); }).filter(function(c) { return c.tier > 0 && isFinite(c.id); });
+      scored.sort(function(a, b) { return b.tier - a.tier; });
+      scored.forEach(function(c) {
+        engineDebug("[PLAYER RESOLVER] Candidate", { candidate: c.rawName, id: c.id, sport: c.sportSlug || "unknown", nameMatch: c.label, sportMatch: c.sportMatch ? "EXACT" : "NO" });
+      });
+      const best = scored[0];
+      const idEl = document.getElementById(side==='A'?'ssTeamAId':'ssTeamBId');
+      if (best && best.tier >= 3) {
+        if (idEl) { idEl.value = best.id; updateSofascoreLinks(side); }
+        if (st) { st.style.color = "#2f8f4a"; st.textContent = "✅ Resolved " + side + ": " + best.rawName + " (ID " + best.id + ", " + (best.sportSlug || "unknown sport") + ") — " + best.label; }
+        engineDebug("[PLAYER RESOLVER] Selected", { requested: rawName, selected: best.rawName, id: best.id, label: best.label, selectedFlag: "YES" });
+      } else if (best && best.tier === 2) {
+        if (idEl) { idEl.value = best.id; updateSofascoreLinks(side); }
+        if (st) { st.style.color = "#d98a00"; st.textContent = "⚠️ Fuzzy match only for " + side + ": " + best.rawName + " (ID " + best.id + ") — surname + sport agree but full name doesn't. Verify before running."; }
+        engineDebug("[PLAYER RESOLVER] Fuzzy fallback selected — verify manually", { requested: rawName, selected: best.rawName, id: best.id, label: best.label, selectedFlag: "FALLBACK" });
+      } else {
+        if (st) { st.style.color = "#d92d2a"; st.textContent = "❌ UNRESOLVED for " + side + " — no safe full-name + sport match among " + results.length + " results. Opening raw search for manual pick."; }
+        engineDebug("[PLAYER RESOLVER] UNRESOLVED", { requested: rawName, candidateCount: results.length, selectedFlag: "NO" });
+        window.open(url, "_blank");
       }
     };
     // ---- H2H auto-fill: raw event cache + opponent-match extraction ----
