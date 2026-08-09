@@ -1,3 +1,4 @@
+Q
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5976,6 +5977,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     g_trackerDebug.lastSettlementSummary = "Running settlement...";
     renderTrackerDebug();
     await hydrateTrackerState(false);
+    try {
+      if (typeof seedAndPollLiveStatus === "function") await seedAndPollLiveStatus();
+    } catch (liveErr) {
+      if (typeof window.engineDebug === "function") {
+        window.engineDebug("LIVE poll inside autoSettle failed", { message: liveErr && liveErr.message });
+      }
+    }
     let items = getTrackerItems();
     g_trackerDebug.lastSettlementDetails = [];
 
@@ -6488,9 +6496,22 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const pId = String(item.id || "").replace(/[^a-z0-9]/gi, "_");
     const encId = htmlEscape(item.id || "");
 
-    const _liveEid = item.eventId || item.competitionId || "";
-    
-    const _liveInfo = (status === "PENDING" && _liveEid) ? g_liveGameStatus.get(_liveEid) : null;
+    let _liveEid = item.eventId || item.competitionId || "";
+    let _liveInfo = null;
+    if (status === "PENDING") {
+      if (_liveEid) _liveInfo = g_liveGameStatus.get(_liveEid) || null;
+      if (!_liveInfo && g_liveGameStatus.size) {
+        for (const [k, info] of g_liveGameStatus.entries()) {
+          if (!info) continue;
+          if (info.eventId && (info.eventId === item.eventId || info.eventId === item.competitionId)) {
+            _liveInfo = info; _liveEid = k; break;
+          }
+          if (info.competitionId && (info.competitionId === item.eventId || info.competitionId === item.competitionId)) {
+            _liveInfo = info; _liveEid = k; break;
+          }
+        }
+      }
+    }
 
     const _conf = String(item.confidence || "—").toUpperCase();
     const _confClass = getConfidenceCellClass(_conf);
@@ -6507,9 +6528,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           (isFinite(Number(item.actualTotal)) ? '<br><span style="font-size:8px;opacity:0.85;">Total: ' + item.actualTotal + '</span>' : '') +
         '</div>';
     } else {
+      const _liveLabel = (_liveInfo && _liveInfo.set1Finished && String(item.market || "") === "Set 1 Total Games")
+        ? "SET 1 DONE"
+        : "LIVE";
       const _liveBlock = _liveInfo
-        ? '<div style="color:var(--muted);font-size:8px;font-weight:900;line-height:1.0;letter-spacing:0.3px;margin-bottom:1px;">LIVE</div>' +
-          '<div data-live-clk="' + htmlEscape(_liveEid) + '" style="font-size:7px;font-weight:800;line-height:1.2;color:var(--muted);white-space:nowrap;">' + htmlEscape(_liveInfo.scoreStr || "LIVE") + '</div>'
+        ? '<div style="color:#2f8f4a;font-size:8px;font-weight:900;line-height:1.0;letter-spacing:0.3px;margin-bottom:1px;">' + _liveLabel + '</div>' +
+          '<div data-live-clk="' + htmlEscape(_liveEid) + '" style="font-size:10px;font-weight:900;line-height:1.2;color:var(--tracker-strong);white-space:nowrap;">' + htmlEscape(_liveInfo.scoreStr || "LIVE") + '</div>'
         : '';
       const _pendingLabel = _liveInfo ? '' : 'PENDING';
       statusHtml =
@@ -6681,81 +6705,269 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     }, 28000);
   }
 
+  function isSet1FinishedFromLinescores(lsA, lsB, setsA, setsB) {
+    if (!lsA || !lsB || lsA.length < 1 || lsB.length < 1) return false;
+    if (lsA.length >= 2 && lsB.length >= 2) return true;
+    if ((Number(setsA) || 0) + (Number(setsB) || 0) >= 1) return true;
+    const gA = parseFloat(lsA[0].value != null ? lsA[0].value : (lsA[0].displayValue || 0)) || 0;
+    const gB = parseFloat(lsB[0].value != null ? lsB[0].value : (lsB[0].displayValue || 0)) || 0;
+    if ((gA >= 6 || gB >= 6) && Math.abs(gA - gB) >= 2) return true;
+    if (gA === 7 || gB === 7) return true;
+    return false;
+  }
+
+  function pendingPickIds(p) {
+    const out = [];
+    if (p && p.eventId) out.push(String(p.eventId));
+    if (p && p.competitionId) out.push(String(p.competitionId));
+    return out;
+  }
+
+  function namesMatchPending(record, item) {
+    if (!record || !item) return false;
+    const a = normalizeName(item.playerAName || (String(item.match || "").split(/\s+vs\s+/i)[0] || ""));
+    const b = normalizeName(item.playerBName || (String(item.match || "").split(/\s+vs\s+/i)[1] || ""));
+    if (!a || !b) return false;
+    const rA = normalizeName(record.playerAName || "");
+    const rB = normalizeName(record.playerBName || "");
+    return (rA === a && rB === b) || (rA === b && rB === a);
+  }
+
+  function applyLiveSettlementToPending(matchKeys, record, allowSet1Only) {
+    if (!record) return 0;
+    const keySet = new Set((matchKeys || []).map(String).filter(Boolean));
+    let items = getTrackerItems();
+    let settledCount = 0;
+    const next = items.map(function (item) {
+      if (String(item.status || "PENDING").toUpperCase() !== "PENDING") return item;
+      const ids = pendingPickIds(item);
+      const idHit = ids.some(function (id) { return keySet.has(id); });
+      const nameHit = !idHit && namesMatchPending(record, item);
+      if (!idHit && !nameHit) return item;
+      if (allowSet1Only && item.market !== "Set 1 Total Games") return item;
+      if (record.retired) {
+        settledCount++;
+        if (typeof window.engineDebug === "function") {
+          window.engineDebug("LIVE SETTLE: retired → delete", { match: item.match, market: item.market });
+        }
+        return null;
+      }
+      if (!item.eventId && record.eventId) item.eventId = String(record.eventId);
+      if (!item.competitionId && record.competitionId) item.competitionId = String(record.competitionId);
+      const settled = settleTrackerItemFromRecord(item, record);
+      if (settled && settled.status !== item.status && settled.status !== "PENDING") {
+        settledCount++;
+        if (typeof window.engineDebug === "function") {
+          window.engineDebug("LIVE SETTLE", {
+            match: item.match,
+            market: item.market,
+            status: settled.status,
+            actual: settled.actualTotal,
+            partial: !!allowSet1Only
+          });
+        }
+        try { updateBucketPerformance(settled, settled.status, settled.actualTotal, null); } catch (e) {}
+        return settled;
+      }
+      return item;
+    }).filter(Boolean);
+    if (settledCount > 0) {
+      const state = normalizeTrackerState({
+        items: next,
+        updatedAt: new Date().toISOString(),
+        vId: (g_trackerState.vId || 0) + 1
+      });
+      g_trackerState = state;
+      Promise.resolve()
+        .then(function () { return saveTrackerStateToLocal(state); })
+        .then(function () { if (typeof queueTrackerSync === "function") queueTrackerSync(state); })
+        .catch(function (err) {
+          if (typeof window.engineDebug === "function") {
+            window.engineDebug("LIVE SETTLE save failed", { message: err && err.message });
+          }
+        });
+    }
+    return settledCount;
+  }
+
+  function attachLiveStatusToPending(liveKey, info, record) {
+    const keys = new Set([String(liveKey)]);
+    if (record && record.eventId) keys.add(String(record.eventId));
+    if (record && record.competitionId) keys.add(String(record.competitionId));
+    const items = Array.isArray(g_trackerState.items) ? g_trackerState.items : [];
+    items.forEach(function (item) {
+      if (String(item.status || "PENDING").toUpperCase() !== "PENDING") return;
+      const ids = pendingPickIds(item);
+      const idHit = ids.some(function (id) { return keys.has(id); });
+      const nameHit = namesMatchPending(record, item);
+      if (!idHit && !nameHit) return;
+      if (!item.eventId && record && record.eventId) item.eventId = String(record.eventId);
+      if (!item.competitionId && record && record.competitionId) item.competitionId = String(record.competitionId);
+      ids.forEach(function (id) { keys.add(id); });
+      if (item.eventId) keys.add(String(item.eventId));
+      if (item.competitionId) keys.add(String(item.competitionId));
+    });
+    keys.forEach(function (k) {
+      if (!k) return;
+      g_liveGameStatus.set(k, info);
+    });
+  }
+
   async function seedAndPollLiveStatus() {
     const items = Array.isArray(g_trackerState.items) ? g_trackerState.items : [];
-    
-    
-    
-    
     const pending = items.filter(function (p) {
-      return String(p.status || "PENDING").toUpperCase() === "PENDING" && (p.eventId || p.competitionId);
+      return String(p.status || "PENDING").toUpperCase() === "PENDING";
     });
-    if (!pending.length) return;
+    if (!pending.length) {
+      if (g_liveGameStatus.size) {
+        g_liveGameStatus.clear();
+        updateTrackerUI();
+      }
+      return;
+    }
 
     const byLeague = new Map();
     pending.forEach(function (p) {
-      const eid = p.eventId || p.competitionId || "";
       const leagueKey = String(p.tour || "").toLowerCase();
-      if (!leagueKey || !eid) return;
-      if (!byLeague.has(leagueKey)) byLeague.set(leagueKey, new Set());
-      byLeague.get(leagueKey).add(eid);
+      if (!leagueKey) return;
+      if (!byLeague.has(leagueKey)) byLeague.set(leagueKey, []);
+      byLeague.get(leagueKey).push(p);
     });
 
     let didChange = false;
-    for (const [league, eventIds] of byLeague) {
+    let settledAny = 0;
+    const seenLiveKeys = new Set();
+
+    for (const [league, leaguePending] of byLeague) {
       let data = null;
+      const dateQueries = [];
+      try {
+        dateQueries.push(dateKeyLocal(0));
+        dateQueries.push(dateKeyLocal(-1));
+      } catch (e) {}
       const baseUrls = [
         "https://site.web.api.espn.com/apis/site/v2/sports/tennis/" + league + "/scoreboard",
         "https://site.api.espn.com/apis/site/v2/sports/tennis/" + league + "/scoreboard"
       ];
-      for (const base of baseUrls) {
+      const mergedEvents = [];
+      const seenEv = new Set();
+      async function pullScoreboard(url) {
         try {
-          const res = await fetch(base + "?_=" + Date.now(), { cache: "no-store" });
-          if (res.ok) { data = await res.json(); break; }
+          const res = await fetch(url, { cache: "no-store" });
+          if (res.ok) return await res.json();
         } catch (e) {
-          if (typeof window.engineDebug === "function") window.engineDebug("ESPN scoreboard fetch failed", { url: base, message: e && e.message });
+          if (typeof window.engineDebug === "function") {
+            window.engineDebug("ESPN scoreboard fetch failed", { url: url, message: e && e.message });
+          }
         }
-      }
-      if (!data) {
-        try { data = await proxyFetch(baseUrls[0], 8000); } catch (e) {
-          if (typeof window.engineDebug === "function") window.engineDebug("ESPN scoreboard proxyFetch fallback failed", { url: baseUrls[0], message: e && e.message });
+        try { return await proxyFetch(url, 8000); } catch (e2) {
+          if (typeof window.engineDebug === "function") {
+            window.engineDebug("ESPN scoreboard proxyFetch fallback failed", { url: url, message: e2 && e2.message });
+          }
         }
+        return null;
       }
-      if (!data || !Array.isArray(data.events)) continue;
+      for (const base of baseUrls) {
+        const urls = dateQueries.length
+          ? dateQueries.map(function (d) {
+              return base + "?region=us&lang=en&limit=300&dates=" + encodeURIComponent(d) + "&_=" + Date.now();
+            })
+          : [base + "?_=" + Date.now()];
+        for (const url of urls) {
+          const payload = await pullScoreboard(url);
+          if (!payload || !Array.isArray(payload.events)) continue;
+          payload.events.forEach(function (ev) {
+            const id = String(ev && ev.id || "");
+            if (id && seenEv.has(id)) return;
+            if (id) seenEv.add(id);
+            mergedEvents.push(ev);
+          });
+        }
+        if (mergedEvents.length) break;
+      }
+      if (!mergedEvents.length) continue;
+      data = { events: mergedEvents };
 
+      const flat = [];
       data.events.forEach(function (ev) {
-        const eid = String(ev.id || "");
-        if (!eventIds.has(eid)) return;
-        const comp = ev.competitions && ev.competitions[0];
+        const comps = Array.isArray(ev.competitions) ? ev.competitions : [];
+        if (!comps.length) return;
+        comps.forEach(function (comp) {
+          flat.push({ ev: ev, comp: comp });
+        });
+      });
+
+      flat.forEach(function (row) {
+        const ev = row.ev;
+        const comp = row.comp;
         if (!comp) return;
 
-        
+        const eventId = String(ev.id || "");
+        const competitionId = String(comp.id || "");
+        const parentEvent = {
+          id: ev.id,
+          date: ev.date,
+          shortName: ev.shortName,
+          name: ev.name,
+          surface: ev.surface || null,
+          venue: ev.venue || null
+        };
+        const record = (typeof buildCompetitionRecord === "function")
+          ? buildCompetitionRecord(comp, parentEvent)
+          : null;
+
+        const matchedPending = leaguePending.filter(function (p) {
+          const ids = pendingPickIds(p);
+          if (ids.includes(eventId) || ids.includes(competitionId)) return true;
+          return namesMatchPending(record, p);
+        });
+        if (!matchedPending.length) return;
+
+        const matchKeys = [eventId, competitionId].filter(Boolean);
+        matchedPending.forEach(function (p) {
+          pendingPickIds(p).forEach(function (id) { matchKeys.push(id); });
+        });
+
         const completed = !!(
           comp.status && comp.status.type && (
             comp.status.type.completed ||
             comp.status.type.state === "post" ||
-            String(comp.status.type.name || "").includes("FINAL")
+            String(comp.status.type.name || "").toUpperCase().includes("FINAL")
           )
         );
+
         if (completed) {
-          g_liveGameStatus.delete(eid);
-          didChange = true;
+          if (record) {
+            settledAny += applyLiveSettlementToPending(matchKeys, record, false);
+          }
+          matchKeys.forEach(function (k) {
+            if (g_liveGameStatus.has(k)) {
+              g_liveGameStatus.delete(k);
+              didChange = true;
+            }
+          });
           return;
         }
 
         const state = String((comp.status && comp.status.type && comp.status.type.state) || "");
         const statusName = String((comp.status && comp.status.type && comp.status.type.name) || "");
-        
-        
         const isLive = state === "in" || statusName.toUpperCase().includes("PROGRESS");
 
         if (!isLive) {
-          
-          if (state === "pre") { g_liveGameStatus.delete(eid); didChange = true; }
+          if (state === "pre") {
+            matchKeys.forEach(function (k) {
+              if (g_liveGameStatus.has(k)) {
+                g_liveGameStatus.delete(k);
+                didChange = true;
+              }
+            });
+          }
           return;
         }
 
-        const competitors = comp.competitors || [];
+        const competitors = (typeof orderCompetitors === "function")
+          ? orderCompetitors(comp.competitors || [])
+          : (comp.competitors || []);
         const compA = competitors[0];
         const compB = competitors[1];
         const setsA = compA ? (parseFloat(compA.score) || 0) : 0;
@@ -6763,27 +6975,47 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         const lsA = (compA && Array.isArray(compA.linescores)) ? compA.linescores : [];
         const lsB = (compB && Array.isArray(compB.linescores)) ? compB.linescores : [];
         const setScores = lsA.map(function (ls, i) {
-          const ga = parseFloat(ls.value || ls.displayValue || 0) || 0;
-          const gb = lsB[i] ? (parseFloat(lsB[i].value || lsB[i].displayValue || 0) || 0) : 0;
+          const ga = parseFloat(ls.value != null ? ls.value : (ls.displayValue || 0)) || 0;
+          const gb = lsB[i] ? (parseFloat(lsB[i].value != null ? lsB[i].value : (lsB[i].displayValue || 0)) || 0) : 0;
           return ga + "-" + gb;
         }).join(", ");
         const scoreStr = setsA + "-" + setsB + (setScores ? " (" + setScores + ")" : "");
+        const set1Finished = isSet1FinishedFromLinescores(lsA, lsB, setsA, setsB);
 
-        const existing = g_liveGameStatus.get(eid);
-        g_liveGameStatus.set(eid, {
+        const info = {
           league: league,
           setsA: setsA,
           setsB: setsB,
           setScores: setScores,
           scoreStr: scoreStr,
-          capturedAt: Date.now(),
-          _expiredAt: (existing && existing._expiredAt) ? existing._expiredAt : null
-        });
+          set1Finished: set1Finished,
+          eventId: eventId,
+          competitionId: competitionId,
+          capturedAt: Date.now()
+        };
+
+        attachLiveStatusToPending(competitionId || eventId, info, record);
+        matchKeys.forEach(function (k) { seenLiveKeys.add(k); });
         didChange = true;
+
+        if (record && set1Finished) {
+          settledAny += applyLiveSettlementToPending(matchKeys, record, true);
+        }
       });
     }
 
-    if (didChange) updateTrackerUI();
+    const stillPendingKeys = new Set();
+    pending.forEach(function (p) {
+      pendingPickIds(p).forEach(function (id) { stillPendingKeys.add(id); });
+    });
+    [...g_liveGameStatus.keys()].forEach(function (k) {
+      if (!stillPendingKeys.has(k) && !seenLiveKeys.has(k)) {
+        g_liveGameStatus.delete(k);
+        didChange = true;
+      }
+    });
+
+    if (didChange || settledAny > 0) updateTrackerUI();
   }
 
   async function pollLiveGameClocks() {
