@@ -1,4 +1,3 @@
-Q
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6496,18 +6495,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const pId = String(item.id || "").replace(/[^a-z0-9]/gi, "_");
     const encId = htmlEscape(item.id || "");
 
-    let _liveEid = item.eventId || item.competitionId || "";
+    let _liveEid = item.competitionId || "";
     let _liveInfo = null;
     if (status === "PENDING") {
-      if (_liveEid) _liveInfo = g_liveGameStatus.get(_liveEid) || null;
+      if (item.competitionId) {
+        _liveInfo = g_liveGameStatus.get(String(item.competitionId)) || null;
+        if (_liveInfo) _liveEid = String(item.competitionId);
+      }
       if (!_liveInfo && g_liveGameStatus.size) {
         for (const [k, info] of g_liveGameStatus.entries()) {
-          if (!info) continue;
-          if (info.eventId && (info.eventId === item.eventId || info.eventId === item.competitionId)) {
-            _liveInfo = info; _liveEid = k; break;
-          }
-          if (info.competitionId && (info.competitionId === item.eventId || info.competitionId === item.competitionId)) {
-            _liveInfo = info; _liveEid = k; break;
+          if (!info || !info.competitionId) continue;
+          if (item.competitionId && String(info.competitionId) === String(item.competitionId)) {
+            _liveInfo = info;
+            _liveEid = String(info.competitionId);
+            break;
           }
         }
       }
@@ -6791,21 +6792,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   function attachLiveStatusToPending(liveKey, info, record) {
-    const keys = new Set([String(liveKey)]);
-    if (record && record.eventId) keys.add(String(record.eventId));
-    if (record && record.competitionId) keys.add(String(record.competitionId));
+    // Key ONLY by competitionId — never by shared tournament eventId
+    // (e.g. 421-2026 is one event for every Toronto match).
+    const keys = new Set();
+    const compId = (record && record.competitionId) ? String(record.competitionId) : String(liveKey || "");
+    if (compId) keys.add(compId);
     const items = Array.isArray(g_trackerState.items) ? g_trackerState.items : [];
     items.forEach(function (item) {
       if (String(item.status || "PENDING").toUpperCase() !== "PENDING") return;
       const ids = pendingPickIds(item);
-      const idHit = ids.some(function (id) { return keys.has(id); });
+      const idHit = compId && ids.includes(compId);
       const nameHit = namesMatchPending(record, item);
       if (!idHit && !nameHit) return;
-      if (!item.eventId && record && record.eventId) item.eventId = String(record.eventId);
-      if (!item.competitionId && record && record.competitionId) item.competitionId = String(record.competitionId);
-      ids.forEach(function (id) { keys.add(id); });
-      if (item.eventId) keys.add(String(item.eventId));
-      if (item.competitionId) keys.add(String(item.competitionId));
+      if (compId) item.competitionId = compId;
+      if (compId) keys.add(compId);
     });
     keys.forEach(function (k) {
       if (!k) return;
@@ -6890,8 +6890,18 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
       const flat = [];
       data.events.forEach(function (ev) {
-        const comps = Array.isArray(ev.competitions) ? ev.competitions : [];
-        if (!comps.length) return;
+        // ESPN tennis puts matches under groupings, NOT event.competitions
+        // (event.competitions is usually empty — that was why LIVE never showed).
+        const comps = [];
+        if (Array.isArray(ev.competitions)) {
+          ev.competitions.forEach(function (c) { if (c) comps.push(c); });
+        }
+        if (Array.isArray(ev.groupings)) {
+          ev.groupings.forEach(function (g) {
+            if (!g || !Array.isArray(g.competitions)) return;
+            g.competitions.forEach(function (c) { if (c) comps.push(c); });
+          });
+        }
         comps.forEach(function (comp) {
           flat.push({ ev: ev, comp: comp });
         });
@@ -6918,14 +6928,19 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
         const matchedPending = leaguePending.filter(function (p) {
           const ids = pendingPickIds(p);
-          if (ids.includes(eventId) || ids.includes(competitionId)) return true;
+          // Match competitionId only — eventId is shared by the whole tournament.
+          if (competitionId && ids.includes(competitionId)) return true;
           return namesMatchPending(record, p);
         });
         if (!matchedPending.length) return;
 
-        const matchKeys = [eventId, competitionId].filter(Boolean);
+        const matchKeys = [];
+        if (competitionId) matchKeys.push(competitionId);
         matchedPending.forEach(function (p) {
-          pendingPickIds(p).forEach(function (id) { matchKeys.push(id); });
+          if (competitionId && !p.competitionId) p.competitionId = competitionId;
+          pendingPickIds(p).forEach(function (id) {
+            if (id && id !== eventId) matchKeys.push(id);
+          });
         });
 
         const completed = !!(
