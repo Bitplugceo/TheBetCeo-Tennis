@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2868,11 +2869,11 @@ title="Show issues">
       <thead>
         <tr>
           <th>Date</th>
+          <th>League</th>
           <th>Match</th>
           <th>Market</th>
           <th>Line</th>
           <th>Pick</th>
-          <th>Grade</th>
           <th>Edge</th>
           <th>Status</th>
         </tr>
@@ -3182,7 +3183,11 @@ let g_clearDebug = {
     // FIX #4: no longer nudges the line in favor of whichever side was
     // picked — resolved value is the clamped memory average regardless of
     // currentPick.
-    const resolved = rawAvg;
+    // LINE ROUNDING FIX: a raw EMA average (e.g. 12.22) is not a real
+    // sportsbook line — totals only ever land on X.0 or X.5. Snap the
+    // resolved memory line up to the nearest half-point before it can
+    // reach buildMarketResult / the tracked-picks table.
+    const resolved = Math.ceil(rawAvg * 2) / 2;
     return { line: resolved, usedMemory: (resolved !== currentLine) };
   }
   function upsertLineMemory(marketKey, playerAId, playerBId, surface, side, line) {
@@ -6524,11 +6529,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return (
       '<tr>' +
         '<td>' + htmlEscape(formatTrackerDate(item.fixtureDate || item.savedAt)) + '</td>' +
+        '<td style="font-weight:800;text-transform:uppercase;">' + htmlEscape((item.tour || "—").toUpperCase()) + '</td>' +
         '<td style="font-weight:900;text-transform:uppercase;">' + htmlEscape(item.match) + '</td>' +
         '<td style="font-weight:800;">' + htmlEscape(item.market) + '</td>' +
         '<td>' + htmlEscape(String(item.line || "—")) + '</td>' +
         '<td class="' + getPickCellClass(item.pick, _conf) + '" style="white-space:nowrap;font-size:11px;">' + htmlEscape(item.pick) + (item.isLock ? ' <span style="font-size:4px;transform:translateY(0.5px);">🔒</span>' : '') + '</td>' +
-        '<td class="' + _confClass + '">' + htmlEscape(_conf) + '</td>' +
         '<td style="font-size:11px;font-weight:700;">' + htmlEscape(_edgeTxt) + '</td>' +
         '<td class="' + statusClass + '"><div class="tracker-status-stack">' + statusHtml + '</div></td>' +
       '</tr>'
