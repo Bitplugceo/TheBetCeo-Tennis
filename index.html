@@ -1,4 +1,3 @@
-K
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1519,9 +1518,17 @@ K
       return { first: firstN, last: lastN, full: full, display: cleaned };
     }
     function ssIsPlayerResult(r) {
+      // SofaScore represents individual-sport athletes (table tennis
+      // included) as one-person "team" entities — the same model this app
+      // already relies on elsewhere (ssTeamAId/ssTeamBId are matched against
+      // ev.homeTeam.id/ev.awayTeam.id). So outer type:"team" is NOT proof
+      // this isn't the player we want; only reject types that clearly
+      // aren't a person. The real safety check — sport + full-name match —
+      // happens downstream in ssScoreCandidate.
       const t = String(r?.type || r?.entity?.type || "").toLowerCase();
+      const REJECT_TYPES = ["tournament", "uniquetournament", "category", "stage", "season", "manager", "venue"];
       if (!t) return true;
-      return t === "player";
+      return REJECT_TYPES.indexOf(t) === -1;
     }
     function ssGetCandidateSportSlug(candidate) {
       const entity = candidate?.entity || candidate || {};
@@ -1551,13 +1558,23 @@ K
       const rawName = (nameEl?.value||"").trim();
       if(!rawName){ alert("Enter a player name first."); return; }
       const requested = ssNormalizeNameParts(rawName);
-      const searchName = rawName.split(",")[0].trim();
+      // Full name search — searching by surname alone (the old behavior) is
+      // exactly what let same-surname players outrank the correct one.
+      const searchName = rawName.replace(/,/g, " ").replace(/\s+/g, " ").trim();
       // Paste-only workflow: open SofaScore search JSON so the user can copy events.
       // NOTE: "search/teams" with a "sport" filter is not a real SofaScore endpoint —
       // it silently returns {"results":[]}. "search/all" is the real endpoint; it
       // returns mixed sports, so the user has to pick the entry whose sport.slug is
       // "table-tennis" out of the list.
       const url = "https://api.sofascore.com/api/v1/search/all?q=" + encodeURIComponent(searchName);
+      // Third-party CORS relay, used ONLY if a direct browser fetch is
+      // blocked. This project has no real backend/proxy of its own — the
+      // only trace of one is an unused window._proxyFetchCache reference in
+      // militaryRaid() that is never defined anywhere in this file, so it
+      // is not being "restored," it's new. Routing through allorigins.win
+      // means the query leaves this app through a third party; remove this
+      // block if that's not acceptable.
+      const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
       const st = document.getElementById("ssFetchStatus");
       if (st) { st.style.color = "#d98a00"; st.textContent = "🔎 Resolving " + side + ": " + rawName + "…"; }
       engineDebug("[PLAYER RESOLVER] Requested", { side: side, requested: rawName, normalized: requested.first + " | " + requested.last, sport: "table-tennis" });
@@ -1566,14 +1583,21 @@ K
         const resp = await fetch(url, { headers: { "Accept": "application/json" } });
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         data = await resp.json();
-      } catch (err) {
-        engineDebug("[PLAYER RESOLVER] Network lookup blocked — falling back to manual tab", { error: err && err.message ? err.message : String(err) });
-        window.open(url, "_blank");
-        if (st) {
-          st.style.color = "#d98a00";
-          st.textContent = "⚠️ Auto-resolve unavailable (likely CORS) — opened raw search for " + side + ". Find the table-tennis entry and paste its ID manually.";
+      } catch (directErr) {
+        engineDebug("[PLAYER RESOLVER] Direct lookup blocked — trying CORS relay", { error: directErr && directErr.message ? directErr.message : String(directErr) });
+        try {
+          const proxyResp = await fetch(proxyUrl);
+          if (!proxyResp.ok) throw new Error("HTTP " + proxyResp.status);
+          data = await proxyResp.json();
+        } catch (proxyErr) {
+          engineDebug("[PLAYER RESOLVER] CORS relay also blocked — falling back to manual tab", { error: proxyErr && proxyErr.message ? proxyErr.message : String(proxyErr) });
+          window.open(url, "_blank");
+          if (st) {
+            st.style.color = "#d98a00";
+            st.textContent = "⚠️ Auto-resolve unavailable (direct + relay both blocked) — opened raw search for " + side + ". Find the table-tennis entry and paste its ID manually.";
+          }
+          return;
         }
-        return;
       }
       const results = Array.isArray(data?.results) ? data.results : [];
       const scored = results.filter(ssIsPlayerResult).map(function(r) { return ssScoreCandidate(r, requested); }).filter(function(c) { return c.tier > 0 && isFinite(c.id); });
