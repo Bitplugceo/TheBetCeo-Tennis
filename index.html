@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6433,9 +6434,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     
     const activeItems = items.filter(isTrackerItemVisibleOnPage);
-    
-    
+
+
     const displayPicks = activeItems.slice().sort(function(a, b) {
+      // Live/pending stay on top; settled drop immediately under them.
+      const aPend = String(a.status || "PENDING").toUpperCase() === "PENDING" ? 0 : 1;
+      const bPend = String(b.status || "PENDING").toUpperCase() === "PENDING" ? 0 : 1;
+      if (aPend !== bPend) return aPend - bPend;
       return getTrackerItemTimeMs(b) - getTrackerItemTimeMs(a);
     });
 
@@ -6532,9 +6537,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const _liveLabel = (_liveInfo && _liveInfo.set1Finished && String(item.market || "") === "Set 1 Total Games")
         ? "SET 1 DONE"
         : "LIVE";
+      const _setsLine = (_liveInfo && _liveInfo.setsLine) ? _liveInfo.setsLine : "";
+      const _setDetail = (_liveInfo && Array.isArray(_liveInfo.setLines) && _liveInfo.setLines.length)
+        ? _liveInfo.setLines.join("<br>")
+        : "";
       const _liveBlock = _liveInfo
         ? '<div style="color:#2f8f4a;font-size:8px;font-weight:900;line-height:1.0;letter-spacing:0.3px;margin-bottom:1px;">' + _liveLabel + '</div>' +
-          '<div data-live-clk="' + htmlEscape(_liveEid) + '" style="font-size:10px;font-weight:900;line-height:1.2;color:var(--tracker-strong);white-space:nowrap;">' + htmlEscape(_liveInfo.scoreStr || "LIVE") + '</div>'
+          '<div style="font-size:12px;font-weight:900;line-height:1.15;color:var(--tracker-strong);">' + htmlEscape(_setsLine || "0-0") + '</div>' +
+          (_setDetail
+            ? '<div data-live-clk="' + htmlEscape(_liveEid) + '" style="font-size:9px;font-weight:800;line-height:1.25;color:var(--muted);margin-top:1px;">' + _setDetail + '</div>'
+            : '<div data-live-clk="' + htmlEscape(_liveEid) + '" style="font-size:9px;font-weight:800;line-height:1.25;color:var(--muted);"></div>')
         : '';
       const _pendingLabel = _liveInfo ? '' : 'PENDING';
       statusHtml =
@@ -6679,7 +6691,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const eid = el.dataset.liveClk;
       const info = g_liveGameStatus.get(eid);
       if (!info) return;
-      el.textContent = info.scoreStr || "LIVE";
+      el.innerHTML = (Array.isArray(info.setLines) && info.setLines.length)
+        ? info.setLines.join("<br>")
+        : htmlEscape(info.scoreStr || "");
+      const setsEl = el.previousElementSibling;
+      if (setsEl && info.setsLine) setsEl.textContent = info.setsLine;
     });
   }
 
@@ -6985,23 +7001,40 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           : (comp.competitors || []);
         const compA = competitors[0];
         const compB = competitors[1];
-        const setsA = compA ? (parseFloat(compA.score) || 0) : 0;
-        const setsB = compB ? (parseFloat(compB.score) || 0) : 0;
         const lsA = (compA && Array.isArray(compA.linescores)) ? compA.linescores : [];
         const lsB = (compB && Array.isArray(compB.linescores)) ? compB.linescores : [];
-        const setScores = lsA.map(function (ls, i) {
-          const ga = parseFloat(ls.value != null ? ls.value : (ls.displayValue || 0)) || 0;
+        // ESPN live often leaves competitor.score null — derive sets from linescores.
+        let setsA = compA ? (parseFloat(compA.score) || 0) : 0;
+        let setsB = compB ? (parseFloat(compB.score) || 0) : 0;
+        if (!setsA && !setsB && lsA.length) {
+          const n = Math.min(lsA.length, lsB.length);
+          for (let i = 0; i < n; i++) {
+            const ga = parseFloat(lsA[i].value != null ? lsA[i].value : (lsA[i].displayValue || 0)) || 0;
+            const gb = parseFloat(lsB[i].value != null ? lsB[i].value : (lsB[i].displayValue || 0)) || 0;
+            const done = (i < n - 1) || ((ga >= 6 || gb >= 6) && Math.abs(ga - gb) >= 2) || ga === 7 || gb === 7;
+            if (!done) continue;
+            if (ga > gb) setsA += 1;
+            else if (gb > ga) setsB += 1;
+          }
+        }
+        const setLines = [];
+        const nSets = Math.max(lsA.length, lsB.length);
+        for (let i = 0; i < nSets; i++) {
+          const ga = lsA[i] ? (parseFloat(lsA[i].value != null ? lsA[i].value : (lsA[i].displayValue || 0)) || 0) : 0;
           const gb = lsB[i] ? (parseFloat(lsB[i].value != null ? lsB[i].value : (lsB[i].displayValue || 0)) || 0) : 0;
-          return ga + "-" + gb;
-        }).join(", ");
-        const scoreStr = setsA + "-" + setsB + (setScores ? " (" + setScores + ")" : "");
+          setLines.push("Set " + (i + 1) + " " + ga + "-" + gb);
+        }
+        const setsLine = setsA + "-" + setsB;
+        const scoreStr = setsLine + (setLines.length ? " · " + setLines.join(" · ") : "");
         const set1Finished = isSet1FinishedFromLinescores(lsA, lsB, setsA, setsB);
 
         const info = {
           league: league,
           setsA: setsA,
           setsB: setsB,
-          setScores: setScores,
+          setsLine: setsLine,
+          setLines: setLines,
+          setScores: setLines.join(", "),
           scoreStr: scoreStr,
           set1Finished: set1Finished,
           eventId: eventId,
