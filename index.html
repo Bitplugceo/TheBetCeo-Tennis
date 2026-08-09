@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1498,9 +1499,25 @@
     // Turns "Surname, First" or "First Surname" into order-independent parts
     // so both input styles compare equal, and strips punctuation/case so
     // "Ponomarenko, Tymur" and "tymur ponomarenko" match identically.
+    // Trailing single-letter display initials (e.g. "Volodymyr S.") and
+    // parenthetical suffixes (e.g. "(1993)") are display-name formatting,
+    // not part of the searchable identity, and are stripped before compare.
+    function ssStripTrailingInitials(nameStr) {
+      const tokens = String(nameStr || "").trim().split(/\s+/).filter(Boolean);
+      while (tokens.length > 1) {
+        const last = tokens[tokens.length - 1].replace(/\.$/, "");
+        if (last.length === 1) tokens.pop();
+        else break;
+      }
+      return tokens.join(" ");
+    }
     function ssNormalizeNameParts(rawName) {
-      const cleaned = String(rawName || "").replace(/[".]/g, "").replace(/\s+/g, " ").trim();
-      if (!cleaned) return { first: "", last: "", full: "", display: "" };
+      const cleaned = String(rawName || "")
+        .replace(/\([^)]*\)/g, "")
+        .replace(/"/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!cleaned) return { first: "", last: "", full: "", display: "", firstRaw: "", lastRaw: "" };
       let first = "", last = "";
       if (cleaned.indexOf(",") !== -1) {
         const parts = cleaned.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
@@ -1511,11 +1528,15 @@
         if (tokens.length >= 2) { first = tokens[0]; last = tokens.slice(1).join(" "); }
         else { last = tokens[0] || ""; }
       }
+      // Strip trailing single-letter display initials from the given name
+      // (e.g. "Volodymyr S." -> "Volodymyr") before normalizing — these are
+      // display formatting, not identity, and must not affect matching.
+      first = ssStripTrailingInitials(first);
       const norm = function(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9 ]/gi, "").trim(); };
       const firstN = norm(first);
       const lastN = norm(last);
       const full = [firstN, lastN].filter(Boolean).sort().join(" ");
-      return { first: firstN, last: lastN, full: full, display: cleaned };
+      return { first: firstN, last: lastN, full: full, display: cleaned, firstRaw: first.trim(), lastRaw: last.trim() };
     }
     function ssIsPlayerResult(r) {
       // SofaScore represents individual-sport athletes (table tennis
@@ -1558,9 +1579,11 @@
       const rawName = (nameEl?.value||"").trim();
       if(!rawName){ alert("Enter a player name first."); return; }
       const requested = ssNormalizeNameParts(rawName);
-      // Full name search — searching by surname alone (the old behavior) is
-      // exactly what let same-surname players outrank the correct one.
-      const searchName = rawName.replace(/,/g, " ").replace(/\s+/g, " ").trim();
+      // Search using the normalized surname + given name only — trailing
+      // display-name initials (e.g. "S.") and parenthetical suffixes are
+      // display formatting, not part of the searchable identity, and must
+      // not be sent to SofaScore as literal search terms.
+      const searchName = [requested.lastRaw, requested.firstRaw].filter(Boolean).join(" ").trim() || rawName.replace(/,/g, " ").replace(/\s+/g, " ").trim();
       // Paste-only workflow: open SofaScore search JSON so the user can copy events.
       // NOTE: "search/teams" with a "sport" filter is not a real SofaScore endpoint —
       // it silently returns {"results":[]}. "search/all" is the real endpoint; it
