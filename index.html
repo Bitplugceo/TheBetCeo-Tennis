@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -383,6 +382,10 @@ A
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
       <div><label>Match Total Points</label><input id="ftMarket" placeholder="e.g. 98.5 or 96.5-101.5" /></div>
       <div><label>1st Set Total Points</label><input id="h1Market" placeholder="e.g. 19.5 or 18.5-20.5" /></div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top:6px;">
+      <div><label>Match Total Odds <span style="font-size:10px;color:#888;">(optional — Over/Under, e.g. -110/-110)</span></label><input id="ftOdds" placeholder="e.g. -110/-110" /></div>
+      <div><label>1st Set Total Odds <span style="font-size:10px;color:#888;">(optional)</span></label><input id="h1Odds" placeholder="e.g. -110/-110" /></div>
     </div>
     <div style="margin-top:6px;">
       <label>Match Format <span style="font-size:10px;color:#888;">(games needed to win — used to model match length)</span></label>
@@ -911,14 +914,35 @@ A
       const n = parseFloat(raw);
       return isFinite(n) ? Math.round(n*2)/2 : null;
     }
-    function getPick(edge, line, marketKey) {
+    /**
+     * Tier-1 standardized decision gate: the legacy point-edge/line
+     * threshold no longer decides alone. A pick additionally requires the
+     * Markov model's own probability read (probOver, when supplied via
+     * opts) to clear a minimum distance from a coin flip AND agree in
+     * direction with the point-edge. Point-edge and probability disagreeing
+     * in direction is itself a signal the projection is unstable (e.g.
+     * thin-sample anchoring pulling one way while the point-process model
+     * pulls the other) and is treated as NO PLAY rather than picked anyway.
+     * Calls without opts (existing tests, other callers) are unaffected.
+     */
+    const TT_MIN_PROB_EDGE = 0.06;
+    function getPick(edge, line, marketKey, opts) {
       if (!line || !isFinite(edge) || !isFinite(line) || line<=0) return "NO PLAY";
       if (Math.abs(edge) < 1.5) return "NO PLAY";
       // Use retrospective thresholds if available
       const th = window.__ttThresholds || {};
       const threshold = marketKey==="h1" ? (th.h1 || 2.0) : (th.ft || 3.0);
       if (Math.abs(edge) < threshold) return "NO PLAY";
-      return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
+      const side = edge > 0 ? "over" : "under";
+      const o = opts || {};
+      const probOver = o.probOver;
+      if (isFinite(probOver)) {
+        const distFromHalf = Math.abs(probOver - 0.5);
+        if (distFromHalf < TT_MIN_PROB_EDGE) return "NO PLAY";
+        const probSide = probOver > 0.5 ? "over" : "under";
+        if (probSide !== side) return "NO PLAY";
+      }
+      return side === "over" ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
     }
     function getConfidenceGrade(edge, line, sampleTier, opts) {
       if (!isFinite(edge) || !line || line <= 0) return "NaN";
@@ -956,6 +980,11 @@ A
       // underlying probability model isn't actually confident about it.
       if (isFinite(o.probOver)) {
         const dist50 = Math.abs(o.probOver - 0.5);
+        // Tier-1 fix: standardized-probability floor. A large raw %-edge
+        // cannot earn A/B when the model's own probability read is still
+        // close to a coin flip — this closes the "confidence grade isn't
+        // variance-aware" gap without discarding the tested pct-tier base.
+        if (dist50 < 0.10 && (grade === "A" || grade === "B")) grade = "C";
         if (dist50 >= 0.20 && grade !== "A") {
           const order = ["D", "C", "B", "A"];
           const idx = order.indexOf(grade);
@@ -996,6 +1025,26 @@ A
       if (sampleN >= 6) return proj;
       const w = Math.min(0.55, 0.12 * (6 - sampleN));
       return proj * (1 - w) + leagueBase * w;
+    }
+    /**
+     * Tier-1 fix: blend the theoretical DP-derived total-points variance
+     * with an empirical variance proxy built from the actual observed
+     * dispersion of the two players' recent scores (the same raw series
+     * already used for getVolatilityRatio elsewhere), instead of relying
+     * solely on a variance that only ever reflects the modeled p at a
+     * neutral scoring format. Independence between the two players' point
+     * totals is assumed when converting a single combined stdDev into a
+     * total-match variance proxy — a simplification, not a fitted relationship.
+     */
+    function blendTotalVariance(theoreticalVariance, combinedSeries, sampleTier) {
+      if (!isFinite(theoreticalVariance) || theoreticalVariance < 0) return theoreticalVariance;
+      const sd = stdDev(combinedSeries);
+      if (!isFinite(sd) || sd <= 0) return theoreticalVariance;
+      const empiricalVarianceProxy = 2 * sd * sd;
+      let empiricalWeight = 0;
+      if (sampleTier === "full") empiricalWeight = 0.45;
+      else if (sampleTier === "thin") empiricalWeight = 0.20;
+      return theoreticalVariance * (1 - empiricalWeight) + empiricalVarianceProxy * empiricalWeight;
     }
     /**
      * Trap zone: moderate edge + elevated volatility → treat as NO PLAY.
@@ -1352,6 +1401,9 @@ A
           : `ELO: A ${Math.round(p.eloRatingA)} vs B ${Math.round(p.eloRatingB)} — not yet weighted in (too little settled match history for one or both players).`);
       }
       if (p.integrityFlag) factors.push("⚠️ Irregular scoring volatility flagged for this player pair — this is a coarse screen, not a fix detector. Verify before trusting this pick.");
+      if (isFinite(p.evPct) && p.oddsPair) {
+        factors.push(`Expected value at entered odds: ${p.evPct > 0 ? "+" : ""}${p.evPct.toFixed(1)}% — this is what actually determines if the bet is +EV against the market price; the edge/grade above only measure deviation from the points line, not real betting value.`);
+      }
       if (isLock) factors.push("🔒 Selected as the Lock pick (highest confidence + edge among this game's actionable markets).");
       return factors;
     }
@@ -1376,6 +1428,44 @@ A
       if (!isFinite(edge) || !isFinite(line) || line <= 0) return "NaN";
       const edgeRounded = Math.round(edge * 10) / 10;
       return (edgeRounded > 0 ? "+" : "") + edgeRounded.toFixed(1);
+    }
+    /**
+     * Tier-4 fix: optional real-odds EV. Edge/grade above only measure
+     * deviation from the points line, not actual betting value — EV%
+     * requires a price. American odds are assumed when |n| >= 100 (the
+     * standard convention), otherwise the token is treated as decimal odds.
+     */
+    function americanToDecimal(odds) {
+      const n = Number(odds);
+      if (!isFinite(n) || n === 0) return NaN;
+      return n > 0 ? 1 + n / 100 : 1 + 100 / Math.abs(n);
+    }
+    /** Accepts "-110/-110", "1.91/1.91", "1.91", or "-110" (same price both sides). */
+    function parseOddsPair(raw) {
+      const str = String(raw || "").trim();
+      if (!str) return null;
+      const parts = str.split("/").map(function(s) { return s.trim(); }).filter(Boolean);
+      const toDecimal = function(token) {
+        const n = Number(token);
+        if (!isFinite(n)) return NaN;
+        return Math.abs(n) >= 100 ? americanToDecimal(n) : n;
+      };
+      if (parts.length >= 2) {
+        const over = toDecimal(parts[0]);
+        const under = toDecimal(parts[1]);
+        if (isFinite(over) && over > 1 && isFinite(under) && under > 1) return { over: over, under: under };
+        return null;
+      }
+      const single = toDecimal(parts[0]);
+      if (isFinite(single) && single > 1) return { over: single, under: single };
+      return null;
+    }
+    /** EV% for a specific side, given the model's own probOver and decimal odds for that side. */
+    function computeEvPct(side, probOver, oddsPair) {
+      if (!oddsPair || !isFinite(probOver)) return NaN;
+      if (side === "over") return (probOver * oddsPair.over - 1) * 100;
+      if (side === "under") return ((1 - probOver) * oddsPair.under - 1) * 100;
+      return NaN;
     }
     function safeText(str) {
       return String(str || "").replace(/[&<>"]/g, function(m) {
@@ -2509,24 +2599,50 @@ A
             else pushes++;
           });
           if (taken < 4) return;
-          // Net units proxy: win=+1, loss=-1, push=0, slight sample penalty
-          const score = (wins - losses) + pushes * 0.1 - Math.max(0, 8 - taken) * 0.05;
+          // Tier-3 fix: quality-weighted score. Shrink the observed win
+          // rate toward a neutral prior (the same Beta-Binomial shrinkage
+          // used elsewhere for reporting) so a threshold can't win purely
+          // by taking more low-quality bets, then scale by how
+          // statistically distinguishable that rate is from a coin flip.
+          // Raw win/loss volume alone no longer wins the search.
+          const stabRate = getStabilizedBucketWinRate(wins, losses, 12, 50);
+          if (stabRate == null) return;
+          const z = getBucketSignalStrength(stabRate, losses, taken);
+          const score = (stabRate - 50) * (1 + Math.min(1, Math.abs(z) / 2));
           if (score > bestScore) { bestScore = score; best = th; }
         });
         return best;
       }
-      window.__ttThresholds = {
+      const proposedThresholds = {
         ft: bestThreshold("ft", 3.0),
         h1: bestThreshold("h1", 2.0)
       };
-      try {
-        localStorage.setItem("TT_THRESHOLDS_SETKA", JSON.stringify({
-          ...window.__ttThresholds,
-          sample: settled.length,
-          updatedAt: new Date().toISOString()
-        }));
-      } catch (e) {}
-      engineDebug("Retrospective thresholds recomputed", window.__ttThresholds);
+      // Tier-3 fix: out-of-sample gate. Once enough settled history exists
+      // to run the held-out check (runOutOfSampleValidation's own 30-pick
+      // floor), a newly computed threshold set is only adopted live if the
+      // model still clears breakeven on data it wasn't tuned on. Below that
+      // floor there's no held-out check yet, so thresholds adopt as before.
+      let oosBlocksAdoption = false;
+      if (settled.length >= 30) {
+        const oos = runOutOfSampleValidation();
+        if (oos && isFinite(oos.winRate) && oos.winRate < 0.50) {
+          oosBlocksAdoption = true;
+          engineDebug("Retrospective thresholds NOT adopted — held-out win rate below breakeven", { winRate: +oos.winRate.toFixed(3), testSize: oos.testSize, proposed: proposedThresholds, kept: window.__ttThresholds });
+        }
+      }
+      if (!oosBlocksAdoption) {
+        window.__ttThresholds = proposedThresholds;
+        try {
+          localStorage.setItem("TT_THRESHOLDS_SETKA", JSON.stringify({
+            ...window.__ttThresholds,
+            sample: settled.length,
+            updatedAt: new Date().toISOString()
+          }));
+        } catch (e) {}
+        engineDebug("Retrospective thresholds recomputed", window.__ttThresholds);
+      } else {
+        window.__ttThresholds = window.__ttThresholds || { ft: 3.0, h1: 2.0 };
+      }
       // Phase-2: update candidate scores + proposals (never auto-applies verified)
       try { updateTtCandidateScoresFromSettled(settled); } catch (e) {
         engineDebug("Candidate score update failed", e);
@@ -2571,13 +2687,18 @@ A
         else if (p.resultStatus === "loss") losses++;
         else if (p.resultStatus === "push") pushes++;
       });
+      const rawWinRate = taken ? (wins + pushes * 0.5) / taken : 0;
+      const stabRate = getStabilizedBucketWinRate(wins, losses, 12, 50);
+      const z = (stabRate != null) ? getBucketSignalStrength(stabRate, losses, wins + losses) : 0;
       return {
         netDelta: wins - losses,
         wins: wins,
         losses: losses,
         pushes: pushes,
         count: taken,
-        winRate: taken ? (wins + pushes * 0.5) / taken : 0
+        winRate: rawWinRate,
+        stabRate: stabRate,
+        z: z
       };
     }
     function updateTtCandidateScoresFromSettled(settled) {
@@ -2587,12 +2708,15 @@ A
         const pool = (settled || []).filter(function(p) {
           return p.marketKey === mk && (p.resultStatus === "win" || p.resultStatus === "loss" || p.resultStatus === "push");
         });
-        if (pool.length < 6) return;
+        // Tier-3 fix: raised sample floors (was 6 pool / 4 per-candidate) —
+        // small-sample candidates were exactly what let the old objective
+        // overfit a live threshold to a handful of settled picks.
+        if (pool.length < 10) return;
         const scores = loadTtCandidateScores(mk);
         candidateThs.forEach(function(th) {
           const ck = makeTtConfigKey(th);
           const s = scoreTtThresholdCandidate(pool, th);
-          if (s.count < 4) return;
+          if (s.count < 8) return;
           scores[ck] = {
             netDelta: s.netDelta,
             count: s.count,
@@ -2600,6 +2724,8 @@ A
             losses: s.losses,
             pushes: s.pushes,
             winRate: +s.winRate.toFixed(3),
+            stabRate: s.stabRate != null ? +s.stabRate.toFixed(2) : null,
+            z: +s.z.toFixed(3),
             threshold: th,
             updatedAt: new Date().toISOString()
           };
@@ -2613,6 +2739,12 @@ A
      * Never writes TT_VERIFIED or live __ttThresholds unless applyTtVerifiedConfig is called.
      */
     function proposeTtConfigUpgrades(logToEngine) {
+      // Tier-3 fix: require a minimum candidate sample AND a minimum
+      // signal z-score (distinguishable from a coin flip), and rank by
+      // z-score rather than raw net wins — closes the same volume-over-
+      // quality gap fixed in bestThreshold() above.
+      const MIN_CANDIDATE_COUNT = 8;
+      const MIN_SIGNAL_Z = 1.0;
       const proposals = {};
       ["ft", "h1"].forEach(function(mk) {
         const scores = loadTtCandidateScores(mk);
@@ -2620,13 +2752,14 @@ A
         let best = null;
         Object.keys(scores).forEach(function(ck) {
           const d = scores[ck];
-          if (!d || d.count < 6) return;
-          if (!best || d.netDelta > best.netDelta || (d.netDelta === best.netDelta && d.count > best.count)) {
-            best = { configKey: ck, threshold: d.threshold, netDelta: d.netDelta, count: d.count, winRate: d.winRate };
+          if (!d || d.count < MIN_CANDIDATE_COUNT) return;
+          if (!isFinite(d.z) || d.z < MIN_SIGNAL_Z) return;
+          if (!best || d.z > best.z || (d.z === best.z && d.count > best.count)) {
+            best = { configKey: ck, threshold: d.threshold, netDelta: d.netDelta, count: d.count, winRate: d.winRate, z: d.z, stabRate: d.stabRate };
           }
         });
         const verified = loadTtVerifiedConfig(mk);
-        if (best && best.threshold !== liveTh && best.netDelta > 0) {
+        if (best && best.threshold !== liveTh) {
           proposals[mk] = {
             marketKey: mk,
             liveThreshold: liveTh,
@@ -2635,6 +2768,8 @@ A
             netDelta: best.netDelta,
             sampleCount: best.count,
             winRate: best.winRate,
+            signalZ: best.z,
+            stabilizedRate: best.stabRate,
             verifiedLocked: !!(verified && verified.verified),
             status: "PROPOSE_ONLY"
           };
@@ -2830,20 +2965,28 @@ A
       const useH2H1 = document.getElementById("use1HH2H").checked && h2h1A.length>=2 && h2h1B.length>=2;
       const ftLine = parseMarketLine(document.getElementById("ftMarket").value);
       const h1Line = parseMarketLine(document.getElementById("h1Market").value);
+      const ftOddsPair = parseOddsPair(document.getElementById("ftOdds")?.value);
+      const h1OddsPair = parseOddsPair(document.getElementById("h1Odds")?.value);
       const matchFormatEl = document.getElementById("matchFormat");
       const matchFormat = matchFormatEl ? (parseInt(matchFormatEl.value, 10) || 5) : 5;
       const aFatigueToday = parseFloat(document.getElementById("aFatigueToday")?.value || "0") || 0;
       const bFatigueToday = parseFloat(document.getElementById("bFatigueToday")?.value || "0") || 0;
 
       // projections
-      const aFT_avg = weightedRecentAverage(aFT);
-      const aFA_avg = weightedRecentAverage(aFA);
-      const bFT_avg = weightedRecentAverage(bFT);
-      const bFA_avg = weightedRecentAverage(bFA);
-      const a1H_avg = weightedRecentAverage(a1H);
-      const a1A_avg = weightedRecentAverage(a1A);
-      const b1H_avg = weightedRecentAverage(b1H);
-      const b1A_avg = weightedRecentAverage(b1A);
+      // Tier-2 fix: trimmedAvg() (outlier-robust, previously dead code —
+      // defined and tested but never called from the live projection path)
+      // now drives these averages instead of raw weightedRecentAverage. It
+      // degrades to the exact same weightedRecentAverage behavior for
+      // samples under 4 games, and only trims a high/low outlier by value
+      // for 4+ games before applying the same recency weighting.
+      const aFT_avg = trimmedAvg(aFT);
+      const aFA_avg = trimmedAvg(aFA);
+      const bFT_avg = trimmedAvg(bFT);
+      const bFA_avg = trimmedAvg(bFA);
+      const a1H_avg = trimmedAvg(a1H);
+      const a1A_avg = trimmedAvg(a1A);
+      const b1H_avg = trimmedAvg(b1H);
+      const b1A_avg = trimmedAvg(b1A);
 
       // Sample tiers + volatility early so dynamic weights can shape the blend.
       const ftSampleTierEarly = getSampleTier(aFT, bFT);
@@ -2920,25 +3063,32 @@ A
       const ftVol = ftVolEarly;
       const h1Vol = h1VolEarly;
 
-      // Mild UNDER asymmetry (legacy point-edge path — retained alongside the
-      // probability model below rather than replaced by it)
-      const UNDER_EDGE_FACTOR = 1.08;
+      // UNDER_EDGE_FACTOR (previously a flat, uncalibrated 1.08x multiplier
+      // applied only to negative edges) has been removed — it was an
+      // unexplained directional bias baked directly into pick/grade math
+      // with no empirical basis. Edge is now symmetric; any real OVER/UNDER
+      // asymmetry should surface through the probability model / retrospective
+      // tuning once there's settled history to justify it, not be assumed here.
       let ftEdge = isFinite(ftLine) ? ftProj - ftLine : NaN;
       let h1Edge = isFinite(h1Line) ? h1Proj - h1Line : NaN;
-      if (isFinite(ftEdge) && ftEdge < 0) ftEdge = ftEdge * UNDER_EDGE_FACTOR;
-      if (isFinite(h1Edge) && h1Edge < 0) h1Edge = h1Edge * UNDER_EDGE_FACTOR;
 
+      // Tier-1 fix: blend the theoretical DP variance with each pair's own
+      // observed score dispersion before computing the model's probability
+      // read, so probOverLine reflects these two players, not just a
+      // neutral theoretical shape.
+      const ftVarianceBlended = blendTotalVariance(matchMarkov.varianceTotal, [].concat(aFT || [], bFT || []), ftSampleTier);
+      const h1VarianceBlended = blendTotalVariance(h1Markov.varianceTotal, [].concat(a1H || [], b1H || []), h1SampleTier);
       // Model-native P(total > line) — the Markov model's actual answer,
       // independent of the point-edge heuristic above.
-      const ftProbOver = isFinite(ftLine) ? probOverLine(matchMarkov.expectedTotal, matchMarkov.varianceTotal, ftLine) : NaN;
-      const h1ProbOver = isFinite(h1Line) ? probOverLine(h1Markov.expectedTotal, h1Markov.varianceTotal, h1Line) : NaN;
+      const ftProbOver = isFinite(ftLine) ? probOverLine(matchMarkov.expectedTotal, ftVarianceBlended, ftLine) : NaN;
+      const h1ProbOver = isFinite(h1Line) ? probOverLine(h1Markov.expectedTotal, h1VarianceBlended, h1Line) : NaN;
       const ftMarginSwing = detectMarginSwingAnomaly(aFT, aFA) || detectMarginSwingAnomaly(bFT, bFA);
       const h1MarginSwing = detectMarginSwingAnomaly(a1H, a1A) || detectMarginSwingAnomaly(b1H, b1A);
       const ftIntegrityFlag = flagIntegrityRisk(ftVol, ftSampleTier) || ftMarginSwing;
       const h1IntegrityFlag = flagIntegrityRisk(h1Vol, h1SampleTier) || h1MarginSwing;
 
-      let ftPick = (ftSampleTier === "insufficient") ? "NO PLAY" : getPick(ftEdge, ftLine, "ft");
-      let h1Pick = (h1SampleTier === "insufficient") ? "NO PLAY" : getPick(h1Edge, h1Line, "h1");
+      let ftPick = (ftSampleTier === "insufficient") ? "NO PLAY" : getPick(ftEdge, ftLine, "ft", { probOver: ftProbOver });
+      let h1Pick = (h1SampleTier === "insufficient") ? "NO PLAY" : getPick(h1Edge, h1Line, "h1", { probOver: h1ProbOver });
       const ftTrap = detectTrap(ftEdge, ftLine, ftPick, "ft", ftVol);
       const h1Trap = detectTrap(h1Edge, h1Line, h1Pick, "h1", h1Vol);
       if (ftTrap) ftPick = "NO PLAY";
@@ -2959,8 +3109,8 @@ A
 
       // Build pick objects for lock selection
       const pickObjects = [
-        { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf, sampleTier: ftSampleTier, hasH2H: useH2H, trap: ftTrap, vol: ftVol, probOver: ftProbOver, integrityFlag: ftIntegrityFlag, expectedGames: matchMarkov.expectedGames, pWinMatchModel: matchMarkov.pUsWinsMatch, eloRatingA: eloResult.ratingA, eloRatingB: eloResult.ratingB, eloWeight: eloResult.weight },
-        { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf, sampleTier: h1SampleTier, hasH2H: useH2H1, trap: h1Trap, vol: h1Vol, probOver: h1ProbOver, integrityFlag: h1IntegrityFlag, expectedGames: null, pWinMatchModel: h1Markov.pWin, eloRatingA: eloResult.ratingA, eloRatingB: eloResult.ratingB, eloWeight: eloResult.weight }
+        { name: "Match Total Points", marketKey: "ft", proj: ftProj, edge: ftEdge, line: ftLine, pick: ftPick, conf: ftConf, sampleTier: ftSampleTier, hasH2H: useH2H, trap: ftTrap, vol: ftVol, probOver: ftProbOver, integrityFlag: ftIntegrityFlag, expectedGames: matchMarkov.expectedGames, pWinMatchModel: matchMarkov.pUsWinsMatch, eloRatingA: eloResult.ratingA, eloRatingB: eloResult.ratingB, eloWeight: eloResult.weight, oddsPair: ftOddsPair },
+        { name: "1st Set Total Points", marketKey: "h1", proj: h1Proj, edge: h1Edge, line: h1Line, pick: h1Pick, conf: h1Conf, sampleTier: h1SampleTier, hasH2H: useH2H1, trap: h1Trap, vol: h1Vol, probOver: h1ProbOver, integrityFlag: h1IntegrityFlag, expectedGames: null, pWinMatchModel: h1Markov.pWin, eloRatingA: eloResult.ratingA, eloRatingB: eloResult.ratingB, eloWeight: eloResult.weight, oddsPair: h1OddsPair }
       ];
       const leagueTrust = getLeagueTrustMeta(document.getElementById("leagueName").value || "Setka Cup");
       // Select lock: highest confidence grade (A>B>C>D>NaN), then highest edge magnitude
@@ -2996,6 +3146,8 @@ A
         const hasH2H = !!p.hasH2H;
         const probOver = p.probOver;
         const integrityFlag = !!p.integrityFlag;
+        // Tier-4 fix: real EV%, only meaningful (and only computed) when odds were entered.
+        const evPct = computeEvPct(getPickSideFromText(pick), probOver, p.oddsPair);
         const row = document.createElement("tr");
         const td1 = document.createElement("td"); td1.textContent = name; row.appendChild(td1);
         const td2 = document.createElement("td"); td2.textContent = isFinite(proj)?displayLine(proj):"NaN"; row.appendChild(td2);
@@ -3022,7 +3174,7 @@ A
           predSpan.appendChild(document.createTextNode(' '));
           predSpan.appendChild(riskSpan);
         }
-        const details = buildPickExplanationDetails({ pick, edge, line, sampleTier, hasH2H, marketKey, conf, probOver, integrityFlag, eloRatingA: p.eloRatingA, eloRatingB: p.eloRatingB, eloWeight: p.eloWeight }, isLock);
+        const details = buildPickExplanationDetails({ pick, edge, line, sampleTier, hasH2H, marketKey, conf, probOver, integrityFlag, eloRatingA: p.eloRatingA, eloRatingB: p.eloRatingB, eloWeight: p.eloWeight, evPct: evPct, oddsPair: p.oddsPair }, isLock);
         predSpan.addEventListener('click', function(e) {
           e.stopPropagation();
           details.open = !details.open;
@@ -3068,7 +3220,9 @@ A
             integrityFlag: integrityFlag,
             matchFormat: matchFormat,
             expectedGames: isFinite(p.expectedGames) ? Number(p.expectedGames) : null,
-            pWinMatchModel: isFinite(p.pWinMatchModel) ? Number(p.pWinMatchModel) : null
+            pWinMatchModel: isFinite(p.pWinMatchModel) ? Number(p.pWinMatchModel) : null,
+            evPct: isFinite(evPct) ? Number(evPct.toFixed(2)) : null,
+            oddsUsed: p.oddsPair ? (side === "over" ? p.oddsPair.over : p.oddsPair.under) : null
           };
           rows.push(payload);
         }
