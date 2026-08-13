@@ -1,3 +1,4 @@
+K
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4381,6 +4382,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       item.competitionId || item.fixtureDate || item.savedAt || ""
     ].join("|");
   }
+  // PERMANENT-DELETE FIX: trackerItemMergeKey alone identifies a market on a
+  // match, not a specific pick direction (UNDER vs OVER). Tombstoning must be
+  // keyed on merge-key + pick so deleting "UNDER 12.5" cannot suppress a
+  // legitimately different future "OVER 12.5" pick on the same match/market.
+  function trackerTombstoneKey(item) {
+    return trackerItemMergeKey(item) + "|" + String(item.pick || "");
+  }
   function mergeTrackerStates(localState, serverState) {
     const local = localState && localState.items ? localState.items : [];
     const server = serverState && serverState.items ? serverState.items : [];
@@ -4394,7 +4402,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const key = trackerItemMergeKey(item);
       // PERMANENT-DELETE FIX: a pick the user explicitly deleted must never
       // be re-added just because a stale server snapshot still has it.
-      if (deletedKeys.has(key)) return;
+      if (deletedKeys.has(trackerTombstoneKey(item))) return;
       if (!map.has(key)) {
         map.set(key, item);
       } else {
@@ -4621,7 +4629,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const items = getTrackerItems();
     const target = items.find(function (item) { return String(item.id) === String(id); });
     if (!target) return false;
-    addDeletedTrackerKey(trackerItemMergeKey(target));
+    addDeletedTrackerKey(trackerTombstoneKey(target));
     const remaining = items.filter(function (item) { return String(item.id) !== String(id); });
     saveTrackerItems(remaining);
     updateTrackerUI();
@@ -5508,13 +5516,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return 0;
     }
     const items = getTrackerItems();
+    const deletedKeys = getDeletedTrackerKeys();
     let inserted = 0;
     entries.forEach(entry => {
       const duplicate = items.some(item =>
         trackerItemMergeKey(item) === trackerItemMergeKey(entry) &&
         item.pick === entry.pick
       );
-      if (!duplicate) {
+      // PERMANENT-DELETE FIX: this is the actual path that was resurrecting
+      // deleted picks — every engine run re-evaluates the current match and
+      // re-inserts its picks if they aren't already present. A pick you
+      // deleted is, by definition, no longer present, so without this check
+      // it always looked identical to a brand-new pick.
+      const wasDeletedByUser = deletedKeys.has(trackerTombstoneKey(entry));
+      if (!duplicate && !wasDeletedByUser) {
         items.unshift(entry);
         inserted++;
       }
