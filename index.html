@@ -1,3 +1,4 @@
+J
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6229,6 +6230,27 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     } else if (slug === "wta") {
       add("wta-125");
       add("wta-challenger");
+    }
+    // AUDIT-FIX — MISSING ITF WORLD TENNIS TOUR SCOPE:
+    // Players outside roughly the top 150-200 (either tour) play a large share
+    // of their recent matches at ITF $15k-$100k events. None of the scopes
+    // above cover that tier, so their most recent real results were silently
+    // dropped — confirmed live: a player's 3 most recent matches (all from a
+    // W100 ITF event) were missing, making the engine treat a 16-day-old
+    // result as her latest when a 5-day-old one existed. Each candidate below
+    // is queried independently and already fails silently (see
+    // fetchTargetedScoreboardHistory's try/catch), so adding slugs ESPN
+    // doesn't actually expose is harmless — they simply contribute zero
+    // records instead of breaking the fetch. Verify the exact slug(s) ESPN
+    // serves and prune any that never return data.
+    if (slug === "atp") {
+      add("atp-itf");
+      add("itf-men");
+      add("itf");
+    } else if (slug === "wta") {
+      add("wta-itf");
+      add("itf-women");
+      add("itf");
     }
     return candidates;
   }
