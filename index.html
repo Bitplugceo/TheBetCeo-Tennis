@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6246,7 +6247,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
   async function fetchTargetedScoreboardHistory(league, athleteId, cutoffIso) {
     const candidates = getHistoryLeagueCandidates(league);
-    const ranges = getChunkedHistoryRangesBefore(cutoffIso, 45, 10);
+    // Search a materially wider window when athlete-history endpoints are incomplete.
+    // 45 days is too narrow for players with sparse schedules (especially Challenger
+    // players), which can leave one side with only 1-2 real matches while the other
+    // side has a full recent sample.
+    const ranges = getChunkedHistoryRangesBefore(cutoffIso, 180, 15);
     const checks = [];
     const tasks = [];
 
@@ -7123,6 +7128,22 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           h2h = extraBundle.h2h;
         }
       }
+      // FORM WINDOW FIX:
+      // Player A and Player B must be evaluated on the same number of real
+      // completed matches. Using 8 for one player and 5 for the other changes
+      // the effective sample size and makes the comparison asymmetric.
+      // Use the largest common real window available, capped at 10.
+      const commonRecentCount = Math.min(10, recentA.length, recentB.length);
+      if (commonRecentCount < 3) {
+        throw new Error(
+          "Insufficient common recent history from ESPN. Both players need at least 3 real completed matches; " +
+          "Player A: " + recentA.length + ", Player B: " + recentB.length + "."
+        );
+      }
+      const recentAWindow = recentA.slice(0, commonRecentCount);
+      const recentBWindow = recentB.slice(0, commonRecentCount);
+      // Keep the full independent recent-10 histories for fatigue/brutal metrics;
+      // only the comparative form inputs use the synchronized window.
       const recentA10 = recentA.slice(0, 10);
       const recentB10 = recentB.slice(0, 10);
       const surfaceSelect = qs("surfaceSelect");
@@ -7198,12 +7219,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const _playerAKey = String(playerAId), _playerBKey = String(playerBId);
       const eloA = (eloSurfMap.has(_playerAKey) ? eloSurfMap.get(_playerAKey) : eloState.all.get(_playerAKey)) || 1500;
       const eloB = (eloSurfMap.has(_playerBKey) ? eloSurfMap.get(_playerBKey) : eloState.all.get(_playerBKey)) || 1500;
-      const aGames = recentA10.map(m => m.playerGames).filter(Number.isFinite);
-      const bGames = recentB10.map(m => m.playerGames).filter(Number.isFinite);
-      const aGamesAllowed = recentA10.map(m => m.opponentGames).filter(Number.isFinite);
-      const bGamesAllowed = recentB10.map(m => m.opponentGames).filter(Number.isFinite);
-      const aSet1Games = recentA10.map(m => m.playerSet1Games).filter(Number.isFinite);
-      const bSet1Games = recentB10.map(m => m.playerSet1Games).filter(Number.isFinite);
+      const aGames = recentAWindow.map(m => m.playerGames).filter(Number.isFinite);
+      const bGames = recentBWindow.map(m => m.playerGames).filter(Number.isFinite);
+      const aGamesAllowed = recentAWindow.map(m => m.opponentGames).filter(Number.isFinite);
+      const bGamesAllowed = recentBWindow.map(m => m.opponentGames).filter(Number.isFinite);
+      const aSet1Games = recentAWindow.map(m => m.playerSet1Games).filter(Number.isFinite);
+      const bSet1Games = recentBWindow.map(m => m.playerSet1Games).filter(Number.isFinite);
       const h2hMatchTotals = h2h.slice(0, 5).map(function (m) {
         return Number.isFinite(m.totalGames) ? Math.round(m.totalGames) : null;
       }).filter(Number.isFinite);
@@ -7238,8 +7259,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         const qMult = getOpponentQualityMultiplier(m.opponentRank);
         return perSet * qMult;
       }).filter(Number.isFinite);
-      const aGamesNorm = normalizeMatchGames(recentA10);
-      const bGamesNorm = normalizeMatchGames(recentB10);
+      const aGamesNorm = normalizeMatchGames(recentAWindow);
+      const bGamesNorm = normalizeMatchGames(recentBWindow);
       const TOUR_AVG_GAMES = 10;
       const TOUR_AVG_GAMES_NORM = 4.35; 
       const TOUR_AVG_S1 = 5;
@@ -7265,19 +7286,21 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       if (aGames.length < 1 || bGames.length < 1) {
         throw new Error("Zero match history found. Bayesian anchor requires at least one real data point.");
       }
-      const aSet1GamesAllowed = recentA10.map(m => m.opponentSet1Games).filter(Number.isFinite);
-      const bSet1GamesAllowed = recentB10.map(m => m.opponentSet1Games).filter(Number.isFinite);
+      const aSet1GamesAllowed = recentAWindow.map(m => m.opponentSet1Games).filter(Number.isFinite);
+      const bSet1GamesAllowed = recentBWindow.map(m => m.opponentSet1Games).filter(Number.isFinite);
       const bayesianAS1Allowed = aSet1GamesAllowed.length < MIN_SAMPLE_SIZE ? applyPrior(aSet1GamesAllowed, TOUR_AVG_S1) : aSet1GamesAllowed;
       const bayesianBS1Allowed = bSet1GamesAllowed.length < MIN_SAMPLE_SIZE ? applyPrior(bSet1GamesAllowed, TOUR_AVG_S1) : bSet1GamesAllowed;
       applyAutofillData({
-        aGames: bayesianA.map(function (v) { return Math.round(v); }),
-        bGames: bayesianB.map(function (v) { return Math.round(v); }),
-        aGamesAllowed: bayesianAAllowed.map(function (v) { return Math.round(v); }),
-        bGamesAllowed: bayesianBAllowed.map(function (v) { return Math.round(v); }),
-        aSet1Games: bayesianS1A.map(function (v) { return Math.round(v); }),
-        bSet1Games: bayesianS1B.map(function (v) { return Math.round(v); }),
-        aSet1GamesAllowed: bayesianAS1Allowed.map(function (v) { return Math.round(v); }),
-        bSet1GamesAllowed: bayesianBS1Allowed.map(function (v) { return Math.round(v); }),
+        // The UI must show only real synchronized history. Bayesian priors remain
+        // model-internal and must never masquerade as completed matches in the fields.
+        aGames: aGames.map(function (v) { return Math.round(v); }),
+        bGames: bGames.map(function (v) { return Math.round(v); }),
+        aGamesAllowed: aGamesAllowed.map(function (v) { return Math.round(v); }),
+        bGamesAllowed: bGamesAllowed.map(function (v) { return Math.round(v); }),
+        aSet1Games: aSet1Games.map(function (v) { return Math.round(v); }),
+        bSet1Games: bSet1Games.map(function (v) { return Math.round(v); }),
+        aSet1GamesAllowed: aSet1GamesAllowed.map(function (v) { return Math.round(v); }),
+        bSet1GamesAllowed: bSet1GamesAllowed.map(function (v) { return Math.round(v); }),
         h2hMatchTotals,
         h2hSet1Totals
       });
@@ -7314,8 +7337,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         ? ("<br>H2H found: " + h2hMatchTotals.length + " meeting(s).")
         : "<br>H2H found: 0 meetings in fetched records.";
       const statusParts = [
-        "Team A: " + recentA.length + " real matches",
-        "Team B: " + recentB.length + " real matches",
+        "Form window: " + commonRecentCount + " / " + commonRecentCount + " real matches",
+        "History found: A " + recentA.length + " • B " + recentB.length,
         "H2H: " + h2hMatchTotals.length + " matches",
         "Rest: " + formatDaysValue(fatigueA && fatigueA.daysRest) + " / " + formatDaysValue(fatigueB && fatigueB.daysRest)
       ];
