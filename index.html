@@ -1,3 +1,4 @@
+h
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2685,6 +2686,165 @@ const ENGINE_INTEGRITY_SHIELD = {
 };
 setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
 (function () {
+
+  /* FORENSIC TRACE DEBUG — DIAGNOSTIC ONLY.
+     This module records evidence without changing fetch/filter/dedupe/form logic.
+     Use window.downloadForensicTrace() after reproducing a failing match.
+  */
+  const FORENSIC_TRACE_MAX = 50000;
+  window.__FORENSIC_TRACE__ = window.__FORENSIC_TRACE__ || [];
+  function forensicSafe(value, depth, seen) {
+    if (depth > 4) return "[MAX_DEPTH]";
+    if (value === null || value === undefined) return value;
+    const t = typeof value;
+    if (t === "string" || t === "number" || t === "boolean") return value;
+    if (t === "function") return "[FUNCTION]";
+    if (t !== "object") return String(value);
+    seen = seen || new Set();
+    if (seen.has(value)) return "[CIRCULAR]";
+    seen.add(value);
+    if (Array.isArray(value)) return value.slice(0, 200).map(function(v) {
+      return forensicSafe(v, depth + 1, seen);
+    });
+    const out = {};
+    Object.keys(value).slice(0, 200).forEach(function(k) {
+      try { out[k] = forensicSafe(value[k], depth + 1, seen); } catch (e) { out[k] = "[UNSERIALIZABLE]"; }
+    });
+    return out;
+  }
+  function forensicTrace(type, detail) {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      type: String(type || "TRACE"),
+      detail: forensicSafe(detail || {}, 0, new Set())
+    };
+    window.__FORENSIC_TRACE__.push(entry);
+    if (window.__FORENSIC_TRACE__.length > FORENSIC_TRACE_MAX) {
+      window.__FORENSIC_TRACE__.splice(0, window.__FORENSIC_TRACE__.length - FORENSIC_TRACE_MAX);
+    }
+    try { console.log("[FORENSIC]", entry.type, entry.detail); } catch (e) {}
+    return entry;
+  }
+  function forensicRecordView(record) {
+    if (!record) return null;
+    return {
+      playerA: record.playerAName || "",
+      playerAId: record.playerAId || "",
+      playerB: record.playerBName || record.opponentName || "",
+      playerBId: record.playerBId || record.opponentId || "",
+      date: record.date || "",
+      timestamp: record.date || "",
+      eventId: record.eventId || "",
+      competitionId: record.competitionId || "",
+      tournament: record.tournamentName || "",
+      eventLevel: record.eventLevel || "",
+      league: record.league || "",
+      playerGames: record.playerGames,
+      opponentGames: record.opponentGames,
+      playerSet1Games: record.playerSet1Games,
+      opponentSet1Games: record.opponentSet1Games,
+      competitionType: record.competitionType || "",
+      competitionTypeSlug: record.competitionTypeSlug || "",
+      round: record.roundName || "",
+      surface: record.surface || "",
+      status: record.status || null,
+      retired: !!record.retired,
+      competitorCount: record.competitorCount != null ? record.competitorCount : null,
+      linescoresA: Array.isArray(record.aSets) ? record.aSets : [],
+      linescoresB: Array.isArray(record.bSets) ? record.bSets : [],
+      score: record.score || "",
+      totalGames: record.totalGames,
+      set1GamesA: record.playerASet1Games,
+      set1GamesB: record.playerBSet1Games,
+      set1Total: record.set1Total,
+      sourceTier: record.sourceTier || "",
+      sourceEndpoint: record.sourceEndpoint || "",
+      sourceQuery: record.sourceQuery || ""
+    };
+  }
+  function forensicRejectReason(record, athleteId, cutoffIso) {
+    if (!record) return "OTHER";
+    if (String(record.playerAId) !== String(athleteId) && String(record.playerBId) !== String(athleteId)) return "WRONG_PLAYER";
+    if (!record.status || !record.status.completed) return "NOT_COMPLETED";
+    if (record.retired) {
+      const detail = String(record.status && record.status.detail || "").toLowerCase();
+      if (detail.includes("walkover") || detail.includes("w/o")) return "WALKOVER";
+      if (detail.includes("ret")) return "RETIRED";
+      return "RETIRED";
+    }
+    if (!Number.isFinite(record.totalGames) || !Number.isFinite(record.set1Total)) return "INVALID_SCORE";
+    if (cutoffIso) {
+      const cutoffMs = new Date(cutoffIso).getTime();
+      const matchMs = new Date(record.date).getTime();
+      if (Number.isFinite(cutoffMs) && (!Number.isFinite(matchMs) || matchMs >= cutoffMs)) {
+        return Number.isFinite(matchMs) ? "BEFORE_FIXTURE_CUTOFF" : "OUTSIDE_DATE_RANGE";
+      }
+    }
+    if (!record.playerAId || !record.playerBId || !record.playerAName || !record.playerBName) return "INVALID_OPPONENT";
+    return null;
+  }
+  function forensicTraceFilterStage(stage, records, athleteId, cutoffIso) {
+    const input = Array.isArray(records) ? records : [];
+    let accepted = 0, rejected = 0;
+    const rejectionCounts = {};
+    input.forEach(function(record) {
+      const reason = forensicRejectReason(record, athleteId, cutoffIso);
+      if (reason) {
+        rejected += 1;
+        rejectionCounts[reason] = (rejectionCounts[reason] || 0) + 1;
+        forensicTrace("REJECT", {
+          stage: stage,
+          reason: reason,
+          player: athleteId,
+          record: forensicRecordView(record)
+        });
+      } else {
+        accepted += 1;
+        forensicTrace("ACCEPT", {
+          stage: stage,
+          player: athleteId,
+          record: forensicRecordView(record)
+        });
+      }
+    });
+    forensicTrace("FILTER_STAGE_SUMMARY", {
+      stage: stage,
+      player: athleteId,
+      raw: input.length,
+      accepted: accepted,
+      rejected: rejected,
+      rejectionCounts: rejectionCounts
+    });
+    return input;
+  }
+  function forensicDumpText() {
+    return window.__FORENSIC_TRACE__.map(function(e) {
+      return e.timestamp + " " + e.type + " " + JSON.stringify(e.detail);
+    }).join("\n");
+  }
+  window.getForensicTraceText = forensicDumpText;
+  window.clearForensicTrace = function() {
+    window.__FORENSIC_TRACE__.length = 0;
+  };
+  window.downloadForensicTrace = function() {
+    const blob = new Blob([forensicDumpText()], {type: "text/plain;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tennis_FORENSIC_TRACE_DEBUG.txt";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 0);
+  };
+  forensicTrace("FORENSIC_TRACE_BOOT", {
+    version: "1.0",
+    diagnosticOnly: true,
+    logicMutation: false,
+    targetQuestion: "Where does the observed Player B 2026-07-18 through 2026-08-02 history disappear?"
+  });
   const THEME_KEY = "tennis_engine_theme";
   function normalizeTrackerItem(item) {
     const base = item && typeof item === "object" ? item : {};
@@ -2735,95 +2895,6 @@ const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
   const TRACKER_NETWORK_TIMEOUT_MS = 12000;
   const HARD_RESET_FLAG_KEY = "tennis_engine_hard_reset_flag_v1";
   const selectedPlayerIds = { A: null, B: null };
-
-  // FORM FETCH TRACE — diagnostic only. Does not alter fetch/parse decisions.
-  let g_formTrace = {
-    active: false,
-    runId: 0,
-    league: "",
-    playerAName: "",
-    playerBName: "",
-    playerAId: "",
-    playerBId: "",
-    targetIds: new Set(),
-    targetNames: new Set()
-  };
-  function formTrace(level, section, message, data) {
-    if (!g_formTrace.active) return;
-    if (typeof AFDB !== "undefined" && AFDB && typeof AFDB.log === "function") {
-      AFDB.log(level || "INFO", section || "FORM-TRACE", message, data);
-    }
-  }
-  function formTraceTarget(id, name) {
-    const sid = String(id || "").trim();
-    const sname = normalizeName(name || "");
-    return (sid && g_formTrace.targetIds.has(sid)) || (sname && g_formTrace.targetNames.has(sname));
-  }
-  function formTraceCompetitors(competitors) {
-    return (Array.isArray(competitors) ? competitors : []).map(function (c) {
-      return {
-        id: String(c && c.id || ""),
-        name: String(c && c.athlete && (c.athlete.displayName || c.athlete.fullName || c.athlete.shortName) || ""),
-        order: c && c.order,
-        linescores: Array.isArray(c && c.linescores) ? c.linescores.map(function (x) { return x && x.value; }) : []
-      };
-    });
-  }
-  function formTraceRawCompetition(comp, parentEvent, stage, reason) {
-    const competitors = orderCompetitors(comp && comp.competitors || []);
-    const target = competitors.some(function (c) {
-      return formTraceTarget(c && c.id, c && c.athlete && (c.athlete.displayName || c.athlete.fullName || c.athlete.shortName));
-    });
-    if (!target) return;
-    const type = comp && comp.type || {};
-    const statusType = comp && comp.status && comp.status.type || {};
-    formTrace("WARN", "COMPETITION-TRACE", stage, {
-      reason: reason || null,
-      competitionId: String(comp && comp.id || ""),
-      eventId: String(parentEvent && parentEvent.id || ""),
-      date: String(comp && (comp.date || comp.startDate) || (parentEvent && parentEvent.date) || ""),
-      tournament: String(parentEvent && (parentEvent.shortName || parentEvent.name) || ""),
-      type: {
-        text: type.text || "",
-        slug: type.slug || "",
-        id: type.id || ""
-      },
-      status: {
-        state: statusType.state || "",
-        name: statusType.name || "",
-        completed: !!statusType.completed,
-        detail: statusType.shortDetail || statusType.detail || ""
-      },
-      competitorCount: competitors.length,
-      competitors: formTraceCompetitors(competitors)
-    });
-  }
-  function formTraceStart(league, playerAName, playerBName) {
-    g_formTrace.active = true;
-    g_formTrace.runId += 1;
-    g_formTrace.league = String(league || "");
-    g_formTrace.playerAName = String(playerAName || "");
-    g_formTrace.playerBName = String(playerBName || "");
-    g_formTrace.playerAId = "";
-    g_formTrace.playerBId = "";
-    g_formTrace.targetIds = new Set();
-    g_formTrace.targetNames = new Set([normalizeName(playerAName), normalizeName(playerBName)]);
-    formTrace("INFO", "FORM-TRACE", "TRACE START", {
-      runId: g_formTrace.runId,
-      league: g_formTrace.league,
-      playerA: g_formTrace.playerAName,
-      playerB: g_formTrace.playerBName
-    });
-  }
-  function formTraceSetIds(playerAId, playerBId) {
-    g_formTrace.playerAId = String(playerAId || "");
-    g_formTrace.playerBId = String(playerBId || "");
-    g_formTrace.targetIds = new Set([g_formTrace.playerAId, g_formTrace.playerBId].filter(Boolean));
-    formTrace("INFO", "FORM-TRACE", "ATHLETE IDS RESOLVED", {
-      playerA: { id: g_formTrace.playerAId, name: g_formTrace.playerAName },
-      playerB: { id: g_formTrace.playerBId, name: g_formTrace.playerBName }
-    });
-  }
   const fixtureRecordMap = new Map();
   let currentFixtureOffset = 0;
   let fixtureLoadToken = 0;
@@ -6093,28 +6164,97 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       "https://site.api.espn.com/apis/site/v2/sports/tennis/" + slug
     ];
   }
-  async function fetchJson(requestUrl, timeoutMs) {
+  async function fetchJson(requestUrl, timeoutMs, forensicMeta) {
     const controller = new AbortController();
     const timer = setTimeout(function () {
       controller.abort();
     }, timeoutMs);
+    const targetUrl = forensicMeta && forensicMeta.targetUrl ? forensicMeta.targetUrl : requestUrl;
+    const transport = forensicMeta && forensicMeta.transport ? forensicMeta.transport : "direct";
+    forensicTrace("HTTP_REQUEST", {
+      tier: forensicMeta && forensicMeta.tier ? forensicMeta.tier : "unknown",
+      endpointPurpose: forensicMeta && forensicMeta.endpointPurpose ? forensicMeta.endpointPurpose : "unknown",
+      fullUrl: targetUrl,
+      requestUrl: requestUrl,
+      transport: transport,
+      playerId: forensicMeta && forensicMeta.playerId ? forensicMeta.playerId : "",
+      year: forensicMeta && forensicMeta.year ? forensicMeta.year : "",
+      dateRange: forensicMeta && forensicMeta.dateRange ? forensicMeta.dateRange : ""
+    });
+    const startedAt = Date.now();
     try {
       const res = await fetch(requestUrl, {
         signal: controller.signal,
         cache: "no-store"
       });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return await res.json();
+      const text = await res.text();
+      const contentType = String(res.headers.get("content-type") || "");
+      forensicTrace("HTTP_RESPONSE", {
+        tier: forensicMeta && forensicMeta.tier ? forensicMeta.tier : "unknown",
+        endpointPurpose: forensicMeta && forensicMeta.endpointPurpose ? forensicMeta.endpointPurpose : "unknown",
+        fullUrl: targetUrl,
+        requestUrl: requestUrl,
+        status: res.status,
+        success: res.ok,
+        contentType: contentType,
+        responseSize: text.length,
+        elapsedMs: Date.now() - startedAt
+      });
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (err) {
+        if (res.ok) {
+          forensicTrace("HTTP_ERROR", { URL: targetUrl, error: "Invalid JSON", status: res.status });
+          throw new Error("Tracker returned invalid JSON");
+        }
+      }
+      if (!res.ok) {
+        forensicTrace("HTTP_ERROR", { URL: targetUrl, error: "HTTP " + res.status, status: res.status });
+        throw new Error("HTTP " + res.status);
+      }
+      return data;
+    } catch (err) {
+      forensicTrace("HTTP_ERROR", {
+        URL: targetUrl,
+        requestUrl: requestUrl,
+        error: err && err.message ? err.message : String(err),
+        elapsedMs: Date.now() - startedAt
+      });
+      throw err;
     } finally {
       clearTimeout(timer);
     }
   }
-  async function proxyFetch(url, timeoutMs) {
+  async function proxyFetch(url, timeoutMs, forensicMeta) {
     const encoded = WORKER_URL.replace(/\/+$/, "") + "/?url=" + encodeURIComponent(url);
+    const urlText = String(url || "");
+    const endpointPurpose =
+      urlText.includes("/results") ? "athlete/results" :
+      urlText.includes("/gamelog") ? "athlete/gamelog" :
+      urlText.includes("/eventlog") ? "core/eventlog" :
+      urlText.includes("/statisticslog") ? "core/statisticslog" :
+      urlText.includes("/scoreboard") ? "scoreboard" :
+      urlText.includes("/summary") ? "summary" :
+      urlText.includes("/athletes/") ? "core-athlete" : "unknown";
+    const idMatch = urlText.match(/\/athletes\/([^/?]+)/i);
+    const yearMatch = urlText.match(/(?:[?&]|\/seasons\/)(?:year=)?(20\\d{2})/i);
+    const datesMatch = urlText.match(/[?&]dates=([^&]+)/i);
+    const meta = Object.assign({
+      endpointPurpose: endpointPurpose,
+      playerId: idMatch ? decodeURIComponent(idMatch[1]) : "",
+      year: yearMatch ? yearMatch[1] : "",
+      dateRange: datesMatch ? decodeURIComponent(datesMatch[1]) : ""
+    }, forensicMeta || {}, { targetUrl: url });
     try {
-      return await fetchJson(encoded, timeoutMs || 12000);
+      return await fetchJson(encoded, timeoutMs || 12000, Object.assign({}, meta, { transport: "worker" }));
     } catch (workerErr) {
-      return await fetchJson(url, timeoutMs || 12000);
+      forensicTrace("HTTP_ERROR", {
+        URL: url,
+        error: workerErr && workerErr.message ? workerErr.message : String(workerErr),
+        phase: "worker-fallback"
+      });
+      return await fetchJson(url, timeoutMs || 12000, Object.assign({}, meta, { transport: "direct-fallback" }));
     }
   }
   async function fetchTennisScoreboard(league, datesQuery) {
@@ -6122,30 +6262,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return base + "/scoreboard?region=us&lang=en&limit=1000&dates=" + encodeURIComponent(datesQuery);
     });
     let lastErr = null;
-    formTrace("INFO", "SCOREBOARD-REQUEST", "REQUEST", {
-      league: league,
-      dates: datesQuery,
-      candidates: urls.map(function (u) { return u.split("?")[0]; })
-    });
     for (const url of urls) {
       try {
         const payload = await proxyFetch(url, 12000);
-        const eventCount = Array.isArray(payload && payload.events) ? payload.events.length : 0;
-        formTrace("INFO", "SCOREBOARD-REQUEST", "RESPONSE", {
-          host: (function () { try { return new URL(url).host; } catch (e) { return url; } })(),
-          league: league,
-          dates: datesQuery,
-          events: eventCount
-        });
         if (payload && Array.isArray(payload.events)) return payload;
       } catch (err) {
         lastErr = err;
-        formTrace("ERROR", "SCOREBOARD-REQUEST", "REQUEST FAILED", {
-          host: (function () { try { return new URL(url).host; } catch (e) { return url; } })(),
-          league: league,
-          dates: datesQuery,
-          error: err && err.message ? err.message : String(err)
-        });
       }
     }
     throw lastErr || new Error("Unable to load ESPN tennis scoreboard data.");
@@ -6223,27 +6345,53 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return Number.isFinite(year) && year >= 2018;
     })));
   }
-  async function fetchAthleteHistoryPayload(url) {
-    const payload = await proxyFetch(url, 12000);
-    const extracted = extractCompetitionRecordsDeep(payload);
-    const records = extracted.filter(function (record) {
-      return record.status &&
-        record.status.completed &&
-        !record.retired &&
-        Number.isFinite(record.totalGames) &&
-        Number.isFinite(record.set1Total);
+  async function fetchAthleteHistoryPayload(url, athleteId, year) {
+    const payload = await proxyFetch(url, 12000, {
+      tier: "athlete-history",
+      endpointPurpose: url.includes("/gamelog") ? "athlete/gamelog" : "athlete/results",
+      playerId: athleteId || "",
+      year: year || ""
     });
-    formTrace("INFO", "ATHLETE-PARSE", "ATHLETE PAYLOAD PARSED", {
+    const extracted = extractCompetitionRecordsDeep(payload);
+    forensicTrace("RAW_ENDPOINT_RESULT", {
+      player: athleteId || "",
+      tier: "athlete-history",
       endpoint: url,
-      topLevelKeys: payload && typeof payload === "object" ? Object.keys(payload).slice(0, 30) : [],
-      events: Array.isArray(payload && payload.events) ? payload.events.length : 0,
-      extractedRecords: extracted.length,
-      scoreValidRecords: records.length,
-      targetRecords: records.filter(function (r) {
-        return formTraceTarget(r.playerAId, r.playerAName) || formTraceTarget(r.playerBId, r.playerBName);
-      }).map(function (r) {
-        return { date: r.date, players: [r.playerAName, r.playerBName], tournament: r.tournamentName, level: r.eventLevel, games: [r.playerAGames, r.playerBGames] };
-      })
+      year: year || (String(url).match(/[?&]year=(20\d{2})/i) || [])[1] || "",
+      rawEventCount: Array.isArray(payload && payload.events) ? payload.events.length : null,
+      rawRecordCount: extracted.length
+    });
+    const records = extracted.filter(function (record) {
+      const baseReason =
+        !record || !record.status || !record.status.completed ? "NOT_COMPLETED" :
+        record.retired ? (
+          String(record.status && record.status.detail || "").toLowerCase().includes("walkover") ? "WALKOVER" : "RETIRED"
+        ) :
+        !Number.isFinite(record.totalGames) || !Number.isFinite(record.set1Total) ? "INVALID_SCORE" :
+        null;
+      if (baseReason) {
+        forensicTrace("REJECT", {
+          stage: "fetchAthleteHistoryPayload",
+          reason: baseReason,
+          player: "",
+          record: forensicRecordView(record)
+        });
+        return false;
+      }
+      forensicTrace("ACCEPT", {
+        stage: "fetchAthleteHistoryPayload",
+        player: "",
+        record: forensicRecordView(record)
+      });
+      return true;
+    });
+    forensicTrace("FILTER_STAGE_SUMMARY", {
+      stage: "fetchAthleteHistoryPayload",
+      player: "",
+      endpoint: url,
+      raw: extracted.length,
+      accepted: records.length,
+      rejected: extracted.length - records.length
     });
     return { payload: payload, records: records };
   }
@@ -6259,7 +6407,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     for (let i = 0; i < athleteUrls.length; i += 1) {
       try {
-        const athletePayload = await proxyFetch(athleteUrls[i], 12000);
+        const athletePayload = await proxyFetch(athleteUrls[i], 12000, {
+          tier: "athlete-core-ref",
+          endpointPurpose: "core-athlete",
+          playerId: athleteId,
+          year: year
+        });
+        const athleteObj = athletePayload && (athletePayload.athlete || athletePayload);
+        forensicTrace("PLAYER_IDENTITY", {
+          name: "",
+          athleteId: String(athleteId),
+          slug: athleteObj && (athleteObj.slug || athleteObj.seoSlug) ? String(athleteObj.slug || athleteObj.seoSlug) : null,
+          displayName: athleteObj && (athleteObj.displayName || athleteObj.fullName || athleteObj.shortName) ? String(athleteObj.displayName || athleteObj.fullName || athleteObj.shortName) : "",
+          source: athleteUrls[i]
+        });
         refKeys.forEach(function (key) {
           const value = athletePayload && athletePayload[key];
           if (!value) return;
@@ -6289,11 +6450,25 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     for (const query of urls) {
       try {
         const collectionPayload = await proxyFetch(query, 12000);
-        const directRecords = extractCompetitionRecordsDeep(collectionPayload).filter(function (record) {
-          return record.status &&
-            record.status.completed &&
-            Number.isFinite(record.totalGames) &&
-            Number.isFinite(record.set1Total);
+        const extractedCore = extractCompetitionRecordsDeep(collectionPayload);
+        forensicTrace("RAW_ENDPOINT_RESULT", {
+          player: athleteId,
+          tier: "athlete-core-ref",
+          endpoint: query,
+          year: year,
+          rawEventCount: Array.isArray(collectionPayload && collectionPayload.events) ? collectionPayload.events.length : null,
+          rawRecordCount: extractedCore.length
+        });
+        const directRecords = extractedCore.filter(function (record) {
+          const reason =
+            !record || !record.status || !record.status.completed ? "NOT_COMPLETED" :
+            Number.isFinite(record.totalGames) && Number.isFinite(record.set1Total) ? null : "INVALID_SCORE";
+          if (reason) {
+            forensicTrace("REJECT", { stage: "resolveAthletePageCompetitionRecords", reason: reason, player: athleteId, record: forensicRecordView(record) });
+            return false;
+          }
+          forensicTrace("ACCEPT", { stage: "resolveAthletePageCompetitionRecords", player: athleteId, record: forensicRecordView(record) });
+          return true;
         });
         if (directRecords.length) all.push.apply(all, directRecords);
       } catch (innerErr) {
@@ -6316,78 +6491,53 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const cutoff = cutoffIso ? new Date(cutoffIso) : null;
     const cutoffMs = cutoff && Number.isFinite(cutoff.getTime()) ? cutoff.getTime() : null;
     const input = Array.isArray(records) ? records : [];
-    let rejected = 0;
-    const accepted = input.filter(function (record) {
-      if (!record) { rejected++; return false; }
-      const isTarget = formTraceTarget(record.playerAId, record.playerAName) ||
-        formTraceTarget(record.playerBId, record.playerBName) ||
-        String(record.playerAId) === id || String(record.playerBId) === id;
-      if (!record.status || !record.status.completed) {
-        if (isTarget) formTrace("WARN", "FILTER", "REJECTED RECORD", {
-          reason: "not-completed",
-          athleteId: id,
-          competitionId: record.competitionId,
-          date: record.date,
-          players: [record.playerAName, record.playerBName],
-          status: record.status || null
-        });
-        rejected++;
-        return false;
-      }
-      if (record.retired) {
-        if (isTarget) formTrace("WARN", "FILTER", "REJECTED RECORD", {
-          reason: "retired/walkover/default",
-          athleteId: id,
-          competitionId: record.competitionId,
-          date: record.date,
-          players: [record.playerAName, record.playerBName]
-        });
-        rejected++;
-        return false;
-      }
-      if (!Number.isFinite(record.totalGames) || !Number.isFinite(record.set1Total)) {
-        if (isTarget) formTrace("WARN", "FILTER", "REJECTED RECORD", {
-          reason: "invalid-score-metrics",
-          athleteId: id,
-          competitionId: record.competitionId,
-          date: record.date,
-          players: [record.playerAName, record.playerBName],
-          totalGames: record.totalGames,
-          set1Total: record.set1Total,
-          aSets: record.aSets,
-          bSets: record.bSets
-        });
-        rejected++;
-        return false;
-      }
-      if (String(record.playerAId) !== id && String(record.playerBId) !== id) {
-        return false;
-      }
-      if (cutoffMs !== null) {
-        const matchMs = new Date(record.date).getTime();
-        if (!Number.isFinite(matchMs) || matchMs >= cutoffMs) {
-          if (isTarget) formTrace("WARN", "FILTER", "REJECTED RECORD", {
-            reason: !Number.isFinite(matchMs) ? "invalid-date" : "at/after-fixture-cutoff",
-            athleteId: id,
-            competitionId: record.competitionId,
-            date: record.date,
-            cutoff: cutoffIso,
-            players: [record.playerAName, record.playerBName]
-          });
-          rejected++;
-          return false;
+    const filtered = input.filter(function (record) {
+      let reason = null;
+      if (!record || !record.status || !record.status.completed || record.retired) {
+        if (record && record.retired) {
+          const detail = String(record.status && record.status.detail || "").toLowerCase();
+          reason = detail.includes("walkover") || detail.includes("w/o") ? "WALKOVER" : "RETIRED";
+        } else {
+          reason = "NOT_COMPLETED";
         }
+      } else if (!Number.isFinite(record.totalGames) || !Number.isFinite(record.set1Total)) {
+        reason = "INVALID_SCORE";
+      } else if (String(record.playerAId) !== id && String(record.playerBId) !== id) {
+        reason = "WRONG_PLAYER";
+      } else if (cutoffMs !== null) {
+        const matchMs = new Date(record.date).getTime();
+        if (!Number.isFinite(matchMs)) reason = "OUTSIDE_DATE_RANGE";
+        else if (matchMs >= cutoffMs) reason = "BEFORE_FIXTURE_CUTOFF";
       }
+      if (reason) {
+        forensicTrace("REJECT", {
+          stage: "filterPlayerHistoryRecords",
+          reason: reason,
+          player: id,
+          cutoff: cutoffIso || "",
+          record: forensicRecordView(record)
+        });
+        return false;
+      }
+      forensicTrace("ACCEPT", {
+        stage: "filterPlayerHistoryRecords",
+        player: id,
+        cutoff: cutoffIso || "",
+        record: forensicRecordView(record)
+      });
       return true;
     });
-    formTrace("INFO", "FILTER", "PLAYER HISTORY FILTER SUMMARY", {
-      athleteId: id,
-      input: input.length,
-      accepted: accepted.length,
-      rejected: rejected,
-      cutoff: cutoffIso || null
+    const result = dedupeRecords(filtered);
+    forensicTrace("FILTER_STAGE_SUMMARY", {
+      stage: "filterPlayerHistoryRecords",
+      player: id,
+      cutoff: cutoffIso || "",
+      raw: input.length,
+      acceptedBeforeDedupe: filtered.length,
+      finalAfterDedupe: result.length,
+      rejected: input.length - filtered.length
     });
-    return dedupeRecords(accepted);
+    return result;
   }
   /* AUDIT-FIX — PLAYER FORM SOURCE OF TRUTH:
    Recent-form history must come from the player's athlete history, not from the
@@ -6449,19 +6599,31 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const settled = await Promise.all(tasks.map(async function (task) {
       try {
         const payload = await fetchTennisScoreboard(task.candidate, task.datesQuery);
-        const records = extractCompetitionRecords(payload).filter(function (record) {
-          return record &&
-            record.status &&
-            record.status.completed &&
-            !record.retired &&
-            Number.isFinite(record.totalGames) &&
-            Number.isFinite(record.set1Total) &&
-            Number.isFinite(record.playerAGames) &&
-            Number.isFinite(record.playerBGames) &&
-            Number.isFinite(record.playerASet1Games) &&
-            Number.isFinite(record.playerBSet1Games) &&
-            (String(record.playerAId) === String(athleteId) ||
-             String(record.playerBId) === String(athleteId));
+        const extractedScoreboard = extractCompetitionRecords(payload);
+        forensicTrace("RAW_ENDPOINT_RESULT", {
+          player: athleteId,
+          tier: "targeted-scoreboard",
+          endpoint: task.candidate + "/scoreboard",
+          year: "",
+          dateRange: task.datesQuery,
+          rawEventCount: Array.isArray(payload && payload.events) ? payload.events.length : null,
+          rawRecordCount: extractedScoreboard.length
+        });
+        const records = extractedScoreboard.filter(function (record) {
+          const reason =
+            !record ? "OTHER" :
+            String(record.playerAId) !== String(athleteId) && String(record.playerBId) !== String(athleteId) ? "WRONG_PLAYER" :
+            !record.status || !record.status.completed ? "NOT_COMPLETED" :
+            record.retired ? "RETIRED" :
+            !Number.isFinite(record.totalGames) || !Number.isFinite(record.set1Total) ? "INVALID_SCORE" :
+            !Number.isFinite(record.playerAGames) || !Number.isFinite(record.playerBGames) || !Number.isFinite(record.playerASet1Games) || !Number.isFinite(record.playerBSet1Games) ? "MISSING_LINESCORES" :
+            null;
+          if (reason) {
+            forensicTrace("REJECT", { stage: "fetchTargetedScoreboardHistory", reason: reason, player: athleteId, dateRange: task.datesQuery, record: forensicRecordView(record) });
+            return false;
+          }
+          forensicTrace("ACCEPT", { stage: "fetchTargetedScoreboardHistory", player: athleteId, dateRange: task.datesQuery, record: forensicRecordView(record) });
+          return true;
         }).map(function (record) {
           return Object.assign({}, record, { sourceTier: "targeted-scoreboard", sourceQuery: task.candidate + " dates=" + task.datesQuery });
         });
@@ -6478,6 +6640,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         });
         return records;
       } catch (err) {
+        forensicTrace("HTTP_ERROR", {
+          URL: task.candidate + "/scoreboard?dates=" + task.datesQuery,
+          playerId: athleteId,
+          dateRange: task.datesQuery,
+          error: err && err.message ? err.message : String(err),
+          stage: "targeted-scoreboard"
+        });
         checks.push({
           label: "targeted-scoreboard-error",
           query: task.candidate + " dates=" + task.datesQuery,
@@ -6498,16 +6667,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   async function fetchPlayerHistorySettlementRecords(league, athleteId, savedAtIso) {
+    const forensicStartIndex = window.__FORENSIC_TRACE__.length;
     const slug = String(league || "").trim().toLowerCase();
     const years = getSeasonYearsForSettlement(savedAtIso);
     const checks = [];
     const all = [];
-    formTrace("INFO", "PLAYER-HISTORY", "PLAYER HISTORY START", {
-      league: league,
-      athleteId: String(athleteId || ""),
-      cutoff: savedAtIso || null,
-      years: years
-    });
 
     // Primary source: athlete-specific ESPN history endpoints.
     // These are preferred because they avoid global scoreboard pagination.
@@ -6522,7 +6686,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       let gotThisYear = false;
       for (let j = 0; j < urls.length; j += 1) {
         try {
-          const parsed = await fetchAthleteHistoryPayload(urls[j]);
+          const parsed = await fetchAthleteHistoryPayload(urls[j], athleteId, year);
           const playerRecords = filterPlayerHistoryRecords(parsed.records, athleteId, savedAtIso)
             .map(function (record) {
               return Object.assign({}, record, { sourceTier: "athlete-history" });
@@ -6538,34 +6702,18 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
               return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
             }).join(" | ")
           });
-          formTrace("INFO", "PLAYER-HISTORY", "ATHLETE ENDPOINT RESULT", {
-            athleteId: String(athleteId || ""),
-            year: year,
-            endpoint: urls[j],
-            parsedRecords: parsed.records.length,
-            acceptedRecords: playerRecords.length,
-            sample: playerRecords.slice(0, 5).map(function (record) {
-              return {
-                date: record.date,
-                opponent: String(record.playerAId) === String(athleteId) ? record.playerBName : record.playerAName,
-                tournament: record.tournamentName,
-                level: record.eventLevel,
-                games: [record.playerAGames, record.playerBGames],
-                set1: [record.playerASet1Games, record.playerBSet1Games]
-              };
-            })
-          });
           if (playerRecords.length) {
             all.push.apply(all, playerRecords);
             gotThisYear = true;
             break;
           }
         } catch (err) {
-          formTrace("ERROR", "PLAYER-HISTORY", "ATHLETE ENDPOINT FAILED", {
-            athleteId: String(athleteId || ""),
+          forensicTrace("HTTP_ERROR", {
+            URL: urls[j],
+            playerId: athleteId,
             year: year,
-            endpoint: urls[j],
-            error: err && err.message ? err.message : String(err)
+            error: err && err.message ? err.message : String(err),
+            stage: "athlete-history-endpoint"
           });
         }
       }
@@ -6587,29 +6735,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
               return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
             }).join(" | ")
           });
-          formTrace("INFO", "PLAYER-HISTORY", "CORE REF RESULT", {
-            athleteId: String(athleteId || ""),
-            year: year,
-            parsedRecords: coreParsed.records.length,
-            acceptedRecords: playerRecords.length,
-            queryCount: coreParsed.query ? coreParsed.query.split(" | ").length : 0,
-            sample: playerRecords.slice(0, 5).map(function (record) {
-              return {
-                date: record.date,
-                opponent: String(record.playerAId) === String(athleteId) ? record.playerBName : record.playerAName,
-                tournament: record.tournamentName,
-                level: record.eventLevel,
-                games: [record.playerAGames, record.playerBGames],
-                set1: [record.playerASet1Games, record.playerBSet1Games]
-              };
-            })
-          });
           if (playerRecords.length) all.push.apply(all, playerRecords);
         } catch (err) {
-          formTrace("ERROR", "PLAYER-HISTORY", "CORE REF FAILED", {
-            athleteId: String(athleteId || ""),
+          forensicTrace("HTTP_ERROR", {
+            URL: "core-athlete-ref",
+            playerId: athleteId,
             year: year,
-            error: err && err.message ? err.message : String(err)
+            error: err && err.message ? err.message : String(err),
+            stage: "athlete-core-ref"
           });
         }
       }
@@ -6626,15 +6759,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     // fewer than 10, query the broader ESPN tennis scopes before accepting the
     // shorter sample. This is what recovers Challenger/qualifying matches.
     if (result.length < 10) {
-      formTrace("WARN", "TARGETED-FALLBACK", "PRIMARY/CORE BELOW 10 — STARTING TARGETED SCOREBOARD", {
-        athleteId: String(athleteId || ""),
-        currentRecords: result.length
-      });
       const targeted = await fetchTargetedScoreboardHistory(league, athleteId, savedAtIso);
       checks.push.apply(checks, targeted.checks);
-      targeted.checks.forEach(function (check) {
-        formTrace(check.label === "targeted-scoreboard-error" ? "ERROR" : "INFO", "TARGETED-FALLBACK", "TARGETED CHECK", check);
-      });
       result = filterPlayerHistoryRecords(
         dedupeRecords(result.concat(targeted.records || [])),
         athleteId,
@@ -6642,14 +6768,32 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       );
     }
 
-    formTrace("INFO", "PLAYER-HISTORY", "PLAYER HISTORY COMPLETE", {
-      athleteId: String(athleteId || ""),
-      finalRecords: result.length,
-      bySource: checks.reduce(function (acc, check) {
-        const key = check.label || "unknown";
-        acc[key] = (acc[key] || 0) + Number(check.records || 0);
-        return acc;
-      }, {})
+    const tierRows = {};
+    checks.forEach(function(c) {
+      const label = String(c.label || "unknown");
+      if (!tierRows[label]) tierRows[label] = { raw: 0, accepted: 0, rejected: 0, checks: 0 };
+      tierRows[label].checks += 1;
+      tierRows[label].accepted += Number(c.records || 0);
+    });
+    window.__FORENSIC_TRACE__.slice(forensicStartIndex).forEach(function(entry) {
+      const d = entry && entry.detail ? entry.detail : {};
+      if (!d || String(d.player || "") !== String(athleteId)) return;
+      const stage = String(d.stage || "");
+      let label = stage.includes("targetedScoreboard") || stage.includes("targeted-scoreboard") ? "targeted-scoreboard" :
+        stage.includes("filterPlayerHistoryRecords") ? "player-history-filter" :
+        stage.includes("resolveAthletePageCompetitionRecords") ? "athlete-core-ref" :
+        stage.includes("fetchAthleteHistoryPayload") ? "athlete-history" : "";
+      if (!label) return;
+      if (!tierRows[label]) tierRows[label] = { raw: 0, accepted: 0, rejected: 0, checks: 0 };
+      if (entry.type === "CANDIDATE") tierRows[label].raw += 1;
+      if (entry.type === "REJECT") tierRows[label].rejected += 1;
+    });
+    forensicTrace("PER_TIER_COUNTS", {
+      player: athleteId,
+      league: league,
+      savedAtIso: savedAtIso || "",
+      rows: tierRows,
+      endpointChecks: checks
     });
     return {
       records: result,
@@ -6733,21 +6877,67 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     ]);
   }
       function buildCompetitionRecord(comp, parentEvent) {
-    if (!comp) return null;
+    if (!comp) {
+      forensicTrace("REJECT", { reason: "OTHER", stage: "buildCompetitionRecord", actualCondition: "null competition object" });
+      return null;
+    }
     const labelText = (comp.type && (comp.type.text || comp.type.slug)) || (parentEvent && parentEvent.grouping && parentEvent.grouping.displayName) || "";
     const status = getCompetitionStatus(comp);
     const competitors = orderCompetitors(comp.competitors || []);
+    const rawNames = competitors.map(function(c) {
+      return {
+        id: c && c.id ? String(c.id) : "",
+        name: c && c.athlete ? String(c.athlete.displayName || c.athlete.fullName || c.athlete.shortName || "") : "",
+        order: c && c.order != null ? c.order : null,
+        linescores: Array.isArray(c && c.linescores) ? c.linescores.map(function(ls) { return ls && ls.value; }) : []
+      };
+    });
+    forensicTrace("CANDIDATE", {
+      player: rawNames.map(function(x) { return x.name; }).join(" vs "),
+      opponent: rawNames.map(function(x) { return x.name; }).join(" vs "),
+      playerIds: rawNames.map(function(x) { return x.id; }),
+      opponentId: rawNames.length === 2 ? rawNames[1].id : "",
+      date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || ""),
+      fullTimestamp: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || ""),
+      eventId: String((parentEvent && parentEvent.id) || comp.id || ""),
+      competitionId: String(comp.id || ""),
+      tournamentName: String((parentEvent && (parentEvent.shortName || parentEvent.name)) || ""),
+      league: "",
+      competitionTypeText: String(comp.type && comp.type.text || ""),
+      competitionTypeSlug: String(comp.type && comp.type.slug || ""),
+      round: String(comp.round && comp.round.displayName || ""),
+      surface: extractSurfaceText(comp, parentEvent),
+      status: status,
+      competitorCount: competitors.length,
+      linescores: rawNames.map(function(x) { return x.linescores; }),
+      score: String(comp.status && (comp.status.detail || comp.status.shortDetail || comp.status.description) || "")
+    });
     // Singles has exactly two competitors. Check this before the label because
     // ESPN Challenger/qualifying payloads do not always include the literal
     // "Singles" label in comp.type.
     if (competitors.length !== 2) {
-      formTraceRawCompetition(comp, parentEvent, "REJECTED", "competitor-count=" + competitors.length);
+      forensicTrace("REJECT", {
+        reason: "NOT_SINGLES",
+        stage: "buildCompetitionRecord",
+        actualCondition: "competitor count != 2",
+        competitorCount: competitors.length,
+        competitionId: String(comp.id || ""),
+        eventId: String((parentEvent && parentEvent.id) || comp.id || ""),
+        date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || "")
+      });
       return null;
     }
     let surface = extractSurfaceText(comp, parentEvent);
     const tournamentName = String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim();
     if (!isSinglesLabel(labelText, tournamentName)) {
-      formTraceRawCompetition(comp, parentEvent, "REJECTED", "singles-label");
+      forensicTrace("REJECT", {
+        reason: "NOT_SINGLES",
+        stage: "buildCompetitionRecord",
+        actualCondition: "explicit doubles/mixed/team marker",
+        competitionTypeText: labelText,
+        tournamentName: tournamentName,
+        competitionId: String(comp.id || "")
+      });
       return null;
     }
     if (!surface) surface = inferSurfaceFromText(surface, tournamentName);
@@ -6756,7 +6946,17 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const aName = String(a && a.athlete && (a.athlete.displayName || a.athlete.fullName || a.athlete.shortName) || "").trim();
     const bName = String(b && b.athlete && (b.athlete.displayName || b.athlete.fullName || b.athlete.shortName) || "").trim();
     if (!aId || !bId || !aName || !bName) {
-      formTraceRawCompetition(comp, parentEvent, "REJECTED", "missing-athlete-id-or-name");
+      forensicTrace("REJECT", {
+        reason: "INVALID_OPPONENT",
+        stage: "buildCompetitionRecord",
+        competitionId: String(comp.id || ""),
+        eventId: String((parentEvent && parentEvent.id) || comp.id || ""),
+        date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || ""),
+        playerAId: aId,
+        playerAName: aName,
+        playerBId: bId,
+        playerBName: bName
+      });
       return null;
     }
     const aSets = extractLinescores(a), bSets = extractLinescores(b);
@@ -6777,21 +6977,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const playerASet1Games = setCount ? aSets[0] : null;
     const playerBSet1Games = setCount ? bSets[0] : null;
     const set1Total = Number.isFinite(playerASet1Games) && Number.isFinite(playerBSet1Games) ? playerASet1Games + playerBSet1Games : null;
-    if (formTraceTarget(aId, aName) || formTraceTarget(bId, bName)) {
-      formTrace("INFO", "COMPETITION-TRACE", "ACCEPTED RECORD", {
-        competitionId: String(comp.id || ""),
-        eventId: String((parentEvent && parentEvent.id) || comp.id || ""),
-        date: String(comp.date || comp.startDate || (parentEvent && parentEvent.date) || ""),
-        tournament: tournamentName,
-        eventLevel: eventLevel,
-        round: String(comp.round && comp.round.displayName || ""),
-        type: { text: labelText, slug: comp.type && comp.type.slug || "" },
-        competitors: formTraceCompetitors(competitors),
-        sets: { a: aSets, b: bSets },
-        games: { a: playerAGames, b: playerBGames, total: totalGames, set1Total: set1Total }
-      });
-    }
-    return {
+    const builtRecord = {
       competitionId: String(comp.id || ""),
       eventId: String((parentEvent && parentEvent.id) || comp.id || ""),
       tournamentName: tournamentName,
@@ -6810,6 +6996,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       aSets: aSets, bSets: bSets, setCount: setCount,
       gender: gender 
     };
+    forensicTrace("ACCEPT", {
+      stage: "buildCompetitionRecord",
+      player: aName + " vs " + bName,
+      record: forensicRecordView(builtRecord)
+    });
+    return builtRecord;
   }
   function extractCompetitionRecords(payload) {
     const events = Array.isArray(payload && payload.events) ? payload.events : [];
@@ -6843,15 +7035,19 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return records.filter(function (record) {
       const key = String(record.competitionId || "") || String(record.eventId || "") + "|" + String(record.date || "");
       if (seen.has(key)) {
-        if (formTraceTarget(record.playerAId, record.playerAName) || formTraceTarget(record.playerBId, record.playerBName)) {
-          formTrace("WARN", "EXTRACT-DEDUPE", "EXTRACTOR DROPPED DUPLICATE", {
-            key: key,
-            competitionId: record.competitionId,
-            eventId: record.eventId,
-            date: record.date,
-            players: [record.playerAName, record.playerBName]
-          });
-        }
+        forensicTrace("DEDUPE_COLLISION", {
+          stage: "extractCompetitionRecords",
+          existingKey: key,
+          incomingKey: key,
+          existingRecord: "previous record with same local extraction key",
+          incomingRecord: forensicRecordView(record),
+          eventId: record.eventId || "",
+          competitionId: record.competitionId || "",
+          timestamp: record.date || "",
+          players: (record.playerAName || "") + " vs " + (record.playerBName || ""),
+          games: {a: record.playerAGames, b: record.playerBGames},
+          sourceTier: record.sourceTier || ""
+        });
         return false;
       }
       seen.add(key);
@@ -7043,17 +7239,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     (Array.isArray(records) ? records : []).forEach(function (record) {
       if (!record) return;
       const keys = recordDedupeKeys(record);
-      if (!keys.length) {
-        if (formTraceTarget(record.playerAId, record.playerAName) || formTraceTarget(record.playerBId, record.playerBName)) {
-          formTrace("ERROR", "DEDUPE", "TARGET RECORD HAS NO DEDUPE KEY", {
-            competitionId: record.competitionId,
-            eventId: record.eventId,
-            date: record.date,
-            players: [record.playerAName, record.playerBName]
-          });
-        }
-        return;
-      }
+      if (!keys.length) return;
       let existingIndex = -1;
       for (let i = 0; i < keys.length; i += 1) {
         if (seenKeys.has(keys[i])) {
@@ -7068,30 +7254,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         return;
       }
       const existing = output[existingIndex];
-      if (formTraceTarget(record.playerAId, record.playerAName) || formTraceTarget(record.playerBId, record.playerBName) ||
-          formTraceTarget(existing.playerAId, existing.playerAName) || formTraceTarget(existing.playerBId, existing.playerBName)) {
-        formTrace("WARN", "DEDUPE", "DUPLICATE MATCH COLLISION", {
-          incoming: {
-            competitionId: record.competitionId,
-            eventId: record.eventId,
-            date: record.date,
-            players: [record.playerAName, record.playerBName],
-            games: [record.playerAGames, record.playerBGames],
-            set1: [record.playerASet1Games, record.playerBSet1Games],
-            keys: keys
-          },
-          existing: {
-            competitionId: existing.competitionId,
-            eventId: existing.eventId,
-            date: existing.date,
-            players: [existing.playerAName, existing.playerBName],
-            games: [existing.playerAGames, existing.playerBGames],
-            set1: [existing.playerASet1Games, existing.playerBSet1Games]
-          },
-          incomingQuality: recordQualityScore(record),
-          existingQuality: recordQualityScore(existing)
-        });
-      }
+      forensicTrace("DEDUPE_COLLISION", {
+        stage: "dedupeRecords",
+        existingRecord: forensicRecordView(existing),
+        incomingRecord: forensicRecordView(record),
+        existingKey: recordDedupeKeys(existing).join(" || "),
+        incomingKey: keys.join(" || "),
+        eventId: record.eventId || existing.eventId || "",
+        competitionId: record.competitionId || existing.competitionId || "",
+        timestamp: record.date || existing.date || "",
+        players: (record.playerAName || "") + " vs " + (record.playerBName || ""),
+        games: {incomingA: record.playerAGames, incomingB: record.playerBGames, existingA: existing.playerAGames, existingB: existing.playerBGames},
+        sourceTier: record.sourceTier || existing.sourceTier || "",
+        winner: recordQualityScore(record) > recordQualityScore(existing) ? "incoming" : "existing"
+      });
       if (recordQualityScore(record) > recordQualityScore(existing)) {
         output[existingIndex] = record;
         keys.forEach(function (key) { seenKeys.set(key, existingIndex); });
@@ -7127,8 +7303,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const settled = await Promise.all(chunks.map(async function(datesQuery) {
         try {
           const payload = await fetchTennisScoreboard(key, datesQuery);
-          const extracted = extractCompetitionRecords(payload);
-          const accepted = extracted.filter(function(record) {
+          return extractCompetitionRecords(payload).filter(function(record) {
             return record.status.completed &&
               !record.retired &&
               Number.isFinite(record.totalGames) &&
@@ -7138,32 +7313,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
               Number.isFinite(record.playerASet1Games) &&
               Number.isFinite(record.playerBSet1Games);
           });
-          formTrace("INFO", "BROAD-POOL", "HISTORY POOL CHUNK", {
-            league: key,
-            dates: datesQuery,
-            extracted: extracted.length,
-            accepted: accepted.length,
-            targetMatches: accepted.filter(function (r) {
-              return formTraceTarget(r.playerAId, r.playerAName) || formTraceTarget(r.playerBId, r.playerBName);
-            }).map(function (r) {
-              return { date: r.date, players: [r.playerAName, r.playerBName], tournament: r.tournamentName, level: r.eventLevel, games: [r.playerAGames, r.playerBGames] };
-            })
-          });
-          return accepted;
         } catch(e) { return []; }
       }));
-      const mergedPool = dedupeRecords([].concat.apply([], settled));
-      formTrace("WARN", "BROAD-POOL", "HISTORY POOL COMPLETE", {
-        league: key,
-        chunks: chunks.length,
-        totalRecords: mergedPool.length,
-        targetMatches: mergedPool.filter(function (r) {
-          return formTraceTarget(r.playerAId, r.playerAName) || formTraceTarget(r.playerBId, r.playerBName);
-        }).map(function (r) {
-          return { date: r.date, players: [r.playerAName, r.playerBName], tournament: r.tournamentName, level: r.eventLevel, games: [r.playerAGames, r.playerBGames] };
-        })
-      });
-      return mergedPool;
+      return dedupeRecords([].concat.apply([], settled));
     })();
     historyPoolCache.set(key, promise);
     historyPoolCacheFetchedAt.set(key, Date.now());
@@ -7203,9 +7355,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return null;
   }
     function buildRecentSeries(records, playerId) {
-    return records.filter(function (record) {
-      return record.playerAId === playerId || record.playerBId === playerId;
-    }).map(function (record) {
+    const input = Array.isArray(records) ? records : [];
+    const selected = input.filter(function (record) {
+      const keep = record.playerAId === playerId || record.playerBId === playerId;
+      if (!keep) {
+        forensicTrace("REJECT", {
+          stage: "buildRecentSeries",
+          reason: "WRONG_PLAYER",
+          player: playerId,
+          record: forensicRecordView(record)
+        });
+      }
+      return keep;
+    });
+    const output = selected.map(function (record) {
       const isA = record.playerAId === playerId;
       return {
         competitionId: record.competitionId,
@@ -7226,12 +7389,32 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         opponentRank: isA ? record.playerBRank : record.playerARank,
         aSets: isA ? record.aSets : record.bSets,
         bSets: isA ? record.bSets : record.aSets,
-        setCount: record.setCount,
-        sourceTier: record.sourceTier || ""
+        setCount: record.setCount
       };
     }).sort(function (a, b) {
       return new Date(b.date) - new Date(a.date);
     });
+    forensicTrace("SERIES_BUILD", {
+      player: playerId,
+      inputCount: input.length,
+      selectedCount: selected.length,
+      outputCount: output.length,
+      outputRecords: output.map(function(r) {
+        return {
+          date: r.date,
+          opponent: r.opponentName,
+          tournament: r.tournamentName,
+          round: r.roundName,
+          playerGames: r.playerGames,
+          opponentGames: r.opponentGames,
+          playerSet1Games: r.playerSet1Games,
+          opponentSet1Games: r.opponentSet1Games,
+          competitionId: r.competitionId,
+          surface: r.surface
+        };
+      })
+    });
+    return output;
   }
   /* AUDIT-SKIP — ALREADY FIXED:
    TIEBREAK-SET DETECTION.
@@ -7504,7 +7687,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const league = String(qs("leagueSelect").value || "").trim();
     const playerAName = String(qs("teamAName").value || "").trim();
     const playerBName = String(qs("teamBName").value || "").trim();
-    formTraceStart(league, playerAName, playerBName);
     const btn = document.getElementById('fetchStatsBtn');
     if (btn) {
       btn.disabled = true;
@@ -7563,7 +7745,34 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       }
       selectedPlayerIds.A = playerAId;
       selectedPlayerIds.B = playerBId;
-      formTraceSetIds(playerAId, playerBId);
+      forensicTrace("PLAYER_IDENTITY", {
+        name: playerAName,
+        athleteId: String(playerAId),
+        slug: null,
+        displayName: qs("teamAName") ? String(qs("teamAName").value || playerAName) : playerAName,
+        slugNote: "Slug is not exposed by the existing fixture/athlete-history payload path; no identity fetch was added."
+      });
+      forensicTrace("PLAYER_IDENTITY", {
+        name: playerBName,
+        athleteId: String(playerBId),
+        slug: null,
+        displayName: qs("teamBName") ? String(qs("teamBName").value || playerBName) : playerBName,
+        slugNote: "Slug is not exposed by the existing fixture/athlete-history payload path; no identity fetch was added."
+      });
+      const forensicHistorySelectionSource = [
+        buildCompetitionRecord,
+        extractCompetitionRecords,
+        extractCompetitionRecordsDeep,
+        filterPlayerHistoryRecords,
+        dedupeRecords,
+        mergePlayerHistoryWithBroadPool
+      ].map(function(fn) { return String(fn); }).join("\n");
+      forensicTrace("COUNTRY_FILTER_AUDIT", {
+        countryReferenced: /\bcountry\b/i.test(forensicHistorySelectionSource),
+        nationalityReferenced: /\bnationality\b/i.test(forensicHistorySelectionSource),
+        flagReferenced: /\bflag\b/i.test(forensicHistorySelectionSource),
+        note: "Diagnostic source scan of the existing match-history selection functions only. No filtering logic was changed."
+      });
 
       // The global ATP/WTA scoreboard is not authoritative for player form: it
       // can omit Challenger matches and is subject to the scoreboard page limit.
@@ -7594,25 +7803,44 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const recentA = buildRecentSeries(reconciledA.records, playerAId);
       const recentB = buildRecentSeries(reconciledB.records, playerBId);
 
-      formTrace("WARN", "RECONCILIATION", "RECONCILIATION RESULT", {
+      forensicTrace("RECONCILIATION", {
         playerA: {
+          name: playerAName,
+          athleteId: playerAId,
           primary: reconciledA.primaryCount,
           broad: reconciledA.broadCount,
           merged: reconciledA.mergedCount,
-          recent: recentA.length,
-          matches: recentA.map(function (m) {
-            return { date: m.date, opponent: m.opponentName, games: [m.playerGames, m.opponentGames], set1: [m.playerSet1Games, m.opponentSet1Games], tournament: m.tournamentName, level: m.eventLevel, sourceTier: m.sourceTier || "" };
-          })
+          primaryRecords: (playerAHistory.records || []).map(forensicRecordView),
+          broadRecords: records.filter(function(r) {
+            return String(r.playerAId) === String(playerAId) || String(r.playerBId) === String(playerAId);
+          }).map(forensicRecordView),
+          mergedRecords: (reconciledA.records || []).map(forensicRecordView)
         },
         playerB: {
+          name: playerBName,
+          athleteId: playerBId,
           primary: reconciledB.primaryCount,
           broad: reconciledB.broadCount,
           merged: reconciledB.mergedCount,
-          recent: recentB.length,
-          matches: recentB.map(function (m) {
-            return { date: m.date, opponent: m.opponentName, games: [m.playerGames, m.opponentGames], set1: [m.playerSet1Games, m.opponentSet1Games], tournament: m.tournamentName, level: m.eventLevel, sourceTier: m.sourceTier || "" };
-          })
+          primaryRecords: (playerBHistory.records || []).map(forensicRecordView),
+          broadRecords: records.filter(function(r) {
+            return String(r.playerAId) === String(playerBId) || String(r.playerBId) === String(playerBId);
+          }).map(forensicRecordView),
+          mergedRecords: (reconciledB.records || []).map(forensicRecordView)
         }
+      });
+
+      forensicTrace("FINAL_HISTORY", {
+        player: playerAName,
+        athleteId: playerAId,
+        count: recentA.length,
+        records: recentA.map(forensicRecordView)
+      });
+      forensicTrace("FINAL_HISTORY", {
+        player: playerBName,
+        athleteId: playerBId,
+        count: recentB.length,
+        records: recentB.map(forensicRecordView)
       });
 
       const formWarnings = [];
@@ -7689,6 +7917,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       }
       const recentAWindow = recentA.slice(0, commonRecentCount);
       const recentBWindow = recentB.slice(0, commonRecentCount);
+      forensicTrace("FORM_WINDOW", {
+        requestedMax: 10,
+        playerA: playerAName,
+        playerB: playerBName,
+        AAvailable: recentA.length,
+        BAvailable: recentB.length,
+        commonRecentCount: commonRecentCount,
+        ASelected: recentAWindow.map(forensicRecordView),
+        BSelected: recentBWindow.map(forensicRecordView)
+      });
       // Keep the full independent recent-10 histories for fatigue/brutal metrics;
       // only the comparative form inputs use the synchronized window.
       const recentA10 = recentA.slice(0, 10);
@@ -7895,22 +8133,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       if (typeof window.engineDebug === "function") {
         window.engineDebug("FORM SOURCE AUDIT", {
           playerA: {
-            id: playerAId,
             primary: reconciledA.primaryCount,
             broad: reconciledA.broadCount,
-            merged: reconciledA.mergedCount,
-            recent: recentA.length
+            merged: reconciledA.mergedCount
           },
           playerB: {
-            id: playerBId,
             primary: reconciledB.primaryCount,
             broad: reconciledB.broadCount,
-            merged: reconciledB.mergedCount,
-            recent: recentB.length
+            merged: reconciledB.mergedCount
           },
           commonRecentCount: commonRecentCount,
-          recentA: recentA.slice(0, 10),
-          recentB: recentB.slice(0, 10),
           warnings: formWarnings
         });
       }
