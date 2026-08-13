@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2735,6 +2734,30 @@ const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
   const TRACKER_CACHE_KEY = "bb_engine_tracker_state_" + TRACKER_STORAGE_KEY;
   const TRACKER_NETWORK_TIMEOUT_MS = 12000;
   const HARD_RESET_FLAG_KEY = "tennis_engine_hard_reset_flag_v1";
+  // PERMANENT-DELETE FIX: picks removed via the Tracked Picks delete button
+  // are tombstoned locally so a later sync/merge against a stale server
+  // snapshot (which may still contain the deleted pick) can never bring it
+  // back. Separate from TRACKER_STORAGE_KEY/TRACKER_CACHE_KEY and never sent
+  // to the server — it only guards this client's own merge step.
+  const TRACKER_DELETED_KEYS_STORAGE = "bb_engine_tracker_deleted_keys_" + TRACKER_STORAGE_KEY;
+  function getDeletedTrackerKeys() {
+    try {
+      const raw = localStorage.getItem(TRACKER_DELETED_KEYS_STORAGE);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch (err) {
+      return new Set();
+    }
+  }
+  function addDeletedTrackerKey(key) {
+    if (!key) return;
+    try {
+      const set = getDeletedTrackerKeys();
+      set.add(key);
+      const arr = Array.from(set);
+      const capped = arr.length > 500 ? arr.slice(arr.length - 500) : arr;
+      localStorage.setItem(TRACKER_DELETED_KEYS_STORAGE, JSON.stringify(capped));
+    } catch (err) {}
+  }
   const selectedPlayerIds = { A: null, B: null };
   const fixtureRecordMap = new Map();
   let currentFixtureOffset = 0;
@@ -4361,6 +4384,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   function mergeTrackerStates(localState, serverState) {
     const local = localState && localState.items ? localState.items : [];
     const server = serverState && serverState.items ? serverState.items : [];
+    const deletedKeys = getDeletedTrackerKeys();
     const map = new Map();
     local.forEach(item => {
       const key = trackerItemMergeKey(item);
@@ -4368,6 +4392,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     });
     server.forEach(item => {
       const key = trackerItemMergeKey(item);
+      // PERMANENT-DELETE FIX: a pick the user explicitly deleted must never
+      // be re-added just because a stale server snapshot still has it.
+      if (deletedKeys.has(key)) return;
       if (!map.has(key)) {
         map.set(key, item);
       } else {
@@ -4586,6 +4613,19 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     } catch (e) {
       console.error("[Tracker] Save failed:", e);
     }
+  }
+  // PERMANENT-DELETE: removes one tracked pick by id, tombstones its merge
+  // key so it can never be resurrected by a later sync/merge, then persists
+  // the updated list locally and queues the sync to the remote store.
+  function deleteTrackerItemForever(id) {
+    const items = getTrackerItems();
+    const target = items.find(function (item) { return String(item.id) === String(id); });
+    if (!target) return false;
+    addDeletedTrackerKey(trackerItemMergeKey(target));
+    const remaining = items.filter(function (item) { return String(item.id) !== String(id); });
+    saveTrackerItems(remaining);
+    updateTrackerUI();
+    return true;
   }
   function getTrackerEdgeBucket(edge) {
     const absEdge = Math.abs(Number(edge) || 0);
@@ -5446,7 +5486,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         '<td style="font-weight:900;text-transform:uppercase;">' + htmlEscape(item.match) + '</td>' +
         '<td style="font-weight:800;">' + htmlEscape(item.market) + '</td>' +
         '<td>' + htmlEscape(String(item.line || "—")) + '</td>' +
-        '<td class="' + getPickCellClass(item.pick, _conf) + '" style="white-space:nowrap;font-size:11px;">' + htmlEscape(item.pick) + (item.isLock ? ' <span style="font-size:4px;transform:translateY(0.5px);">🔒</span>' : '') + '</td>' +
+        '<td class="' + getPickCellClass(item.pick, _conf) + ' tracker-delete-pick" data-id="' + encId + '" style="white-space:nowrap;font-size:11px;cursor:pointer;" title="Click to permanently delete this pick">' + htmlEscape(item.pick) + (item.isLock ? ' <span style="font-size:4px;transform:translateY(0.5px);">🔒</span>' : '') + '</td>' +
         '<td style="font-weight:700;color:var(--muted);">' + htmlEscape(_conf) + '</td>' +
         '<td class="' + statusClass + '"><div class="tracker-status-stack">' + statusHtml + '</div></td>' +
       '</tr>'
@@ -6700,6 +6740,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const opt = select.options[select.selectedIndex];
     if (!opt || !opt.value) return;
     clearFetchedAutofill();
+    // MATCH-SWITCH FIX: clearFetchedAutofill() does not reset the manual
+    // market lines or the previous match's computed engine bundle. Without
+    // this, picking a new match could keep the old match's line values on
+    // screen and, if Track Pick were clicked before re-running the engine,
+    // could save the old match's prediction under the new match's fixture.
+    latestRunBundle = null;
+    ["ftMarket", "h1Market"].forEach(function (id) {
+      const el = qs(id);
+      if (el) el.value = "";
+    });
     qs("teamAName").value = opt.dataset.playerAName || "";
     qs("teamBName").value = opt.dataset.playerBName || "";
     selectedPlayerIds.A = opt.dataset.playerAId || null;
@@ -7714,6 +7764,19 @@ document.addEventListener("DOMContentLoaded", function () {
     function handleTrackedPicksActionClick(event) {
       const target = event && event.target;
       if (!target) return;
+      const deletePick = target.closest && target.closest(".tracker-delete-pick");
+      if (deletePick) {
+        const delId = deletePick.getAttribute("data-id") || "";
+        if (delId) {
+          const pickLabel = deletePick.textContent.trim();
+          const confirmed = window.confirm(
+            "Delete this pick permanently?\n\n" + pickLabel +
+            "\n\nThis cannot be undone. It will be removed from local storage and the synced record everywhere."
+          );
+          if (confirmed) deleteTrackerItemForever(delId);
+        }
+        return;
+      }
       const dispToggle = target.closest && target.closest(".tracker-disp-toggle");
       if (dispToggle) {
         const pid = dispToggle.dataset.pid;
@@ -7998,6 +8061,7 @@ document.addEventListener("DOMContentLoaded", function () {
     window.buildMarketResult = buildMarketResult;
     window.autoSettleTracker = autoSettleTracker;
     window.getTrackerItems = getTrackerItems;
+    window.deleteTrackerItemForever = deleteTrackerItemForever;
     window.selectedPlayerIds = selectedPlayerIds;
     window.renderTrackerAnalytics = renderTrackerAnalytics;
     window.renderTrackerDebug = renderTrackerDebug;
