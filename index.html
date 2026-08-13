@@ -1,3 +1,4 @@
+E
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6258,205 +6259,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return chunks;
   }
 
-  function sofaScoreNameMatches(a, b) {
-    const na = normalizeName(a);
-    const nb = normalizeName(b);
-    if (!na || !nb) return false;
-    if (na === nb) return true;
-    const ta = na.split(" ");
-    const tb = nb.split(" ");
-    if (ta[0] === tb[0] && ta[ta.length - 1] === tb[tb.length - 1]) return true;
-    if (ta[0] === tb[ta.length - 1] && ta[ta.length - 1] === tb[0]) return true;
-    return false;
-  }
-
-  async function fetchSofaScorePlayerSearch(playerName) {
-    const query = encodeURIComponent(String(playerName || "").trim());
-    if (!query) throw new Error("Missing player name for SofaScore lookup");
-    const urls = [
-      "https://www.sofascore.com/api/v1/search/players/" + query,
-      "https://api.sofascore.com/api/v1/search/players/" + query
-    ];
-    let lastErr = null;
-    for (let i = 0; i < urls.length; i += 1) {
-      try {
-        const payload = await proxyFetch(urls[i], 12000);
-        const players = Array.isArray(payload && payload.players) ? payload.players : [];
-        const exact = players.find(function (entry) {
-          const entity = entry && entry.player ? entry.player : entry;
-          return sofaScoreNameMatches(entity && entity.name, playerName);
-        });
-        const candidate = exact;
-        const entity = candidate && candidate.player ? candidate.player : candidate;
-        if (entity && entity.id) {
-          return {
-            id: String(entity.id),
-            name: String(entity.name || playerName),
-            query: urls[i]
-          };
-        }
-      } catch (err) {
-        lastErr = err;
-      }
-    }
-    throw lastErr || new Error("SofaScore player not found: " + playerName);
-  }
-
-  function buildSofaScoreTennisRecord(event, targetSofaId, targetName, sourcePage) {
-    if (!event || !event.id || !event.status || event.status.type !== "finished") return null;
-    const home = event.homeTeam || {};
-    const away = event.awayTeam || {};
-    const homeName = String(home.name || "").trim();
-    const awayName = String(away.name || "").trim();
-    if (!homeName || !awayName) return null;
-    // Tennis doubles are represented as player/team pairs on some SofaScore
-    // payloads. Never feed those into singles form.
-    const identityText = (homeName + " " + awayName + " " + ((event.tournament && event.tournament.name) || "")).toLowerCase();
-    if (identityText.includes("/ doubles") || identityText.includes("doubles") || homeName.includes("/") || awayName.includes("/")) return null;
-    const isHome = String(home.id || "") === String(targetSofaId || "") || sofaScoreNameMatches(homeName, targetName);
-    const isAway = String(away.id || "") === String(targetSofaId || "") || sofaScoreNameMatches(awayName, targetName);
-    if (!isHome && !isAway) return null;
-    const hs = event.homeScore || {}, as = event.awayScore || {};
-    const setValues = function (score) {
-      return [1, 2, 3, 4, 5].map(function (n) { return Number(score["period" + n]); }).filter(Number.isFinite);
-    };
-    const homeSets = setValues(hs), awaySets = setValues(as);
-    const setCount = Math.min(homeSets.length, awaySets.length);
-    if (setCount < 1) return null;
-    const homeGames = homeSets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0);
-    const awayGames = awaySets.slice(0, setCount).reduce(function (sum, v) { return sum + v; }, 0);
-    if (!Number.isFinite(homeGames) || !Number.isFinite(awayGames)) return null;
-    const tournamentName = String((event.tournament && event.tournament.name) || "").trim();
-    const roundName = String(
-      (event.roundInfo && (event.roundInfo.name || event.roundInfo.round)) ||
-      (event.round && (event.round.name || event.round)) || ""
-    ).trim();
-    const date = event.startTimestamp ? new Date(event.startTimestamp * 1000).toISOString() : String(event.startTime || "");
-    const surface = inferSurfaceFromText("", tournamentName);
-    const playerIsHome = isHome && !isAway;
-    const targetGames = playerIsHome ? homeGames : awayGames;
-    const opponentGames = playerIsHome ? awayGames : homeGames;
-    const targetSet1 = playerIsHome ? homeSets[0] : awaySets[0];
-    const opponentSet1 = playerIsHome ? awaySets[0] : homeSets[0];
-    const opponentName = playerIsHome ? awayName : homeName;
-    const opponentSofaId = playerIsHome ? String(away.id || "") : String(home.id || "");
-    return {
-      competitionId: "sofa-" + String(event.id),
-      eventId: "sofa-" + String(event.id),
-      tournamentName: tournamentName,
-      eventLevel: classifyEventLevel(tournamentName),
-      roundName: roundName,
-      date: date,
-      status: { completed: true, retired: false, state: "post", name: "FINISHED", detail: "Finished" },
-      retired: false,
-      surface: surface,
-      playerAId: String(targetSofaId),
-      playerAName: String(targetName),
-      playerBId: "sofa-opp-" + opponentSofaId,
-      playerBName: opponentName,
-      playerARank: null,
-      playerBRank: null,
-      playerARankMove: null,
-      playerBRankMove: null,
-      playerAGames: targetGames,
-      playerBGames: opponentGames,
-      totalGames: targetGames + opponentGames,
-      playerASet1Games: targetSet1,
-      playerBSet1Games: opponentSet1,
-      set1Total: targetSet1 + opponentSet1,
-      aSets: playerIsHome ? homeSets.slice(0, setCount) : awaySets.slice(0, setCount),
-      bSets: playerIsHome ? awaySets.slice(0, setCount) : homeSets.slice(0, setCount),
-      setCount: setCount,
-      gender: (home.gender === "F" || away.gender === "F") ? "WTA" : (home.gender === "M" || away.gender === "M") ? "ATP" : "UNKNOWN",
-      source: "sofascore",
-      sourcePage: sourcePage || ""
-    };
-  }
-
-  async function fetchSofaScorePlayerHistory(playerName, athleteId, cutoffIso) {
-    const player = await fetchSofaScorePlayerSearch(playerName);
-    const pages = [0, 1];
-    const all = [];
-    const checks = [];
-    for (let i = 0; i < pages.length; i += 1) {
-      const page = pages[i];
-      const urls = [
-        "https://www.sofascore.com/api/v1/team/" + player.id + "/events/last/" + page,
-        "https://api.sofascore.com/api/v1/team/" + player.id + "/events/last/" + page
-      ];
-      let payload = null;
-      let usedUrl = "";
-      let lastErr = null;
-      for (let u = 0; u < urls.length; u += 1) {
-        try {
-          payload = await proxyFetch(urls[u], 12000);
-          if (payload && Array.isArray(payload.events)) {
-            usedUrl = urls[u];
-            break;
-          }
-        } catch (err) {
-          lastErr = err;
-        }
-      }
-      if (!payload) {
-        checks.push({ label: "sofascore-error", query: urls[0], records: 0, exact: 0, fuzzy: 0, relaxed: 0, sample: lastErr && lastErr.message ? lastErr.message : "request failed" });
-        continue;
-      }
-      let pageCount = 0;
-      payload.events.forEach(function (event) {
-        const record = buildSofaScoreTennisRecord(event, player.id, player.name, usedUrl);
-        if (!record) return;
-        const cutoff = cutoffIso ? Date.parse(cutoffIso) : null;
-        const ts = Date.parse(record.date);
-        if (Number.isFinite(cutoff) && (!Number.isFinite(ts) || ts >= cutoff)) return;
-        all.push(record);
-        pageCount += 1;
-      });
-      checks.push({ label: "sofascore-player-history", query: usedUrl, records: pageCount, exact: pageCount, fuzzy: 0, relaxed: 0, sample: all.slice(-5).map(function (r) { return r.playerAName + " vs " + r.playerBName; }).join(" | ") });
-      if (!payload.hasNextPage && !payload.hasMore) break;
-    }
-    return { records: dedupeRecords(all), checks: checks, player: player };
-  }
-
-  function reconcileHistorySources(primaryRecords, secondaryRecords, athleteId, cutoffIso) {
-    const cutoffMs = cutoffIso ? Date.parse(cutoffIso) : null;
-    const merged = [];
-    const keyFor = function (record) {
-      const opponent = String(record.playerAId) === String(athleteId) ? record.playerBName : record.playerAName;
-      const date = String(record.date || "").slice(0, 10);
-      return normalizeName(opponent) + "|" + date;
-    };
-    const index = new Map();
-    (Array.isArray(primaryRecords) ? primaryRecords : []).forEach(function (record) {
-      if (!record) return;
-      if (cutoffMs !== null && Date.parse(record.date || "") >= cutoffMs) return;
-      const key = keyFor(record);
-      if (!index.has(key)) {
-        index.set(key, merged.length);
-        merged.push(record);
-      }
-    });
-    (Array.isArray(secondaryRecords) ? secondaryRecords : []).forEach(function (record) {
-      if (!record) return;
-      if (cutoffMs !== null && Date.parse(record.date || "") >= cutoffMs) return;
-      const key = keyFor(record);
-      const existingIndex = index.get(key);
-      if (existingIndex === undefined) {
-        index.set(key, merged.length);
-        merged.push(record);
-        return;
-      }
-      // Secondary source wins on exact same player/opponent/date because the
-      // purpose of this layer is to repair ESPN's incomplete lower-tier history.
-      const existing = merged[existingIndex];
-      if (record.source === "sofascore" && existing.source !== "sofascore") merged[existingIndex] = record;
-    });
-    return dedupeRecords(merged);
-  }
-
   async function fetchTargetedScoreboardHistory(league, athleteId, cutoffIso) {
     const candidates = getHistoryLeagueCandidates(league);
-    // Search a materially wider window when athlete-history endpoints are incomplete.
+    // Search a bounded recent window when athlete-history endpoints are incomplete.
     // 45 days is too narrow for players with sparse schedules (especially Challenger
     // players), which can leave one side with only 1-2 real matches while the other
     // side has a full recent sample.
@@ -6587,10 +6392,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     // contains the completed match. Query only bounded date chunks and only
     // retain records containing the requested athlete. This avoids the old
     // global 180-day/1000-event history-pool failure.
-    // The target is a real recent-10 sample. If the athlete endpoint returns
+    // The target is a real recent-5 sample. If the athlete endpoint returns
     // fewer than 10, query the broader ESPN tennis scopes before accepting the
     // shorter sample. This is what recovers Challenger/qualifying matches.
-    if (result.length < 10) {
+    if (result.length < 5) {
       const targeted = await fetchTargetedScoreboardHistory(league, athleteId, savedAtIso);
       checks.push.apply(checks, targeted.checks);
       result = filterPlayerHistoryRecords(
@@ -6600,41 +6405,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       );
     }
 
-    // SECONDARY HISTORY VERIFICATION: ESPN remains the primary transport, but
-    // its public tennis feeds can omit lower-tier matches. SofaScore is queried
-    // for the same player and reconciled by opponent/date. On an overlapping
-    // match, the secondary record is preferred so a bad ESPN parse cannot
-    // silently survive. ESPN-only matches are retained when the secondary
-    // source has no corresponding event (for example, coverage differences).
-    if (playerName) {
-      try {
-        const secondary = await fetchSofaScorePlayerHistory(playerName, athleteId, savedAtIso);
-        checks.push.apply(checks, secondary.checks || []);
-        const secondaryRecords = (secondary.records || []).map(function (record) {
-          // Keep the engine's requested ESPN athlete ID as the canonical target
-          // ID so existing player-specific filters continue to work.
-          record.playerAId = String(athleteId);
-          record.playerAName = String(playerName);
-          record.source = "sofascore";
-          return record;
-        });
-        result = filterPlayerHistoryRecords(
-          reconcileHistorySources(result, secondaryRecords, athleteId, savedAtIso),
-          athleteId,
-          savedAtIso
-        );
-      } catch (secondaryErr) {
-        checks.push({
-          label: "sofascore-history-error",
-          query: "player=" + playerName,
-          records: 0,
-          exact: 0,
-          fuzzy: 0,
-          relaxed: 0,
-          sample: secondaryErr && secondaryErr.message ? secondaryErr.message : "request failed"
-        });
-      }
-    }
 
     return {
       records: result,
@@ -7446,7 +7216,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       // completed matches. Using 8 for one player and 5 for the other changes
       // the effective sample size and makes the comparison asymmetric.
       // Use the largest common real window available, capped at 10.
-      const commonRecentCount = Math.min(10, recentA.length, recentB.length);
+      const commonRecentCount = Math.min(5, recentA.length, recentB.length);
       if (commonRecentCount < 3) {
         throw new Error(
           "Insufficient common recent history from ESPN. Both players need at least 3 real completed matches; " +
@@ -7471,7 +7241,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         : "";
       const recentAWindow = recentA.slice(0, commonRecentCount);
       const recentBWindow = recentB.slice(0, commonRecentCount);
-      // Keep the full independent recent-10 histories for fatigue/brutal metrics;
+      // Keep the full independent recent-5 histories for fatigue/brutal metrics;
       // only the comparative form inputs use the synchronized window.
       const recentA10 = recentA.slice(0, 10);
       const recentB10 = recentB.slice(0, 10);
@@ -7596,7 +7366,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const MIN_SAMPLE_SIZE = 5;
       // Bayesian padding is model-only fallback. It is never used to construct
       // recentA/recentB, and therefore can no longer overwrite or impersonate
-      // the actual last-5/last-10 match history.
+      // the actual last-5 match history.
       const applyPrior = (dataArray, priorValue) => {
         const result = [...dataArray];
         while (result.length < MIN_SAMPLE_SIZE) {
@@ -7641,6 +7411,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const fatigueB = computeFatigueProfile(recentB10);
       const brutalA = computeBrutalMetrics(recentA10, currentSurface);
       const brutalB = computeBrutalMetrics(recentB10, currentSurface);
+      // ESPN is the sole history source. No secondary provider is consulted.
       latestFetchedContext = {
         matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
         tour: league,
@@ -7656,10 +7427,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals,
         h2hPlayerA: h2hPlayerAGames, h2hPlayerB: h2hPlayerBGames,
         historyCoverage: {
-          playerA: { total: recentA.length, sofascore: sofaCountA, espn: recentA.length - sofaCountA },
-          playerB: { total: recentB.length, sofascore: sofaCountB, espn: recentB.length - sofaCountB },
-          secondarySource: "SofaScore",
-          status: (sofaCountA || sofaCountB) ? "ESPN_PLUS_SOFASCORE" : "ESPN"
+          playerA: { total: recentA.length, espn: recentA.length },
+          playerB: { total: recentB.length, espn: recentB.length },
+          secondarySource: null,
+          status: "ESPN_ONLY"
         }
       };
       populateFetchedContext({
@@ -7671,11 +7442,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const h2hNote = h2hMatchTotals.length
         ? ("<br>H2H found: " + h2hMatchTotals.length + " meeting(s).")
         : "<br>H2H found: 0 meetings in fetched records.";
-      const sofaCountA = recentA.filter(function (m) { return m.source === "sofascore"; }).length;
-      const sofaCountB = recentB.filter(function (m) { return m.source === "sofascore"; }).length;
-      const sourceParts = (sofaCountA || sofaCountB)
-        ? " • SofaScore supplement: A " + sofaCountA + " / B " + sofaCountB
-        : "";
+      const sourceParts = " • Source: ESPN only";
       const statusParts = [
         "Form window: " + commonRecentCount + " / " + commonRecentCount + " real matches",
         "History found: A " + recentA.length + " • B " + recentB.length + sourceParts,
