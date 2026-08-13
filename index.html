@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4769,9 +4768,37 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
   const checks = [];
         try {
+        // A pending fixture must never be settled from historical matches.
+        // The saved fixtureDate is the scheduled start time; if it is still
+        // in the future, there cannot be a completed player-history record
+        // for this fixture yet.
+        const fixtureMs = item.fixtureDate ? Date.parse(item.fixtureDate) : NaN;
+        if (Number.isFinite(fixtureMs) && fixtureMs > (Date.now() + 5 * 60 * 1000)) {
+          return {
+            record: null,
+            debug: {
+              reason: "fixture has not started",
+              checks: [{
+                label: "future-fixture-gate",
+                query: item.fixtureDate,
+                records: 0,
+                exact: 0,
+                fuzzy: 0,
+                relaxed: 0,
+                sample: "scheduled start is in the future"
+              }],
+              manualSurface
+            }
+          };
+        }
         const resolved = await resolveSettlementPlayerIds(item, names);
-        const histA = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerAId, item.fixtureDate || item.savedAt);
-        const histB = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerBId, item.fixtureDate || item.savedAt);
+        // For settlement, the target match itself must be eligible. Using
+        // fixtureDate as the history cutoff excludes the fixture because the
+        // history filter intentionally keeps only records strictly before the
+        // cutoff. Completed-history probes therefore use "now" as the cutoff.
+        const completedHistoryCutoff = new Date().toISOString();
+        const histA = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerAId, completedHistoryCutoff);
+        const histB = await fetchPlayerHistorySettlementRecords(item.tour, resolved.playerBId, completedHistoryCutoff);
         const allRecords = dedupeRecords([].concat(histA.records || [], histB.records || []));
         const h2h = buildH2HSeries(allRecords, resolved.playerAId, resolved.playerBId, names.playerAName, names.playerBName);
         const targetTs = item.fixtureDate ? Date.parse(item.fixtureDate) : (item.savedAt ? Date.parse(item.savedAt) : NaN);
@@ -6186,11 +6213,106 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
    filler values to masquerade as a player's last-5 history. Records are now
    filtered by athlete ID, completion status, score validity, and fixture cutoff.
 */
+  function getHistoryLeagueCandidates(league) {
+    const slug = String(league || "").trim().toLowerCase();
+    const candidates = [];
+    function add(value) {
+      const v = String(value || "").trim().toLowerCase();
+      if (v && candidates.indexOf(v) === -1) candidates.push(v);
+    }
+    add(slug);
+    if (slug === "atp") {
+      add("atp-challenger");
+    } else if (slug === "wta") {
+      add("wta-125");
+      add("wta-challenger");
+    }
+    return candidates;
+  }
+
+  function getChunkedHistoryRangesBefore(cutoffIso, totalDays, chunkSize) {
+    const chunks = [];
+    const cutoff = cutoffIso ? new Date(cutoffIso) : new Date();
+    const end = Number.isFinite(cutoff.getTime()) ? cutoff : new Date();
+    for (let startOffset = 1; startOffset <= totalDays; startOffset += chunkSize) {
+      const chunkEndOffset = startOffset;
+      const chunkStartOffset = Math.min(totalDays, startOffset + chunkSize - 1);
+      const rangeEnd = addDays(end, -chunkEndOffset);
+      const rangeStart = addDays(end, -chunkStartOffset);
+      chunks.push(dateKeyFromDate(rangeStart) + "-" + dateKeyFromDate(rangeEnd));
+    }
+    return chunks;
+  }
+
+  async function fetchTargetedScoreboardHistory(league, athleteId, cutoffIso) {
+    const candidates = getHistoryLeagueCandidates(league);
+    const ranges = getChunkedHistoryRangesBefore(cutoffIso, 45, 10);
+    const checks = [];
+    const tasks = [];
+
+    candidates.forEach(function (candidate) {
+      ranges.forEach(function (datesQuery) {
+        tasks.push({ candidate: candidate, datesQuery: datesQuery });
+      });
+    });
+
+    const settled = await Promise.all(tasks.map(async function (task) {
+      try {
+        const payload = await fetchTennisScoreboard(task.candidate, task.datesQuery);
+        const records = extractCompetitionRecords(payload).filter(function (record) {
+          return record &&
+            record.status &&
+            record.status.completed &&
+            !record.retired &&
+            Number.isFinite(record.totalGames) &&
+            Number.isFinite(record.set1Total) &&
+            Number.isFinite(record.playerAGames) &&
+            Number.isFinite(record.playerBGames) &&
+            Number.isFinite(record.playerASet1Games) &&
+            Number.isFinite(record.playerBSet1Games) &&
+            (String(record.playerAId) === String(athleteId) ||
+             String(record.playerBId) === String(athleteId));
+        });
+        checks.push({
+          label: "targeted-scoreboard",
+          query: task.candidate + " dates=" + task.datesQuery,
+          records: records.length,
+          exact: records.length,
+          fuzzy: 0,
+          relaxed: 0,
+          sample: records.slice(0, 5).map(function (record) {
+            return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
+          }).join(" | ")
+        });
+        return records;
+      } catch (err) {
+        checks.push({
+          label: "targeted-scoreboard-error",
+          query: task.candidate + " dates=" + task.datesQuery,
+          records: 0,
+          exact: 0,
+          fuzzy: 0,
+          relaxed: 0,
+          sample: err && err.message ? err.message : "request failed"
+        });
+        return [];
+      }
+    }));
+
+    return {
+      records: filterPlayerHistoryRecords([].concat.apply([], settled), athleteId, cutoffIso),
+      checks: checks
+    };
+  }
+
   async function fetchPlayerHistorySettlementRecords(league, athleteId, savedAtIso) {
     const slug = String(league || "").trim().toLowerCase();
     const years = getSeasonYearsForSettlement(savedAtIso);
     const checks = [];
     const all = [];
+
+    // Primary source: athlete-specific ESPN history endpoints.
+    // These are preferred because they avoid global scoreboard pagination.
     for (let i = 0; i < years.length; i += 1) {
       const year = years[i];
       const urls = [
@@ -6238,15 +6360,31 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
               return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
             }).join(" | ")
           });
-          if (playerRecords.length) {
-            all.push.apply(all, playerRecords);
-          }
+          if (playerRecords.length) all.push.apply(all, playerRecords);
         } catch (err) {
         }
       }
     }
+
+    let result = filterPlayerHistoryRecords(all, athleteId, savedAtIso);
+
+    // Critical fallback for Challenger/secondary-tour coverage:
+    // ESPN's athlete history endpoints can be empty even while the scoreboard
+    // contains the completed match. Query only bounded date chunks and only
+    // retain records containing the requested athlete. This avoids the old
+    // global 180-day/1000-event history-pool failure.
+    if (result.length < 5) {
+      const targeted = await fetchTargetedScoreboardHistory(league, athleteId, savedAtIso);
+      checks.push.apply(checks, targeted.checks);
+      result = filterPlayerHistoryRecords(
+        dedupeRecords(result.concat(targeted.records || [])),
+        athleteId,
+        savedAtIso
+      );
+    }
+
     return {
-      records: filterPlayerHistoryRecords(all, athleteId, savedAtIso),
+      records: result,
       checks: checks
     };
   }
