@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6279,6 +6280,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             Number.isFinite(record.playerBSet1Games) &&
             (String(record.playerAId) === String(athleteId) ||
              String(record.playerBId) === String(athleteId));
+        }).map(function (record) {
+          return Object.assign({}, record, { sourceTier: "targeted-scoreboard", sourceQuery: task.candidate + " dates=" + task.datesQuery });
         });
         checks.push({
           label: "targeted-scoreboard",
@@ -6332,7 +6335,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       for (let j = 0; j < urls.length; j += 1) {
         try {
           const parsed = await fetchAthleteHistoryPayload(urls[j]);
-          const playerRecords = filterPlayerHistoryRecords(parsed.records, athleteId, savedAtIso);
+          const playerRecords = filterPlayerHistoryRecords(parsed.records, athleteId, savedAtIso)
+            .map(function (record) {
+              return Object.assign({}, record, { sourceTier: "athlete-history" });
+            });
           checks.push({
             label: "athlete-history",
             query: "athlete=" + athleteId + " year=" + year + " " + urls[j],
@@ -6355,7 +6361,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       if (!gotThisYear) {
         try {
           const coreParsed = await resolveAthletePageCompetitionRecords(league, athleteId, year);
-          const playerRecords = filterPlayerHistoryRecords(coreParsed.records, athleteId, savedAtIso);
+          const playerRecords = filterPlayerHistoryRecords(coreParsed.records, athleteId, savedAtIso)
+            .map(function (record) {
+              return Object.assign({}, record, { sourceTier: "athlete-core-ref" });
+            });
           checks.push({
             label: "athlete-core-ref",
             query: "athlete=" + athleteId + " year=" + year + " " + (coreParsed.query || "core-ref"),
@@ -6398,19 +6407,32 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       checks: checks
     };
   }
-  /* AUDIT-SKIP — ALREADY FIXED:
-   SINGLES-ONLY COMPETITION INGESTION.
-   Previous issue: missing or blank competition-type metadata was treated as
-   singles, allowing ambiguous competitions to enter the singles pipeline.
-   Fixed by failing closed: an unknown competition type is excluded unless the
-   source provides sufficient evidence that it is singles.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify competition filtering.
-*/
-  function isSinglesLabel(text) {
+  /* AUDIT-FIX — SINGLES INGESTION:
+   ESPN is inconsistent about competition.type on Challenger/qualifying feeds.
+   Do not require the literal word "singles". buildCompetitionRecord() already
+   requires exactly two competitors, and explicit doubles/mixed/team markers
+   remain hard exclusions.
+  */
+  function isSinglesLabel(text, tournamentText) {
     const value = normalizeName(text);
-    if (!value) return false;
-    return value.includes("singles") && !value.includes("doubles") && !value.includes("mixed");
+    const tournament = normalizeName(tournamentText);
+    const combined = (value + " " + tournament).trim();
+
+    if (
+      combined.includes("doubles") ||
+      combined.includes("mixed") ||
+      combined.includes("team event") ||
+      combined.includes("team competition") ||
+      combined.includes("davis cup") ||
+      combined.includes("billie jean king")
+    ) {
+      return false;
+    }
+
+    // Missing/ambiguous type metadata is allowed here. Singles identity is
+    // corroborated by the exactly-two-competitor requirement in
+    // buildCompetitionRecord(), then by the requested athlete ID filter.
+    return true;
   }
   function toNumber(value) {
     const num = Number(value);
@@ -6464,12 +6486,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       function buildCompetitionRecord(comp, parentEvent) {
     if (!comp) return null;
     const labelText = (comp.type && (comp.type.text || comp.type.slug)) || (parentEvent && parentEvent.grouping && parentEvent.grouping.displayName) || "";
-    if (!isSinglesLabel(labelText)) return null;
     const status = getCompetitionStatus(comp);
     const competitors = orderCompetitors(comp.competitors || []);
+    // Singles has exactly two competitors. Check this before the label because
+    // ESPN Challenger/qualifying payloads do not always include the literal
+    // "Singles" label in comp.type.
     if (competitors.length !== 2) return null;
     let surface = extractSurfaceText(comp, parentEvent);
     const tournamentName = String((parentEvent && (parentEvent.shortName || parentEvent.name)) || "").trim();
+    if (!isSinglesLabel(labelText, tournamentName)) return null;
     if (!surface) surface = inferSurfaceFromText(surface, tournamentName);
     const a = competitors[0], b = competitors[1];
     const aId = String(a && a.id || ""), bId = String(b && b.id || "");
@@ -6682,14 +6707,83 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     }
     return chunks;
   }
+  function recordPairKey(record) {
+    const aId = String(record && record.playerAId || "");
+    const bId = String(record && record.playerBId || "");
+    if (aId && bId) return [aId, bId].sort().join("|");
+    const aName = normalizeName(record && record.playerAName || "");
+    const bName = normalizeName(record && record.playerBName || "");
+    return [aName, bName].sort().join("|");
+  }
+  function recordTimestampKey(record) {
+    const raw = String(record && record.date || "").trim();
+    const ms = new Date(raw).getTime();
+    if (Number.isFinite(ms)) return new Date(ms).toISOString();
+    return raw;
+  }
+  function recordDedupeKeys(record) {
+    const pair = recordPairKey(record);
+    const timestamp = recordTimestampKey(record);
+    const compId = String(record && record.competitionId || "").trim();
+    const eventId = String(record && record.eventId || "").trim();
+    const tournament = normalizeName(record && record.tournamentName || "");
+    const round = normalizeName(record && record.roundName || "");
+    const keys = [];
+    // Match identity must not fall back to player-pair + calendar date alone:
+    // Lajal, for example, can play two distinct matches on the same date.
+    if (compId) keys.push("comp|" + compId + "|" + pair);
+    if (eventId) keys.push("event|" + eventId + "|" + pair);
+    if (pair && timestamp) keys.push("pairtime|" + pair + "|" + timestamp);
+    if (pair) keys.push("pair|" + pair + "|" + timestamp + "|" + tournament + "|" + round);
+    return keys.filter(Boolean);
+  }
+  function recordQualityScore(record) {
+    if (!record) return -Infinity;
+    let score = 0;
+    if (record.status && record.status.completed) score += 20;
+    if (!record.retired) score += 10;
+    if (record.competitionId) score += 8;
+    if (record.eventId) score += 5;
+    if (record.date && Number.isFinite(new Date(record.date).getTime())) score += 5;
+    if (Number.isFinite(record.playerAGames) && Number.isFinite(record.playerBGames)) score += 10;
+    if (Number.isFinite(record.set1Total)) score += 6;
+    if (Array.isArray(record.aSets) && record.aSets.length) score += 2 + Math.min(record.aSets.length, 5);
+    if (Array.isArray(record.bSets) && record.bSets.length) score += 2 + Math.min(record.bSets.length, 5);
+    if (record.sourceTier === "athlete-history") score += 2;
+    if (record.sourceTier === "athlete-core-ref") score += 1;
+    if (record.sourceTier === "targeted-scoreboard") score += 1;
+    return score;
+  }
   function dedupeRecords(records) {
-    const seen = new Set();
-    return records.filter(function (record) {
-      const key = record.competitionId || (record.playerAId + "|" + record.playerBId + "|" + record.date);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).sort(function (a, b) {
+    const seenKeys = new Map();
+    const output = [];
+    (Array.isArray(records) ? records : []).forEach(function (record) {
+      if (!record) return;
+      const keys = recordDedupeKeys(record);
+      if (!keys.length) return;
+      let existingIndex = -1;
+      for (let i = 0; i < keys.length; i += 1) {
+        if (seenKeys.has(keys[i])) {
+          existingIndex = seenKeys.get(keys[i]);
+          break;
+        }
+      }
+      if (existingIndex < 0) {
+        const index = output.length;
+        output.push(record);
+        keys.forEach(function (key) { seenKeys.set(key, index); });
+        return;
+      }
+      const existing = output[existingIndex];
+      if (recordQualityScore(record) > recordQualityScore(existing)) {
+        output[existingIndex] = record;
+        keys.forEach(function (key) { seenKeys.set(key, existingIndex); });
+        recordDedupeKeys(existing).forEach(function (key) { seenKeys.set(key, existingIndex); });
+      } else {
+        keys.forEach(function (key) { seenKeys.set(key, existingIndex); });
+      }
+    });
+    return output.sort(function (a, b) {
       return new Date(b.date) - new Date(a.date);
     });
   }
@@ -7023,6 +7117,46 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     setContextValue("roundDisplay", meta.roundName || "", "");
   }
   let espnFetchToken = 0;
+  function mergePlayerHistoryWithBroadPool(historyRecords, broadRecords, athleteId, cutoffIso) {
+    const primary = filterPlayerHistoryRecords(historyRecords || [], athleteId, cutoffIso);
+    const broad = filterPlayerHistoryRecords(broadRecords || [], athleteId, cutoffIso)
+      .map(function (record) {
+        return Object.assign({}, record, { sourceTier: record.sourceTier || "broad-scoreboard" });
+      });
+    const merged = dedupeRecords(primary.concat(broad));
+    return {
+      records: merged,
+      primaryCount: primary.length,
+      broadCount: broad.length,
+      mergedCount: merged.length
+    };
+  }
+
+  function auditRecentSeries(series, playerId) {
+    const warnings = [];
+    const seenMetricKeys = new Map();
+    (Array.isArray(series) ? series : []).forEach(function (match) {
+      const key = [
+        match.date,
+        match.playerGames,
+        match.opponentGames,
+        match.playerSet1Games,
+        match.opponentSet1Games
+      ].join("|");
+      if (seenMetricKeys.has(key) && seenMetricKeys.get(key) !== match.opponentId) {
+        warnings.push({
+          playerId: playerId,
+          date: match.date,
+          duplicateMetrics: key,
+          opponents: [seenMetricKeys.get(key), match.opponentId]
+        });
+      } else {
+        seenMetricKeys.set(key, match.opponentId);
+      }
+    });
+    return warnings;
+  }
+
   async function fetchESPNTennis() {
     espnFetchToken += 1;
     const league = String(qs("leagueSelect").value || "").trim();
@@ -7098,21 +7232,64 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       ]);
       if (myToken !== espnFetchToken) return;
 
-      const recentA = buildRecentSeries(playerAHistory.records, playerAId);
-      const recentB = buildRecentSeries(playerBHistory.records, playerBId);
-      const MIN_REAL_FORM_MATCHES = 1;
-      if (recentA.length < MIN_REAL_FORM_MATCHES || recentB.length < MIN_REAL_FORM_MATCHES) {
-        throw new Error(
-          "Insufficient player history from ESPN. Player A: " + recentA.length +
-          ", Player B: " + recentB.length + ". No synthetic matches were added."
+      // Cross-validate the athlete-specific history against the broader scoreboard
+      // pool already fetched in this session. A thin athlete endpoint must not
+      // silently override a richer, independently observed player history.
+      const reconciledA = mergePlayerHistoryWithBroadPool(
+        playerAHistory.records,
+        records,
+        playerAId,
+        historyCutoff
+      );
+      const reconciledB = mergePlayerHistoryWithBroadPool(
+        playerBHistory.records,
+        records,
+        playerBId,
+        historyCutoff
+      );
+      const recentA = buildRecentSeries(reconciledA.records, playerAId);
+      const recentB = buildRecentSeries(reconciledB.records, playerBId);
+
+      const formWarnings = [];
+      if (recentA.length < 5 || recentB.length < 5) {
+        formWarnings.push(
+          "Thin recent history: A " + recentA.length + ", B " + recentB.length +
+          " real matches after cross-source reconciliation."
+        );
+      }
+      if (Math.max(recentA.length, recentB.length) >= 10 &&
+          Math.min(recentA.length, recentB.length) < 5) {
+        formWarnings.push(
+          "Large history disparity detected; form confidence is reduced."
         );
       }
 
-      // Merge targeted player histories into the broad pool for downstream H2H/Elo.
-      // Recent form itself never comes back through this merged pool, preventing
-      // stale/global-scoreboard matches from displacing a player's actual last 5/10.
+      const duplicateAuditA = auditRecentSeries(recentA, playerAId);
+      const duplicateAuditB = auditRecentSeries(recentB, playerBId);
+      if (duplicateAuditA.length || duplicateAuditB.length) {
+        formWarnings.push(
+          "Duplicate metric pattern detected in fetched history; verify source provenance."
+        );
+        if (typeof window.engineDebug === "function") {
+          window.engineDebug("FORM DATA AUDIT WARNING", {
+            playerA: duplicateAuditA,
+            playerB: duplicateAuditB
+          });
+        }
+      }
+
+      if (recentA.length < 3 || recentB.length < 3) {
+        throw new Error(
+          "Insufficient common recent history from ESPN after cross-source reconciliation. " +
+          "Player A: " + recentA.length + ", Player B: " + recentB.length +
+          ". No synthetic matches were added."
+        );
+      }
+
+      // Merge the reconciled player histories into the broad pool for downstream
+      // H2H/Elo. The reconciled histories are now the authoritative form source.
       let workingRecords = dedupeRecords(
-        records.concat(playerAHistory.records || [], playerBHistory.records || [])
+        records.concat(reconciledA.records || [], reconciledB.records || [])
       );
       let h2h = buildH2HSeries(workingRecords, playerAId, playerBId, qs("teamAName").value, qs("teamBName").value);
       if (h2h.length < 5) {
@@ -7133,11 +7310,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           h2h = extraBundle.h2h;
         }
       }
-      // FORM WINDOW FIX:
+      // FORM WINDOW RULE:
       // Player A and Player B must be evaluated on the same number of real
-      // completed matches. Using 8 for one player and 5 for the other changes
-      // the effective sample size and makes the comparison asymmetric.
-      // Use the largest common real window available, capped at 10.
+      // completed matches. Never silently use 8/5, 10/3, etc. Reconciliation
+      // above attempts to recover missing Challenger/qualifying records first.
+      // Then use the largest common real window available, capped at 10.
       const commonRecentCount = Math.min(10, recentA.length, recentB.length);
       if (commonRecentCount < 3) {
         throw new Error(
@@ -7347,6 +7524,25 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         "H2H: " + h2hMatchTotals.length + " matches",
         "Rest: " + formatDaysValue(fatigueA && fatigueA.daysRest) + " / " + formatDaysValue(fatigueB && fatigueB.daysRest)
       ];
+      if (formWarnings.length) {
+        statusParts.push("WARNING: " + formWarnings.join(" "));
+      }
+      if (typeof window.engineDebug === "function") {
+        window.engineDebug("FORM SOURCE AUDIT", {
+          playerA: {
+            primary: reconciledA.primaryCount,
+            broad: reconciledA.broadCount,
+            merged: reconciledA.mergedCount
+          },
+          playerB: {
+            primary: reconciledB.primaryCount,
+            broad: reconciledB.broadCount,
+            merged: reconciledB.mergedCount
+          },
+          commonRecentCount: commonRecentCount,
+          warnings: formWarnings
+        });
+      }
       clearHeaderError();
       setFetchStatus(statusParts.join(" • "), "ok");
       document.querySelectorAll(".section").forEach(function (section) {
