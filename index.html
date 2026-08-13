@@ -1,4 +1,3 @@
-A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7893,16 +7892,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       });
 
       const formWarnings = [];
-      if (recentA.length < 5 || recentB.length < 5) {
+      if (recentA.length < 6 || recentB.length < 6) {
         formWarnings.push(
-          "Thin recent history: A " + recentA.length + ", B " + recentB.length +
-          " real matches after cross-source reconciliation."
+          "⚠️ THIN HISTORY — A:" + recentA.length + " B:" + recentB.length +
+          " (need ≥6). Manual check required before trusting auto-fill."
         );
       }
-      if (Math.max(recentA.length, recentB.length) >= 10 &&
-          Math.min(recentA.length, recentB.length) < 5) {
+      if (Math.max(recentA.length, recentB.length) - Math.min(recentA.length, recentB.length) >= 8) {
         formWarnings.push(
-          "Large history disparity detected; form confidence is reduced."
+          "⚠️ LARGE DISPARITY — History gap too wide. Do NOT trust the short side. Manual entry recommended."
+        );
+      }
+      if (Math.min(recentA.length, recentB.length) < 5 && Math.max(recentA.length, recentB.length) >= 12) {
+        formWarnings.push(
+          "⚠️ DANGEROUS CASE (like Lajal-type) — One player has almost no usable history. Clear weak side and fill manually."
         );
       }
 
@@ -7910,7 +7913,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const duplicateAuditB = auditRecentSeries(recentB, playerBId);
       if (duplicateAuditA.length || duplicateAuditB.length) {
         formWarnings.push(
-          "Duplicate metric pattern detected in fetched history; verify source provenance."
+          "⚠️ Duplicate metric pattern detected — possible bad/ghost data. Verify source."
         );
         if (typeof window.engineDebug === "function") {
           window.engineDebug("FORM DATA AUDIT WARNING", {
@@ -8177,7 +8180,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         "Rest: " + formatDaysValue(fatigueA && fatigueA.daysRest) + " / " + formatDaysValue(fatigueB && fatigueB.daysRest)
       ];
       if (formWarnings.length) {
-        statusParts.push("WARNING: " + formWarnings.join(" "));
+        statusParts.push("⚠️ " + formWarnings.join(" | "));
       }
       if (typeof window.engineDebug === "function") {
         window.engineDebug("FORM SOURCE AUDIT", {
@@ -8217,7 +8220,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         }, 250);
       }
       clearHeaderError();
-      setFetchStatus(statusParts.join(" • "), "ok");
+      // Force red status whenever any form warning exists so thin/disparate cases (Vukic-Lajal type) are impossible to miss
+      const statusState = formWarnings.length > 0 || commonRecentCount < 6 ? "err" : "ok";
+      setFetchStatus(statusParts.join(" • "), statusState);
       document.querySelectorAll(".section").forEach(function (section) {
         if (section.id !== "espnSection") {
           section.classList.add("collapsed");
