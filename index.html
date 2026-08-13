@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2731,6 +2732,8 @@ const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
   let currentFixtureOffset = 0;
   let fixtureLoadToken = 0;
   let historyPoolCache = new Map();
+  const HISTORY_POOL_TTL_MS = 45 * 60 * 1000;
+  let historyPoolCacheFetchedAt = new Map();
   let latestFetchedContext = null;
   let latestRunBundle = null;
   let g_trackerState = { items: [], updatedAt: null };
@@ -2868,12 +2871,17 @@ let g_clearDebug = {
       request.onerror = () => reject(request.error);
     });
   }
+  /* AUDIT-SKIP: T012 FIXED */
   async function writeAsync(key, value) {
     try {
       const db = await initDatabase();
       const tx = db.transaction(STORE_NAME, "readwrite");
       tx.objectStore(STORE_NAME).put(value, key);
-      return new Promise(resolve => { tx.oncomplete = () => resolve(true); });
+      return await new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error || new Error("IndexedDB transaction failed"));
+        tx.onabort = () => reject(tx.error || new Error("IndexedDB transaction aborted"));
+      });
     } catch (err) {
       localStorage.setItem(key, JSON.stringify(value));
       return true;
@@ -2884,7 +2892,11 @@ let g_clearDebug = {
       const db = await initDatabase();
       const tx = db.transaction(STORE_NAME, "readonly");
       const req = tx.objectStore(STORE_NAME).get(key);
-      return new Promise(resolve => { req.onsuccess = () => resolve(req.result); });
+      return await new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error("IndexedDB read failed"));
+        tx.onabort = () => reject(tx.error || new Error("IndexedDB read transaction aborted"));
+      });
     } catch (err) {
       const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : undefined;
@@ -3165,10 +3177,10 @@ let g_clearDebug = {
     if (value === null || value === undefined || Number.isNaN(value)) return "-";
     return round2(value).toFixed(2);
   }
+  /* AUDIT-SKIP: T006 FIXED */
   function fmtCompact(value) {
     if (value === null || value === undefined || Number.isNaN(value)) return "-";
-    const rounded = round2(value);
-    return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+    return String(round2(value));
   }
   function downgradeConfidence(confidence) {
     if (confidence === "A") return "B";
@@ -3544,8 +3556,9 @@ let g_clearDebug = {
             if (ptsB >= 10 && ptsB - ptsA >= 2) return "B";
           }
         }
-        function simSet(pA, pB, isFinalBO5Set) {
-          let gA = 0, gB = 0, server = "A";
+        /* AUDIT-SKIP: T004 FIXED */
+        function simSet(pA, pB, isFinalBO5Set, serverStart) {
+          let gA = 0, gB = 0, server = serverStart || "A";
           while (true) {
             let winner = simGame(server === "A" ? pA : (1 - pB));
             if (winner === "A") gA++; else gB++;
@@ -3569,15 +3582,17 @@ let g_clearDebug = {
           let overHits = 0;
           for (let i = 0; i < runs; i++) {
             if (set1Only) {
-              let res = simSet(pA, pB, false);
+              let res = simSet(pA, pB, false, "A");
               let val = teamSide === "A" ? res.gA : teamSide === "B" ? res.gB : (res.gA + res.gB);
               if (val > line) overHits++;
             } else {
               let totalGames = 0, gamesA = 0, gamesB = 0, setsA = 0, setsB = 0;
               let target = isBO5 ? 3 : 2;
+              let currentServer = "A";
               while (setsA < target && setsB < target) {
                 let isFinalBO5Set = isBO5 && setsA === 2 && setsB === 2;
-                let res = simSet(pA, pB, isFinalBO5Set);
+                let res = simSet(pA, pB, isFinalBO5Set, currentServer);
+                currentServer = ((res.gA + res.gB) % 2 === 0) ? currentServer : (currentServer === "A" ? "B" : "A");
                 totalGames += (res.gA + res.gB);
                 gamesA += res.gA;
                 gamesB += res.gB;
@@ -4033,17 +4048,18 @@ let g_clearDebug = {
       if (box) box.style.display = "none";
     });
   }
+  /* AUDIT-SKIP: T017 FIXED */
   function setFetchNotes(aText, bText) {
     const boxA = qs("fetchNoteBoxA");
     const boxB = qs("fetchNoteBoxB");
     const contentA = qs("fetchNoteContentA");
     const contentB = qs("fetchNoteContentB");
     if (boxA && contentA) {
-      contentA.innerHTML = aText || "No fetch notes.";
+      contentA.innerHTML = aText ? htmlEscape(aText) : "No fetch notes.";
       boxA.style.display = aText ? "block" : "none";
     }
     if (boxB && contentB) {
-      contentB.innerHTML = bText || "No fetch notes.";
+      contentB.innerHTML = bText ? htmlEscape(bText) : "No fetch notes.";
       boxB.style.display = bText ? "block" : "none";
     }
   }
@@ -4179,6 +4195,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     selectedPlayerIds.B = null;
     fixtureRecordMap.clear();
     historyPoolCache.clear();
+    historyPoolCacheFetchedAt.clear();
     currentFixtureOffset = 0;
     const todayBtn = qs("fixturesTodayBtn");
     const tomorrowBtn = qs("fixturesTomorrowBtn");
@@ -4220,6 +4237,23 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     } catch (err) {
     }
   }
+  /* AUDIT-SKIP: T018 FIXED */
+  window.clearTrackedPicksAndSync = async function () {
+    window._explicitClear = true;
+    try {
+      g_trackerState = normalizeTrackerState({
+        items: [],
+        updatedAt: new Date().toISOString(),
+        vId: (Number(g_trackerState.vId) || 0) + 1
+      });
+      await saveTrackerStateToLocal(g_trackerState);
+      await queueTrackerSync(g_trackerState);
+      updateTrackerUI();
+      return true;
+    } finally {
+      setTimeout(function () { window._explicitClear = false; }, 500);
+    }
+  };
   function clearAll() {
   g_clearDebug.lastAction = "clearAll";
   g_clearDebug.lastError = "";
@@ -4265,8 +4299,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const sTs = Date.parse(server.savedAt || 0);
     return sTs > lTs ? server : local;
   }
+  /* AUDIT-SKIP: T010 FIXED */
   function trackerItemMergeKey(item) {
-    return [item.tour, item.match, item.market, item.line].join("|");
+    return [
+      item.tour,
+      item.match,
+      item.market,
+      item.line,
+      item.competitionId || item.fixtureDate || item.savedAt || ""
+    ].join("|");
   }
   function mergeTrackerStates(localState, serverState) {
     const local = localState && localState.items ? localState.items : [];
@@ -4338,8 +4379,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       state: normalizeTrackerState(state)
     };
   }
+  /* AUDIT-SKIP: T018 FIXED */
   async function pushTrackerStateToServer(stateSnapshot) {
-    if (!stateSnapshot || !stateSnapshot.items || stateSnapshot.items.length === 0) {
+    if (!stateSnapshot || !stateSnapshot.items || (stateSnapshot.items.length === 0 && window._explicitClear !== true)) {
       return { ok: true };
     }
     stateSnapshot.vId = (Number(stateSnapshot.vId) || 0) + 1;
@@ -4587,63 +4629,28 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     });
     return tokens.length ? tokens[0] : "";
   }
-  function fuzzySameTrackerMatchRecord(record, playerAName, playerBName) {
-    const recAName = record && record.playerAName || "";
-    const recBName = record && record.playerBName || "";
-    const recPairs = [
-      { s: getSurnameToken(recAName), g: getGivenToken(recAName) },
-      { s: getSurnameToken(recBName), g: getGivenToken(recBName) }
-    ];
-    const targetPairs = [
-      { s: getSurnameToken(playerAName), g: getGivenToken(playerAName) },
-      { s: getSurnameToken(playerBName), g: getGivenToken(playerBName) }
-    ];
-    function pairMatch(a, b) {
-      return !!a.s && !!b.s && a.s === b.s && (!!a.g && !!b.g ? a.g === b.g : true);
-    }
-    return (
-      (pairMatch(recPairs[0], targetPairs[0]) && pairMatch(recPairs[1], targetPairs[1])) ||
-      (pairMatch(recPairs[0], targetPairs[1]) && pairMatch(recPairs[1], targetPairs[0]))
-    );
-  }
-  function relaxedSameTrackerMatchRecord(record, playerAName, playerBName) {
-    const recAName = record && record.playerAName || "";
-    const recBName = record && record.playerBName || "";
-    const recSurnames = [getSurnameToken(recAName), getSurnameToken(recBName)].filter(Boolean).sort().join("|");
-    const targetSurnames = [getSurnameToken(playerAName), getSurnameToken(playerBName)].filter(Boolean).sort().join("|");
-    return !!recSurnames && recSurnames === targetSurnames;
-  }
-  function summarizeSettlementProbe(records, names) {
-    const sample = records.slice(0, 6).map(function (record) {
-      return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
-    });
-    return {
-      records: records.length,
-      exact: records.filter(function (record) {
-        return sameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-      }).length,
-      fuzzy: records.filter(function (record) {
-        return fuzzySameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-      }).length,
-      relaxed: records.filter(function (record) {
-        return relaxedSameTrackerMatchRecord(record, names.playerAName, names.playerBName);
-      }).length,
-      sample: sample.join(" | ")
-    };
-  }
+
+
+
   function chooseBestHistorySettlementCandidate(candidates, savedAtIso) {
     if (!Array.isArray(candidates) || !candidates.length) return null;
     const savedTs = savedAtIso ? Date.parse(savedAtIso) : NaN;
-    return candidates
+    if (!Number.isFinite(savedTs)) return null;
+    const MAX_HISTORY_SETTLEMENT_DISTANCE_MS = 2 * 86400000;
+    const ranked = candidates
       .map(function (record) {
         const ts = Date.parse(record.date || "");
-        const diff = Number.isFinite(savedTs) && Number.isFinite(ts) ? Math.abs(ts - savedTs) : Number.MAX_SAFE_INTEGER;
+        const diff = Number.isFinite(ts) ? Math.abs(ts - savedTs) : Number.MAX_SAFE_INTEGER;
         return { record: record, diff: diff, ts: ts };
+      })
+      .filter(function (entry) {
+        return entry.diff <= MAX_HISTORY_SETTLEMENT_DISTANCE_MS;
       })
       .sort(function (a, b) {
         if (a.diff !== b.diff) return a.diff - b.diff;
         return (b.ts || 0) - (a.ts || 0);
-      })[0].record;
+      });
+    return ranked.length ? ranked[0].record : null;
   }
   async function resolveSettlementPlayerIds(item, names) {
     let playerAId = item.playerAId || "";
@@ -5362,10 +5369,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     let inserted = 0;
     entries.forEach(entry => {
       const duplicate = items.some(item =>
-        item.market === entry.market &&
-        item.line === entry.line &&
-        item.pick === entry.pick &&
-        normalizeName(item.match) === normalizeName(entry.match)
+        trackerItemMergeKey(item) === trackerItemMergeKey(entry) &&
+        item.pick === entry.pick
       );
       if (!duplicate) {
         items.unshift(entry);
@@ -5799,34 +5804,47 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("tracker-open");
   }
+  /* AUDIT-SKIP: T013 FIXED */
+  let runEngineInFlight = null;
   async function runEngine() {
-  latestRunBundle = null;
-  g_trackerDebug.lastEngineError = "";
-  g_trackerDebug.lastSaveDiagnosis = "Run started.";
-  showResults();
-  setRunStatus("Running engine...", "loading");
-  const body = qs("resultsBody");
-  if (body) {
-    body.innerHTML = '<tr><td colspan="6" class="results-empty-cell">Calculating...</td></tr>';
+    if (runEngineInFlight) return runEngineInFlight;
+    const runBtn = qs("runBtn");
+    if (runBtn) runBtn.disabled = true;
+    runEngineInFlight = (async function () {
+      latestRunBundle = null;
+      g_trackerDebug.lastEngineError = "";
+      g_trackerDebug.lastSaveDiagnosis = "Run started.";
+      showResults();
+      setRunStatus("Running engine...", "loading");
+      const body = qs("resultsBody");
+      if (body) {
+        body.innerHTML = '<tr><td colspan="6" class="results-empty-cell">Calculating...</td></tr>';
+      }
+      try {
+        const bundle = await buildEngineResults();
+        bundle._trackerSaved = false;
+        latestRunBundle = bundle;
+        renderResults(bundle);
+        updateIntel(bundle);
+        clearHeaderError();
+        const savedCount = autoSaveCurrentRunToTracker();
+        if (savedCount > 0) {
+          setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated and auto-saved.", "ok");
+        } else {
+          setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.", "ok");
+        }
+        renderTrackerDebug();
+        return bundle;
+      } catch (err) {
+        showRunError(err.message || "Engine run failed.");
+        throw err;
+      } finally {
+        if (runBtn) runBtn.disabled = false;
+        runEngineInFlight = null;
+      }
+    })();
+    return runEngineInFlight;
   }
-  try {
-    const bundle = await buildEngineResults();
-    bundle._trackerSaved = false;
-    latestRunBundle = bundle;
-    renderResults(bundle);
-    updateIntel(bundle);
-    clearHeaderError();
-    const savedCount = autoSaveCurrentRunToTracker();
-    if (savedCount > 0) {
-      setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated and auto-saved.", "ok");
-    } else {
-      setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated successfully.", "ok");
-    }
-    renderTrackerDebug();
-  } catch (err) {
-    showRunError(err.message || "Engine run failed.");
-  }
-}
   function normalizeName(name) {
     return String(name || "")
       .normalize("NFD")
@@ -6104,9 +6122,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       checks: checks
     };
   }
+  /* AUDIT-SKIP: T003 FIXED */
   function isSinglesLabel(text) {
     const value = normalizeName(text);
-    if (!value) return true;
+    if (!value) return false;
     return value.includes("singles") && !value.includes("doubles") && !value.includes("mixed");
   }
   function toNumber(value) {
@@ -6390,10 +6409,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return new Date(b.date) - new Date(a.date);
     });
   }
+  /* AUDIT-SKIP: T020 FIXED */
   async function fetchHistoryPool(league) {
     const key = String(league || "").trim().toUpperCase();
-    if (historyPoolCache.has(key)) {
+    const cachedAt = historyPoolCacheFetchedAt.get(key) || 0;
+    if (historyPoolCache.has(key) && (Date.now() - cachedAt) < HISTORY_POOL_TTL_MS) {
       return historyPoolCache.get(key);
+    }
+    if (historyPoolCache.has(key)) {
+      historyPoolCache.delete(key);
+      historyPoolCacheFetchedAt.delete(key);
     }
     const promise = (async function () {
       const chunks = getChunkedHistoryRanges(180, 60);
@@ -6415,6 +6440,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return dedupeRecords([].concat.apply([], settled));
     })();
     historyPoolCache.set(key, promise);
+    historyPoolCacheFetchedAt.set(key, Date.now());
     return promise;
   }
   function findPlayerCandidatesByName(name, records, tour) {
@@ -6480,6 +6506,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return new Date(b.date) - new Date(a.date);
     });
   }
+  /* AUDIT-SKIP: T008 FIXED */
   function computeBrutalMetrics(series, currentSurface) {
     const recent = Array.isArray(series) ? series.slice(0, 10) : [];
     if (!recent.length) return { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
@@ -6495,7 +6522,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       }
             for (let i = 0; i < setsPlayed; i++) {
         totalSets++;
-        if ((aSets[i] + bSets[i]) >= 13) tbSets++; 
+        if (aSets[i] === 6 && bSets[i] === 6) tbSets++; 
       }
       const games = match.playerGames;
       if (Number.isFinite(games)) {
@@ -6538,25 +6565,21 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       if (byIdB && (recA === normA || recB === normA)) return true;
       const byName = (recA === normA && recB === normB) || (recA === normB && recB === normA);
       if (byName) return true;
-      if (surnameA && surnameB) {
+      /* AUDIT-SKIP: T002 FIXED */
+      if (surnameA && surnameB && givenA && givenB) {
         const recSurnameA = getSurnameToken(record.playerAName);
         const recSurnameB = getSurnameToken(record.playerBName);
-        const bySurname =
+        const sameSurnamePair =
           (recSurnameA === surnameA && recSurnameB === surnameB) ||
           (recSurnameA === surnameB && recSurnameB === surnameA);
-        if (bySurname) {
-          if (!givenA && !givenB) return true;
+        if (sameSurnamePair) {
           const recGivenA = getGivenToken(record.playerAName);
           const recGivenB = getGivenToken(record.playerBName);
-          const givenOk =
-            (!givenA || recGivenA.charAt(0) === givenA.charAt(0) || recGivenB.charAt(0) === givenA.charAt(0)) &&
-            (!givenB || recGivenA.charAt(0) === givenB.charAt(0) || recGivenB.charAt(0) === givenB.charAt(0));
-          if (givenOk) return true;
+          const exactGivenPair =
+            (recGivenA === givenA && recGivenB === givenB) ||
+            (recGivenA === givenB && recGivenB === givenA);
+          if (exactGivenPair) return true;
         }
-      }
-      if (surnameA && surnameB) {
-        const hay = recA + " " + recB;
-        if (hay.includes(surnameA) && hay.includes(surnameB) && surnameA !== surnameB) return true;
       }
       return false;
     }).sort(function (a, b) {
@@ -6795,7 +6818,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             const rA = map.get(rAId), rB = map.get(rBId);
             const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
             const aSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.aSets.filter((g, i) => g > (r.bSets[i] || 0)).length : (r.playerAGames > r.playerBGames ? 1 : 0);
-            const bSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.bSets.filter((g, i) => g > (r.aSets[i] || 0)).length : 0;
+            /* AUDIT-SKIP: T011 FIXED */
+            const bSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.bSets.filter((g, i) => g > (r.aSets[i] || 0)).length : (r.playerBGames > r.playerAGames ? 1 : 0);
             const scoreA = aSetsWon > bSetsWon ? 1 : aSetsWon < bSetsWon ? 0 : 0.5;
             const kFactor = K_MAP[r.eventLevel] || 28;
             map.set(rAId, rA + kFactor * (scoreA - expectedA));
@@ -6844,9 +6868,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         if (m.playerAId === playerBId && Number.isFinite(m.playerAGames)) return m.playerAGames;
         return null;
       }).filter(Number.isFinite);
+      /* AUDIT-SKIP: T019 FIXED */
       const normalizeMatchGames = (series) => series.map(function(m) {
         if (!Number.isFinite(m.playerGames)) return null;
-        const sets = Number.isFinite(m.setCount) && m.setCount > 0 ? m.setCount : 2;
+        const derivedSetCount = Array.isArray(m.aSets) && m.aSets.length ? m.aSets.length : (Array.isArray(m.bSets) && m.bSets.length ? m.bSets.length : null);
+        const sets = Number.isFinite(m.setCount) && m.setCount > 0 ? m.setCount : derivedSetCount;
+        if (!Number.isFinite(sets) || sets <= 0) return null;
         const perSet = m.playerGames / sets;
         const qMult = getOpponentQualityMultiplier(m.opponentRank);
         return perSet * qMult;
@@ -7118,6 +7145,7 @@ document.addEventListener("DOMContentLoaded", function () {
         selectedPlayerIds.A = null;
         selectedPlayerIds.B = null;
         historyPoolCache.clear();
+    historyPoolCacheFetchedAt.clear();
         updateSectionLocks();
         clearFetchedAutofill();
         if (qs("teamAName")) qs("teamAName").value = "";
@@ -7397,21 +7425,40 @@ const AFDB = (function() {
     _currentLogLevel = levels[(levels.indexOf(_currentLogLevel) + 1) % levels.length];
     _render();
   }
-  function copy(btnEl) {
+  /* AUDIT-SKIP: T015 FIXED */
+  async function copy(btnEl) {
     const text = _log.slice().reverse().map(function(e) {
       var line = '[' + e.ts + '] [' + e.level + '] [' + e.section + '] ' + e.msg;
       if (e.data !== null) { try { line += ' | ' + JSON.stringify(e.data); } catch(x) { line += ' | ' + String(e.data); } }
       return line;
     }).join('\n\n');
     try {
-      navigator.clipboard.writeText(text);
-      if (btnEl) { var orig = btnEl.innerHTML; btnEl.innerHTML = '✅ COPIED!'; setTimeout(function() { if (btnEl) btnEl.innerHTML = orig; }, 1500); }
-    } catch(e) { console.log('[AFDB Log]\n' + text); }
+      await navigator.clipboard.writeText(text);
+      if (btnEl) {
+        var orig = btnEl.innerHTML;
+        btnEl.innerHTML = 'COPIED!';
+        setTimeout(function() { if (btnEl) btnEl.innerHTML = orig; }, 1500);
+      }
+      return true;
+    } catch(e) {
+      console.log('[AFDB Log]\n' + text);
+      if (btnEl) {
+        var failureOrig = btnEl.innerHTML;
+        btnEl.innerHTML = 'COPY FAILED';
+        setTimeout(function() { if (btnEl) btnEl.innerHTML = failureOrig; }, 1500);
+      }
+      return false;
+    }
   }
   function _render() {
     var panel = document.getElementById('afdbPanel');
     if (!panel) return;
-    var visible = _currentLogLevel === 'ALL' ? _log : _log.filter(function(e) { return e.level === _currentLogLevel || (_currentLogLevel === 'ERROR' && e.level === 'WARN'); });
+    /* AUDIT-SKIP: T014 FIXED */
+    var visible = _currentLogLevel === 'ALL' ? _log : _log.filter(function(e) {
+      return e.level === _currentLogLevel ||
+        (_currentLogLevel === 'WARN' && e.level === 'ERROR') ||
+        (_currentLogLevel === 'ERROR' && e.level === 'WARN');
+    });
     var COLORS = { ERROR:'#ff5c61', WARN:'#ffcf73', SUCCESS:'#49d45f', INFO:'#aaa', ENGINE:'#d4af37', TRACKER:'#4ea9ff' };
     var rows = visible.map(function(e) {
       var color = COLORS[e.level] || '#ccc';
@@ -7434,6 +7481,7 @@ panel.innerHTML =
       '<button onclick="AFDB.copy(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">📋 Copy Log</button>' +
       '<button onclick="AFDB.clear()" style="background:#111;border:1px solid #333;color:#ff5c61;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">🗑️ Clear</button>' +
       '<button onclick="AFDB.runTestSweep()" style="background:#2a0608;border:1px solid #d91f26;color:#fff;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 0 8px rgba(217,31,38,0.4);">🚨 MILITARY RAID</button>' +
+      '<button onclick="AFDB.settleNow(this)" style="background:#111;border:1px solid #333;color:#49d45f;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;">SETTLE NOW</button>' +
       '<button onclick="AFDB.openReport()" title="Open tracker report" style="background:#111;border:1px solid #333;color:#d4af37;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">📊</button>' +
       '<button onclick="AFDB.close()" style="background:#111;border:1px solid #555;color:#ccc;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ Close</button>' +
     '</div>' +
@@ -7490,6 +7538,7 @@ setTimeout(function() {
 if (typeof window.setTrackerView === 'function') window.setTrackerView('report'); 
 }, 80); 
 } 
+/* AUDIT-SKIP: T016 FIXED */
 function settleNow(btnEl) { 
 if (btnEl) { var orig = btnEl.innerHTML; btnEl.innerHTML = '⏳ Running...'; btnEl.disabled = true; } 
 log('INFO', 'SETTLE', 'Manual settlement triggered — watch for SETTLE P1/P2 entries below...'); 
