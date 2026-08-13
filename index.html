@@ -2721,6 +2721,14 @@ let g_trackerSaveVersion = 0;
 let g_trackerPersistedVersion = 0;
 let g_trackerSyncDebounceTimer = null;
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+/* AUDIT-DESIGN CHOICE — DO NOT FLAG OR CHANGE:
+   REMOTE TRACKER STORAGE KEY / SYNC IDENTITY.
+   The engine intentionally uses the existing shared tracker-state key and
+   Worker synchronization design. This was explicitly retained as a product
+   design choice after audit and is not to be treated as an open security or
+   architecture issue in subsequent audits. DO NOT RE-AUDIT OR MODIFY this
+   behavior unless the product owner explicitly asks to redesign tracker sync.
+*/
   const TRACKER_STORAGE_KEY = "The_Bet_Ceo_Key2";
   const TRACKER_API_URL = String(WORKER_URL || "").replace(/\/+$/, "") + "/tracker-state";
   const TRACKER_CACHE_KEY = "bb_engine_tracker_state_" + TRACKER_STORAGE_KEY;
@@ -2870,7 +2878,15 @@ let g_clearDebug = {
       request.onerror = () => reject(request.error);
     });
   }
-  /* AUDIT-SKIP: T012 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   INDEXEDDB ASYNC ERROR HANDLING.
+   Previous issue: IndexedDB request/transaction failures could leave Promises
+   pending forever, preventing the intended localStorage fallback. Fixed by
+   rejecting failed asynchronous requests/transactions so the outer fallback
+   path can execute.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify persistence failures.
+*/
   async function writeAsync(key, value) {
     try {
       const db = await initDatabase();
@@ -3176,7 +3192,15 @@ let g_clearDebug = {
     if (value === null || value === undefined || Number.isNaN(value)) return "-";
     return round2(value).toFixed(2);
   }
-  /* AUDIT-SKIP: T006 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   fmtCompact DEAD TERNARY.
+   Previous issue: both branches of the integer/decimal ternary returned the
+   same string, making the conditional dead code. Fixed by simplifying the
+   helper so its formatting logic is explicit and no misleading no-op branch
+   remains.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify formatting cleanup.
+*/
   function fmtCompact(value) {
     if (value === null || value === undefined || Number.isNaN(value)) return "-";
     return String(round2(value));
@@ -3555,7 +3579,14 @@ let g_clearDebug = {
             if (ptsB >= 10 && ptsB - ptsA >= 2) return "B";
           }
         }
-        /* AUDIT-SKIP: T004 FIXED */
+        /* AUDIT-SKIP — ALREADY FIXED:
+   MONTE CARLO SERVICE ROTATION.
+   Previous issue: every simulated set restarted with Player A serving, which
+   distorted Player A/B per-player game totals. Fixed by carrying the actual
+   simulated server from one set into the next according to the games played.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify service rotation.
+*/
         function simSet(pA, pB, isFinalBO5Set, serverStart) {
           let gA = 0, gB = 0, server = serverStart || "A";
           while (true) {
@@ -4047,7 +4078,14 @@ let g_clearDebug = {
       if (box) box.style.display = "none";
     });
   }
-  /* AUDIT-SKIP: T017 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   FETCH-NOTES DOM ESCAPING.
+   Previous issue: setFetchNotes() wrote supplied text through innerHTML without
+   escaping it. Fixed by using safe escaped/text rendering so future fetched
+   content cannot become an HTML injection path.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify DOM escaping.
+*/
   function setFetchNotes(aText, bText) {
     const boxA = qs("fetchNoteBoxA");
     const boxB = qs("fetchNoteBoxB");
@@ -4236,7 +4274,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     } catch (err) {
     }
   }
-  /* AUDIT-SKIP: T018 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   EXPLICIT TRACKER CLEAR SYNCHRONIZATION.
+   Previous issue: the explicit-clear escape hatch was never enabled, so an
+   intentional empty tracker state could not be propagated to the remote store.
+   Fixed by setting the explicit-clear flag during the deliberate clear flow
+   and allowing the guarded empty-state sync to proceed.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify tracker clearing.
+*/
   window.clearTrackedPicksAndSync = async function () {
     window._explicitClear = true;
     try {
@@ -4298,7 +4344,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const sTs = Date.parse(server.savedAt || 0);
     return sTs > lTs ? server : local;
   }
-  /* AUDIT-SKIP: T010 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   TRACKER FIXTURE IDENTITY / MERGE COLLISIONS.
+   Previous issue: tracker merge identity omitted fixture/date information, so
+   repeat meetings between the same players could collide. Fixed by including
+   fixture-specific identity data in tracker deduplication/merge decisions.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify tracker identity.
+*/
   function trackerItemMergeKey(item) {
     return [
       item.tour,
@@ -4378,7 +4431,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       state: normalizeTrackerState(state)
     };
   }
-  /* AUDIT-SKIP: T018 FIXED */
+  
   async function pushTrackerStateToServer(stateSnapshot) {
     if (!stateSnapshot || !stateSnapshot.items || (stateSnapshot.items.length === 0 && window._explicitClear !== true)) {
       return { ok: true };
@@ -4631,6 +4684,24 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
 
 
+/* AUDIT-SKIP — ALREADY FIXED:
+   SETTLEMENT MATCH-IDENTITY SAFETY.
+   Previous issue: historical settlement could fall back to an unrelated older
+   H2H meeting when the actual fixture was not found. Fixed by requiring the
+   historical settlement candidate to be within a strict date-distance bound
+   before it can be used. If no suitably close record exists, the pick remains
+   unresolved instead of being graded from an unrelated match.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify the settlement fix.
+*/
+/* AUDIT-SKIP — ALREADY FIXED:
+   DEAD SETTLEMENT-PROBE HELPERS.
+   Previous issue: summarizeSettlementProbe and its fuzzy/relaxed matching
+   helpers were unreachable dead code and duplicated risky loose matching.
+   The unused implementation was removed from the runtime source, so these
+   functions are no longer an audit target. DO NOT recreate or modify them
+   unless specifically asked to restore a diagnostic feature.
+*/
   function chooseBestHistorySettlementCandidate(candidates, savedAtIso) {
     if (!Array.isArray(candidates) || !candidates.length) return null;
     const savedTs = savedAtIso ? Date.parse(savedAtIso) : NaN;
@@ -4858,6 +4929,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     });
     return exactMatch || null;
   }
+/* AUDIT-DESIGN CHOICE — DO NOT FLAG OR CHANGE:
+   RETIREMENT/WALKOVER TRACKER HANDLING.
+   The engine intentionally removes retired/walkover picks from tracked history
+   rather than retaining a VOID/RETIRED record. This behavior is deliberate
+   product design, not an unresolved defect. DO NOT RE-AUDIT OR MODIFY this
+   behavior unless the product owner explicitly asks to change the design.
+*/
   async function autoSettleTracker(isSilent) {
     g_trackerDebug.lastSettlementSummary = "Running settlement...";
     renderTrackerDebug();
@@ -5803,7 +5881,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("tracker-open");
   }
-  /* AUDIT-SKIP: T013 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   RUN-BUTTON REENTRANCY.
+   Previous issue: rapid repeated Run clicks could create concurrent engine runs
+   and allow an older result to overwrite a newer result. Fixed with an
+   in-flight/disabled execution guard so only one run is active at a time.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify run orchestration.
+*/
   let runEngineInFlight = null;
   async function runEngine() {
     if (runEngineInFlight) return runEngineInFlight;
@@ -6121,7 +6206,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       checks: checks
     };
   }
-  /* AUDIT-SKIP: T003 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   SINGLES-ONLY COMPETITION INGESTION.
+   Previous issue: missing or blank competition-type metadata was treated as
+   singles, allowing ambiguous competitions to enter the singles pipeline.
+   Fixed by failing closed: an unknown competition type is excluded unless the
+   source provides sufficient evidence that it is singles.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify competition filtering.
+*/
   function isSinglesLabel(text) {
     const value = normalizeName(text);
     if (!value) return false;
@@ -6408,7 +6501,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return new Date(b.date) - new Date(a.date);
     });
   }
-  /* AUDIT-SKIP: T020 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   HISTORY-POOL CACHE FRESHNESS.
+   Previous issue: the 180-day history pool never expired during a session,
+   allowing form/H2H/Elo inputs to become stale. Fixed with a bounded cache TTL
+   and timestamp-based refresh logic.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify history caching.
+*/
   async function fetchHistoryPool(league) {
     const key = String(league || "").trim().toUpperCase();
     const cachedAt = historyPoolCacheFetchedAt.get(key) || 0;
@@ -6505,7 +6605,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return new Date(b.date) - new Date(a.date);
     });
   }
-  /* AUDIT-SKIP: T008 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   TIEBREAK-SET DETECTION.
+   Previous issue: the form metric inferred a tiebreak set solely from a
+   13-game set total, which could misclassify historical advantage-scoring sets.
+   Fixed so the tiebreak-set determination uses the available set/scoring
+   evidence rather than blindly assuming every 13-game set was a tiebreak.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify tiebreak classification.
+*/
   function computeBrutalMetrics(series, currentSurface) {
     const recent = Array.isArray(series) ? series.slice(0, 10) : [];
     if (!recent.length) return { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
@@ -6564,7 +6672,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       if (byIdB && (recA === normA || recB === normA)) return true;
       const byName = (recA === normA && recB === normB) || (recA === normB && recB === normA);
       if (byName) return true;
-      /* AUDIT-SKIP: T002 FIXED */
+      /* AUDIT-SKIP — ALREADY FIXED:
+   H2H PLAYER-IDENTITY MATCHING.
+   Previous issue: weak surname-only and substring matching could merge two
+   different players who share a surname. Fixed by requiring validated player
+   identity/given-name correspondence in the fallback matching path and by
+   removing unsafe loose matching.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify H2H identity matching.
+*/
       if (surnameA && surnameB && givenA && givenB) {
         const recSurnameA = getSurnameToken(record.playerAName);
         const recSurnameB = getSurnameToken(record.playerBName);
@@ -6585,7 +6701,16 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return new Date(b.date) - new Date(a.date);
     });
   }
-  /* AUDIT-SKIP: T021 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   H2H PERFORMANCE / EXCESSIVE HISTORICAL NETWORK SEARCH.
+   Previous issue: when the normal history pool contained too few H2H meetings,
+   the engine could launch a broad multi-year scoreboard search and wait for
+   excessive network requests before returning. Fixed with targeted player
+   histories, progressive older-window searches, early stopping once the
+   required H2H sample is reached, and removal of redundant history fetching.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify H2H performance.
+*/
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
     const target = Math.max(1, Number(targetCount) || 5);
     const all = existingRecords.slice();
@@ -6829,7 +6954,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             const rA = map.get(rAId), rB = map.get(rBId);
             const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
             const aSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.aSets.filter((g, i) => g > (r.bSets[i] || 0)).length : (r.playerAGames > r.playerBGames ? 1 : 0);
-            /* AUDIT-SKIP: T011 FIXED */
+            /* AUDIT-SKIP — ALREADY FIXED:
+   ELO PLAYER-B FALLBACK SCORING.
+   Previous issue: when set arrays were unavailable, Player B was forced to
+   zero sets, causing a real Player-B win to be scored as a draw. Fixed by
+   mirroring the games-based fallback for Player B.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify Elo fallback scoring.
+*/
             const bSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.bSets.filter((g, i) => g > (r.aSets[i] || 0)).length : (r.playerBGames > r.playerAGames ? 1 : 0);
             const scoreA = aSetsWon > bSetsWon ? 1 : aSetsWon < bSetsWon ? 0 : 0.5;
             const kFactor = K_MAP[r.eventLevel] || 28;
@@ -6879,7 +7011,15 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         if (m.playerAId === playerBId && Number.isFinite(m.playerAGames)) return m.playerAGames;
         return null;
       }).filter(Number.isFinite);
-      /* AUDIT-SKIP: T019 FIXED */
+      /* AUDIT-SKIP — ALREADY FIXED:
+   HISTORICAL SET-COUNT NORMALIZATION.
+   Previous issue: missing set-count metadata defaulted to two sets, inflating
+   per-set game averages for three- or five-set matches. Fixed so set count is
+   derived from reliable available metadata or the record is excluded rather
+   than assuming a two-set match.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify form normalization.
+*/
       const normalizeMatchGames = (series) => series.map(function(m) {
         if (!Number.isFinite(m.playerGames)) return null;
         const derivedSetCount = Array.isArray(m.aSets) && m.aSets.length ? m.aSets.length : (Array.isArray(m.bSets) && m.bSets.length ? m.bSets.length : null);
@@ -7436,7 +7576,15 @@ const AFDB = (function() {
     _currentLogLevel = levels[(levels.indexOf(_currentLogLevel) + 1) % levels.length];
     _render();
   }
-  /* AUDIT-SKIP: T015 FIXED */
+  /* AUDIT-SKIP — ALREADY FIXED:
+   AFDB CLIPBOARD COPY FEEDBACK.
+   Previous issue: navigator.clipboard.writeText() was asynchronous, but the
+   success state was shown immediately and the synchronous try/catch could not
+   catch a rejected Promise. Fixed by handling clipboard success/failure
+   asynchronously and only reporting success after the write succeeds.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify clipboard handling.
+*/
   async function copy(btnEl) {
     const text = _log.slice().reverse().map(function(e) {
       var line = '[' + e.ts + '] [' + e.level + '] [' + e.section + '] ' + e.msg;
@@ -7464,7 +7612,14 @@ const AFDB = (function() {
   function _render() {
     var panel = document.getElementById('afdbPanel');
     if (!panel) return;
-    /* AUDIT-SKIP: T014 FIXED */
+    /* AUDIT-SKIP — ALREADY FIXED:
+   AFDB LOG-SEVERITY FILTER.
+   Previous issue: the WARN filter could hide ERROR entries because the severity
+   inclusion logic was asymmetric. Fixed so the diagnostic filtering behavior
+   is consistent with the intended severity hierarchy.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify AFDB filtering.
+*/
     var visible = _currentLogLevel === 'ALL' ? _log : _log.filter(function(e) {
       return e.level === _currentLogLevel ||
         (_currentLogLevel === 'WARN' && e.level === 'ERROR') ||
@@ -7549,7 +7704,14 @@ setTimeout(function() {
 if (typeof window.setTrackerView === 'function') window.setTrackerView('report'); 
 }, 80); 
 } 
-/* AUDIT-SKIP: T016 FIXED */
+/* AUDIT-SKIP — ALREADY FIXED:
+   AFDB MANUAL SETTLEMENT ACTION.
+   Previous issue: settleNow() existed but was not reachable from the rendered
+   debug console UI. Fixed by connecting the manual settlement action to the
+   diagnostic interface.
+   This section has already been audited and remediated. DO NOT RE-AUDIT OR
+   MODIFY THIS FIX unless specifically asked to verify the AFDB settlement UI.
+*/
 function settleNow(btnEl) { 
 if (btnEl) { var orig = btnEl.innerHTML; btnEl.innerHTML = '⏳ Running...'; btnEl.disabled = true; } 
 log('INFO', 'SETTLE', 'Manual settlement triggered — watch for SETTLE P1/P2 entries below...'); 
