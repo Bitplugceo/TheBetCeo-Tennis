@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7250,9 +7251,18 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       // hydrate the old 180-day history pool just to rediscover those IDs.
       let playerAId = selectedPlayerIds.A;
       let playerBId = selectedPlayerIds.B;
+      // SCOPE FIX: hoist `records` to the outer function scope. Previously it
+      // was `const`-declared only inside this if-block, so the fast path
+      // (IDs already known from a picked fixture) skipped the block entirely
+      // and left `records` undefined — causing a ReferenceError later at
+      // `records.concat(...)` in the H2H step and crashing every fast-path
+      // fetch. Defaulting to [] here preserves the "no unnecessary 180-day
+      // pool download when players are already known" behavior while making
+      // the fast path actually work instead of throwing.
+      let records = [];
       if (!playerAId || !playerBId) {
         setFetchStatus("Resolving ESPN player IDs...", "loading");
-        const records = await fetchHistoryPool(league);
+        records = await fetchHistoryPool(league);
         if (myToken !== espnFetchToken) return; 
         if (!records.length) {
           throw new Error("No completed singles results were returned from ESPN.");
