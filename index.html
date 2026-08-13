@@ -1,3 +1,4 @@
+z
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8197,27 +8198,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           commonRecentCount: commonRecentCount,
           warnings: formWarnings
         });
-      }
-      /* FORENSIC EXPORT — diagnostic only.
-         The prior build stored the forensic trace in window memory and exposed
-         a console function, which is inconvenient on iPhone/Safari. Export it
-         automatically after the successful history/form audit so the user gets
-         the actual forensic evidence file without opening developer tools.
-      */
-      if (!window.__FORENSIC_AUTOEXPORTED__) {
-        window.__FORENSIC_AUTOEXPORTED__ = true;
-        forensicTrace("FORENSIC_TRACE_EXPORT_TRIGGER", {
-          playerA: { athleteId: playerAId, name: playerAName },
-          playerB: { athleteId: playerBId, name: playerBName },
-          commonRecentCount: commonRecentCount,
-          playerAHistoryCount: (reconciledA.records || []).length,
-          playerBHistoryCount: (reconciledB.records || []).length
-        });
-        setTimeout(function() {
-          try { window.downloadForensicTrace(); } catch (exportErr) {
-            try { console.error("[FORENSIC] AUTO EXPORT FAILED", exportErr); } catch (e) {}
-          }
-        }, 250);
       }
       clearHeaderError();
       // Force red status whenever any form warning exists so thin/disparate cases (Vukic-Lajal type) are impossible to miss
