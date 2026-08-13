@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6256,17 +6257,49 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return await fetchJson(url, timeoutMs || 12000, Object.assign({}, meta, { transport: "direct-fallback" }));
     }
   }
-  async function fetchTennisScoreboard(league, datesQuery) {
+  async function fetchTennisScoreboard(league, datesQuery, forensicMeta) {
     const urls = getTennisBaseCandidates(league).map(function (base) {
       return base + "/scoreboard?region=us&lang=en&limit=1000&dates=" + encodeURIComponent(datesQuery);
     });
     let lastErr = null;
     for (const url of urls) {
       try {
-        const payload = await proxyFetch(url, 12000);
+        const meta = Object.assign({
+          tier: "scoreboard",
+          endpointPurpose: "scoreboard",
+          playerId: "",
+          dateRange: datesQuery || ""
+        }, forensicMeta || {}, { dateRange: datesQuery || "" });
+        forensicTrace("HISTORY_HTTP_REQUEST", {
+          player: meta.playerId || "",
+          playerId: meta.playerId || "",
+          tier: meta.tier || "scoreboard",
+          endpointPurpose: meta.endpointPurpose || "scoreboard",
+          fullUrl: url,
+          dateRange: datesQuery || ""
+        });
+        const payload = await proxyFetch(url, 12000, meta);
+        forensicTrace("HISTORY_HTTP_RESPONSE", {
+          player: meta.playerId || "",
+          playerId: meta.playerId || "",
+          tier: meta.tier || "scoreboard",
+          fullUrl: url,
+          dateRange: datesQuery || "",
+          status: 200,
+          success: !!payload,
+          rawEventCount: Array.isArray(payload && payload.events) ? payload.events.length : null
+        });
         if (payload && Array.isArray(payload.events)) return payload;
       } catch (err) {
         lastErr = err;
+        forensicTrace("HISTORY_HTTP_ERROR", {
+          player: forensicMeta && forensicMeta.playerId ? forensicMeta.playerId : "",
+          playerId: forensicMeta && forensicMeta.playerId ? forensicMeta.playerId : "",
+          tier: forensicMeta && forensicMeta.tier ? forensicMeta.tier : "scoreboard",
+          fullUrl: url,
+          dateRange: datesQuery || "",
+          error: err && err.message ? err.message : String(err)
+        });
       }
     }
     throw lastErr || new Error("Unable to load ESPN tennis scoreboard data.");
@@ -6589,6 +6622,19 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const checks = [];
     const tasks = [];
 
+    ranges.forEach(function (datesQuery) {
+      forensicTrace("DATE_WINDOW_GENERATED", {
+        player: athleteId,
+        playerId: athleteId,
+        tier: "targeted-scoreboard",
+        windowStart: String(datesQuery).split("-")[0] || "",
+        windowEnd: String(datesQuery).split("-").slice(1).join("-") || "",
+        dateRange: datesQuery,
+        cutoffIso: cutoffIso || "",
+        purpose: "recent-history-targeted-scoreboard"
+      });
+    });
+
     candidates.forEach(function (candidate) {
       ranges.forEach(function (datesQuery) {
         tasks.push({ candidate: candidate, datesQuery: datesQuery });
@@ -6597,7 +6643,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
     const settled = await Promise.all(tasks.map(async function (task) {
       try {
-        const payload = await fetchTennisScoreboard(task.candidate, task.datesQuery);
+        const payload = await fetchTennisScoreboard(task.candidate, task.datesQuery, {
+          tier: "targeted-scoreboard",
+          endpointPurpose: "targeted-scoreboard-history",
+          playerId: athleteId
+        });
         const extractedScoreboard = extractCompetitionRecords(payload);
         forensicTrace("RAW_ENDPOINT_RESULT", {
           player: athleteId,
