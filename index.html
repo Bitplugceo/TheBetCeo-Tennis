@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6224,32 +6225,22 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     // omit Challenger and qualifying matches that are still valid recent form.
     if (slug === "atp" || slug === "wta") add("all");
     add(slug);
+    // AUDIT-FIX — REMOVED DEAD CANDIDATES, CONFIRMED VIA LIVE DIAGNOSTIC LOG:
+    // wta-125, wta-challenger, wta-itf, itf-women, and itf all returned
+    // "Load failed" on every single date chunk for both a WTA-64 and a
+    // WTA-256 player — i.e. none of these are valid ESPN league identifiers.
+    // Worse, directly querying the two scopes that DO work (all, wta) for the
+    // exact window containing a player's 3 most recent real matches (all from
+    // a W100 ITF event) returned only a stale, already-captured duplicate —
+    // those 3 matches are not retrievable from ESPN's tennis scoreboard API
+    // under any scope tried. This is a genuine ESPN data-coverage ceiling for
+    // ITF-tier events, not a query/slug-naming bug, so no candidate string
+    // added here will recover it. atp-challenger is left in place below
+    // because it hasn't been diagnostically confirmed dead the way the WTA
+    // equivalents were — verify it the same way (log its checks/error entries)
+    // before trusting it either.
     if (slug === "atp") {
       add("atp-challenger");
-    } else if (slug === "wta") {
-      add("wta-125");
-      add("wta-challenger");
-    }
-    // AUDIT-FIX — MISSING ITF WORLD TENNIS TOUR SCOPE:
-    // Players outside roughly the top 150-200 (either tour) play a large share
-    // of their recent matches at ITF $15k-$100k events. None of the scopes
-    // above cover that tier, so their most recent real results were silently
-    // dropped — confirmed live: a player's 3 most recent matches (all from a
-    // W100 ITF event) were missing, making the engine treat a 16-day-old
-    // result as her latest when a 5-day-old one existed. Each candidate below
-    // is queried independently and already fails silently (see
-    // fetchTargetedScoreboardHistory's try/catch), so adding slugs ESPN
-    // doesn't actually expose is harmless — they simply contribute zero
-    // records instead of breaking the fetch. Verify the exact slug(s) ESPN
-    // serves and prune any that never return data.
-    if (slug === "atp") {
-      add("atp-itf");
-      add("itf-men");
-      add("itf");
-    } else if (slug === "wta") {
-      add("wta-itf");
-      add("itf-women");
-      add("itf");
     }
     return candidates;
   }
@@ -7238,8 +7229,13 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       // from the user instead of surfacing it.
       const largerRawCount = Math.max(recentA.length, recentB.length);
       const smallerRawCount = Math.min(recentA.length, recentB.length);
+      // AUDIT-FIX: confirmed via live diagnostics that a large A/B imbalance
+      // like this is typically not a thin sample but an ESPN coverage gap
+      // (ITF-tier matches absent from every scope the fetch can query). Say
+      // that plainly instead of the softer "may be incomplete" phrasing,
+      // since it's understating a structural ceiling as a sample-size quirk.
       const sampleImbalanceWarning = (smallerRawCount > 0 && largerRawCount / smallerRawCount >= 3 && (largerRawCount - smallerRawCount) >= 5)
-        ? (" ⚠ Sample imbalance: A " + recentA.length + " vs B " + recentB.length + " real matches found — smaller side may be incomplete.")
+        ? (" ⚠ ESPN coverage gap likely: A " + recentA.length + " vs B " + recentB.length + " real matches found — the smaller side's true recent form is probably missing lower-tier (e.g. ITF) results ESPN doesn't carry, not just a small sample.")
         : "";
       const recentAWindow = recentA.slice(0, commonRecentCount);
       const recentBWindow = recentB.slice(0, commonRecentCount);
