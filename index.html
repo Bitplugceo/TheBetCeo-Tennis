@@ -1,4 +1,3 @@
-J
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7147,6 +7146,19 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         fetchPlayerHistorySettlementRecords(league, playerBId, historyCutoff)
       ]);
       if (myToken !== espnFetchToken) return;
+
+      // AUDIT-FIX — FETCH-SOURCE DIAGNOSTICS:
+      // playerAHistory.checks / playerBHistory.checks already contain a
+      // per-candidate-slug, per-date-range hit count from every tier that was
+      // queried, but it was being discarded instead of surfaced. Without this,
+      // "the ITF-scope fix isn't deployed" and "ESPN has zero records under
+      // any ITF slug" look identical from the outside — both show the same
+      // (unchanged) fetched numbers. Log it into the existing 🔬 Debug Brain
+      // panel (AFDB) so the real cause is visible instead of guessed at.
+      if (typeof window.engineDebug === "function") {
+        window.engineDebug("Player A history source breakdown", playerAHistory.checks || []);
+        window.engineDebug("Player B history source breakdown", playerBHistory.checks || []);
+      }
 
       // AUDIT-FIX — DUPLICATE-SIGNATURE GUARD:
       // Two genuinely different real matches cannot share the same opponent,
