@@ -1,4 +1,3 @@
-D
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6020,9 +6019,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   async function proxyFetch(url, timeoutMs) {
     const encoded = WORKER_URL.replace(/\/+$/, "") + "/?url=" + encodeURIComponent(url);
     try {
-      return await fetchJson(encoded, timeoutMs || 12000);
+      return await fetchJson(encoded, timeoutMs || 5000);
     } catch (workerErr) {
-      return await fetchJson(url, timeoutMs || 12000);
+      return await fetchJson(url, timeoutMs || 5000);
     }
   }
   // Share completed/in-flight ESPN scoreboard requests between Player A,
@@ -6041,7 +6040,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       let lastErr = null;
       for (const url of urls) {
         try {
-          const payload = await proxyFetch(url, 12000);
+          const payload = await proxyFetch(url, 5000);
           if (payload && Array.isArray(payload.events)) return payload;
         } catch (err) {
           lastErr = err;
@@ -6066,7 +6065,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     let lastErr = null;
     for (const url of urls) {
       try {
-        const payload = await proxyFetch(url, 12000);
+        const payload = await proxyFetch(url, 5000);
         if (payload) return payload;
       } catch (err) {
         lastErr = err;
@@ -6132,7 +6131,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return [nowYear, previousYear];
   }
   async function fetchAthleteHistoryPayload(url) {
-    const payload = await proxyFetch(url, 12000);
+    const payload = await proxyFetch(url, 5000);
     const records = extractCompetitionRecordsDeep(payload).filter(function (record) {
       return record.status &&
         record.status.completed &&
@@ -6852,102 +6851,96 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const maxMatches = Math.max(1, Number(limit) || 5);
     const slug = String(league || "").trim().toLowerCase();
     const candidates = [];
-    // Search the requested tour first, then the cross-tour board only if the
-    // requested tour has no matching completed record for that calendar day.
     if (slug) candidates.push(slug);
     if (slug === "atp" || slug === "wta") candidates.push("all");
-
-    const collected = [];
-    const checks = [];
-    const seen = new Set();
-    const HISTORY_START = new Date(new Date().getFullYear() - 1, 0, 1);
-    // RECENT-5 CONTRACT: exactly one calendar day per request, newest first.
-    // This guarantees Today -> Yesterday -> Day-before-yesterday ordering and
-    // stops the moment the fifth valid completed match is collected.
-    let dayCursor = new Date();
+    const collected = [], checks = [], seen = new Set();
+    const HISTORY_START = new Date(2025, 0, 1);
+    const BATCH_DAYS = 7;
+    const cutoff = cutoffIso ? new Date(cutoffIso) : new Date();
+    let dayCursor = new Date(Number.isFinite(cutoff.getTime()) ? cutoff : Date.now());
     dayCursor.setHours(0, 0, 0, 0);
 
+    function validRecords(payload) {
+      return extractCompetitionRecords(payload).filter(function (record) {
+        return record && record.status && record.status.completed && !record.retired &&
+          Number.isFinite(record.totalGames) && Number.isFinite(record.set1Total) &&
+          Number.isFinite(record.playerAGames) && Number.isFinite(record.playerBGames) &&
+          Number.isFinite(record.playerASet1Games) && Number.isFinite(record.playerBSet1Games) &&
+          (String(record.playerAId) === String(athleteId) || String(record.playerBId) === String(athleteId));
+      });
+    }
+
+    // FAST RECENT-5: small chronological day batches are fetched in parallel.
+    // Records are consumed newest -> oldest and acceptance stops at five.
     while (collected.length < maxMatches && dayCursor >= HISTORY_START) {
-      const dayKey = dateKeyFromDate(dayCursor);
-      let windowRecords = [];
+      const batchDays = [];
+      let cursor = new Date(dayCursor);
+      for (let i = 0; i < BATCH_DAYS && cursor >= HISTORY_START; i += 1) {
+        batchDays.push(new Date(cursor));
+        cursor = addDays(cursor, -1);
+      }
 
-      for (let c = 0; c < candidates.length; c += 1) {
+      const primaryResults = await Promise.all(batchDays.map(async function (day) {
+        const dayKey = dateKeyFromDate(day);
         try {
-          const payload = await fetchTennisScoreboard(candidates[c], dayKey);
-          const records = extractCompetitionRecords(payload).filter(function (record) {
-            return record &&
-              record.status &&
-              record.status.completed &&
-              !record.retired &&
-              Number.isFinite(record.totalGames) &&
-              Number.isFinite(record.set1Total) &&
-              Number.isFinite(record.playerAGames) &&
-              Number.isFinite(record.playerBGames) &&
-              Number.isFinite(record.playerASet1Games) &&
-              Number.isFinite(record.playerBSet1Games) &&
-              (String(record.playerAId) === String(athleteId) ||
-               String(record.playerBId) === String(athleteId));
-          });
-
-          if (records.length) {
-            windowRecords.push.apply(windowRecords, records);
-            checks.push({
-              label: "recent-day-hit",
-              query: candidates[c] + " date=" + dayKey,
-              records: records.length,
-              exact: records.length,
-              fuzzy: 0,
-              relaxed: 0,
-              sample: records.slice(0, 5).map(function (record) {
-                return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
-              }).join(" | ")
-            });
-            break;
-          }
+          return { dayKey: dayKey, records: validRecords(await fetchTennisScoreboard(slug, dayKey)) };
         } catch (err) {
-          // Expected coverage miss. Do not surface transport failures as
-          // prediction-engine errors or retain noisy HTTP diagnostics.
+          return { dayKey: dayKey, records: [] };
+        }
+      }));
+
+      // Only days missed by the requested tour use the cross-tour fallback.
+      if (candidates.length > 1) {
+        const fallbackResults = await Promise.all(primaryResults.map(async function (result, index) {
+          if (result.records.length) return { index: index, records: result.records };
+          try {
+            return { index: index, records: validRecords(await fetchTennisScoreboard(candidates[1], result.dayKey)) };
+          } catch (err) {
+            return { index: index, records: [] };
+          }
+        }));
+        fallbackResults.forEach(function (result) {
+          primaryResults[result.index].records = result.records;
+        });
+      }
+
+      primaryResults.sort(function (a, b) { return new Date(b.dayKey) - new Date(a.dayKey); });
+      for (let r = 0; r < primaryResults.length && collected.length < maxMatches; r += 1) {
+        const result = primaryResults[r];
+        const filtered = filterPlayerHistoryRecords(result.records, athleteId, cutoffIso)
+          .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+        if (filtered.length) {
+          checks.push({
+            label: "recent-day-hit", query: "date=" + result.dayKey, records: filtered.length,
+            exact: filtered.length, fuzzy: 0, relaxed: 0,
+            sample: filtered.slice(0, 5).map(function (record) {
+              return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
+            }).join(" | ")
+          });
+        }
+        for (let i = 0; i < filtered.length && collected.length < maxMatches; i += 1) {
+          const record = filtered[i];
+          const signature = [record.competitionId || "", record.date || "", record.playerAId || "",
+            record.playerBId || "", record.totalGames, record.set1Total].join("|");
+          if (seen.has(signature)) continue;
+          seen.add(signature);
+          collected.push(record);
         }
       }
-
-      const filtered = filterPlayerHistoryRecords(windowRecords, athleteId, cutoffIso)
-        .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
-
-      for (let i = 0; i < filtered.length && collected.length < maxMatches; i += 1) {
-        const record = filtered[i];
-        const signature = [
-          record.competitionId || "",
-          record.date || "",
-          record.playerAId || "",
-          record.playerBId || "",
-          record.totalGames,
-          record.set1Total
-        ].join("|");
-        if (seen.has(signature)) continue;
-        seen.add(signature);
-        collected.push(record);
-      }
-
       if (collected.length >= maxMatches) break;
-      dayCursor = addDays(dayCursor, -1);
+      dayCursor = cursor;
     }
 
     collected.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
-    return {
-      records: collected.slice(0, maxMatches),
-      checks: checks,
-      source: "ESPN recent daily scoreboard"
-    };
+    return { records: collected.slice(0, maxMatches), checks: checks,
+      source: "ESPN recent daily scoreboard (parallel batches)" };
   }
 
-  async function fetchH2HByDay(league, existingRecords, playerAId, playerBId, playerAName, playerBName, limit) {
+  async function fetchH2HByDay(league, existingRecords, playerAId, playerBId, playerAName, playerBName, limit, cutoffIso) {
     const maxMeetings = Math.max(1, Number(limit) || 5);
-    const slug = String(league || '').trim().toLowerCase();
+    const slug = String(league || "").trim().toLowerCase();
     const candidates = [];
-    // `all` is the preferred H2H source because it covers ATP/WTA tour and
-    // Challenger-level meetings in one bounded request. The requested tour is
-    // retained only as a fallback when the cross-tour scope fails.
-    if (slug === 'atp' || slug === 'wta') candidates.push('all');
+    if (slug === "atp" || slug === "wta") candidates.push("all");
     if (slug && candidates.indexOf(slug) === -1) candidates.push(slug);
 
     let deduped = dedupeRecords(existingRecords || []);
@@ -6957,53 +6950,63 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return { records: deduped, h2h: h2h.slice(0, maxMeetings), checks: checks };
     }
 
-    // H2H HARD BOUNDARY: current year + previous year only. Search newest
-    // bounded transport window first and stop immediately when five meetings
-    // are found. This prevents the previous multi-year request explosion.
-    const HISTORY_START = new Date(new Date().getFullYear() - 1, 0, 1);
-    const WINDOW_DAYS = 180;
-    let windowEnd = new Date();
-
-    while (h2h.length < maxMeetings && windowEnd >= HISTORY_START) {
-      const rawWindowStart = addDays(windowEnd, -(WINDOW_DAYS - 1));
-      const windowStart = rawWindowStart < HISTORY_START ? HISTORY_START : rawWindowStart;
-      const datesQuery = dateKeyFromDate(windowStart) + '-' + dateKeyFromDate(windowEnd);
-
-      for (let c = 0; c < candidates.length; c += 1) {
-        try {
-          const payload = await fetchTennisScoreboard(candidates[c], datesQuery);
-          const records = extractCompetitionRecords(payload).filter(function (record) {
-            return record &&
-              record.status &&
-              record.status.completed &&
-              !record.retired &&
-              Number.isFinite(record.totalGames) &&
-              Number.isFinite(record.set1Total) &&
-              Number.isFinite(record.playerAGames) &&
-              Number.isFinite(record.playerBGames) &&
-              Number.isFinite(record.playerASet1Games) &&
-              Number.isFinite(record.playerBSet1Games);
-          });
-
-          if (records.length) {
-            const h2hInWindow = buildH2HSeries(records, playerAId, playerBId, playerAName, playerBName);
-            if (h2hInWindow.length) {
-              deduped = dedupeRecords(deduped.concat(records));
-              h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
-              if (h2h.length >= maxMeetings) break;
-            }
-          }
-        } catch (err) {
-          // Unsupported/empty ESPN scope is a coverage miss, not a prediction
-          // engine error. Keep it silent and continue with the next bounded scope.
-        }
+    // HARD H2H BOUNDARY: 2025-01-01 onward only. Fetch 2025 and 2026
+    // concurrently rather than serial 180-day windows. Max transport is
+    // 2 seasons x 2 ESPN scopes = 4 requests, all in parallel.
+    const cutoff = cutoffIso ? new Date(cutoffIso) : new Date();
+    const effectiveEnd = Number.isFinite(cutoff.getTime()) ? cutoff : new Date();
+    const hardStart = new Date(2025, 0, 1);
+    const yearWindows = [];
+    [2026, 2025].forEach(function (year) {
+      const startDate = new Date(Math.max(hardStart.getTime(), new Date(year, 0, 1).getTime()));
+      let endDate = new Date(year, 11, 31, 23, 59, 59, 999);
+      if (year === effectiveEnd.getFullYear()) endDate = effectiveEnd;
+      if (endDate >= startDate) {
+        yearWindows.push({ year: year, datesQuery: dateKeyFromDate(startDate) + "-" + dateKeyFromDate(endDate) });
       }
+    });
 
-      if (h2h.length >= maxMeetings) break;
-      windowEnd = addDays(windowStart, -1);
-    }
+    const requests = [];
+    yearWindows.forEach(function (window) {
+      candidates.forEach(function (candidate) {
+        requests.push({ year: window.year, candidate: candidate, datesQuery: window.datesQuery });
+      });
+    });
 
-    h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
+    const settled = await Promise.all(requests.map(async function (task) {
+      try {
+        const payload = await fetchTennisScoreboard(task.candidate, task.datesQuery);
+        const records = extractCompetitionRecords(payload).filter(function (record) {
+          return record && record.status && record.status.completed && !record.retired &&
+            Number.isFinite(record.totalGames) && Number.isFinite(record.set1Total) &&
+            Number.isFinite(record.playerAGames) && Number.isFinite(record.playerBGames) &&
+            Number.isFinite(record.playerASet1Games) && Number.isFinite(record.playerBSet1Games);
+        });
+        return { task: task, records: records };
+      } catch (err) {
+        return { task: task, records: [] };
+      }
+    }));
+
+    settled.forEach(function (result) {
+      const h2hInWindow = buildH2HSeries(result.records, playerAId, playerBId, playerAName, playerBName);
+      if (h2hInWindow.length) {
+        checks.push({ label: "h2h-window-hit", query: result.task.candidate + " dates=" + result.task.datesQuery,
+          records: h2hInWindow.length, exact: h2hInWindow.length, fuzzy: 0, relaxed: 0,
+          sample: h2hInWindow.slice(0, 5).map(function (record) {
+            return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
+          }).join(" | ") });
+      }
+      deduped = dedupeRecords(deduped.concat(result.records));
+    });
+
+    h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName)
+      .filter(function (record) {
+        const d = new Date(record.date);
+        return Number.isFinite(d.getTime()) && d >= hardStart && d <= effectiveEnd;
+      })
+      .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+
     return { records: deduped, h2h: h2h.slice(0, maxMeetings), checks: checks };
   }
 
@@ -7243,24 +7246,29 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const historyCutoff = selectedFixtureRecord && selectedFixtureRecord.date
         ? selectedFixtureRecord.date
         : null;
-      const records = await fetchHistoryPool(league);
-      if (myToken !== espnFetchToken) return; 
-      if (!records.length) {
-        throw new Error("No completed singles results were returned from ESPN.");
-      }
+      // FAST ID PATH: fixture selections already carry ESPN athlete IDs. Do not
+      // hydrate the old 180-day history pool just to rediscover those IDs.
       let playerAId = selectedPlayerIds.A;
       let playerBId = selectedPlayerIds.B;
-      if (!playerAId) {
-        const candidateA = findPlayerCandidatesByName(playerAName, records, league);
-        if (!candidateA) throw new Error("Could not resolve Player A from ESPN history. Pick a fixture or use the exact ESPN player name.");
-        playerAId = candidateA.id;
-        qs("teamAName").value = candidateA.name;
-      }
-      if (!playerBId) {
-        const candidateB = findPlayerCandidatesByName(playerBName, records, league);
-        if (!candidateB) throw new Error("Could not resolve Player B from ESPN history. Pick a fixture or use the exact ESPN player name.");
-        playerBId = candidateB.id;
-        qs("teamBName").value = candidateB.name;
+      if (!playerAId || !playerBId) {
+        setFetchStatus("Resolving ESPN player IDs...", "loading");
+        const records = await fetchHistoryPool(league);
+        if (myToken !== espnFetchToken) return; 
+        if (!records.length) {
+          throw new Error("No completed singles results were returned from ESPN.");
+        }
+        if (!playerAId) {
+          const candidateA = findPlayerCandidatesByName(playerAName, records, league);
+          if (!candidateA) throw new Error("Could not resolve Player A from ESPN history. Pick a fixture or use the exact ESPN player name.");
+          playerAId = candidateA.id;
+          qs("teamAName").value = candidateA.name;
+        }
+        if (!playerBId) {
+          const candidateB = findPlayerCandidatesByName(playerBName, records, league);
+          if (!candidateB) throw new Error("Could not resolve Player B from ESPN history. Pick a fixture or use the exact ESPN player name.");
+          playerBId = candidateB.id;
+          qs("teamBName").value = candidateB.name;
+        }
       }
       if (String(playerAId) === String(playerBId)) {
         throw new Error("Player A and Player B cannot be the same player.");
@@ -7326,7 +7334,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         playerBId,
         qs("teamAName").value,
         qs("teamBName").value,
-        5
+        5,
+        historyCutoff
       );
       workingRecords = h2hBundle.records;
       const h2h = h2hBundle.h2h;
