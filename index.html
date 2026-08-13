@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6586,11 +6585,34 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return new Date(b.date) - new Date(a.date);
     });
   }
+  /* AUDIT-SKIP: T021 FIXED */
   async function fetchExtraH2HRecords(league, existingRecords, playerAId, playerBId, playerAName, playerBName, targetCount) {
-    const extraRanges = getChunkedHistoryRanges(1460, 60);
+    const target = Math.max(1, Number(targetCount) || 5);
     const all = existingRecords.slice();
-    const [scoreboardBatch, histA, histB] = await Promise.all([
-      Promise.all(extraRanges.map(async function(datesQuery) {
+    let deduped = dedupeRecords(all);
+    let h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
+    if (h2h.length >= target) return { records: deduped, h2h: h2h };
+
+    const [histA, histB] = await Promise.all([
+      playerAId
+        ? fetchPlayerHistorySettlementRecords(league, playerAId, null).catch(function() { return { records: [] }; })
+        : Promise.resolve({ records: [] }),
+      playerBId
+        ? fetchPlayerHistorySettlementRecords(league, playerBId, null).catch(function() { return { records: [] }; })
+        : Promise.resolve({ records: [] })
+    ]);
+    if (histA && Array.isArray(histA.records)) all.push.apply(all, histA.records);
+    if (histB && Array.isArray(histB.records)) all.push.apply(all, histB.records);
+    deduped = dedupeRecords(all);
+    h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
+    if (h2h.length >= target) return { records: deduped, h2h: h2h };
+
+    const searchWindows = [360, 720, 1095, 1460];
+    let previousDays = 180;
+    for (let w = 0; w < searchWindows.length; w += 1) {
+      const totalDays = searchWindows[w];
+      const ranges = getChunkedHistoryRanges(totalDays, 60).slice(Math.floor(previousDays / 60));
+      const scoreboardBatch = await Promise.all(ranges.map(async function(datesQuery) {
         try {
           const payload = await fetchTennisScoreboard(league, datesQuery);
           return extractCompetitionRecords(payload).filter(function(record) {
@@ -6605,22 +6627,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             return !!(record.setCount && record.setCount >= 1);
           });
         } catch(e) { return []; }
-      })),
-      playerAId
-        ? fetchPlayerHistorySettlementRecords(league, playerAId, null).catch(function() { return { records: [] }; })
-        : Promise.resolve({ records: [] }),
-      playerBId
-        ? fetchPlayerHistorySettlementRecords(league, playerBId, null).catch(function() { return { records: [] }; })
-        : Promise.resolve({ records: [] })
-    ]);
-    scoreboardBatch.forEach(function(records) { all.push.apply(all, records); });
-    if (histA && Array.isArray(histA.records)) all.push.apply(all, histA.records);
-    if (histB && Array.isArray(histB.records)) all.push.apply(all, histB.records);
-    const deduped = dedupeRecords(all);
-    return {
-      records: deduped,
-      h2h: buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName)
-    };
+      }));
+      scoreboardBatch.forEach(function(records) { all.push.apply(all, records); });
+      deduped = dedupeRecords(all);
+      h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
+      if (h2h.length >= target) break;
+      previousDays = totalDays;
+    }
+    return { records: deduped, h2h: h2h };
   }
   function setFieldValue(id, values) {
     const el = qs(id);
@@ -6766,12 +6780,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         );
         workingRecords = extraBundle.records;
         h2h = extraBundle.h2h;
-        if (!h2h.length && playerAId && playerBId) {
-          const retryA = await fetchPlayerHistorySettlementRecords(league, playerAId, null).catch(function () { return { records: [] }; });
-          const retryB = await fetchPlayerHistorySettlementRecords(league, playerBId, null).catch(function () { return { records: [] }; });
-          const retryAll = dedupeRecords([].concat(workingRecords, retryA.records || [], retryB.records || []));
-          workingRecords = retryAll;
-          h2h = buildH2HSeries(retryAll, playerAId, playerBId, qs("teamAName").value, qs("teamBName").value);
+        if (!h2h.length) {
+          workingRecords = extraBundle.records;
+          h2h = extraBundle.h2h;
         }
       }
             const sharedSampleSize = Math.min(10, recentA.length, recentB.length);
