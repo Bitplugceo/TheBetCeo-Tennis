@@ -1,3 +1,4 @@
+D
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3677,19 +3678,15 @@ let g_clearDebug = {
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
     let volatility = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2));
     if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15; 
-    const lineMemoryResult = resolveLineWithMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", config.lineRange.mid, "OVER");
+    // LIVE-LINE INTEGRITY FIX:
+    // Prediction edges must always be measured against the exact market line
+    // supplied for this run. Historical line memory is intentionally not
+    // allowed to mutate the live midpoint because doing so can make the
+    // displayed line and calculated edge disagree.
     let notes = [].concat(config.extraNotes || []);
-    if (lineMemoryResult.usedMemory && lineMemoryResult.line !== config.lineRange.mid) {
-      const oldMid = config.lineRange.mid;
-      config.lineRange = Object.assign({}, config.lineRange, { mid: lineMemoryResult.line });
-      notes.push("Line memory applied: " + oldMid + " → " + lineMemoryResult.line);
-    }
     const lineDecision = pickFromRange(projection, config.lineRange);
-            let pick = lineDecision.pick;
+    let pick = lineDecision.pick;
     let edge = lineDecision.edge;
-    if (pick !== "PASS" && config.lineRange.mid) {
-      upsertLineMemory(config.marketKey, config.ctx?.playerAId || "", config.ctx?.playerBId || "", config.ctx?.surface || "Hard", pick === "OVER" ? "over" : "under", config.lineRange.mid);
-    }
     let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx?.tour, config.marketKey, config.ctx?.surface, null);
     if (MARKET_PULL > 0) {
       notes.push("Mkt pull: raw " + fmt(preRegressionProjection) + " \u2192 " + fmt(projection));
@@ -6373,17 +6370,19 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         try {
           const parsed = await fetchAthleteHistoryPayload(urls[j]);
           const playerRecords = filterPlayerHistoryRecords(parsed.records, athleteId, savedAtIso);
-          checks.push({
-            label: "athlete-history",
-            query: "athlete=" + athleteId + " year=" + year + " " + urls[j],
-            records: playerRecords.length,
-            exact: playerRecords.length,
-            fuzzy: 0,
-            relaxed: 0,
-            sample: playerRecords.slice(0, 5).map(function (record) {
-              return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
-            }).join(" | ")
-          });
+          if (playerRecords.length) {
+            checks.push({
+              label: "athlete-history-hit",
+              query: "athlete=" + athleteId + " year=" + year,
+              records: playerRecords.length,
+              exact: playerRecords.length,
+              fuzzy: 0,
+              relaxed: 0,
+              sample: playerRecords.slice(0, 5).map(function (record) {
+                return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
+              }).join(" | ")
+            });
+          }
           if (playerRecords.length) {
             all.push.apply(all, playerRecords);
             gotThisYear = true;
@@ -6844,36 +6843,37 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
    * afterward. Once five valid completed matches are collected for a player,
    * the fetch stops immediately.
    *
-   * H2H uses the same date-walking strategy. It starts today, checks each day
-   * for meetings between the two requested players, and stops immediately
-   * once the configured H2H sample (5) is complete. If fewer than five H2H
-   * meetings exist in the search horizon, all found meetings are returned.
+   * H2H is searched newest-to-oldest inside a hard 2025/2026 boundary and
+   * stops immediately once the configured H2H sample (5) is complete. Recent
+   * form uses one calendar-day requests; H2H uses bounded transport windows
+   * to avoid hundreds of network requests when no meeting exists.
    */
   async function fetchRecentPlayerMatchesByDay(league, athleteId, cutoffIso, playerName, limit) {
     const maxMatches = Math.max(1, Number(limit) || 5);
     const slug = String(league || "").trim().toLowerCase();
     const candidates = [];
-    // Primary tour first; use the cross-tour board only when the primary board
-    // has no player match in the current window.
+    // Search the requested tour first, then the cross-tour board only if the
+    // requested tour has no matching completed record for that calendar day.
     if (slug) candidates.push(slug);
     if (slug === "atp" || slug === "wta") candidates.push("all");
 
     const collected = [];
     const checks = [];
     const seen = new Set();
-    const WINDOW_DAYS = 7;
     const HISTORY_START = new Date(new Date().getFullYear() - 1, 0, 1);
-    let windowEnd = new Date();
+    // RECENT-5 CONTRACT: exactly one calendar day per request, newest first.
+    // This guarantees Today -> Yesterday -> Day-before-yesterday ordering and
+    // stops the moment the fifth valid completed match is collected.
+    let dayCursor = new Date();
+    dayCursor.setHours(0, 0, 0, 0);
 
-    while (collected.length < maxMatches && windowEnd >= HISTORY_START) {
-      const rawWindowStart = addDays(windowEnd, -(WINDOW_DAYS - 1));
-      const windowStart = rawWindowStart < HISTORY_START ? HISTORY_START : rawWindowStart;
-      const datesQuery = dateKeyFromDate(windowStart) + "-" + dateKeyFromDate(windowEnd);
+    while (collected.length < maxMatches && dayCursor >= HISTORY_START) {
+      const dayKey = dateKeyFromDate(dayCursor);
       let windowRecords = [];
 
       for (let c = 0; c < candidates.length; c += 1) {
         try {
-          const payload = await fetchTennisScoreboard(candidates[c], datesQuery);
+          const payload = await fetchTennisScoreboard(candidates[c], dayKey);
           const records = extractCompetitionRecords(payload).filter(function (record) {
             return record &&
               record.status &&
@@ -6892,8 +6892,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           if (records.length) {
             windowRecords.push.apply(windowRecords, records);
             checks.push({
-              label: "recent-window-hit",
-              query: candidates[c] + " dates=" + datesQuery,
+              label: "recent-day-hit",
+              query: candidates[c] + " date=" + dayKey,
               records: records.length,
               exact: records.length,
               fuzzy: 0,
@@ -6905,15 +6905,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             break;
           }
         } catch (err) {
-          checks.push({
-            label: "recent-window-error",
-            query: candidates[c] + " dates=" + datesQuery,
-            records: 0,
-            exact: 0,
-            fuzzy: 0,
-            relaxed: 0,
-            sample: err && err.message ? err.message : "request failed"
-          });
+          // Expected coverage miss. Do not surface transport failures as
+          // prediction-engine errors or retain noisy HTTP diagnostics.
         }
       }
 
@@ -6936,14 +6929,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       }
 
       if (collected.length >= maxMatches) break;
-      windowEnd = addDays(windowStart, -1);
+      dayCursor = addDays(dayCursor, -1);
     }
 
     collected.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
     return {
       records: collected.slice(0, maxMatches),
       checks: checks,
-      source: "ESPN recent-window scoreboard"
+      source: "ESPN recent daily scoreboard"
     };
   }
 
@@ -6951,8 +6944,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const maxMeetings = Math.max(1, Number(limit) || 5);
     const slug = String(league || '').trim().toLowerCase();
     const candidates = [];
-    if (slug) candidates.push(slug);
+    // `all` is the preferred H2H source because it covers ATP/WTA tour and
+    // Challenger-level meetings in one bounded request. The requested tour is
+    // retained only as a fallback when the cross-tour scope fails.
     if (slug === 'atp' || slug === 'wta') candidates.push('all');
+    if (slug && candidates.indexOf(slug) === -1) candidates.push(slug);
 
     let deduped = dedupeRecords(existingRecords || []);
     let h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
@@ -6962,8 +6958,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     }
 
     // H2H HARD BOUNDARY: current year + previous year only. Search newest
-    // transport window first and stop immediately when five meetings are found.
-    // This prevents the previous multi-year request explosion.
+    // bounded transport window first and stop immediately when five meetings
+    // are found. This prevents the previous multi-year request explosion.
     const HISTORY_START = new Date(new Date().getFullYear() - 1, 0, 1);
     const WINDOW_DAYS = 180;
     let windowEnd = new Date();
