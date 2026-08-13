@@ -1,4 +1,3 @@
-Q
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6129,11 +6128,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return dedupeRecords(records);
   }
   function getSeasonYearsForSettlement(savedAtIso) {
+    // HISTORY BOUNDARY: only the current season and the immediately previous
+    // season are eligible for H2H/history work. Never request anything older.
     const nowYear = new Date().getFullYear();
-    const savedYear = savedAtIso ? new Date(savedAtIso).getFullYear() : nowYear;
-    return Array.from(new Set([savedYear, nowYear, nowYear - 1, savedYear - 1].filter(function (year) {
-      return Number.isFinite(year) && year >= 2018;
-    })));
+    const previousYear = nowYear - 1;
+    return [nowYear, previousYear];
   }
   async function fetchAthleteHistoryPayload(url) {
     const payload = await proxyFetch(url, 12000);
@@ -6278,70 +6277,81 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
 
   async function fetchTargetedScoreboardHistory(league, athleteId, cutoffIso) {
+    // FAST FALLBACK: only search the current + previous season and stop as soon
+    // as the requested five most-recent completed matches are available.
+    // Never build the old 180-day x many-slug Promise.all request matrix.
     const candidates = getHistoryLeagueCandidates(league);
-    // Search a bounded recent window when athlete-history endpoints are incomplete.
-    // 45 days is too narrow for players with sparse schedules (especially Challenger
-    // players), which can leave one side with only 1-2 real matches while the other
-    // side has a full recent sample.
-    const ranges = getChunkedHistoryRangesBefore(cutoffIso, 180, 15);
     const checks = [];
-    const tasks = [];
+    const collected = [];
+    const seen = new Set();
+    const maxMatches = 5;
+    const seasonStart = new Date(new Date().getFullYear() - 1, 0, 1);
+    let windowEnd = new Date();
+    const WINDOW_DAYS = 180;
 
-    candidates.forEach(function (candidate) {
-      ranges.forEach(function (datesQuery) {
-        tasks.push({ candidate: candidate, datesQuery: datesQuery });
-      });
-    });
+    while (collected.length < maxMatches && windowEnd >= seasonStart) {
+      const rawStart = addDays(windowEnd, -(WINDOW_DAYS - 1));
+      const windowStart = rawStart < seasonStart ? seasonStart : rawStart;
+      const datesQuery = dateKeyFromDate(windowStart) + '-' + dateKeyFromDate(windowEnd);
+      let windowRecords = [];
 
-    const settled = await Promise.all(tasks.map(async function (task) {
-      try {
-        const payload = await fetchTennisScoreboard(task.candidate, task.datesQuery);
-        const records = extractCompetitionRecords(payload).filter(function (record) {
-          return record &&
-            record.status &&
-            record.status.completed &&
-            !record.retired &&
-            Number.isFinite(record.totalGames) &&
-            Number.isFinite(record.set1Total) &&
-            Number.isFinite(record.playerAGames) &&
-            Number.isFinite(record.playerBGames) &&
-            Number.isFinite(record.playerASet1Games) &&
-            Number.isFinite(record.playerBSet1Games) &&
-            (String(record.playerAId) === String(athleteId) ||
-             String(record.playerBId) === String(athleteId));
-        });
-        checks.push({
-          label: "targeted-scoreboard",
-          query: task.candidate + " dates=" + task.datesQuery,
-          records: records.length,
-          exact: records.length,
-          fuzzy: 0,
-          relaxed: 0,
-          sample: records.slice(0, 5).map(function (record) {
-            return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
-          }).join(" | ")
-        });
-        return records;
-      } catch (err) {
-        checks.push({
-          label: "targeted-scoreboard-error",
-          query: task.candidate + " dates=" + task.datesQuery,
-          records: 0,
-          exact: 0,
-          fuzzy: 0,
-          relaxed: 0,
-          sample: err && err.message ? err.message : "request failed"
-        });
-        return [];
+      for (let c = 0; c < candidates.length; c += 1) {
+        try {
+          const payload = await fetchTennisScoreboard(candidates[c], datesQuery);
+          const records = extractCompetitionRecords(payload).filter(function (record) {
+            return record &&
+              record.status &&
+              record.status.completed &&
+              !record.retired &&
+              Number.isFinite(record.totalGames) &&
+              Number.isFinite(record.set1Total) &&
+              Number.isFinite(record.playerAGames) &&
+              Number.isFinite(record.playerBGames) &&
+              Number.isFinite(record.playerASet1Games) &&
+              Number.isFinite(record.playerBSet1Games) &&
+              (String(record.playerAId) === String(athleteId) ||
+               String(record.playerBId) === String(athleteId));
+          });
+
+          if (records.length) {
+            windowRecords.push.apply(windowRecords, records);
+            break;
+          }
+        } catch (err) {
+          // Expected coverage miss / unsupported ESPN scope. Do not surface it
+          // as an engine error and do not retain verbose request diagnostics.
+        }
       }
-    }));
 
+      const filtered = filterPlayerHistoryRecords(windowRecords, athleteId, cutoffIso)
+        .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+
+      for (let i = 0; i < filtered.length && collected.length < maxMatches; i += 1) {
+        const record = filtered[i];
+        const signature = [
+          record.competitionId || '',
+          record.date || '',
+          record.playerAId || '',
+          record.playerBId || '',
+          record.totalGames,
+          record.set1Total
+        ].join('|');
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+        collected.push(record);
+      }
+
+      if (collected.length >= maxMatches) break;
+      windowEnd = addDays(windowStart, -1);
+    }
+
+    collected.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
     return {
-      records: filterPlayerHistoryRecords([].concat.apply([], settled), athleteId, cutoffIso),
-      checks: checks
+      records: collected.slice(0, maxMatches),
+      checks: checks,
+      source: 'ESPN bounded 2025/2026 scoreboard fallback'
     };
   }
-
   async function fetchPlayerHistorySettlementRecords(league, athleteId, savedAtIso, playerName) {
     const slug = String(league || "").trim().toLowerCase();
     const years = getSeasonYearsForSettlement(savedAtIso);
@@ -6852,12 +6862,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const checks = [];
     const seen = new Set();
     const WINDOW_DAYS = 7;
-    const MAX_LOOKBACK_DAYS = 730;
+    const HISTORY_START = new Date(new Date().getFullYear() - 1, 0, 1);
     let windowEnd = new Date();
 
-    while (collected.length < maxMatches &&
-           (Date.now() - windowEnd.getTime()) / 86400000 < MAX_LOOKBACK_DAYS) {
-      const windowStart = addDays(windowEnd, -(WINDOW_DAYS - 1));
+    while (collected.length < maxMatches && windowEnd >= HISTORY_START) {
+      const rawWindowStart = addDays(windowEnd, -(WINDOW_DAYS - 1));
+      const windowStart = rawWindowStart < HISTORY_START ? HISTORY_START : rawWindowStart;
       const datesQuery = dateKeyFromDate(windowStart) + "-" + dateKeyFromDate(windowEnd);
       let windowRecords = [];
 
@@ -6939,31 +6949,29 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
   async function fetchH2HByDay(league, existingRecords, playerAId, playerBId, playerAName, playerBName, limit) {
     const maxMeetings = Math.max(1, Number(limit) || 5);
-    const slug = String(league || "").trim().toLowerCase();
+    const slug = String(league || '').trim().toLowerCase();
     const candidates = [];
     if (slug) candidates.push(slug);
-    if (slug === "atp" || slug === "wta") candidates.push("all");
+    if (slug === 'atp' || slug === 'wta') candidates.push('all');
 
-    const baseRecords = existingRecords || [];
-    let deduped = dedupeRecords(baseRecords);
+    let deduped = dedupeRecords(existingRecords || []);
     let h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
     const checks = [];
     if (h2h.length >= maxMeetings) {
       return { records: deduped, h2h: h2h.slice(0, maxMeetings), checks: checks };
     }
 
-    // Search recent history in 30-day transport windows, newest first. The
-    // selected H2H records are still sorted by exact match timestamp. This
-    // replaces the previous one-day x 4-year request explosion.
-    const WINDOW_DAYS = 30;
-    const MAX_LOOKBACK_DAYS = 1460;
+    // H2H HARD BOUNDARY: current year + previous year only. Search newest
+    // transport window first and stop immediately when five meetings are found.
+    // This prevents the previous multi-year request explosion.
+    const HISTORY_START = new Date(new Date().getFullYear() - 1, 0, 1);
+    const WINDOW_DAYS = 180;
     let windowEnd = new Date();
 
-    while (h2h.length < maxMeetings &&
-           (Date.now() - windowEnd.getTime()) / 86400000 < MAX_LOOKBACK_DAYS) {
-      const windowStart = addDays(windowEnd, -(WINDOW_DAYS - 1));
-      const datesQuery = dateKeyFromDate(windowStart) + "-" + dateKeyFromDate(windowEnd);
-      let foundPlayerMeeting = false;
+    while (h2h.length < maxMeetings && windowEnd >= HISTORY_START) {
+      const rawWindowStart = addDays(windowEnd, -(WINDOW_DAYS - 1));
+      const windowStart = rawWindowStart < HISTORY_START ? HISTORY_START : rawWindowStart;
+      const datesQuery = dateKeyFromDate(windowStart) + '-' + dateKeyFromDate(windowEnd);
 
       for (let c = 0; c < candidates.length; c += 1) {
         try {
@@ -6983,37 +6991,19 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
 
           if (records.length) {
             const h2hInWindow = buildH2HSeries(records, playerAId, playerBId, playerAName, playerBName);
-            checks.push({
-              label: "h2h-window",
-              query: candidates[c] + " dates=" + datesQuery,
-              records: records.length,
-              h2h: h2hInWindow.length,
-              sample: h2hInWindow.slice(0, 5).map(function (record) {
-                return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
-              }).join(" | ")
-            });
             if (h2hInWindow.length) {
-              foundPlayerMeeting = true;
               deduped = dedupeRecords(deduped.concat(records));
               h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName);
               if (h2h.length >= maxMeetings) break;
             }
           }
         } catch (err) {
-          checks.push({
-            label: "h2h-window-error",
-            query: candidates[c] + " dates=" + datesQuery,
-            records: 0,
-            h2h: h2h.length,
-            sample: err && err.message ? err.message : "request failed"
-          });
+          // Unsupported/empty ESPN scope is a coverage miss, not a prediction
+          // engine error. Keep it silent and continue with the next bounded scope.
         }
       }
 
       if (h2h.length >= maxMeetings) break;
-      // If the primary board had a player meeting, don't query the broader
-      // board for the same window. Otherwise the next candidate can fill a
-      // coverage gap.
       windowEnd = addDays(windowStart, -1);
     }
 
@@ -7292,19 +7282,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       ]);
       if (myToken !== espnFetchToken) return;
 
-      // AUDIT-FIX — FETCH-SOURCE DIAGNOSTICS:
-      // playerAHistory.checks / playerBHistory.checks already contain a
-      // per-candidate-slug, per-date-range hit count from every tier that was
-      // queried, but it was being discarded instead of surfaced. Without this,
-      // "the ITF-scope fix isn't deployed" and "ESPN has zero records under
-      // any ITF slug" look identical from the outside — both show the same
-      // (unchanged) fetched numbers. Log it into the existing 🔬 Debug Brain
-      // panel (AFDB) so the real cause is visible instead of guessed at.
-      if (typeof window.engineDebug === "function") {
-        window.engineDebug("Player A history source breakdown", playerAHistory.checks || []);
-        window.engineDebug("Player B history source breakdown", playerBHistory.checks || []);
-      }
-
       // AUDIT-FIX — DUPLICATE-SIGNATURE GUARD:
       // Two genuinely different real matches cannot share the same opponent,
       // date, and exact games/set1 breakdown. When that happens it means the
@@ -7357,9 +7334,6 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       );
       workingRecords = h2hBundle.records;
       const h2h = h2hBundle.h2h;
-      if (typeof window.engineDebug === "function") {
-        window.engineDebug("H2H daily fetch breakdown", h2hBundle.checks || []);
-      }
       // FORM WINDOW FIX:
       // Player A and Player B must be evaluated on the same number of real
       // completed matches. Using 8 for one player and 5 for the other changes
