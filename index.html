@@ -1,3 +1,4 @@
+A
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6106,44 +6107,85 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       "https://sports.core.api.espn.com/v2/sports/tennis/leagues/" + slug + "/seasons/" + year + "/athletes/" + athleteId
     ];
     const refKeys = ["competitions", "events", "results", "gamelog", "eventLog", "statisticslog"];
+    const urls = new Set();
     let lastErr = null;
+
     for (let i = 0; i < athleteUrls.length; i += 1) {
       try {
         const athletePayload = await proxyFetch(athleteUrls[i], 12000);
-        const urls = [];
         refKeys.forEach(function (key) {
           const value = athletePayload && athletePayload[key];
           if (!value) return;
-          if (typeof value === "string" && /^https?:/i.test(value)) urls.push(value);
-          if (value && typeof value === "object" && typeof value.$ref === "string") urls.push(value.$ref);
+          if (typeof value === "string" && /^https?:/i.test(value)) urls.add(value);
+          if (value && typeof value === "object" && typeof value.$ref === "string") urls.add(value.$ref);
         });
-        for (let j = 0; j < urls.length; j += 1) {
-          try {
-            const collectionPayload = await proxyFetch(urls[j], 12000);
-            const directRecords = extractCompetitionRecordsDeep(collectionPayload).filter(function (record) {
-              return record.status &&
-                record.status.completed &&
-                Number.isFinite(record.totalGames) &&
-                Number.isFinite(record.set1Total);
-            });
-            if (directRecords.length) {
-              return {
-                records: directRecords,
-                source: "athlete-core-ref",
-                query: urls[j]
-              };
-            }
-          } catch (innerErr) {
-            lastErr = innerErr;
-          }
-        }
       } catch (err) {
         lastErr = err;
       }
     }
+
+    // Explicit core log endpoints are useful when the athlete page omits a
+    // collection reference. They are queried in both `all` and tour scopes.
+    ["all", slug].forEach(function (scope) {
+      if (!scope) return;
+      urls.add(
+        "https://sports.core.api.espn.com/v2/sports/tennis/leagues/" +
+        scope + "/seasons/" + year + "/athletes/" + athleteId + "/eventlog?limit=1000"
+      );
+      urls.add(
+        "https://sports.core.api.espn.com/v2/sports/tennis/leagues/" +
+        scope + "/seasons/" + year + "/athletes/" + athleteId + "/statisticslog?limit=1000"
+      );
+    });
+
+    const all = [];
+    for (const query of urls) {
+      try {
+        const collectionPayload = await proxyFetch(query, 12000);
+        const directRecords = extractCompetitionRecordsDeep(collectionPayload).filter(function (record) {
+          return record.status &&
+            record.status.completed &&
+            Number.isFinite(record.totalGames) &&
+            Number.isFinite(record.set1Total);
+        });
+        if (directRecords.length) all.push.apply(all, directRecords);
+      } catch (innerErr) {
+        lastErr = innerErr;
+      }
+    }
+
+    if (all.length) {
+      return {
+        records: dedupeRecords(all),
+        source: "athlete-core-ref",
+        query: Array.from(urls).join(" | ")
+      };
+    }
     if (lastErr) throw lastErr;
     return { records: [], source: "athlete-core-ref", query: "" };
   }
+  function filterPlayerHistoryRecords(records, athleteId, cutoffIso) {
+    const id = String(athleteId || "");
+    const cutoff = cutoffIso ? new Date(cutoffIso) : null;
+    const cutoffMs = cutoff && Number.isFinite(cutoff.getTime()) ? cutoff.getTime() : null;
+    return dedupeRecords((Array.isArray(records) ? records : []).filter(function (record) {
+      if (!record || !record.status || !record.status.completed || record.retired) return false;
+      if (!Number.isFinite(record.totalGames) || !Number.isFinite(record.set1Total)) return false;
+      if (String(record.playerAId) !== id && String(record.playerBId) !== id) return false;
+      if (cutoffMs !== null) {
+        const matchMs = new Date(record.date).getTime();
+        if (!Number.isFinite(matchMs) || matchMs >= cutoffMs) return false;
+      }
+      return true;
+    }));
+  }
+  /* AUDIT-FIX — PLAYER FORM SOURCE OF TRUTH:
+   Recent-form history must come from the player's athlete history, not from the
+   global ATP/WTA scoreboard. The scoreboard is incomplete for Challenger events
+   and is paginated/limited, which previously allowed stale matches and Bayesian
+   filler values to masquerade as a player's last-5 history. Records are now
+   filtered by athlete ID, completion status, score validity, and fixture cutoff.
+*/
   async function fetchPlayerHistorySettlementRecords(league, athleteId, savedAtIso) {
     const slug = String(league || "").trim().toLowerCase();
     const years = getSeasonYearsForSettlement(savedAtIso);
@@ -6161,19 +6203,20 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       for (let j = 0; j < urls.length; j += 1) {
         try {
           const parsed = await fetchAthleteHistoryPayload(urls[j]);
+          const playerRecords = filterPlayerHistoryRecords(parsed.records, athleteId, savedAtIso);
           checks.push({
             label: "athlete-history",
             query: "athlete=" + athleteId + " year=" + year + " " + urls[j],
-            records: parsed.records.length,
-            exact: 0,
+            records: playerRecords.length,
+            exact: playerRecords.length,
             fuzzy: 0,
             relaxed: 0,
-            sample: parsed.records.slice(0, 5).map(function (record) {
+            sample: playerRecords.slice(0, 5).map(function (record) {
               return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
             }).join(" | ")
           });
-          if (parsed.records.length) {
-            all.push.apply(all, parsed.records);
+          if (playerRecords.length) {
+            all.push.apply(all, playerRecords);
             gotThisYear = true;
             break;
           }
@@ -6183,26 +6226,27 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       if (!gotThisYear) {
         try {
           const coreParsed = await resolveAthletePageCompetitionRecords(league, athleteId, year);
+          const playerRecords = filterPlayerHistoryRecords(coreParsed.records, athleteId, savedAtIso);
           checks.push({
             label: "athlete-core-ref",
             query: "athlete=" + athleteId + " year=" + year + " " + (coreParsed.query || "core-ref"),
-            records: coreParsed.records.length,
-            exact: 0,
+            records: playerRecords.length,
+            exact: playerRecords.length,
             fuzzy: 0,
             relaxed: 0,
-            sample: coreParsed.records.slice(0, 5).map(function (record) {
+            sample: playerRecords.slice(0, 5).map(function (record) {
               return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
             }).join(" | ")
           });
-          if (coreParsed.records.length) {
-            all.push.apply(all, coreParsed.records);
+          if (playerRecords.length) {
+            all.push.apply(all, playerRecords);
           }
         } catch (err) {
         }
       }
     }
     return {
-      records: dedupeRecords(all),
+      records: filterPlayerHistoryRecords(all, athleteId, savedAtIso),
       checks: checks
     };
   }
@@ -6864,6 +6908,12 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     });
     if (typeof openSection === "function") openSection("espnSection");
     try {
+      const fixtureSelect = qs("fixtureSelect");
+      const selectedFixtureKey = fixtureSelect ? fixtureSelect.value : "";
+      const selectedFixtureRecord = selectedFixtureKey ? fixtureRecordMap.get(selectedFixtureKey) : null;
+      const historyCutoff = selectedFixtureRecord && selectedFixtureRecord.date
+        ? selectedFixtureRecord.date
+        : null;
       const records = await fetchHistoryPool(league);
       if (myToken !== espnFetchToken) return; 
       if (!records.length) {
@@ -6888,9 +6938,34 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       }
       selectedPlayerIds.A = playerAId;
       selectedPlayerIds.B = playerBId;
-      let workingRecords = records.slice();
-      const recentA = buildRecentSeries(workingRecords, playerAId);
-      const recentB = buildRecentSeries(workingRecords, playerBId);
+
+      // The global ATP/WTA scoreboard is not authoritative for player form: it
+      // can omit Challenger matches and is subject to the scoreboard page limit.
+      // Fetch each player's own completed-match history and use that as the sole
+      // source for recent form. The global pool remains useful for H2H/Elo.
+      setFetchStatus("Loading player histories...", "loading");
+      const [playerAHistory, playerBHistory] = await Promise.all([
+        fetchPlayerHistorySettlementRecords(league, playerAId, historyCutoff),
+        fetchPlayerHistorySettlementRecords(league, playerBId, historyCutoff)
+      ]);
+      if (myToken !== espnFetchToken) return;
+
+      const recentA = buildRecentSeries(playerAHistory.records, playerAId);
+      const recentB = buildRecentSeries(playerBHistory.records, playerBId);
+      const MIN_REAL_FORM_MATCHES = 1;
+      if (recentA.length < MIN_REAL_FORM_MATCHES || recentB.length < MIN_REAL_FORM_MATCHES) {
+        throw new Error(
+          "Insufficient player history from ESPN. Player A: " + recentA.length +
+          ", Player B: " + recentB.length + ". No synthetic matches were added."
+        );
+      }
+
+      // Merge targeted player histories into the broad pool for downstream H2H/Elo.
+      // Recent form itself never comes back through this merged pool, preventing
+      // stale/global-scoreboard matches from displacing a player's actual last 5/10.
+      let workingRecords = dedupeRecords(
+        records.concat(playerAHistory.records || [], playerBHistory.records || [])
+      );
       let h2h = buildH2HSeries(workingRecords, playerAId, playerBId, qs("teamAName").value, qs("teamBName").value);
       if (h2h.length < 5) {
         setFetchStatus("Recent stats found. Searching older windows + athlete history for H2H...", "loading");
@@ -6910,12 +6985,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
           h2h = extraBundle.h2h;
         }
       }
-            const sharedSampleSize = Math.min(10, recentA.length, recentB.length);
-      const recentA10 = recentA.slice(0, sharedSampleSize);
-      const recentB10 = recentB.slice(0, sharedSampleSize);
-      const fixtureSelect = qs("fixtureSelect");
-      const selectedFixtureKey = fixtureSelect ? fixtureSelect.value : "";
-      const selectedFixtureRecord = selectedFixtureKey ? fixtureRecordMap.get(selectedFixtureKey) : null;
+      const recentA10 = recentA.slice(0, 10);
+      const recentB10 = recentB.slice(0, 10);
       const surfaceSelect = qs("surfaceSelect");
       const currentSurface = surfaceSelect && surfaceSelect.value ? surfaceSelect.value : (selectedFixtureRecord ? selectedFixtureRecord.surface : "Hard");
       const surfaceKey = currentSurface.toLowerCase();
@@ -7035,6 +7106,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const TOUR_AVG_GAMES_NORM = 4.35; 
       const TOUR_AVG_S1 = 5;
       const MIN_SAMPLE_SIZE = 5;
+      // Bayesian padding is model-only fallback. It is never used to construct
+      // recentA/recentB, and therefore can no longer overwrite or impersonate
+      // the actual last-5/last-10 match history.
       const applyPrior = (dataArray, priorValue) => {
         const result = [...dataArray];
         while (result.length < MIN_SAMPLE_SIZE) {
@@ -7102,8 +7176,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         ? ("<br>H2H found: " + h2hMatchTotals.length + " meeting(s).")
         : "<br>H2H found: 0 meetings in fetched records.";
       const statusParts = [
-        "Team A: " + aGames.length + " matches",
-        "Team B: " + bGames.length + " matches",
+        "Team A: " + recentA.length + " real matches",
+        "Team B: " + recentB.length + " real matches",
         "H2H: " + h2hMatchTotals.length + " matches",
         "Rest: " + formatDaysValue(fatigueA && fatigueA.daysRest) + " / " + formatDaysValue(fatigueB && fatigueB.daysRest)
       ];
