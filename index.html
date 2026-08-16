@@ -1,4 +1,3 @@
-K
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -4890,12 +4889,36 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     };
   }
 }
+  function isActuallyCompletedTennisRecord(record) {
+    if (!record || record.retired) return false;
+    const aSets = Array.isArray(record.aSets) ? record.aSets : [];
+    const bSets = Array.isArray(record.bSets) ? record.bSets : [];
+    const n = Math.min(aSets.length, bSets.length);
+    if (!n) return false;
+    const format = record.matchFormat || inferMatchFormat(record.gender || "ATP", record.eventLevel || "");
+    const requiredSets = format === "BO5" ? 3 : 2;
+    let winsA = 0;
+    let winsB = 0;
+    for (let i = 0; i < n; i += 1) {
+      const a = Number(aSets[i]);
+      const b = Number(bSets[i]);
+      if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) continue;
+      const completed = ((a >= 6 || b >= 6) && Math.abs(a - b) >= 2) || a === 7 || b === 7;
+      if (!completed) continue;
+      if (a > b) winsA += 1;
+      else if (b > a) winsB += 1;
+    }
+    return winsA >= requiredSets || winsB >= requiredSets;
+  }
   function settleTrackerItemFromRecord(item, record) {
     if (!item || !record) return item;
     const normItemA = normalizeName(item.playerAName || "");
     const normItemB = normalizeName(item.playerBName || "");
     const normRecA = normalizeName(record.playerAName || "");
     const normRecB = normalizeName(record.playerBName || "");
+    if (item.market !== "Set 1 Total Games" && !isActuallyCompletedTennisRecord(record)) {
+      return item;
+    }
     let recAIsItemA = false, recBIsItemA = false;
     if (normRecA === normItemA) recAIsItemA = true;
     if (normRecB === normItemA) recBIsItemA = true;
@@ -4978,7 +5001,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             retired.push(r);
             return;
           }
-          if (Number.isFinite(r.totalGames) && Number.isFinite(r.set1Total)) {
+          if (Number.isFinite(r.totalGames) && Number.isFinite(r.set1Total) && isActuallyCompletedTennisRecord(r)) {
             good.push(r);
           }
         });
@@ -5641,6 +5664,43 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const rB = normalizeName(record.playerBName || "");
     return (rA === a && rB === b) || (rA === b && rB === a);
   }
+  function revivePrematureSettledItems(record) {
+    if (!record || record.retired || isActuallyCompletedTennisRecord(record)) return 0;
+    const keySet = new Set(
+      [record.competitionId, record.eventId]
+        .map(function (id) { return String(id || ""); })
+        .filter(Boolean)
+    );
+    const items = getTrackerItems();
+    let revivedCount = 0;
+    const next = items.map(function (item) {
+      const status = String(item.status || "PENDING").toUpperCase();
+      if (status === "PENDING") return item;
+      if (item.market === "Set 1 Total Games") return item;
+      const ids = pendingPickIds(item);
+      const idHit = ids.some(function (id) { return keySet.has(id); });
+      const nameHit = !idHit && namesMatchPending(record, item);
+      if (!idHit && !nameHit) return item;
+      revivedCount++;
+      return Object.assign({}, item, {
+        status: "PENDING",
+        settledAt: null,
+        actualTotal: null
+      });
+    });
+    if (!revivedCount) return 0;
+    const state = normalizeTrackerState({
+      items: next,
+      updatedAt: new Date().toISOString(),
+      vId: (g_trackerState.vId || 0) + 1
+    });
+    g_trackerState = state;
+    saveTrackerStateToLocal(state);
+    try {
+      if (typeof queueTrackerSync === "function") queueTrackerSync(state);
+    } catch (e) {}
+    return revivedCount;
+  }
   function applyLiveSettlementToPending(matchKeys, record, allowSet1Only) {
     if (!record) return 0;
     const keySet = new Set((matchKeys || []).map(String).filter(Boolean));
@@ -5820,7 +5880,22 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         const record = (typeof buildCompetitionRecord === "function")
           ? buildCompetitionRecord(comp, parentEvent)
           : null;
-        const matchedPending = leaguePending.filter(function (p) {
+        const providerCompleted = !!(
+          comp.status && comp.status.type && (
+            comp.status.type.completed ||
+            comp.status.type.state === "post" ||
+            String(comp.status.type.name || "").toUpperCase().includes("FINAL")
+          )
+        );
+        const actuallyCompleted = !!(record && isActuallyCompletedTennisRecord(record));
+        if (record && providerCompleted && !actuallyCompleted && !record.retired) {
+          const revived = revivePrematureSettledItems(record);
+          if (revived > 0) {
+            settledAny += revived;
+            didChange = true;
+          }
+        }
+        const matchedPending = getTrackerItems().filter(function (p) {
           const ids = pendingPickIds(p);
           if (competitionId && ids.includes(competitionId)) return true;
           return namesMatchPending(record, p);
@@ -5834,14 +5909,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
             if (id && id !== eventId) matchKeys.push(id);
           });
         });
-        const completed = !!(
-          comp.status && comp.status.type && (
-            comp.status.type.completed ||
-            comp.status.type.state === "post" ||
-            String(comp.status.type.name || "").toUpperCase().includes("FINAL")
-          )
-        );
-        if (completed) {
+        if (providerCompleted && actuallyCompleted) {
           if (record) {
             settledAny += applyLiveSettlementToPending(matchKeys, record, false);
           }
@@ -5855,7 +5923,9 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         }
         const state = String((comp.status && comp.status.type && comp.status.type.state) || "");
         const statusName = String((comp.status && comp.status.type && comp.status.type.name) || "");
-        const isLive = state === "in" || statusName.toUpperCase().includes("PROGRESS");
+        const isLive = (providerCompleted && !actuallyCompleted && !!record && !record.retired) ||
+          state === "in" ||
+          statusName.toUpperCase().includes("PROGRESS");
         if (!isLive) {
           if (state === "pre") {
             matchKeys.forEach(function (k) {
