@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8828,450 +8829,336 @@ const EngineAuditor = (function () {
   function auditProjectionMath() {
     const AREA = 'PROJECTION_MATH';
 
-    tally();
-    if (typeof window.__BB_RUN_MATH_TESTS__ === 'function') {
-      const r = safeCall(window.__BB_RUN_MATH_TESTS__);
-      if (r.ok && r.value) {
-        pass();
-        if (r.value.ok) {
-          add('INFO', AREA, 'Golden math self-tests passed', 'All built-in regression assertions (period honesty, volatility identity, NaN grade sentinels, sample tiers) passed.', 'These guard the specific bug classes this audit targets, so a clean pass materially raises confidence in projection/period/confidence correctness.', 'No action needed. Re-run after any change to the projection or grading functions.', 'window.__BB_RUN_MATH_TESTS__()');
-        } else {
-          (r.value.fails || []).forEach(f => {
-            add('HIGH', AREA, 'Golden math self-test failed', 'window.__BB_RUN_MATH_TESTS__ reported a failed assertion: "' + f + '".', 'This harness encodes previously-fixed regressions (period leak, volatility shrink, fake grades); a failure means one of those bugs has resurfaced.', 'Search the codebase for the assertion text near window.__BB_RUN_MATH_TESTS__ and re-check the function it exercises.', 'window.__BB_RUN_MATH_TESTS__()');
-          });
-        }
+    tally(); pass();
+    if (typeof getDefaultTennisConfig === 'function') {
+      const r = safeCall(getDefaultTennisConfig);
+      if (!r.ok) {
+        add('HIGH', AREA, 'getDefaultTennisConfig threw', String(r.error && r.error.message || r.error), 'Default config is the baseline for every market projection.', 'Fix the throw in getDefaultTennisConfig().', 'getDefaultTennisConfig()');
       } else {
-        add('HIGH', AREA, 'Golden math self-tests threw', 'Calling window.__BB_RUN_MATH_TESTS__() raised an exception: ' + (r.error && r.error.message || r.error) + '.', 'The self-test harness itself is broken, so its usual regression coverage is silently unavailable.', 'Open window.__BB_RUN_MATH_TESTS__ and fix the throwing assertion; check for a function it depends on that no longer exists.', 'window.__BB_RUN_MATH_TESTS__()');
+        const c = r.value || {};
+        const required = ['decay', 'clayMult', 'grassMult', 'hardMult', 'expectedSetsBO5', 'h2hWeightCap', 'eloServeBlendWeight'];
+        const missing = required.filter(k => c[k] == null || !Number.isFinite(Number(c[k])));
+        if (missing.length) {
+          add('HIGH', AREA, 'Default tennis config missing keys', 'Missing/non-finite: ' + missing.join(', '), 'Projections depend on these baseline constants.', 'Restore the missing keys in getDefaultTennisConfig().', 'getDefaultTennisConfig()');
+        } else {
+          add('INFO', AREA, 'Default tennis config present', 'getDefaultTennisConfig() returned a complete baseline object.', 'Core projection constants are available.', 'No action needed.', 'getDefaultTennisConfig()');
+        }
       }
     } else {
-      add('MEDIUM', AREA, 'Golden math self-test harness missing', 'window.__BB_RUN_MATH_TESTS__ is not a function in this build.', 'Without it, the auditor loses its deepest regression coverage for period-advanced honesty, volatility identity, and NaN grade sentinels.', 'Confirm the harness definition (search "__BB_RUN_MATH_TESTS__") was not removed or renamed.', 'window.__BB_RUN_MATH_TESTS__()');
+      add('CRITICAL', AREA, 'getDefaultTennisConfig missing', 'Function is not defined on this page.', 'Without defaults, every market path is unanchored.', 'Restore getDefaultTennisConfig().', 'getDefaultTennisConfig()');
     }
 
-    const toy = buildToyInputs();
-    const bands = (typeof getLineSanityBands === 'function') ? safeCall(getLineSanityBands, 'nba') : null;
-    const ftBand = bands && bands.ok ? bands.value.ft : null;
-    const h1Band = bands && bands.ok ? bands.value.h1 : null;
-    let ftCalc = null, h1Calc = null, h2Calc = null;
-
-    tally();
-    if (typeof computeFTProjection === 'function') {
-      const r = safeCall(computeFTProjection, { league: toy.league, parsed: toy.parsed, lines: toy.lines, injMultA: 1, injMultB: 1 });
-      if (r.ok) {
-        ftCalc = r.value;
-        const p = ftCalc && ftCalc.ftProj;
-        if (!Number.isFinite(p)) {
-          add('HIGH', AREA, 'FT projection smoke test: non-finite output', 'computeFTProjection(toy 10-game inputs) returned ftProj = ' + p + '.', 'A full-length, well-formed sample should never yield NaN/Infinity; this blocks every downstream pick, edge, and grade for FT.', 'Step through computeFTProjection with the toy inputs; check anchorProjection/computeVenueBlend for a divide-by-zero or unguarded NaN propagation.', 'computeFTProjection()');
-        } else if (ftBand && (p < ftBand[0] || p > ftBand[1])) {
-          add('MEDIUM', AREA, 'FT projection outside sane band', 'computeFTProjection(toy inputs) → ftProj = ' + p.toFixed(1) + ', outside the NBA sanity band [' + ftBand[0].toFixed(1) + ', ' + ftBand[1].toFixed(1) + '] from getLineSanityBands.', 'A projection outside the league sanity band on a deliberately mid-range toy sample suggests a scaling or base-rate bug.', 'Check getLeagueScoreBase("nba") and the pace/rating blend in computeFTProjection for a unit or scale mismatch.', 'computeFTProjection()');
-        } else {
-          pass();
-          add('INFO', AREA, 'FT projection smoke test passed', 'computeFTProjection(toy inputs) → ftProj = ' + p.toFixed(1) + ', finite and inside the NBA sanity band.', 'Confirms the FT projection path runs end-to-end without throwing or fabricating an out-of-range number.', 'No action needed.', 'computeFTProjection()');
-        }
+    tally(); pass();
+    if (typeof pickFromRange === 'function') {
+      const over = safeCall(pickFromRange, 23.5, { mid: 22.5, low: 22, high: 23 });
+      const under = safeCall(pickFromRange, 21.0, { mid: 22.5, low: 22, high: 23 });
+      const passPick = safeCall(pickFromRange, 22.5, { mid: 22.5, low: 22, high: 23 });
+      if (!over.ok || !under.ok || !passPick.ok) {
+        add('HIGH', AREA, 'pickFromRange threw', 'One of OVER/UNDER/PASS smoke calls threw.', 'Pick direction is the core market output.', 'Guard pickFromRange against bad inputs.', 'pickFromRange()');
       } else {
-        add('HIGH', AREA, 'FT projection smoke test threw', 'computeFTProjection(toy inputs) raised: ' + (r.error && r.error.message || r.error) + '.', 'An exception here means a live user run with a similarly-shaped fixture would also crash instead of returning a NO PLAY/NaN result.', 'Reproduce with the toy inputs in this module and trace the stack to the first unguarded property access.', 'computeFTProjection()');
+        const ok =
+          over.value && over.value.pick === 'OVER' &&
+          under.value && under.value.pick === 'UNDER' &&
+          passPick.value && passPick.value.pick === 'PASS';
+        if (!ok) {
+          add('HIGH', AREA, 'pickFromRange direction logic broken', 'Expected OVER / UNDER / PASS for above / below / equal mid.', 'Wrong pick direction poisons every settled market.', 'Fix comparison branches in pickFromRange().', 'pickFromRange()');
+        } else {
+          add('INFO', AREA, 'pickFromRange direction OK', 'OVER, UNDER, and PASS branches all resolved correctly on toy mids.', 'Core pick polarity holds.', 'No action needed.', 'pickFromRange()');
+        }
       }
     } else {
-      add('CRITICAL', AREA, 'computeFTProjection missing', 'computeFTProjection is not defined as a function.', 'This is the core FT projection entry point; without it the engine cannot price the full-game market at all.', 'Check that the function was not renamed or deleted; search for its call sites.', 'computeFTProjection()');
+      add('CRITICAL', AREA, 'pickFromRange missing', 'Function is not defined.', 'Cannot form OVER/UNDER/PASS without it.', 'Restore pickFromRange().', 'pickFromRange()');
     }
 
-    tally();
-    if (typeof compute1HProjection === 'function') {
-      const r = safeCall(compute1HProjection, { league: toy.league, parsed: toy.parsed, lines: toy.lines, injMultA: 1, injMultB: 1 });
-      if (r.ok) {
-        h1Calc = r.value;
-        const p = h1Calc && h1Calc.h1Proj;
-        if (!Number.isFinite(p)) {
-          add('HIGH', AREA, '1H projection smoke test: non-finite output', 'compute1HProjection(toy 10-game inputs) returned h1Proj = ' + p + '.', 'Same-length, well-formed 1H sample should not yield NaN; this would silently block every 1H pick.', 'Trace compute1HProjection with the toy inputs; check the venue-blend and anchorProjection calls near the top of the function.', 'compute1HProjection()');
-        } else if (h1Band && (p < h1Band[0] || p > h1Band[1])) {
-          add('MEDIUM', AREA, '1H projection outside sane band', 'compute1HProjection(toy inputs) → h1Proj = ' + p.toFixed(1) + ', outside the NBA 1H sanity band [' + h1Band[0].toFixed(1) + ', ' + h1Band[1].toFixed(1) + '].', 'An out-of-band 1H number on mid-range toy data suggests the half-game base (eb/2 scaling) or pace normalization is off.', 'Check leagueBase1H and leaguePaceNorm1H in compute1HProjection for a scale error.', 'compute1HProjection()');
-        } else {
-          pass();
-          add('INFO', AREA, '1H projection smoke test passed', 'compute1HProjection(toy inputs) → h1Proj = ' + p.toFixed(1) + ', finite and inside the NBA 1H sanity band.', 'Confirms the 1H projection path runs end-to-end and stays in-range.', 'No action needed.', 'compute1HProjection()');
-        }
+    tally(); pass();
+    if (typeof gameWinProbFromPointProb === 'function' && typeof pointProbFromGameWinProb === 'function') {
+      const g = safeCall(gameWinProbFromPointProb, 0.65);
+      if (!g.ok || !Number.isFinite(g.value)) {
+        add('HIGH', AREA, 'gameWinProbFromPointProb non-finite', 'Input 0.65 did not yield a finite hold probability.', 'Serve/hold conversion is the Markov foundation.', 'Fix gameWinProbFromPointProb().', 'gameWinProbFromPointProb()');
       } else {
-        add('HIGH', AREA, '1H projection smoke test threw', 'compute1HProjection(toy inputs) raised: ' + (r.error && r.error.message || r.error) + '.', 'A throw here means a live 1H run on a comparable fixture would also fail.', 'Reproduce with the toy inputs above and trace the first unguarded access.', 'compute1HProjection()');
+        const back = safeCall(pointProbFromGameWinProb, g.value);
+        if (!back.ok || !Number.isFinite(back.value)) {
+          add('MEDIUM', AREA, 'pointProbFromGameWinProb non-finite', 'Round-trip from hold prob failed.', 'Inverse conversion should stay finite.', 'Fix pointProbFromGameWinProb().', 'pointProbFromGameWinProb()');
+        } else {
+          const delta = Math.abs(back.value - 0.65);
+          if (delta > 0.05) {
+            add('MEDIUM', AREA, 'Serve point ↔ game-hold round-trip drift', 'Round-trip delta = ' + delta.toFixed(4) + ' for p=0.65.', 'Large drift means Markov inputs are inconsistent.', 'Check both conversion helpers for formula errors.', 'gameWinProbFromPointProb() / pointProbFromGameWinProb()');
+          } else {
+            add('INFO', AREA, 'Serve point ↔ game-hold conversion OK', 'Round-trip delta = ' + delta.toFixed(4) + ' for p=0.65.', 'Markov point/game bridge is stable.', 'No action needed.', 'gameWinProbFromPointProb()');
+          }
+        }
       }
     } else {
-      add('CRITICAL', AREA, 'compute1HProjection missing', 'compute1HProjection is not defined as a function.', 'Without it the 1H market cannot be priced at all.', 'Check for a rename/deletion; search call sites expecting compute1HProjection().', 'compute1HProjection()');
+      add('HIGH', AREA, 'Serve probability converters missing', 'gameWinProbFromPointProb and/or pointProbFromGameWinProb not found.', 'Markov simulation depends on these.', 'Restore the converters.', 'gameWinProbFromPointProb()');
     }
 
-    tally();
-    if (typeof compute2HProjection === 'function') {
-      const r = safeCall(compute2HProjection, { league: toy.league, parsed: toy.parsed, lines: toy.lines, injMultA: 1, injMultB: 1 });
-      if (r.ok) {
-        h2Calc = r.value;
-        const p = h2Calc && h2Calc.h2Proj;
-        if (!Number.isFinite(p)) {
-          add('HIGH', AREA, '2H projection smoke test: non-finite output', 'compute2HProjection(toy 10-game inputs, via Q3+Q4) returned h2Proj = ' + p + '.', 'A well-formed sample should not yield NaN for 2H; this would silently block every 2H pick.', 'Trace compute2HProjection with the toy Q3/Q4 arrays above.', 'compute2HProjection()');
-        } else if (h1Band && (p < h1Band[0] * 0.85 || p > h1Band[1] * 1.15)) {
-          add('MEDIUM', AREA, '2H projection far outside 1H-comparable band', '2H (' + p.toFixed(1) + ') should be roughly the same order of magnitude as 1H, but falls well outside a widened 1H sanity band.', 'No dedicated H2 band exists in getLineSanityBands, so this is an approximate cross-check, but a large gap still points at a scale bug.', 'Compare leagueBase2H against leagueBase1H in compute2HProjection.', 'compute2HProjection()');
-        } else {
-          pass();
-          add('INFO', AREA, '2H projection smoke test passed', 'compute2HProjection(toy inputs) → h2Proj = ' + p.toFixed(1) + ', finite and roughly consistent with the 1H band.', 'Confirms the 2H projection path runs end-to-end without throwing.', 'No action needed.', 'compute2HProjection()');
-        }
+    tally(); pass();
+    if (typeof weightedMean === 'function') {
+      const r = safeCall(weightedMean, [10, 10, 10, 10], 0.9);
+      if (!r.ok || !Number.isFinite(r.value) || Math.abs(r.value - 10) > 0.01) {
+        add('MEDIUM', AREA, 'weightedMean smoke failed', 'Expected ~10 for flat series; got ' + (r.ok ? r.value : r.error), 'Recency-weighted form is used across surfaces and H2H.', 'Fix weightedMean().', 'weightedMean()');
       } else {
-        add('HIGH', AREA, '2H projection smoke test threw', 'compute2HProjection(toy inputs) raised: ' + (r.error && r.error.message || r.error) + '.', 'A throw here means a live 2H run on a comparable fixture would also fail.', 'Reproduce with the toy inputs above.', 'compute2HProjection()');
+        add('INFO', AREA, 'weightedMean smoke OK', 'Flat series correctly returns 10.', 'Recency weighting baseline holds.', 'No action needed.', 'weightedMean()');
       }
     } else {
-      add('CRITICAL', AREA, 'compute2HProjection missing', 'compute2HProjection is not defined as a function.', 'Without it the 2H market cannot be priced at all.', 'Check for a rename/deletion; search call sites expecting compute2HProjection().', 'compute2HProjection()');
+      add('MEDIUM', AREA, 'weightedMean missing', 'Function not found.', 'Form calculations may fall back to unweighted means.', 'Restore weightedMean if intended.', 'weightedMean()');
     }
 
-    tally();
-    if (ftCalc && h1Calc && h2Calc && Number.isFinite(ftCalc.ftProj) && Number.isFinite(h1Calc.h1Proj) && Number.isFinite(h2Calc.h2Proj)) {
-      pass();
-      const gap = ftCalc.ftProj - (h1Calc.h1Proj + h2Calc.h2Proj);
-      if (Math.abs(gap) > 10) {
-        add('MEDIUM', AREA, 'FT vs (1H+2H) reconciliation gap', 'On toy inputs, ftProj − (h1Proj + h2Proj) = ' + gap.toFixed(1) + ' pts.', 'FT is supposed to be an independent-but-consistent estimate of the two halves combined; a double-digit gap on synchronized toy data suggests the half-game and full-game models are drifting apart.', 'Compare the venue-blend/anchor logic between computeFTProjection and compute1HProjection/compute2HProjection for a shared assumption that only one of them applies.', 'computeFTProjection() vs compute1HProjection()+compute2HProjection()');
+    tally(); pass();
+    if (typeof mean === 'function' && typeof stdDev === 'function') {
+      const m = safeCall(mean, [2, 4, 6]);
+      const s = safeCall(stdDev, [2, 4, 6]);
+      if (!m.ok || m.value !== 4) {
+        add('MEDIUM', AREA, 'mean() incorrect', 'mean([2,4,6]) expected 4.', 'Basic stats helper is wrong.', 'Fix mean().', 'mean()');
+      } else if (!s.ok || !Number.isFinite(s.value)) {
+        add('MEDIUM', AREA, 'stdDev non-finite', 'stdDev([2,4,6]) failed.', 'Volatility paths depend on this.', 'Fix stdDev().', 'stdDev()');
       } else {
-        add('INFO', AREA, 'FT vs (1H+2H) reconciliation OK', 'ftProj − (h1Proj + h2Proj) = ' + gap.toFixed(1) + ' pts on toy inputs — within a reasonable tolerance.', 'Cross-consistency between the full-game and half-game models is a good sign they share the same underlying assumptions.', 'No action needed.', 'computeFTProjection() vs compute1HProjection()+compute2HProjection()');
+        add('INFO', AREA, 'mean/stdDev helpers OK', 'Basic statistical helpers returned finite correct values.', 'No action needed.', 'mean() / stdDev()');
       }
-    }
-
-    tally();
-    if (typeof anchorProjection === 'function') {
-      const r = safeCall(anchorProjection, NaN, 10, 55);
-      if (r.ok) {
-        pass();
-        if (Number.isFinite(r.value)) {
-          add('HIGH', AREA, 'anchorProjection fabricates a value from NaN', 'anchorProjection(NaN, 10, 55) returned ' + r.value + ' instead of passing NaN through.', 'Silently turning a missing/invalid input into a plausible-looking number hides upstream data problems instead of surfacing them as NO PLAY.', 'In anchorProjection, add an explicit "if (!Number.isFinite(proj)) return proj;" guard at the top.', 'anchorProjection()');
-        } else {
-          add('INFO', AREA, 'anchorProjection NaN passthrough OK', 'anchorProjection(NaN, 10, 55) correctly stayed non-finite instead of fabricating a value.', 'Confirms invalid inputs propagate as NaN rather than being silently papered over.', 'No action needed.', 'anchorProjection()');
-        }
-      }
+    } else {
+      add('LOW', AREA, 'mean/stdDev helpers unavailable', 'One or both helpers missing from scope.', 'Some form math may be affected.', 'Confirm helpers are still defined.', 'mean() / stdDev()');
     }
   }
 
-  // =================================================================
-  // D. CONFIDENCE MODEL — grades, NaN sentinels, train/serve parity,
-  //    double-boosts, and pick/grade consistency (incl. NO PLAY chain)
-  // =================================================================
   function auditConfidence() {
     const AREA = 'CONFIDENCE';
 
-    tally();
-    if (typeof resolveConfidenceGradeFromWinProbability === 'function') {
-      const cases = [null, undefined, NaN, -0.3, 1.7];
-      const bad = [];
-      cases.forEach(c => {
-        const r = safeCall(resolveConfidenceGradeFromWinProbability, c, 'ft', 'nba');
-        if (r.ok && r.value !== 'NaN') bad.push(String(c) + ' → "' + r.value + '"');
-      });
-      pass();
-      if (bad.length) {
-        add('CRITICAL', AREA, 'Fake grade fabricated from invalid win probability', 'resolveConfidenceGradeFromWinProbability returned a real letter grade instead of the "NaN" sentinel for: ' + bad.join('; ') + '.', 'Win probability must be finite and in [0, 1]. Non-finite values (null/undefined/NaN) and out-of-range values (e.g. -0.3 or 1.7) must never map to A–D.', 'Guard with: if (!Number.isFinite(winProb) || winProb < 0 || winProb > 1) return "NaN";', 'resolveConfidenceGradeFromWinProbability()');
+    tally(); pass();
+    if (typeof getRawConfidence === 'function') {
+      const a = safeCall(getRawConfidence, 2.5, 1.0, 22.5, 'ATP', 'match', 'Hard', null);
+      const passish = safeCall(getRawConfidence, 0.1, 5.0, 22.5, 'ATP', 'match', 'Hard', null);
+      if (!a.ok || !passish.ok) {
+        add('HIGH', AREA, 'getRawConfidence threw', 'Smoke calls threw.', 'Confidence grading is required for lock selection and tracker grades.', 'Fix getRawConfidence().', 'getRawConfidence()');
       } else {
-        add('INFO', AREA, 'NaN grade sentinel holds', 'null, undefined, NaN, and out-of-range win probabilities all correctly resolve to the "NaN" grade sentinel rather than a fabricated letter.', 'Confirms Number.isFinite plus [0,1] range guard on the grading path.', 'No action needed.', 'resolveConfidenceGradeFromWinProbability()');
-      }
-    } else {
-      add('CRITICAL', AREA, 'resolveConfidenceGradeFromWinProbability missing', 'Not defined as a function.', 'Without it there is no single choke point translating win probability into a grade — every call site would need its own NaN guard.', 'Check for a rename/deletion.', 'resolveConfidenceGradeFromWinProbability()');
-    }
-
-    tally();
-    if (typeof getConfidenceGrade === 'function') {
-      const g1 = safeCall(getConfidenceGrade, { pick: 'NO PLAY', line: 220, edge: 5, league: 'nba' });
-      const g2 = safeCall(getConfidenceGrade, { pick: 'OVER', line: null, edge: 5, league: 'nba' });
-      const g3 = safeCall(getConfidenceGrade, { pick: 'OVER', line: 220, edge: NaN, league: 'nba' });
-      pass();
-      const bad = [];
-      if (g1.ok && g1.value !== 'NaN') bad.push('NO PLAY pick → "' + g1.value + '"');
-      if (g2.ok && g2.value !== 'NaN') bad.push('null line → "' + g2.value + '"');
-      if (g3.ok && g3.value !== 'NaN') bad.push('NaN edge → "' + g3.value + '"');
-      if (bad.length) {
-        add('CRITICAL', AREA, 'getConfidenceGrade grades an ungradeable pick', bad.join('; ') + '.', 'A NO PLAY pick, a missing line, or a non-finite edge means there is nothing sound to grade; returning a letter anyway would show the user false confidence on a pick that should not exist.', 'Check the early-return guard at the top of getConfidenceGrade covers pick==="NO PLAY", line===null/non-finite/<=0, and non-finite edge.', 'getConfidenceGrade()');
-      } else {
-        add('INFO', AREA, 'getConfidenceGrade guard holds', 'NO PLAY picks, null lines, and NaN edges all correctly resolve to "NaN".', 'Confirms grading never fabricates confidence for an ungradeable pick.', 'No action needed.', 'getConfidenceGrade()');
-      }
-    }
-
-    tally();
-    if (typeof buildConfidenceFeatures === 'function') {
-      const rLive = safeCall(buildConfidenceFeatures, { edgePct: 0.08, volatilityRatio: 1.2, sampleTier: 'full', hasH2H: true, trap: false, league: 'nba' });
-      const rFit = safeCall(buildConfidenceFeatures, { edgePct: 8.0, godsEyeMemory: { aVol: 14.4, bVol: 14.4, sampleTier: 'full', hasH2H: true, trap: false }, league: 'nba', marketKey: 'ft' });
-      if (rLive.ok && rFit.ok) { pass();
-        const diff = Math.abs(rLive.value.edgePct - rFit.value.edgePct);
-        if (!(diff < 1e-9)) {
-          add('CRITICAL', AREA, 'Confidence model train/serve feature mismatch', 'The live-serve call (edgePct=0.08 fraction) and the training/backtest call (edgePct=8.0 percent) normalized to different edgePct features (Δ=' + diff.toExponential(2) + ') instead of matching exactly.', 'The confidence model is trained on one feature representation and served on another; if they drift apart, the coefficients learned during training no longer mean what the live code assumes, silently corrupting every grade.', 'Check buildConfidenceFeatures\' percent-vs-fraction normalization is applied identically on both the live and fit code paths.', 'buildConfidenceFeatures()');
+        const grades = [a.value, passish.value];
+        const valid = grades.every(g => g === 'A' || g === 'B' || g === 'C' || g === 'PASS' || g === 'D');
+        if (!valid) {
+          add('HIGH', AREA, 'getRawConfidence returned invalid grade', 'Got: ' + grades.join(', '), 'Only A/B/C/PASS (or D) are valid tennis grades.', 'Clamp outputs in getRawConfidence().', 'getRawConfidence()');
         } else {
-          add('INFO', AREA, 'Confidence model train/serve feature parity holds', 'Live (fraction) and fit (percent) inputs normalize to the same edgePct feature (Δ < 1e-9).', 'Confirms the model is trained and served on a consistent feature definition.', 'No action needed.', 'buildConfidenceFeatures()');
+          add('INFO', AREA, 'getRawConfidence smoke OK', 'Strong edge graded ' + a.value + '; weak edge graded ' + passish.value + '.', 'Confidence path runs end-to-end.', 'No action needed.', 'getRawConfidence()');
         }
       }
     } else {
-      add('MEDIUM', AREA, 'buildConfidenceFeatures missing', 'Not defined as a function.', 'Without a single shared feature-builder, train and serve paths are free to diverge with no automatic check.', 'Check for a rename/deletion.', 'buildConfidenceFeatures()');
+      add('CRITICAL', AREA, 'getRawConfidence missing', 'Function not defined.', 'No confidence grades without it.', 'Restore getRawConfidence().', 'getRawConfidence()');
     }
 
     tally(); pass();
-    const src = getConcatenatedScriptSource();
-    if (src) {
-      const suspects = findDoubleBoostPatterns(src);
-      if (suspects.length) {
-        suspects.forEach(s => {
-          add('MEDIUM', AREA, 'Possible double edge/confidence boost in ' + s.fn, 'Variable "' + s.varName + '" is reassigned via a "*=" boost/mult-style multiply ' + s.count + ' times inside ' + s.fn + '.', 'Multiplying the same edge or confidence signal by more than one boost factor in the same scope can silently compound — a pick that should get one modest bump instead gets stacked bumps.', 'Open ' + s.fn + ' and confirm each "' + s.varName + ' *= ..." line is gated on a mutually-exclusive condition, not applied unconditionally in sequence.', s.fn + '()');
-        });
+    if (typeof downgradeConfidence === 'function') {
+      const r1 = safeCall(downgradeConfidence, 'A');
+      const r2 = safeCall(downgradeConfidence, 'B');
+      const r3 = safeCall(downgradeConfidence, 'C');
+      if (!r1.ok || r1.value !== 'B' || !r2.ok || r2.value !== 'C' || !r3.ok || r3.value !== 'PASS') {
+        add('MEDIUM', AREA, 'downgradeConfidence chain broken', 'Expected A→B, B→C, C→PASS.', 'Fatigue/context downgrades would mis-grade locks.', 'Fix downgradeConfidence().', 'downgradeConfidence()');
       } else {
-        add('INFO', AREA, 'No obvious double-boost pattern found', 'Source scan did not find the same edge/confidence variable multiplied by a boost factor more than once within a single function.', 'This is a heuristic scan, not a proof of absence — treat as a first pass, not a guarantee.', 'No action needed from this check alone.', 'getConfidenceGrade() / getPick() / applySoftTrackerInfluenceToPicks() (source scan)');
+        add('INFO', AREA, 'downgradeConfidence chain OK', 'A→B, B→C, C→PASS all hold.', 'No action needed.', 'downgradeConfidence()');
       }
+    } else {
+      add('LOW', AREA, 'downgradeConfidence missing', 'Function not found.', 'Context downgrades may be skipped.', 'Restore if still used.', 'downgradeConfidence()');
     }
 
     tally(); pass();
-    if (isFinite(null) !== true || Number.isFinite(null) !== false) {
-      add('CRITICAL', AREA, 'JavaScript engine isFinite semantics unexpected', 'isFinite(null) !== true or Number.isFinite(null) !== false in this runtime.', 'Every NaN-grade guard in this codebase is written assuming these exact semantics; if they ever differ, the guards silently stop working.', 'Not an engine bug — re-run in a standard browser/JS runtime.', 'Runtime isFinite/Number.isFinite semantics');
-    } else {
-      add('INFO', AREA, 'isFinite(null) trap confirmed present (as expected)', 'isFinite(null) === true and Number.isFinite(null) === false, confirming why every grade/edge guard in this codebase must use Number.isFinite, not the bare global isFinite.', 'This is the mechanism behind every "fake grade from null" finding above — documented here for context.', 'No action needed; this is a JS language fact, not a bug.', 'Runtime isFinite/Number.isFinite semantics');
-    }
-
-    // --- NO PLAY / pick-grade consistency (folded into CONFIDENCE) ---
-    tally();
-    if (typeof getPick === 'function') {
-      const p1 = safeCall(getPick, NaN, 220, 'nba', 'ft');
-      const p2 = safeCall(getPick, 0, 220, 'nba', 'ft');
-      const p3 = safeCall(getPick, 0.1, 220, 'nba', 'ft');
-      pass();
-      const bad = [];
-      if (p1.ok && p1.value !== 'NO PLAY') bad.push('NaN edge → "' + p1.value + '"');
-      if (p2.ok && p2.value !== 'NO PLAY') bad.push('zero edge → "' + p2.value + '"');
-      if (p3.ok && p3.value !== 'NO PLAY') bad.push('sub-threshold edge (0.1) → "' + p3.value + '"');
-      if (bad.length) {
-        add('HIGH', AREA, 'getPick returns a playable pick for an unplayable edge', bad.join('; ') + '.', 'NaN, zero, and tiny edges should always resolve to NO PLAY; anything else would show the user a confident-looking OVER/UNDER built on no real edge.', 'Check the early guards in getPick for NaN/zero line or edge, and the minimum-edge floor.', 'getPick()');
+    if (typeof confidenceScore === 'function') {
+      const r = safeCall(confidenceScore, 'A', 2.0, 1.0);
+      if (!r.ok || !Number.isFinite(r.value)) {
+        add('MEDIUM', AREA, 'confidenceScore non-finite', 'Expected a finite numeric score for grade A.', 'Lock ranking may break.', 'Fix confidenceScore().', 'confidenceScore()');
       } else {
-        add('INFO', AREA, 'getPick NO PLAY guards hold', 'NaN edge, zero edge, and a sub-threshold edge all correctly resolve to NO PLAY.', 'Confirms unplayable edges never masquerade as a real pick.', 'No action needed.', 'getPick()');
-      }
-
-      tally();
-      if (typeof getConfidenceGrade === 'function') {
-        const chained = safeCall(getConfidenceGrade, { pick: p1.ok ? p1.value : 'NO PLAY', line: 220, edge: NaN, league: 'nba' });
-        pass();
-        if (chained.ok && chained.value !== 'NaN') {
-          add('CRITICAL', AREA, 'NO PLAY pick graded with a real letter', 'getPick(NaN, 220, "nba", "ft") → "' + (p1.ok ? p1.value : '?') + '", then feeding that into getConfidenceGrade returned "' + chained.value + '" instead of "NaN".', 'A pick the engine itself says not to make should never carry a confidence grade at all.', 'Confirm getConfidenceGrade\'s "pick === \\"NO PLAY\\"" check runs before any win-probability computation.', 'getPick() → getConfidenceGrade() chain');
-        } else {
-          add('INFO', AREA, 'NO PLAY → NaN grade chain holds', 'Feeding a NO PLAY pick into getConfidenceGrade correctly yields the "NaN" grade sentinel.', 'Confirms pick and grade stay consistent end-to-end for unplayable edges.', 'No action needed.', 'getPick() → getConfidenceGrade() chain');
-        }
+        add('INFO', AREA, 'confidenceScore OK', 'Returned finite score ' + r.value + ' for grade A.', 'No action needed.', 'confidenceScore()');
       }
     } else {
-      add('CRITICAL', AREA, 'getPick missing', 'getPick is not defined as a function.', 'Without it there is no single choke point deciding OVER/UNDER/NO PLAY — every call site would need to reimplement the NO PLAY thresholds.', 'Check for a rename/deletion.', 'getPick()');
+      add('LOW', AREA, 'confidenceScore missing', 'Function not found.', 'Lock index selection may be affected.', 'Restore if still used.', 'confidenceScore()');
     }
 
-    tally();
-    if (typeof getAllTrackedPicksForReport === 'function') {
-      const r = safeCall(getAllTrackedPicksForReport);
-      if (r.ok) { pass();
-        const picks = Array.isArray(r.value) ? r.value : [];
-        let mismatches = 0;
-        picks.forEach(p => {
-          const isNoPlay = String(p.predictionText || p.pick || '').toUpperCase() === 'NO PLAY';
-          const grade = p.confidenceGrade || p.grade;
-          const gradeLooksReal = grade && /^[ABCD]$/.test(String(grade).toUpperCase());
-          if (isNoPlay && gradeLooksReal) mismatches++;
-          const edgeVal = Number(p.edge);
-          if (!isNoPlay && !Number.isFinite(edgeVal) && p.resultStatus && p.resultStatus !== 'pending') mismatches++;
-        });
-        if (mismatches > 0) {
-          add('MEDIUM', AREA, 'Stored tracker picks with pick/grade inconsistency', mismatches + ' out of ' + picks.length + ' tracked pick(s) show a NO PLAY prediction paired with a real letter grade, or a non-NaN edge missing on a settled pick.', 'These are historical records already saved to the tracker; if the inconsistency happened live it may have shown the user false confidence at decision time, and it will also skew win-rate/calibration stats computed from this history.', 'Cross-reference the flagged picks against repairMisclassifiedNoPlayTrackedPicks, which exists specifically to repair this class of record.', 'getAllTrackedPicksForReport() (live data scan)');
-        } else {
-          add('INFO', AREA, 'No pick/grade inconsistency found in tracked picks', 'Scanned ' + picks.length + ' stored tracked pick(s); none show a NO PLAY prediction with a real letter grade or a missing edge on a settled pick.', 'Historical tracker data is internally consistent by this check.', 'No action needed.', 'getAllTrackedPicksForReport() (live data scan)');
-        }
-      }
+    tally(); pass();
+    if (typeof getPickCellClass === 'function' && typeof getConfidenceCellClass === 'function') {
+      add('INFO', AREA, 'Pick/confidence cell class helpers present', 'UI class mappers for results table are defined.', 'No action needed.', 'No action needed.', 'getPickCellClass() / getConfidenceCellClass()');
     } else {
-      add('INFO', AREA, 'getAllTrackedPicksForReport unavailable', 'Could not run the live tracked-picks consistency scan.', 'This just means the live-data check was skipped — the direct getPick/getConfidenceGrade checks above still ran.', 'Not applicable.', 'getAllTrackedPicksForReport()');
+      add('LOW', AREA, 'Results table class helpers missing', 'getPickCellClass and/or getConfidenceCellClass not found.', 'Results styling may degrade.', 'Restore UI helpers.', 'getPickCellClass()');
     }
   }
 
-  // =================================================================
-  // E1. H2H — bounds, sample size, divergence, injury/context
-  // =================================================================
   function auditH2H() {
     const AREA = 'H2H';
-    if (typeof getH2HWeight !== 'function') {
-      tally();
-      add('CRITICAL', AREA, 'getH2HWeight missing', 'getH2HWeight is not defined as a function.', 'Without it H2H data cannot be weighted into any projection at all.', 'Check for a rename/deletion of getH2HWeight.', 'getH2HWeight()');
-      return;
-    }
-    const cap = (typeof getParam === 'function') ? (safeCall(getParam, 'h2hMaxWeight', 'nba').ok ? (getParam('h2hMaxWeight', 'nba') ?? 0.30) : 0.30) : 0.30;
 
-    tally();
-    let r = safeCall(getH2HWeight, 1, 5, 'ft', 'full', 0, 'nba');
-    if (r.ok) { pass();
-      if (r.value !== 0) add('HIGH', AREA, 'H2H sample-size gate not enforced', 'getH2HWeight(1, 5, ...) returned ' + r.value + ' instead of 0.', 'Fewer than 2 head-to-head games is not a usable sample; weighting it anyway lets a single fluky game move a pick.', 'Check the "if (minLen < 2) return 0;" guard at the top of getH2HWeight.', 'getH2HWeight()');
-      else add('INFO', AREA, 'H2H sample-size gate OK', 'getH2HWeight(1, 5, ...) correctly returns 0 when one side has under 2 H2H games.', 'Confirms thin/unusable H2H samples are excluded rather than weighted.', 'No action needed.', 'getH2HWeight()');
-    }
-
-    tally();
-    r = safeCall(getH2HWeight, 10, 10, 'ft', 'full', 0, 'nba', null, 5.0);
-    if (r.ok) { pass();
-      if (r.value > cap + 1e-9 || r.value < 0) add('HIGH', AREA, 'H2H weight bound violated', 'getH2HWeight(10, 10, ..., factor=5.0) returned ' + r.value + ', outside [0, ' + cap + '].', 'The H2H weight caps how much recent head-to-head history can move a projection; an uncapped value lets one lever (factor) override every other safeguard.', 'Confirm the cap is applied after, not before, the factor multiply.', 'getH2HWeight()');
-      else add('INFO', AREA, 'H2H weight cap holds under large factor', 'getH2HWeight(..., factor=5.0) stayed within [0, ' + cap + '].', 'Confirms the cap is applied after, not before, the factor multiply.', 'No action needed.', 'getH2HWeight()');
-    }
-
-    tally();
-    const base = safeCall(getH2HWeight, 10, 10, 'ft', 'full', 0, 'nba');
-    const diverged = safeCall(getH2HWeight, 10, 10, 'ft', 'full', 40, 'nba', 100);
-    if (base.ok && diverged.ok) { pass();
-      if (!(diverged.value < base.value)) add('MEDIUM', AREA, 'H2H divergence penalty not reducing weight', 'getH2HWeight with divergence=40 vs baseline=100 (40% relative divergence) returned ' + diverged.value + ', not less than the no-divergence weight ' + base.value + '.', 'When H2H history disagrees sharply with the baseline projection, it should be trusted less, not equally.', 'Check the divergence-penalty computation and thresholds in getH2HWeight.', 'getH2HWeight()');
-      else add('INFO', AREA, 'H2H divergence penalty active', 'A 40%-divergent H2H sample weighted lower (' + diverged.value.toFixed(4) + ') than a non-divergent one (' + base.value.toFixed(4) + ').', 'Confirms disagreement between H2H and baseline appropriately discounts the H2H weight.', 'No action needed.', 'getH2HWeight()');
+    tally(); pass();
+    if (typeof getDefaultTennisConfig === 'function') {
+      const c = safeCall(getDefaultTennisConfig);
+      if (c.ok && c.value) {
+        const cap = Number(c.value.h2hWeightCap);
+        const w5 = Number(c.value.h2hWeightGe5);
+        const w3 = Number(c.value.h2hWeightGe3);
+        const w2 = Number(c.value.h2hWeightGe2);
+        if (![cap, w5, w3, w2].every(Number.isFinite)) {
+          add('HIGH', AREA, 'H2H weight constants non-finite', 'h2hWeightCap / Ge5 / Ge3 / Ge2 missing or non-finite in default config.', 'H2H blend strength is undefined.', 'Restore H2H weight keys in getDefaultTennisConfig().', 'getDefaultTennisConfig() H2H keys');
+        } else if (!(w5 >= w3 && w3 >= w2 && w5 <= cap)) {
+          add('MEDIUM', AREA, 'H2H weight ladder inconsistent', 'Expected Ge5 ≥ Ge3 ≥ Ge2 and Ge5 ≤ cap. Got Ge5=' + w5 + ' Ge3=' + w3 + ' Ge2=' + w2 + ' cap=' + cap + '.', 'Sample-size ladder should be monotonic and capped.', 'Adjust H2H weights in getDefaultTennisConfig().', 'getDefaultTennisConfig() H2H keys');
+        } else {
+          add('INFO', AREA, 'H2H weight ladder OK', 'Ge5=' + w5 + ' ≥ Ge3=' + w3 + ' ≥ Ge2=' + w2 + ' ≤ cap=' + cap + '.', 'Sample-size weighting is coherent.', 'No action needed.', 'getDefaultTennisConfig() H2H keys');
+        }
+      }
+    } else {
+      add('HIGH', AREA, 'Cannot validate H2H weights — config missing', 'getDefaultTennisConfig not available.', 'H2H blend cannot be validated.', 'Restore getDefaultTennisConfig().', 'getDefaultTennisConfig()');
     }
 
-    tally();
-    const noCtx = safeCall(getH2HWeight, 10, 10, 'ft', 'full', 0, 'nba', null, 1.0, null);
-    const injCtx = safeCall(getH2HWeight, 10, 10, 'ft', 'full', 0, 'nba', null, 1.0, { injMultA: 1.0, injMultB: 0.5 });
-    if (noCtx.ok && injCtx.ok) { pass();
-      if (!(injCtx.value < noCtx.value)) add('MEDIUM', AREA, 'H2H injury/context penalty not reducing weight', 'getH2HWeight with a large injury gap (injMultA=1.0, injMultB=0.5) returned ' + injCtx.value + ', not less than the no-context weight ' + noCtx.value + '.', 'A significant injury absent from prior H2H meetings should reduce trust in that history, since the matchup context has changed.', 'Check the injuryRisk term inside the context-penalty block of getH2HWeight.', 'getH2HWeight()');
-      else add('INFO', AREA, 'H2H injury/context penalty active', 'A large injury gap weighted lower (' + injCtx.value.toFixed(4) + ') than no context (' + noCtx.value.toFixed(4) + ').', 'Confirms injury context appropriately discounts stale H2H history.', 'No action needed.', 'getH2HWeight()');
+    tally(); pass();
+    if (typeof matchupKey === 'function') {
+      const k1 = safeCall(matchupKey, 'ATP', 'Player A', 'Player B');
+      const k2 = safeCall(matchupKey, 'atp', 'player a', 'player b');
+      if (!k1.ok || !k2.ok || !k1.value) {
+        add('MEDIUM', AREA, 'matchupKey failed', 'Could not build a stable matchup key.', 'Fetch context binding depends on this.', 'Fix matchupKey().', 'matchupKey()');
+      } else {
+        add('INFO', AREA, 'matchupKey present', 'Returned key length ' + String(k1.value).length + '.', 'Matchup binding helper works.', 'No action needed.', 'matchupKey()');
+      }
+    } else {
+      add('LOW', AREA, 'matchupKey missing', 'Function not found.', 'Context cache keying may be affected.', 'Restore matchupKey if used.', 'matchupKey()');
     }
 
-    tally();
-    const small = safeCall(getH2HWeight, 3, 3, 'ft', 'full', 0, 'nba');
-    const large = safeCall(getH2HWeight, 10, 10, 'ft', 'full', 0, 'nba');
-    if (small.ok && large.ok) { pass();
-      if (large.value < small.value - 1e-9) add('MEDIUM', AREA, 'H2H weight not monotonic in sample size', 'getH2HWeight(10,10,...) = ' + large.value + ' is less than getH2HWeight(3,3,...) = ' + small.value + '.', 'All else equal, more head-to-head history should never be trusted less than a thinner sample.', 'Check the sample-size growth curve in getH2HWeight.', 'getH2HWeight()');
-      else add('INFO', AREA, 'H2H weight monotonic in sample size', 'Weight did not decrease going from 3 to 10 shared H2H games.', 'Confirms the sample-size curve behaves sensibly.', 'No action needed.', 'getH2HWeight()');
+    tally(); pass();
+    if (typeof inferSurfaceFromText === 'function') {
+      const clay = safeCall(inferSurfaceFromText, '', 'Roland Garros');
+      const grass = safeCall(inferSurfaceFromText, '', 'Wimbledon');
+      const hard = safeCall(inferSurfaceFromText, '', 'Australian Open');
+      if (!clay.ok || clay.value !== 'Clay' || !grass.ok || grass.value !== 'Grass' || !hard.ok || hard.value !== 'Hard') {
+        add('MEDIUM', AREA, 'Surface inference mis-classified majors', 'Roland Garros→' + (clay.ok?clay.value: 'ERR') + ', Wimbledon→' + (grass.ok?grass.value:'ERR') + ', AO→' + (hard.ok?hard.value:'ERR') + '.', 'Wrong surface breaks surface multipliers and H2H surface factors.', 'Fix inferSurfaceFromText major mappings.', 'inferSurfaceFromText()');
+      } else {
+        add('INFO', AREA, 'Surface inference majors OK', 'Clay / Grass / Hard majors classified correctly.', 'No action needed.', 'inferSurfaceFromText()');
+      }
+    } else {
+      add('MEDIUM', AREA, 'inferSurfaceFromText missing', 'Function not found.', 'Surface-aware projections cannot classify tournaments.', 'Restore inferSurfaceFromText().', 'inferSurfaceFromText()');
     }
   }
 
-  // =================================================================
-  // E2. VOLATILITY — must widen uncertainty, never shrink the mean
-  // =================================================================
   function auditVolatility() {
     const AREA = 'VOLATILITY';
 
-    tally();
-    if (typeof applyVolatility === 'function') {
-      const r1 = safeCall(applyVolatility, 100, [90, 100, 110], 12, 'nba');
-      const r2 = safeCall(applyVolatility, 88.5, [], 12, 'ncaa');
-      if (r1.ok && r2.ok) { pass();
-        if (r1.value !== 100 || r2.value !== 88.5) {
-          add('CRITICAL', AREA, 'Volatility is shrinking the projection mean', 'applyVolatility(100, [...], 12, "nba") returned ' + r1.value + ' (expected 100, unchanged); applyVolatility(88.5, [], 12, "ncaa") returned ' + r2.value + ' (expected 88.5).', 'Volatility describes spread (predictive SD), not a discount on the central estimate. Letting it pull the mean toward a baseline conflates "uncertain" with "wrong" and silently biases every projection.', 'applyVolatility should be an identity on its first argument, with SD/uncertainty handled only in distributionWinProbability/_normalCdf.', 'applyVolatility()');
-        } else {
-          add('INFO', AREA, 'Volatility does not shrink the mean', 'applyVolatility is an identity on the projection for both a populated and an empty series.', 'Confirms uncertainty is kept separate from the point estimate, matching the intended design.', 'No action needed.', 'applyVolatility()');
-        }
+    tally(); pass();
+    if (typeof stdDev === 'function') {
+      const flat = safeCall(stdDev, [5, 5, 5, 5]);
+      const spread = safeCall(stdDev, [1, 3, 8, 12]);
+      if (!flat.ok || !spread.ok) {
+        add('MEDIUM', AREA, 'stdDev threw', 'Volatility helper threw on smoke inputs.', 'Confidence vol-normalization depends on this.', 'Fix stdDev().', 'stdDev()');
+      } else if (!(Number(flat.value) < Number(spread.value))) {
+        add('MEDIUM', AREA, 'stdDev not discriminating spread', 'Flat series stdDev should be < spread series.', 'Vol signal feeding confidence may be inverted.', 'Fix stdDev().', 'stdDev()');
       } else {
-        add('HIGH', AREA, 'applyVolatility threw on toy input', 'applyVolatility raised: ' + ((r1.ok ? r2.error : r1.error) || {}).message, 'A function this central to every projection should never throw on well-formed input.', 'Trace the exception with the toy args (100, [90,100,110], 12, "nba").', 'applyVolatility()');
+        add('INFO', AREA, 'stdDev discriminates spread', 'Flat std=' + Number(flat.value).toFixed(3) + ' < spread std=' + Number(spread.value).toFixed(3) + '.', 'Volatility signal direction is correct.', 'No action needed.', 'stdDev()');
       }
     } else {
-      add('CRITICAL', AREA, 'applyVolatility missing', 'applyVolatility is not defined as a function.', 'Without it there is no defined policy for how volatility interacts with the projection mean.', 'Check for a rename/deletion.', 'applyVolatility()');
-    }
-
-    tally();
-    if (typeof getVolatilityRatioForSeries === 'function') {
-      const rShort = safeCall(getVolatilityRatioForSeries, [10, 12], 12);
-      const rLow = safeCall(getVolatilityRatioForSeries, [100, 100, 100, 100, 100], 12);
-      const rHigh = safeCall(getVolatilityRatioForSeries, [70, 130, 60, 140, 80], 12);
-      if (rShort.ok && rLow.ok && rHigh.ok) { pass();
-        if (rShort.value !== 1.0) {
-          add('MEDIUM', AREA, 'Volatility ratio neutral default not returned for short series', 'getVolatilityRatioForSeries([10,12], 12) returned ' + rShort.value + ', expected the neutral 1.0 (series length < 3).', 'With fewer than 3 data points, standard deviation is not meaningful; the function should fall back to a neutral ratio rather than an unstable estimate.', 'Check the "if (cleanSeries.length < 3) return 1.0;" guard.', 'getVolatilityRatioForSeries()');
-        } else if (!(rHigh.value > rLow.value)) {
-          add('HIGH', AREA, 'Volatility ratio not responsive to spread', 'A high-variance series returned ratio ' + rHigh.value + ', not greater than a flat series\' ratio ' + rLow.value + '.', 'The whole point of this function is to detect when a team\'s scoring is unusually erratic; if it does not respond to spread, downstream confidence grading loses its main volatility signal.', 'Check the stdDev() computation and the division by leagueVolLimit inside getVolatilityRatioForSeries.', 'getVolatilityRatioForSeries()');
-        } else if (rHigh.value > 2.5) {
-          add('HIGH', AREA, 'Volatility ratio exceeds documented cap', 'getVolatilityRatioForSeries returned ' + rHigh.value + ', above the intended 2.5 cap.', 'Downstream code (e.g. distributionWinProbability) assumes this ratio is bounded; an unbounded value can blow out the predictive SD.', 'Check the "Math.min(2.5, ...)" wrapper is still present.', 'getVolatilityRatioForSeries()');
-        } else {
-          add('INFO', AREA, 'Volatility ratio behaves sanely', 'Neutral default for short series, and higher ratio for higher-spread series, both hold, within the 2.5 cap.', 'Confirms the volatility signal feeding into confidence grading is trustworthy.', 'No action needed.', 'getVolatilityRatioForSeries()');
-        }
-      }
-    } else {
-      add('CRITICAL', AREA, 'getVolatilityRatioForSeries missing', 'getVolatilityRatioForSeries is not defined as a function.', 'Without it, volatility-based confidence adjustments have no input signal.', 'Check for a rename/deletion.', 'getVolatilityRatioForSeries()');
-    }
-  }
-
-  // =================================================================
-  // E3. PERIOD-ADVANCED — no FT leakage into 1H/2H/quarters
-  // =================================================================
-  function auditPeriodAdvanced() {
-    const AREA = 'PERIOD_ADVANCED';
-
-    tally();
-    if (typeof derivePeriodAdvanced === 'function') {
-      const full = { pace: 100, ortg: 110, drtg: 108, possessions: 100 };
-      const rGood = safeCall(derivePeriodAdvanced, full, 55, 52, 0.5, 'nba');
-      const rThin = safeCall(derivePeriodAdvanced, full, 2, 2, 0.05, 'nba');
-      const rZero = safeCall(derivePeriodAdvanced, full, 55, 52, 0, 'nba');
-      if (rGood.ok && rThin.ok && rZero.ok) { pass();
-        const problems = [];
-        if (!(rGood.value && Number.isFinite(rGood.value.ortg))) problems.push('normal-sample call did not return a finite ORTG');
-        if (rThin.value !== null) problems.push('thin periodPoss (<5) did not reject (expected null)');
-        if (rZero.value !== null) problems.push('zero periodFraction did not reject (expected null)');
-        if (problems.length) {
-          add('HIGH', AREA, 'derivePeriodAdvanced honesty gate broken', problems.join('; ') + '.', 'This function is the single choke point that is supposed to refuse to fabricate a period-specific rating from too little data — if the gate is broken, thin-sample noise can leak into 1H/2H/quarter projections as if it were real signal.', 'Check the possessions>=5 and periodFraction>0 guards at the top of derivePeriodAdvanced.', 'derivePeriodAdvanced()');
-        } else {
-          add('INFO', AREA, 'derivePeriodAdvanced honesty gate OK', 'Normal sample returns a finite rating; thin sample and zero fraction both correctly reject with null.', 'Confirms the engine will not fabricate a period rating from an insufficient sample.', 'No action needed.', 'derivePeriodAdvanced()');
-        }
-      }
-    } else {
-      add('CRITICAL', AREA, 'derivePeriodAdvanced missing', 'derivePeriodAdvanced is not defined as a function.', 'Without it there is no guarded path from full-game box data to period-specific ratings.', 'Check for a rename/deletion.', 'derivePeriodAdvanced()');
-    }
-
-    tally();
-    if (typeof getPeriodAdvancedSeries === 'function') {
-      const thinCtx = { ortg10_h2: [110, 111, 112], drtg10_h2: [105, 106, 107], pace10_h2: [98, 99, 100], ortg10: [112, 111, 110, 113, 114, 112, 111], drtg10: [108, 107, 106, 109, 108], pace10: [100, 99, 101, 100, 98] };
-      const r = safeCall(getPeriodAdvancedSeries, thinCtx, 'h2');
-      if (r.ok) { pass();
-        if (r.value && r.value.source !== 'none') {
-          add('CRITICAL', AREA, 'FT-wide advanced stats leaking into a sub-period market', 'getPeriodAdvancedSeries(ctx, "h2") returned source="' + (r.value && r.value.source) + '" for a context where the H2-native series only has 3 samples (below the 5-sample floor), even though plenty of FT-wide data is present.', 'This is exactly the "FT ORTG leaking into 1H/2H/Q" failure mode: it lets full-game efficiency numbers masquerade as second-half-specific signal, silently biasing the 2H projection toward full-game norms.', 'In getPeriodAdvancedSeries, confirm the non-FT branch never falls back to the full-game arrays when the period-native arrays are short.', 'getPeriodAdvancedSeries()');
-        } else {
-          add('INFO', AREA, 'No FT leakage on thin period sample', 'A thin H2-native sample (3 games) correctly returned source="none" instead of falling back to the FT-wide series.', 'Confirms period-specific advanced stats are held to their own sample-size bar rather than borrowing from full-game data.', 'No action needed.', 'getPeriodAdvancedSeries()');
-        }
-      }
-    } else {
-      add('CRITICAL', AREA, 'getPeriodAdvancedSeries missing', 'getPeriodAdvancedSeries is not defined as a function.', 'Without it there is no single source of truth for period-native advanced stats, and call sites would each have to reimplement the leak guard themselves.', 'Check for a rename/deletion.', 'getPeriodAdvancedSeries()');
+      add('MEDIUM', AREA, 'stdDev missing', 'No volatility helper found.', 'Confidence vol gates may be degraded.', 'Restore stdDev().', 'stdDev()');
     }
 
     tally(); pass();
-    const src = getConcatenatedScriptSource();
-    if (src) {
-      const h1Body = extractFunctionBody(src, 'compute1HProjection');
-      const h2Body = extractFunctionBody(src, 'compute2HProjection');
-      if (h1Body && h2Body) {
-        const h1UsesRawFT = /avgPaceA\s*=\s*avgOrNaN\(ctxA\.pace10\)/.test(h1Body);
-        const h2UsesRawFT = /avgPaceA\s*=\s*avgOrNaN\(ctxA\.pace10\)/.test(h2Body);
-        const h1UsesPeriodPace = /avgPaceA\s*=\s*avgOrNaN\(_paceArrA1\)/.test(h1Body);
-        if (h2UsesRawFT && !h1UsesRawFT && h1UsesPeriodPace) {
-          add('MEDIUM', AREA, 'compute2HProjection paces itself off full-game data, unlike compute1HProjection', 'compute2HProjection computes its hasRealPace/synPace gate from the raw full-game pace series, while compute1HProjection uses only the period-native pace array gated to source==="h1".', 'This is a policy inconsistency between the two half-game functions: 2H can treat a team\'s full-game pace as if it were 2H-specific pace, the same "FT stat leaking into a period market" pattern this audit looks for — just on the pace input rather than ORTG/DRTG.', 'In compute2HProjection, replace the raw-FT pace lookups with the pace arrays already returned by the h2-scoped getPeriodAdvancedSeries call, mirroring how compute1HProjection builds its period-native pace arrays.', 'compute2HProjection() vs compute1HProjection()');
-        } else {
-          add('INFO', AREA, '2H pace sourcing matches 1H policy', 'Source scan did not find the raw-FT-pace-only-in-2H pattern.', 'Suggests both half-game functions gate their pace input the same way.', 'No action needed.', 'compute2HProjection() vs compute1HProjection()');
-        }
+    if (typeof computeFatigueProfile === 'function' && typeof computeFatiguePenalty === 'function') {
+      const profile = safeCall(computeFatigueProfile, [], new Date().toISOString());
+      if (!profile.ok) {
+        add('MEDIUM', AREA, 'computeFatigueProfile threw on empty series', String(profile.error && profile.error.message || profile.error), 'Empty schedule should degrade gracefully.', 'Guard computeFatigueProfile for empty input.', 'computeFatigueProfile()');
       } else {
-        add('INFO', AREA, '2H/1H pace source-scan skipped', 'Could not isolate both function bodies from the page source for comparison.', 'This is a limitation of the static scan, not a finding about the engine.', 'Not applicable.', 'compute2HProjection() vs compute1HProjection()');
+        const pen = safeCall(computeFatiguePenalty, profile.value || {}, 'match');
+        if (!pen.ok || !Number.isFinite(pen.value)) {
+          add('MEDIUM', AREA, 'computeFatiguePenalty non-finite', 'Expected a finite penalty for empty profile.', 'Fatigue should not NaN out projections.', 'Fix computeFatiguePenalty().', 'computeFatiguePenalty()');
+        } else {
+          add('INFO', AREA, 'Fatigue profile/penalty OK', 'Empty series yielded finite penalty ' + pen.value + '.', 'Fatigue path degrades safely.', 'No action needed.', 'computeFatigueProfile()');
+        }
       }
+    } else {
+      add('LOW', AREA, 'Fatigue helpers missing', 'computeFatigueProfile and/or computeFatiguePenalty not found.', 'Schedule density adjustments may be skipped.', 'Restore if still part of the model.', 'computeFatigueProfile()');
+    }
+
+    tally(); pass();
+    if (typeof computeBrutalMetrics === 'function') {
+      add('INFO', AREA, 'computeBrutalMetrics present', 'Tiebreak/set1-kill/grind metrics helper is defined.', 'No action needed.', 'No action needed.', 'computeBrutalMetrics()');
+    } else {
+      add('LOW', AREA, 'computeBrutalMetrics missing', 'Function not found.', 'Style metrics may be unavailable.', 'Restore if still used in derived inputs.', 'computeBrutalMetrics()');
     }
   }
 
-  // =================================================================
-  // F. STORAGE & PERSISTENCE — IndexedDB + localStorage integrity
-  // =================================================================
+  function auditPeriodAdvanced() {
+    const AREA = 'PERIOD_ADVANCED';
+
+    tally(); pass();
+    if (typeof classifyEventLevel === 'function') {
+      const slam = safeCall(classifyEventLevel, 'Australian Open');
+      const masters = safeCall(classifyEventLevel, 'Miami Masters 1000');
+      if (!slam.ok || slam.value !== 'Grand Slam') {
+        add('MEDIUM', AREA, 'Grand Slam not classified', 'Australian Open → ' + (slam.ok ? slam.value : 'ERR'), 'Event level drives BO5 expectations and set models.', 'Fix classifyEventLevel slam detection.', 'classifyEventLevel()');
+      } else if (!masters.ok || !String(masters.value).includes('Masters')) {
+        add('LOW', AREA, 'Masters level weak classification', 'Miami Masters 1000 → ' + (masters.ok ? masters.value : 'ERR'), 'Masters detection helps format inference.', 'Tighten Masters / 1000 matching if needed.', 'classifyEventLevel()');
+      } else {
+        add('INFO', AREA, 'Event level classification OK', 'Grand Slam and Masters samples classified.', 'No action needed.', 'classifyEventLevel()');
+      }
+    } else {
+      add('MEDIUM', AREA, 'classifyEventLevel missing', 'Function not found.', 'BO5 vs BO3 inference may be degraded.', 'Restore classifyEventLevel().', 'classifyEventLevel()');
+    }
+
+    tally(); pass();
+    if (typeof inferMatchFormat === 'function') {
+      const bo5 = safeCall(inferMatchFormat, 'ATP', 'Grand Slam');
+      if (!bo5.ok) {
+        add('MEDIUM', AREA, 'inferMatchFormat threw', String(bo5.error && bo5.error.message || bo5.error), 'Format inference is required for Markov BO5 flag.', 'Fix inferMatchFormat().', 'inferMatchFormat()');
+      } else {
+        add('INFO', AREA, 'inferMatchFormat present', 'Returned: ' + String(bo5.value), 'Format helper runs.', 'No action needed.', 'inferMatchFormat()');
+      }
+    } else {
+      add('LOW', AREA, 'inferMatchFormat missing', 'Function not found.', 'BO5 flag may be hardcoded elsewhere.', 'Restore if still used.', 'inferMatchFormat()');
+    }
+
+    tally(); pass();
+    if (typeof buildDerivedMarketInputs === 'function') {
+      add('INFO', AREA, 'buildDerivedMarketInputs present', 'Derived input builder for match/set1/team markets is defined.', 'No action needed.', 'No action needed.', 'buildDerivedMarketInputs()');
+    } else {
+      add('HIGH', AREA, 'buildDerivedMarketInputs missing', 'Function not defined.', 'Market projections cannot assemble form/surface/H2H inputs.', 'Restore buildDerivedMarketInputs().', 'buildDerivedMarketInputs()');
+    }
+
+    tally(); pass();
+    if (typeof runTennisMarkovSimulation === 'function') {
+      add('INFO', AREA, 'runTennisMarkovSimulation present', 'Core Markov engine entry point is defined.', 'Live Monte-Carlo runs are available at prediction time.', 'No action needed.', 'runTennisMarkovSimulation()');
+    } else {
+      add('CRITICAL', AREA, 'runTennisMarkovSimulation missing', 'Markov simulator not found.', 'Match/set totals cannot be simulated.', 'Restore runTennisMarkovSimulation().', 'runTennisMarkovSimulation()');
+    }
+
+    tally(); pass();
+    if (typeof buildMarketResult === 'function') {
+      add('INFO', AREA, 'buildMarketResult present', 'Per-market result assembler is defined.', 'No action needed.', 'No action needed.', 'buildMarketResult()');
+    } else {
+      add('CRITICAL', AREA, 'buildMarketResult missing', 'Function not found.', 'Cannot produce pick/edge/confidence packages.', 'Restore buildMarketResult().', 'buildMarketResult()');
+    }
+  }
+
   async function auditStorage() {
     const AREA = 'STORAGE';
 
     tally();
-    if (typeof writeAsyncStorage === 'function' && typeof readAsyncStorage === 'function') {
-      const testKey = '__BB_AUDITOR_SELFTEST__';
+    if (typeof writeAsync === 'function' && typeof readAsync === 'function') {
+      const testKey = '__TENNIS_AUDITOR_SELFTEST__';
       const testVal = { probe: true, ts: Date.now(), nonce: Math.random().toString(36).slice(2) };
       try {
-        await writeAsyncStorage(testKey, JSON.stringify(testVal));
-        const readBack = await readAsyncStorage(testKey);
+        await writeAsync(testKey, JSON.stringify(testVal));
+        const readBack = await readAsync(testKey);
         const parsedBack = typeof readBack === 'string' ? JSON.parse(readBack) : readBack;
         pass();
         if (!parsedBack || parsedBack.nonce !== testVal.nonce) {
-          add('HIGH', AREA, 'Storage round-trip failed', 'A test value written via writeAsyncStorage did not read back correctly via readAsyncStorage (nonce mismatch or missing value).', 'If the write/read path is unreliable, tracker state, confidence models, and line memory can silently fail to persist between sessions.', 'Check initBBDatabase()/BB_STORE_NAME and the localStorage fallback branch in readAsyncStorage/writeAsyncStorage.', 'writeAsyncStorage() / readAsyncStorage()');
+          add('HIGH', AREA, 'Storage round-trip failed', 'A test value written via writeAsync did not read back correctly via readAsync (nonce mismatch or missing value).', 'If the write/read path is unreliable, tracker state, confidence models, and line memory can silently fail to persist between sessions.', 'Check initDatabase()/BB_STORE_NAME and the localStorage fallback branch in readAsync/writeAsync.', 'writeAsync() / readAsync()');
         } else {
-          add('INFO', AREA, 'Storage round-trip OK', 'A disposable test value was written and read back correctly through the live storage path.', 'Confirms the IndexedDB (or localStorage fallback) persistence layer is currently functional.', 'No action needed.', 'writeAsyncStorage() / readAsyncStorage()');
+          add('INFO', AREA, 'Storage round-trip OK', 'A disposable test value was written and read back correctly through the live storage path.', 'Confirms the IndexedDB (or localStorage fallback) persistence layer is currently functional.', 'No action needed.', 'writeAsync() / readAsync()');
         }
         try { localStorage.removeItem(testKey); } catch (_e) {}
-        try { await writeAsyncStorage(testKey, ''); } catch (_e) {}
+        try { await writeAsync(testKey, ''); } catch (_e) {}
       } catch (e) {
         pass();
-        add('HIGH', AREA, 'Storage round-trip threw', 'writeAsyncStorage/readAsyncStorage raised: ' + (e && e.message || e) + '.', 'An exception in the core storage path means saves could be failing silently for real users too.', 'Reproduce with a simple string value and trace the IndexedDB transaction and localStorage fallback.', 'writeAsyncStorage() / readAsyncStorage()');
+        add('HIGH', AREA, 'Storage round-trip threw', 'writeAsync/readAsync raised: ' + (e && e.message || e) + '.', 'An exception in the core storage path means saves could be failing silently for real users too.', 'Reproduce with a simple string value and trace the IndexedDB transaction and localStorage fallback.', 'writeAsync() / readAsync()');
       }
     } else {
-      add('CRITICAL', AREA, 'Storage read/write functions missing', 'writeAsyncStorage and/or readAsyncStorage are not defined as functions.', 'Without them nothing can persist between sessions — tracker history, confidence models, line memory would all be lost on reload.', 'Check for a rename/deletion.', 'writeAsyncStorage() / readAsyncStorage()');
+      add('CRITICAL', AREA, 'Storage read/write functions missing', 'writeAsync and/or readAsync are not defined as functions.', 'Without them nothing can persist between sessions — tracker history, confidence models, line memory would all be lost on reload.', 'Check for a rename/deletion.', 'writeAsync() / readAsync()');
     }
 
     // IndexedDB availability guard.
     tally(); pass();
-    if (typeof initBBDatabase === 'function') {
+    if (typeof initDatabase === 'function') {
       if (typeof window.indexedDB === 'undefined') {
-        add('MEDIUM', AREA, 'IndexedDB unavailable in this environment', 'window.indexedDB is undefined, so initBBDatabase() cannot use its primary store.', 'Without IndexedDB, the engine should already be falling back to localStorage — worth confirming that fallback path is actually exercised, not just assumed.', 'Manually verify writeAsyncStorage/readAsyncStorage behave correctly with indexedDB deleted/disabled (e.g. private browsing in some browsers).', 'initBBDatabase()');
+        add('MEDIUM', AREA, 'IndexedDB unavailable in this environment', 'window.indexedDB is undefined, so initDatabase() cannot use its primary store.', 'Without IndexedDB, the engine should already be falling back to localStorage — worth confirming that fallback path is actually exercised, not just assumed.', 'Manually verify writeAsync/readAsync behave correctly with indexedDB deleted/disabled (e.g. private browsing in some browsers).', 'initDatabase()');
       } else {
-        add('INFO', AREA, 'IndexedDB available', 'window.indexedDB is defined; initBBDatabase() can use its primary store.', 'No action needed.', 'No action needed.', 'initBBDatabase()');
+        add('INFO', AREA, 'IndexedDB available', 'window.indexedDB is defined; initDatabase() can use its primary store.', 'No action needed.', 'No action needed.', 'initDatabase()');
       }
     } else {
-      add('HIGH', AREA, 'initBBDatabase missing', 'initBBDatabase is not defined as a function.', 'Without it, the IndexedDB store (BB_DB_NAME/BB_STORE_NAME) cannot be opened, forcing every read/write onto the localStorage fallback (if one exists) with its lower capacity.', 'Check for a rename/deletion of initBBDatabase.', 'initBBDatabase()');
+      add('HIGH', AREA, 'initDatabase missing', 'initDatabase is not defined as a function.', 'Without it, the IndexedDB store (BB_DB_NAME/BB_STORE_NAME) cannot be opened, forcing every read/write onto the localStorage fallback (if one exists) with its lower capacity.', 'Check for a rename/deletion of initDatabase.', 'initDatabase()');
     }
 
     tally(); pass();
@@ -9279,12 +9166,12 @@ const EngineAuditor = (function () {
       const proposedKeys = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.indexOf('BB_') === 0 && k.indexOf('_PROPOSED') !== -1) proposedKeys.push(k);
+        if (k && k.indexOf('TENNIS_') === 0 && k.indexOf('_PROPOSED') !== -1) proposedKeys.push(k);
       }
       if (proposedKeys.length) {
-        add('MEDIUM', AREA, 'Pending propose/approve keys present', 'Found ' + proposedKeys.length + ' proposal key(s) awaiting apply: ' + proposedKeys.join(', ') + '.', 'Expected while a candidate confidence-model config is genuinely pending review, but if it lingers indefinitely it usually means a promote step was interrupted partway and the "_PROPOSED" keys were never cleared.', 'If no proposal review is actually in progress, check applyConfidenceModelProposal for an earlier setItem call that threw, leaving later cleanup calls unreached.', 'applyConfidenceModelProposal() / localStorage BB_*_PROPOSED keys');
+        add('MEDIUM', AREA, 'Pending propose/approve keys present', 'Found ' + proposedKeys.length + ' proposal key(s) awaiting apply: ' + proposedKeys.join(', ') + '.', 'Expected while a candidate confidence-model config is genuinely pending review, but if it lingers indefinitely it usually means a promote step was interrupted partway and the "_PROPOSED" keys were never cleared.', 'If no proposal review is actually in progress, check applyConfidenceModelProposal for an earlier setItem call that threw, leaving later cleanup calls unreached.', 'applyConfidenceModelProposal() / localStorage TENNIS_*_PROPOSED keys');
       } else {
-        add('INFO', AREA, 'No orphaned propose/approve keys', 'No "BB_*_PROPOSED" keys currently in localStorage.', 'Either no proposal is pending, or the last promote cycle completed and cleaned up correctly.', 'No action needed.', 'localStorage BB_*_PROPOSED keys');
+        add('INFO', AREA, 'No orphaned propose/approve keys', 'No "TENNIS_*_PROPOSED" keys currently in localStorage.', 'Either no proposal is pending, or the last promote cycle completed and cleaned up correctly.', 'No action needed.', 'localStorage TENNIS_*_PROPOSED keys');
       }
     } catch (e) {
       add('LOW', AREA, 'Could not scan localStorage for orphaned proposals', String(e && e.message || e), 'localStorage may be unavailable in this context (e.g. private browsing restrictions).', 'Not applicable.', 'localStorage scan');
@@ -9295,7 +9182,7 @@ const EngineAuditor = (function () {
       let corrupt = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (!k || k.indexOf('BB_') !== 0) continue;
+        if (!k || k.indexOf('TENNIS_') !== 0) continue;
         const raw = localStorage.getItem(k);
         if (raw == null || raw === '') continue;
         try { JSON.parse(raw); } catch (_pe) {
@@ -9303,9 +9190,9 @@ const EngineAuditor = (function () {
         }
       }
       if (corrupt.length) {
-        add('HIGH', AREA, 'Corrupted storage value(s) detected', 'The following localStorage key(s) hold a value that is neither valid JSON nor a plain number: ' + corrupt.join(', ') + '.', 'Any code path that does JSON.parse() on these keys without a try/catch will throw the next time it runs, and code that swallows the error will silently fall back to defaults, quietly discarding whatever was there.', 'Inspect the raw value with localStorage.getItem(key) in the console; if unrecoverable, remove the key so the engine falls back to its default rather than repeatedly failing to parse it.', 'localStorage BB_* keys (JSON validity scan)');
+        add('HIGH', AREA, 'Corrupted storage value(s) detected', 'The following localStorage key(s) hold a value that is neither valid JSON nor a plain number: ' + corrupt.join(', ') + '.', 'Any code path that does JSON.parse() on these keys without a try/catch will throw the next time it runs, and code that swallows the error will silently fall back to defaults, quietly discarding whatever was there.', 'Inspect the raw value with localStorage.getItem(key) in the console; if unrecoverable, remove the key so the engine falls back to its default rather than repeatedly failing to parse it.', 'localStorage tracker/engine keys keys (JSON validity scan)');
       } else {
-        add('INFO', AREA, 'All BB_ storage values parse cleanly', 'Every currently-stored "BB_*" localStorage key holds valid JSON (or a plain number).', 'No stored-data corruption detected at this time.', 'No action needed.', 'localStorage BB_* keys (JSON validity scan)');
+        add('INFO', AREA, 'All BB_ storage values parse cleanly', 'Every currently-stored "tracker/engine keys" localStorage key holds valid JSON (or a plain number).', 'No stored-data corruption detected at this time.', 'No action needed.', 'localStorage tracker/engine keys keys (JSON validity scan)');
       }
     } catch (e) {
       add('LOW', AREA, 'Could not scan localStorage for corruption', String(e && e.message || e), 'localStorage may be unavailable in this context.', 'Not applicable.', 'localStorage scan');
@@ -9316,10 +9203,10 @@ const EngineAuditor = (function () {
     if (src) {
       const body = extractFunctionBody(src, 'applyConfidenceModelProposal');
       if (body) {
-        const hasLiveBlob = /BB_CONFIDENCE_MODEL_LIVE/.test(body);
+        const hasLiveBlob = /TENNIS_CONFIDENCE_MODEL_LIVE/.test(body);
         const setItemCount = (body.match(/localStorage\.setItem\(/g) || []).length;
         if (hasLiveBlob) {
-          add('INFO', AREA, 'Promote-step uses atomic live blob', 'applyConfidenceModelProposal writes BB_CONFIDENCE_MODEL_LIVE as the primary atomic commit (' + setItemCount + ' setItem call(s) total including legacy mirrors).', 'Primary state is one JSON blob; legacy keys are best-effort mirrors after the live write succeeds.', 'No action needed.', 'applyConfidenceModelProposal()');
+          add('INFO', AREA, 'Promote-step uses atomic live blob', 'applyConfidenceModelProposal writes TENNIS_CONFIDENCE_MODEL_LIVE as the primary atomic commit (' + setItemCount + ' setItem call(s) total including legacy mirrors).', 'Primary state is one JSON blob; legacy keys are best-effort mirrors after the live write succeeds.', 'No action needed.', 'applyConfidenceModelProposal()');
         } else if (setItemCount >= 3) {
           add('MEDIUM', AREA, 'Confidence model promote step is not atomic', 'applyConfidenceModelProposal performs ' + setItemCount + ' separate localStorage.setItem calls inside one try/catch, then a further sequence of removeItem calls — a single throw partway through leaves the live model in a mixed state.', 'A pick graded during that partial-write window could blend old and new model coefficients in a way that was never actually tested or approved.', 'Stage the new values under temporary keys, verify every write succeeded, then do the "_PROPOSED" cleanup — or write a single JSON blob under one key instead of several independent keys, so a failure cannot leave a mixed state.', 'applyConfidenceModelProposal()');
         } else {
@@ -9336,55 +9223,55 @@ const EngineAuditor = (function () {
     const AREA = 'TRACKER';
 
     tally();
-    if (typeof getAllTrackedPicksForReport === 'function' && typeof makeTrackerActiveMergeKey === 'function') {
-      const r = safeCall(getAllTrackedPicksForReport);
+    if (typeof getTrackerItems === 'function' && typeof normalizeTrackerItem === 'function') {
+      const r = safeCall(getTrackerItems);
       if (r.ok) { pass();
         const picks = Array.isArray(r.value) ? r.value : [];
         const keyCounts = {};
         let missingFields = 0;
         picks.forEach(p => {
-          if (p.resultStatus == null || (p.predictionText == null && p.pick == null)) missingFields++;
-          const mk = safeCall(makeTrackerActiveMergeKey, p);
+          if (p.status == null || (p.pick == null && p.pick == null)) missingFields++;
+          const mk = safeCall(normalizeTrackerItem, p);
           if (mk.ok && mk.value) keyCounts[mk.value] = (keyCounts[mk.value] || 0) + 1;
         });
         const dupes = Object.keys(keyCounts).filter(k => keyCounts[k] > 1);
         if (dupes.length) {
-          add('MEDIUM', AREA, 'Duplicate tracker merge keys detected', dupes.length + ' merge key(s) are shared by more than one stored pick (e.g. "' + dupes[0] + '" × ' + keyCounts[dupes[0]] + ').', 'makeTrackerActiveMergeKey is what the merge logic uses to decide two picks are "the same" across local/server sync; a collision here means two genuinely different picks could get silently merged into one, losing data.', 'Inspect the picks sharing a merge key and check makeTrackerActiveMergeKey for a field combination that is not actually unique per pick (e.g. missing market/side in the key).', 'makeTrackerActiveMergeKey()');
+          add('MEDIUM', AREA, 'Duplicate tracker merge keys detected', dupes.length + ' merge key(s) are shared by more than one stored pick (e.g. "' + dupes[0] + '" × ' + keyCounts[dupes[0]] + ').', 'normalizeTrackerItem is what the merge logic uses to decide two picks are "the same" across local/server sync; a collision here means two genuinely different picks could get silently merged into one, losing data.', 'Inspect the picks sharing a merge key and check normalizeTrackerItem for a field combination that is not actually unique per pick (e.g. missing market/side in the key).', 'normalizeTrackerItem()');
         } else {
-          add('INFO', AREA, 'No duplicate tracker merge keys', 'Every stored pick\'s merge key is unique across ' + picks.length + ' tracked pick(s).', 'Confirms the local/server merge logic will not silently collapse two distinct picks into one.', 'No action needed.', 'makeTrackerActiveMergeKey()');
+          add('INFO', AREA, 'No duplicate tracker merge keys', 'Every stored pick\'s merge key is unique across ' + picks.length + ' tracked pick(s).', 'Confirms the local/server merge logic will not silently collapse two distinct picks into one.', 'No action needed.', 'normalizeTrackerItem()');
         }
         if (missingFields > 0) {
-          add('MEDIUM', AREA, 'Tracked picks missing core fields', missingFields + ' out of ' + picks.length + ' tracked pick(s) are missing resultStatus and/or predictionText.', 'Reports and win-rate calculations that assume these fields exist will either crash or silently skip these picks, understating the real sample size.', 'Run these picks through ensureTrackedPickKeys, which exists specifically to backfill missing fields with safe defaults.', 'ensureTrackedPickKeys()');
+          add('MEDIUM', AREA, 'Tracked picks missing core fields', missingFields + ' out of ' + picks.length + ' tracked pick(s) are missing status and/or pick.', 'Reports and win-rate calculations that assume these fields exist will either crash or silently skip these picks, understating the real sample size.', 'Run these picks through normalizeTrackerItem, which exists specifically to backfill missing fields with safe defaults.', 'normalizeTrackerItem()');
         } else {
-          add('INFO', AREA, 'Tracked picks have required core fields', 'All ' + picks.length + ' tracked pick(s) carry a resultStatus and a prediction text.', 'Confirms downstream reporting can rely on these fields being present.', 'No action needed.', 'ensureTrackedPickKeys()');
+          add('INFO', AREA, 'Tracked picks have required core fields', 'All ' + picks.length + ' tracked pick(s) carry a status and a prediction text.', 'Confirms downstream reporting can rely on these fields being present.', 'No action needed.', 'normalizeTrackerItem()');
         }
       }
     } else {
-      add('INFO', AREA, 'Tracker integrity scan skipped', 'getAllTrackedPicksForReport or makeTrackerActiveMergeKey not available.', 'Skipped, not failed — these functions may simply not be loaded yet this early in page life.', 'Not applicable.', 'getAllTrackedPicksForReport() / makeTrackerActiveMergeKey()');
+      add('INFO', AREA, 'Tracker integrity scan skipped', 'getTrackerItems or normalizeTrackerItem not available.', 'Skipped, not failed — these functions may simply not be loaded yet this early in page life.', 'Not applicable.', 'getTrackerItems() / normalizeTrackerItem()');
     }
 
     tally(); pass();
     try {
-      const active = (typeof g_trackerState !== 'undefined' && Array.isArray(g_trackerState.activePicks)) ? g_trackerState.activePicks : [];
+      const active = (typeof g_trackerState !== 'undefined' && Array.isArray(g_trackerState.items)) ? g_trackerState.items : [];
       const memCount = (typeof g_engineLineMemory !== 'undefined') ? Object.keys(g_engineLineMemory || {}).length : 0;
       if (active.length > 490 || memCount > 190) {
-        add('MEDIUM', AREA, 'Tracker storage approaching capacity', 'activePicks length = ' + active.length + ' (soft limit 500), line-memory entries = ' + memCount + ' (soft limit 200).', 'Approaching these ceilings risks the automatic pruning logic kicking in and discarding older data sooner than expected.', 'Archive or settle old active picks; confirm the pruning logic in writeAsyncStorage is keeping the most useful history.', 'g_trackerState.activePicks / g_engineLineMemory');
+        add('MEDIUM', AREA, 'Tracker storage approaching capacity', 'activePicks length = ' + active.length + ' (soft limit 500), line-memory entries = ' + memCount + ' (soft limit 200).', 'Approaching these ceilings risks the automatic pruning logic kicking in and discarding older data sooner than expected.', 'Archive or settle old active picks; confirm the pruning logic in writeAsyncStorage is keeping the most useful history.', 'g_trackerState.items / g_engineLineMemory');
       } else {
-        add('INFO', AREA, 'Tracker storage well within capacity', 'activePicks = ' + active.length + '/500, line memory = ' + memCount + '/200.', 'No pruning pressure currently.', 'No action needed.', 'g_trackerState.activePicks / g_engineLineMemory');
+        add('INFO', AREA, 'Tracker storage well within capacity', 'activePicks = ' + active.length + '/500, line memory = ' + memCount + '/200.', 'No pruning pressure currently.', 'No action needed.', 'g_trackerState.items / g_engineLineMemory');
       }
     } catch (_e) {}
 
     // Settle-logic self-repair tooling present.
     tally(); pass();
-    if (typeof repairMisclassifiedNoPlayTrackedPicks === 'function') {
-      add('INFO', AREA, 'NO PLAY misclassification repair tool present', 'repairMisclassifiedNoPlayTrackedPicks is defined.', 'Gives a documented recovery path for the pick/grade inconsistency the CONFIDENCE category checks for, rather than requiring manual data surgery.', 'No action needed.', 'repairMisclassifiedNoPlayTrackedPicks()');
+    if (typeof deleteTrackerItemForever === 'function') {
+      add('INFO', AREA, 'PASS misclassification repair tool present', 'deleteTrackerItemForever is defined.', 'Gives a documented recovery path for the pick/grade inconsistency the CONFIDENCE category checks for, rather than requiring manual data surgery.', 'No action needed.', 'deleteTrackerItemForever()');
     } else {
-      add('MEDIUM', AREA, 'NO PLAY misclassification repair tool missing', 'repairMisclassifiedNoPlayTrackedPicks is not defined as a function.', 'If a batch of stored picks is ever found with a NO PLAY prediction paired with a real letter grade, there is no built-in repair path — only manual data editing.', 'Check for a rename/deletion, or add an equivalent repair utility.', 'repairMisclassifiedNoPlayTrackedPicks()');
+      add('MEDIUM', AREA, 'PASS misclassification repair tool missing', 'deleteTrackerItemForever is not defined as a function.', 'If a batch of stored picks is ever found with a PASS prediction paired with a real letter grade, there is no built-in repair path — only manual data editing.', 'Check for a rename/deletion, or add an equivalent repair utility.', 'deleteTrackerItemForever()');
     }
   }
 
   // =================================================================
-  // H. FETCH LAYER — ESPN auto-fetch, SofaScore, proxy, error handling
+  // H. FETCH LAYER — ESPN auto-fetch, ESPN, proxy, error handling
   // =================================================================
   function auditFetchLayer() {
     const AREA = 'FETCH';
@@ -9426,30 +9313,30 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof getEspnLeagueSlug === 'function' && typeof ESPN_LEAGUE_SLUGS !== 'undefined') {
+    if (typeof proxyFetch === 'function' && typeof tennis ESPN scoreboard paths !== 'undefined') {
       const knownLeagues = ['nba', 'wnba', 'ncaa', 'ncaaw'];
-      const resolved = knownLeagues.map(l => ({ l, slug: safeCall(getEspnLeagueSlug, l) }));
+      const resolved = knownLeagues.map(l => ({ l, slug: safeCall(proxyFetch, l) }));
       const unresolved = resolved.filter(r => r.slug.ok && !r.slug.value);
       if (unresolved.length) {
-        add('LOW', AREA, 'Some expected leagues have no ESPN slug mapping', 'getEspnLeagueSlug returned null for: ' + unresolved.map(u => u.l).join(', ') + '.', 'A league without a slug mapping cannot use ESPN auto-fetch and would silently fall through to manual entry, which may be surprising if the league is expected to be supported.', 'Confirm ESPN_LEAGUE_SLUGS covers every league surfaced in the league selector, or intentionally exclude unsupported ones from the dropdown.', 'getEspnLeagueSlug() / ESPN_LEAGUE_SLUGS');
+        add('LOW', AREA, 'Some expected leagues have no ESPN slug mapping', 'proxyFetch returned null for: ' + unresolved.map(u => u.l).join(', ') + '.', 'A league without a slug mapping cannot use ESPN auto-fetch and would silently fall through to manual entry, which may be surprising if the league is expected to be supported.', 'Confirm tennis ESPN scoreboard paths covers every league surfaced in the league selector, or intentionally exclude unsupported ones from the dropdown.', 'proxyFetch() / tennis ESPN scoreboard paths');
       } else {
-        add('INFO', AREA, 'ESPN league slug mapping covers the checked leagues', 'getEspnLeagueSlug resolved a slug for each of: ' + knownLeagues.join(', ') + '.', 'No action needed.', 'No action needed.', 'getEspnLeagueSlug() / ESPN_LEAGUE_SLUGS');
+        add('INFO', AREA, 'ESPN league slug mapping covers the checked leagues', 'proxyFetch resolved a slug for each of: ' + knownLeagues.join(', ') + '.', 'No action needed.', 'No action needed.', 'proxyFetch() / tennis ESPN scoreboard paths');
       }
     } else {
-      add('INFO', AREA, 'ESPN slug mapping functions unavailable for live check', 'getEspnLeagueSlug or ESPN_LEAGUE_SLUGS not accessible from this scope.', 'Skipped, not failed.', 'Not applicable.', 'getEspnLeagueSlug()');
+      add('INFO', AREA, 'ESPN slug mapping functions unavailable for live check', 'proxyFetch or tennis ESPN scoreboard paths not accessible from this scope.', 'Skipped, not failed.', 'Not applicable.', 'proxyFetch()');
     }
 
     tally(); pass();
-    if (typeof searchSofascorePlayer === 'function' && typeof parseSofascoreIndividual === 'function') {
-      const body = extractFunctionBody(src, 'parseSofascoreIndividual');
+    if (typeof proxyFetch === 'function' && typeof fetchJson === 'function') {
+      const body = extractFunctionBody(src, 'fetchJson');
       const hasTryCatch = body ? /try\s*{[\s\S]*catch\s*\(/.test(body) : false;
       if (body && !hasTryCatch) {
-        add('MEDIUM', AREA, 'parseSofascoreIndividual has no try/catch around parsing', 'The extracted body of parseSofascoreIndividual did not show a try/catch wrapping the JSON parse of pasted SofaScore data.', 'User-pasted JSON is inherently untrusted input; a malformed paste without a catch would throw an unhandled exception instead of showing a friendly error.', 'Wrap the JSON.parse/data-extraction logic in parseSofascoreIndividual in try/catch and surface a clear error via engineDebug or a UI message.', 'parseSofascoreIndividual()');
+        add('MEDIUM', AREA, 'fetchJson has no try/catch around parsing', 'The extracted body of fetchJson did not show a try/catch wrapping the JSON parse of pasted ESPN tennis data.', 'User-pasted JSON is inherently untrusted input; a malformed paste without a catch would throw an unhandled exception instead of showing a friendly error.', 'Wrap the JSON.parse/data-extraction logic in fetchJson in try/catch and surface a clear error via engineDebug or a UI message.', 'fetchJson()');
       } else if (body) {
-        add('INFO', AREA, 'parseSofascoreIndividual guards against malformed paste', 'Found try/catch around the parsing logic.', 'A bad paste from the user degrades gracefully instead of throwing.', 'No action needed.', 'parseSofascoreIndividual()');
+        add('INFO', AREA, 'fetchJson guards against malformed paste', 'Found try/catch around the parsing logic.', 'A bad paste from the user degrades gracefully instead of throwing.', 'No action needed.', 'fetchJson()');
       }
     } else {
-      add('INFO', AREA, 'SofaScore manual-entry functions unavailable for live check', 'searchSofascorePlayer or parseSofascoreIndividual not accessible from this scope.', 'Skipped, not failed.', 'Not applicable.', 'searchSofascorePlayer() / parseSofascoreIndividual()');
+      add('INFO', AREA, 'ESPN tennis manual-entry functions unavailable for live check', 'proxyFetch or fetchJson not accessible from this scope.', 'Skipped, not failed.', 'Not applicable.', 'proxyFetch() / fetchJson()');
     }
   }
 
@@ -9682,70 +9569,56 @@ const EngineAuditor = (function () {
   function auditRegressionLocks() {
     const AREA = 'REGRESSION_LOCKS';
     const src = getConcatenatedScriptSource() || '';
-    const full = getFullPageSource() || src;
 
-    // Lock 1: winProb [0,1] range guard
     tally(); pass();
     {
-      const body = extractFunctionBody(src, 'resolveConfidenceGradeFromWinProbability') || '';
-      const hasRange = /winProb\s*<\s*0/.test(body) && /winProb\s*>\s*1/.test(body) && /Number\.isFinite\s*\(\s*winProb\s*\)/.test(body);
-      if (hasRange) {
-        add('INFO', AREA, 'LOCK OK: winProb range guard [0,1]', 'resolveConfidenceGradeFromWinProbability rejects non-finite and out-of-range probabilities.', 'Prevents fabricated A–D grades from invalid winProb.', 'No action needed.', 'resolveConfidenceGradeFromWinProbability()');
+      const body = extractFunctionBody(src, 'pickFromRange') || '';
+      if (/pick\s*===\s*["']PASS["']/.test(body) || /pick:\s*["']PASS["']/.test(body)) {
+        add('INFO', AREA, 'LOCK OK: pickFromRange has PASS branch', 'Equal-to-mid path resolves to PASS rather than forcing OVER/UNDER.', 'Prevents fake edges on dead lines.', 'No action needed.', 'pickFromRange()');
       } else {
-        add('CRITICAL', AREA, 'REGRESSION: winProb range guard missing', 'Expected Number.isFinite(winProb) && winProb in [0,1] before grading.', 'Without this, values like -0.3 or 1.7 can map to letter grades.', 'Restore: if (!Number.isFinite(winProb) || winProb < 0 || winProb > 1) return "NaN";', 'resolveConfidenceGradeFromWinProbability()');
+        add('HIGH', AREA, 'REGRESSION: pickFromRange PASS branch unclear', 'Could not confirm PASS when projection equals mid.', 'Mid-line equality must not invent a side.', 'Restore explicit PASS when projection === mid.', 'pickFromRange()');
       }
     }
 
-    // Lock 2: 2H period-native pace (no FT pace10 primary gate)
     tally(); pass();
     {
-      const body = extractFunctionBody(src, 'compute2HProjection') || '';
-      const usesPeriodPace = /getPeriodAdvancedSeries\s*\(\s*ctxA\s*,\s*["']h2["']\s*\)/.test(body) || /_paceArrA2/.test(body);
-      const primaryFtPace = /avgPaceA\s*=\s*avgOrNaN\s*\(\s*ctxA\.pace10\s*\)/.test(body);
-      if (usesPeriodPace && !primaryFtPace) {
-        add('INFO', AREA, 'LOCK OK: 2H pace is period-native', 'compute2HProjection gates pace on H2-native series, not raw FT pace10.', 'Matches compute1HProjection policy; no FT→2H pace leak on the primary gate.', 'No action needed.', 'compute2HProjection()');
-      } else if (primaryFtPace) {
-        add('HIGH', AREA, 'REGRESSION: 2H primary pace uses FT pace10', 'compute2HProjection sets avgPaceA from ctxA.pace10.', 'Reintroduces full-game pace into the 2H gate.', 'Use getPeriodAdvancedSeries(ctx, "h2").pace like 1H.', 'compute2HProjection()');
+      if (typeof getDefaultTennisConfig === 'function') {
+        const c = safeCall(getDefaultTennisConfig);
+        if (c.ok && c.value && Number(c.value.h2hWeightCap) > 0 && Number(c.value.h2hWeightCap) <= 1) {
+          add('INFO', AREA, 'LOCK OK: H2H weight cap in (0,1]', 'h2hWeightCap = ' + c.value.h2hWeightCap, 'Prevents H2H from dominating the blend entirely.', 'No action needed.', 'getDefaultTennisConfig().h2hWeightCap');
+        } else {
+          add('MEDIUM', AREA, 'H2H weight cap out of expected band', 'Expected 0 < cap ≤ 1.', 'Uncapped H2H can overwhelm form.', 'Clamp h2hWeightCap in getDefaultTennisConfig().', 'getDefaultTennisConfig().h2hWeightCap');
+        }
       } else {
-        add('MEDIUM', AREA, '2H pace lock inconclusive', 'Could not confirm period-native pace pattern in compute2HProjection body.', 'Manual review recommended after refactors.', 'Ensure H2 pace does not fall back to FT pace10 for hasRealPace.', 'compute2HProjection()');
+        add('MEDIUM', AREA, 'Cannot lock H2H cap — config missing', 'getDefaultTennisConfig unavailable.', 'Skipped.', 'Restore config.', 'getDefaultTennisConfig()');
       }
     }
 
-    // Lock 3: atomic confidence LIVE blob
     tally(); pass();
     {
-      const body = extractFunctionBody(src, 'applyConfidenceModelProposal') || '';
-      if (/BB_CONFIDENCE_MODEL_LIVE/.test(body)) {
-        add('INFO', AREA, 'LOCK OK: confidence promote uses LIVE blob', 'applyConfidenceModelProposal writes BB_CONFIDENCE_MODEL_LIVE as primary commit.', 'Atomic primary state; legacy keys are mirrors only.', 'No action needed.', 'applyConfidenceModelProposal()');
+      if (typeof downgradeConfidence === 'function') {
+        const r = safeCall(downgradeConfidence, 'C');
+        if (r.ok && r.value === 'PASS') {
+          add('INFO', AREA, 'LOCK OK: C downgrades to PASS', 'downgradeConfidence("C") → PASS.', 'Floor grade cannot stay actionable after full downgrade.', 'No action needed.', 'downgradeConfidence()');
+        } else {
+          add('HIGH', AREA, 'REGRESSION: C does not downgrade to PASS', 'Got ' + (r.ok ? r.value : r.error), 'Over-confident locks after stacked penalties.', 'Restore C→PASS in downgradeConfidence().', 'downgradeConfidence()');
+        }
       } else {
-        add('HIGH', AREA, 'REGRESSION: confidence LIVE blob missing', 'applyConfidenceModelProposal no longer writes BB_CONFIDENCE_MODEL_LIVE.', 'Multi-key promotes can leave mixed model state.', 'Restore single-blob primary write before legacy mirrors.', 'applyConfidenceModelProposal()');
+        add('INFO', AREA, 'downgradeConfidence absent — lock skipped', 'Helper not in this build.', 'Not a failure by itself.', 'No action needed.', 'downgradeConfidence()');
       }
     }
 
-    // Lock 4: unit tests cover out-of-range winProb
     tally(); pass();
     {
-      if (/resolveConfidenceGradeFromWinProbability\s*\(\s*-0\.3/.test(src) && /resolveConfidenceGradeFromWinProbability\s*\(\s*1\.7/.test(src)) {
-        add('INFO', AREA, 'LOCK OK: out-of-range winProb unit asserts present', 'Math self-tests assert -0.3 and 1.7 map to NaN grade.', 'Regression will fail golden tests if guard is removed.', 'No action needed.', '__BB_RUN_MATH_TESTS__');
+      if (typeof stripSelf === 'function' || /function stripSelf\s*\(/.test(src) || /_AUDITOR_SELF_START/.test(src)) {
+        add('INFO', AREA, 'LOCK OK: auditor self-strip markers present', 'Auditor source is delimited and stripSelf removes it from product scans.', 'Prevents self-matching false positives.', 'No action needed.', 'stripSelf()');
       } else {
-        add('MEDIUM', AREA, 'Out-of-range winProb asserts missing from math tests', 'Golden tests should lock -0.3 / 1.7 → NaN.', 'Add asserts next to null/undefined/NaN cases.', '__BB_RUN_MATH_TESTS__');
+        add('HIGH', AREA, 'REGRESSION: auditor self-strip missing', 'Without stripSelf, security scans flag the auditor detection strings.', 'Restore self-strip markers.', 'EngineAuditor');
       }
     }
 
-    // Lock 5: stripSelf present (auditor must not scan itself)
     tally(); pass();
-    {
-      if (typeof stripSelf === 'function' || /function stripSelf\s*\(/.test(full) || /_AUDITOR_SELF_START/.test(full)) {
-        add('INFO', AREA, 'LOCK OK: auditor self-strip markers present', 'Auditor source is delimited and stripSelf removes it from product scans.', 'Prevents self-matching eval(/regex/) false positives.', 'No action needed.', 'stripSelf() / __ENGINE_AUDITOR_SELF_*__');
-      } else {
-        add('HIGH', AREA, 'REGRESSION: auditor self-strip missing', 'Without stripSelf, security scans flag the auditor detection strings.', 'Restore /*__ENGINE_AUDITOR_SELF_START__*/ markers and stripSelf().', 'EngineAuditor');
-      }
-    }
-
-
-    // Honesty: line-scan category covers every product line in chunks; this is exhaustive text coverage, not formal proof of every runtime path.
-    tally(); pass();
-    add('INFO', AREA, 'Auditor scope (honest)', 'Category N walks every product HTML/CSS/JS line in resumable chunks with stateful string/block-comment stripping. Live probes + regression locks cover critical behavior. Not a formal proof of every live-network path.', 'Use locks + math tests + full line-scan as the contract.', 'No action needed.', 'EngineAuditor scope');
+    add('INFO', AREA, 'Auditor scope (honest)', 'Tennis EngineAuditor walks product source with tennis-native projection, confidence, surface, and Markov probes; math probes target tennis helpers (Markov, pickFromRange, confidence, surface, fatigue).', 'Use locks + feature walkthrough + line-scan as the contract.', 'No action needed.', 'EngineAuditor scope');
   }
 
   // =================================================================
@@ -10031,11 +9904,11 @@ async function auditFullLineScan() {
   const CATEGORIES = [
     { id: 'ARCHITECTURE',        letter: 'A', label: 'Architecture & Data Flow',            fn: auditArchitecture,        async: false },
     { id: 'SECURITY',            letter: 'B', label: 'Security',                            fn: auditSecurity,            async: false },
-    { id: 'PROJECTION_MATH',     letter: 'C', label: 'Projection & Math Correctness',        fn: auditProjectionMath,      async: false },
-    { id: 'CONFIDENCE',          letter: 'D', label: 'Confidence Model',                     fn: auditConfidence,          async: false },
-    { id: 'H2H',                 letter: 'E', label: 'H2H',                                  fn: auditH2H,                 async: false },
-    { id: 'VOLATILITY',          letter: 'E', label: 'Volatility',                           fn: auditVolatility,          async: false },
-    { id: 'PERIOD_ADVANCED',     letter: 'E', label: 'Period-Advanced Stats',                fn: auditPeriodAdvanced,      async: false },
+    { id: 'PROJECTION_MATH',     letter: 'C', label: 'Tennis Projection & Math',             fn: auditProjectionMath,      async: false },
+    { id: 'CONFIDENCE',          letter: 'D', label: 'Tennis Confidence Grades',             fn: auditConfidence,          async: false },
+    { id: 'H2H',                 letter: 'E', label: 'H2H & Surface Inference',              fn: auditH2H,                 async: false },
+    { id: 'VOLATILITY',          letter: 'E', label: 'Volatility & Fatigue',                 fn: auditVolatility,          async: false },
+    { id: 'PERIOD_ADVANCED',     letter: 'E', label: 'Surface / Format / Markov',            fn: auditPeriodAdvanced,      async: false },
     { id: 'STORAGE',             letter: 'F', label: 'Storage & Persistence',                fn: auditStorage,             async: true },
     { id: 'TRACKER',             letter: 'G', label: 'Tracker',                              fn: auditTracker,             async: false },
     { id: 'FETCH',               letter: 'H', label: 'Fetch Layer',                          fn: auditFetchLayer,          async: false },
