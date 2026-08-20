@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9313,17 +9312,16 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof proxyFetch === 'function' && typeof tennis ESPN scoreboard paths !== 'undefined') {
-      const knownLeagues = ['nba', 'wnba', 'ncaa', 'ncaaw'];
-      const resolved = knownLeagues.map(l => ({ l, slug: safeCall(proxyFetch, l) }));
-      const unresolved = resolved.filter(r => r.slug.ok && !r.slug.value);
-      if (unresolved.length) {
-        add('LOW', AREA, 'Some expected leagues have no ESPN slug mapping', 'proxyFetch returned null for: ' + unresolved.map(u => u.l).join(', ') + '.', 'A league without a slug mapping cannot use ESPN auto-fetch and would silently fall through to manual entry, which may be surprising if the league is expected to be supported.', 'Confirm tennis ESPN scoreboard paths covers every league surfaced in the league selector, or intentionally exclude unsupported ones from the dropdown.', 'proxyFetch() / tennis ESPN scoreboard paths');
+    if (typeof proxyFetch === 'function' && typeof fetchJson === 'function') {
+      const src2 = getConcatenatedScriptSource() || '';
+      const hasTennisEspn = /sports\/tennis\//.test(src2) || /site\.api\.espn\.com.*tennis/.test(src2);
+      if (hasTennisEspn) {
+        add('INFO', AREA, 'ESPN tennis scoreboard paths present', 'Source references ESPN tennis scoreboard/summary endpoints.', 'ATP/WTA auto-fetch paths are wired.', 'No action needed.', 'proxyFetch() / ESPN tennis');
       } else {
-        add('INFO', AREA, 'ESPN league slug mapping covers the checked leagues', 'proxyFetch resolved a slug for each of: ' + knownLeagues.join(', ') + '.', 'No action needed.', 'No action needed.', 'proxyFetch() / tennis ESPN scoreboard paths');
+        add('LOW', AREA, 'ESPN tennis path markers not found in source scan', 'Could not find sports/tennis/ URL markers in product source.', 'Auto-fetch may still work via dynamic URL build — verify manually if needed.', 'Confirm ESPN tennis scoreboard URLs are still constructed in the fetch layer.', 'proxyFetch() / ESPN tennis');
       }
     } else {
-      add('INFO', AREA, 'ESPN slug mapping functions unavailable for live check', 'proxyFetch or tennis ESPN scoreboard paths not accessible from this scope.', 'Skipped, not failed.', 'Not applicable.', 'proxyFetch()');
+      add('INFO', AREA, 'Fetch helpers unavailable for live path check', 'proxyFetch or fetchJson not accessible from this scope.', 'Skipped, not failed.', 'Not applicable.', 'proxyFetch()');
     }
 
     tally(); pass();
