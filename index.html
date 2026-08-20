@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8157,6 +8158,31 @@ document.addEventListener("DOMContentLoaded", function () {
     window.normalizeTrackerState = normalizeTrackerState;
     window.openTrackerModal = openTrackerModal;
     window.setTrackerView = setTrackerView;
+    // Auditor / debug surface — expose nested helpers the self-audit probes
+    window.pickFromRange = pickFromRange;
+    window.getRawConfidence = getRawConfidence;
+    window.downgradeConfidence = downgradeConfidence;
+    window.confidenceScore = confidenceScore;
+    window.getPickCellClass = getPickCellClass;
+    window.getConfidenceCellClass = getConfidenceCellClass;
+    window.weightedMean = weightedMean;
+    window.mean = mean;
+    window.stdDev = stdDev;
+    window.gameWinProbFromPointProb = gameWinProbFromPointProb;
+    window.pointProbFromGameWinProb = pointProbFromGameWinProb;
+    window.inferSurfaceFromText = inferSurfaceFromText;
+    window.inferSurfaceFromRecord = inferSurfaceFromRecord;
+    window.classifyEventLevel = classifyEventLevel;
+    window.inferMatchFormat = inferMatchFormat;
+    window.matchupKey = matchupKey;
+    window.computeFatigueProfile = computeFatigueProfile;
+    window.computeFatiguePenalty = computeFatiguePenalty;
+    window.computeBrutalMetrics = computeBrutalMetrics;
+    window.initDatabase = initDatabase;
+    window.writeAsync = writeAsync;
+    window.readAsync = readAsync;
+    window.toggleTheme = toggleTheme;
+    window.normalizeTrackerItem = normalizeTrackerItem;
     window.triggerTrackerMilitaryRaid = function() {
       const statusEl = document.getElementById("trackerStatusLabel");
       if (statusEl) {
@@ -8829,8 +8855,8 @@ const EngineAuditor = (function () {
     const AREA = 'PROJECTION_MATH';
 
     tally(); pass();
-    if (typeof getDefaultTennisConfig === 'function') {
-      const r = safeCall(getDefaultTennisConfig);
+    if (typeof window.getDefaultTennisConfig === 'function') {
+      const r = safeCall(window.getDefaultTennisConfig);
       if (!r.ok) {
         add('HIGH', AREA, 'getDefaultTennisConfig threw', String(r.error && r.error.message || r.error), 'Default config is the baseline for every market projection.', 'Fix the throw in getDefaultTennisConfig().', 'getDefaultTennisConfig()');
       } else {
@@ -8848,10 +8874,10 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof pickFromRange === 'function') {
-      const over = safeCall(pickFromRange, 23.5, { mid: 22.5, low: 22, high: 23 });
-      const under = safeCall(pickFromRange, 21.0, { mid: 22.5, low: 22, high: 23 });
-      const passPick = safeCall(pickFromRange, 22.5, { mid: 22.5, low: 22, high: 23 });
+    if (typeof window.pickFromRange === 'function') {
+      const over = safeCall(window.pickFromRange, 23.5, { mid: 22.5, low: 22, high: 23 });
+      const under = safeCall(window.pickFromRange, 21.0, { mid: 22.5, low: 22, high: 23 });
+      const passPick = safeCall(window.pickFromRange, 22.5, { mid: 22.5, low: 22, high: 23 });
       if (!over.ok || !under.ok || !passPick.ok) {
         add('HIGH', AREA, 'pickFromRange threw', 'One of OVER/UNDER/PASS smoke calls threw.', 'Pick direction is the core market output.', 'Guard pickFromRange against bad inputs.', 'pickFromRange()');
       } else {
@@ -8870,12 +8896,12 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof gameWinProbFromPointProb === 'function' && typeof pointProbFromGameWinProb === 'function') {
-      const g = safeCall(gameWinProbFromPointProb, 0.65);
+    if (typeof window.gameWinProbFromPointProb === 'function' && typeof window.pointProbFromGameWinProb === 'function') {
+      const g = safeCall(window.gameWinProbFromPointProb, 0.65);
       if (!g.ok || !Number.isFinite(g.value)) {
         add('HIGH', AREA, 'gameWinProbFromPointProb non-finite', 'Input 0.65 did not yield a finite hold probability.', 'Serve/hold conversion is the Markov foundation.', 'Fix gameWinProbFromPointProb().', 'gameWinProbFromPointProb()');
       } else {
-        const back = safeCall(pointProbFromGameWinProb, g.value);
+        const back = safeCall(window.pointProbFromGameWinProb, g.value);
         if (!back.ok || !Number.isFinite(back.value)) {
           add('MEDIUM', AREA, 'pointProbFromGameWinProb non-finite', 'Round-trip from hold prob failed.', 'Inverse conversion should stay finite.', 'Fix pointProbFromGameWinProb().', 'pointProbFromGameWinProb()');
         } else {
@@ -8892,8 +8918,8 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof weightedMean === 'function') {
-      const r = safeCall(weightedMean, [10, 10, 10, 10], 0.9);
+    if (typeof window.weightedMean === 'function') {
+      const r = safeCall(window.weightedMean, [10, 10, 10, 10], 0.9);
       if (!r.ok || !Number.isFinite(r.value) || Math.abs(r.value - 10) > 0.01) {
         add('MEDIUM', AREA, 'weightedMean smoke failed', 'Expected ~10 for flat series; got ' + (r.ok ? r.value : r.error), 'Recency-weighted form is used across surfaces and H2H.', 'Fix weightedMean().', 'weightedMean()');
       } else {
@@ -8904,9 +8930,9 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof mean === 'function' && typeof stdDev === 'function') {
-      const m = safeCall(mean, [2, 4, 6]);
-      const s = safeCall(stdDev, [2, 4, 6]);
+    if (typeof window.mean === 'function' && typeof window.stdDev === 'function') {
+      const m = safeCall(window.mean, [2, 4, 6]);
+      const s = safeCall(window.stdDev, [2, 4, 6]);
       if (!m.ok || m.value !== 4) {
         add('MEDIUM', AREA, 'mean() incorrect', 'mean([2,4,6]) expected 4.', 'Basic stats helper is wrong.', 'Fix mean().', 'mean()');
       } else if (!s.ok || !Number.isFinite(s.value)) {
@@ -8923,9 +8949,9 @@ const EngineAuditor = (function () {
     const AREA = 'CONFIDENCE';
 
     tally(); pass();
-    if (typeof getRawConfidence === 'function') {
-      const a = safeCall(getRawConfidence, 2.5, 1.0, 22.5, 'ATP', 'match', 'Hard', null);
-      const passish = safeCall(getRawConfidence, 0.1, 5.0, 22.5, 'ATP', 'match', 'Hard', null);
+    if (typeof window.getRawConfidence === 'function') {
+      const a = safeCall(window.getRawConfidence, 2.5, 1.0, 22.5, 'ATP', 'match', 'Hard', null);
+      const passish = safeCall(window.getRawConfidence, 0.1, 5.0, 22.5, 'ATP', 'match', 'Hard', null);
       if (!a.ok || !passish.ok) {
         add('HIGH', AREA, 'getRawConfidence threw', 'Smoke calls threw.', 'Confidence grading is required for lock selection and tracker grades.', 'Fix getRawConfidence().', 'getRawConfidence()');
       } else {
@@ -8942,10 +8968,10 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof downgradeConfidence === 'function') {
-      const r1 = safeCall(downgradeConfidence, 'A');
-      const r2 = safeCall(downgradeConfidence, 'B');
-      const r3 = safeCall(downgradeConfidence, 'C');
+    if (typeof window.downgradeConfidence === 'function') {
+      const r1 = safeCall(window.downgradeConfidence, 'A');
+      const r2 = safeCall(window.downgradeConfidence, 'B');
+      const r3 = safeCall(window.downgradeConfidence, 'C');
       if (!r1.ok || r1.value !== 'B' || !r2.ok || r2.value !== 'C' || !r3.ok || r3.value !== 'PASS') {
         add('MEDIUM', AREA, 'downgradeConfidence chain broken', 'Expected A→B, B→C, C→PASS.', 'Fatigue/context downgrades would mis-grade locks.', 'Fix downgradeConfidence().', 'downgradeConfidence()');
       } else {
@@ -8956,8 +8982,8 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof confidenceScore === 'function') {
-      const r = safeCall(confidenceScore, 'A', 2.0, 1.0);
+    if (typeof window.confidenceScore === 'function') {
+      const r = safeCall(window.confidenceScore, 'A', 2.0, 1.0);
       if (!r.ok || !Number.isFinite(r.value)) {
         add('MEDIUM', AREA, 'confidenceScore non-finite', 'Expected a finite numeric score for grade A.', 'Lock ranking may break.', 'Fix confidenceScore().', 'confidenceScore()');
       } else {
@@ -8968,7 +8994,7 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof getPickCellClass === 'function' && typeof getConfidenceCellClass === 'function') {
+    if (typeof window.getPickCellClass === 'function' && typeof window.getConfidenceCellClass === 'function') {
       add('INFO', AREA, 'Pick/confidence cell class helpers present', 'UI class mappers for results table are defined.', 'No action needed.', 'No action needed.', 'getPickCellClass() / getConfidenceCellClass()');
     } else {
       add('LOW', AREA, 'Results table class helpers missing', 'getPickCellClass and/or getConfidenceCellClass not found.', 'Results styling may degrade.', 'Restore UI helpers.', 'getPickCellClass()');
@@ -8979,8 +9005,8 @@ const EngineAuditor = (function () {
     const AREA = 'H2H';
 
     tally(); pass();
-    if (typeof getDefaultTennisConfig === 'function') {
-      const c = safeCall(getDefaultTennisConfig);
+    if (typeof window.getDefaultTennisConfig === 'function') {
+      const c = safeCall(window.getDefaultTennisConfig);
       if (c.ok && c.value) {
         const cap = Number(c.value.h2hWeightCap);
         const w5 = Number(c.value.h2hWeightGe5);
@@ -8999,9 +9025,9 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof matchupKey === 'function') {
-      const k1 = safeCall(matchupKey, 'ATP', 'Player A', 'Player B');
-      const k2 = safeCall(matchupKey, 'atp', 'player a', 'player b');
+    if (typeof window.matchupKey === 'function') {
+      const k1 = safeCall(window.matchupKey, 'ATP', 'Player A', 'Player B');
+      const k2 = safeCall(window.matchupKey, 'atp', 'player a', 'player b');
       if (!k1.ok || !k2.ok || !k1.value) {
         add('MEDIUM', AREA, 'matchupKey failed', 'Could not build a stable matchup key.', 'Fetch context binding depends on this.', 'Fix matchupKey().', 'matchupKey()');
       } else {
@@ -9012,10 +9038,10 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof inferSurfaceFromText === 'function') {
-      const clay = safeCall(inferSurfaceFromText, '', 'Roland Garros');
-      const grass = safeCall(inferSurfaceFromText, '', 'Wimbledon');
-      const hard = safeCall(inferSurfaceFromText, '', 'Australian Open');
+    if (typeof window.inferSurfaceFromText === 'function') {
+      const clay = safeCall(window.inferSurfaceFromText, '', 'Roland Garros');
+      const grass = safeCall(window.inferSurfaceFromText, '', 'Wimbledon');
+      const hard = safeCall(window.inferSurfaceFromText, '', 'Australian Open');
       if (!clay.ok || clay.value !== 'Clay' || !grass.ok || grass.value !== 'Grass' || !hard.ok || hard.value !== 'Hard') {
         add('MEDIUM', AREA, 'Surface inference mis-classified majors', 'Roland Garros→' + (clay.ok?clay.value: 'ERR') + ', Wimbledon→' + (grass.ok?grass.value:'ERR') + ', AO→' + (hard.ok?hard.value:'ERR') + '.', 'Wrong surface breaks surface multipliers and H2H surface factors.', 'Fix inferSurfaceFromText major mappings.', 'inferSurfaceFromText()');
       } else {
@@ -9030,9 +9056,9 @@ const EngineAuditor = (function () {
     const AREA = 'VOLATILITY';
 
     tally(); pass();
-    if (typeof stdDev === 'function') {
-      const flat = safeCall(stdDev, [5, 5, 5, 5]);
-      const spread = safeCall(stdDev, [1, 3, 8, 12]);
+    if (typeof window.stdDev === 'function') {
+      const flat = safeCall(window.stdDev, [5, 5, 5, 5]);
+      const spread = safeCall(window.stdDev, [1, 3, 8, 12]);
       if (!flat.ok || !spread.ok) {
         add('MEDIUM', AREA, 'stdDev threw', 'Volatility helper threw on smoke inputs.', 'Confidence vol-normalization depends on this.', 'Fix stdDev().', 'stdDev()');
       } else if (!(Number(flat.value) < Number(spread.value))) {
@@ -9045,12 +9071,12 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof computeFatigueProfile === 'function' && typeof computeFatiguePenalty === 'function') {
-      const profile = safeCall(computeFatigueProfile, [], new Date().toISOString());
+    if (typeof window.computeFatigueProfile === 'function' && typeof window.computeFatiguePenalty === 'function') {
+      const profile = safeCall(window.computeFatigueProfile, [], new Date().toISOString());
       if (!profile.ok) {
         add('MEDIUM', AREA, 'computeFatigueProfile threw on empty series', String(profile.error && profile.error.message || profile.error), 'Empty schedule should degrade gracefully.', 'Guard computeFatigueProfile for empty input.', 'computeFatigueProfile()');
       } else {
-        const pen = safeCall(computeFatiguePenalty, profile.value || {}, 'match');
+        const pen = safeCall(window.computeFatiguePenalty, profile.value || {}, 'match');
         if (!pen.ok || !Number.isFinite(pen.value)) {
           add('MEDIUM', AREA, 'computeFatiguePenalty non-finite', 'Expected a finite penalty for empty profile.', 'Fatigue should not NaN out projections.', 'Fix computeFatiguePenalty().', 'computeFatiguePenalty()');
         } else {
@@ -9062,7 +9088,7 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof computeBrutalMetrics === 'function') {
+    if (typeof window.computeBrutalMetrics === 'function') {
       add('INFO', AREA, 'computeBrutalMetrics present', 'Tiebreak/set1-kill/grind metrics helper is defined.', 'No action needed.', 'No action needed.', 'computeBrutalMetrics()');
     } else {
       add('LOW', AREA, 'computeBrutalMetrics missing', 'Function not found.', 'Style metrics may be unavailable.', 'Restore if still used in derived inputs.', 'computeBrutalMetrics()');
@@ -9073,9 +9099,9 @@ const EngineAuditor = (function () {
     const AREA = 'PERIOD_ADVANCED';
 
     tally(); pass();
-    if (typeof classifyEventLevel === 'function') {
-      const slam = safeCall(classifyEventLevel, 'Australian Open');
-      const masters = safeCall(classifyEventLevel, 'Miami Masters 1000');
+    if (typeof window.classifyEventLevel === 'function') {
+      const slam = safeCall(window.classifyEventLevel, 'Australian Open');
+      const masters = safeCall(window.classifyEventLevel, 'Miami Masters 1000');
       if (!slam.ok || slam.value !== 'Grand Slam') {
         add('MEDIUM', AREA, 'Grand Slam not classified', 'Australian Open → ' + (slam.ok ? slam.value : 'ERR'), 'Event level drives BO5 expectations and set models.', 'Fix classifyEventLevel slam detection.', 'classifyEventLevel()');
       } else if (!masters.ok || !String(masters.value).includes('Masters')) {
@@ -9088,8 +9114,8 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof inferMatchFormat === 'function') {
-      const bo5 = safeCall(inferMatchFormat, 'ATP', 'Grand Slam');
+    if (typeof window.inferMatchFormat === 'function') {
+      const bo5 = safeCall(window.inferMatchFormat, 'ATP', 'Grand Slam');
       if (!bo5.ok) {
         add('MEDIUM', AREA, 'inferMatchFormat threw', String(bo5.error && bo5.error.message || bo5.error), 'Format inference is required for Markov BO5 flag.', 'Fix inferMatchFormat().', 'inferMatchFormat()');
       } else {
@@ -9100,21 +9126,21 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof buildDerivedMarketInputs === 'function') {
+    if (typeof window.buildDerivedMarketInputs === 'function') {
       add('INFO', AREA, 'buildDerivedMarketInputs present', 'Derived input builder for match/set1/team markets is defined.', 'No action needed.', 'No action needed.', 'buildDerivedMarketInputs()');
     } else {
       add('HIGH', AREA, 'buildDerivedMarketInputs missing', 'Function not defined.', 'Market projections cannot assemble form/surface/H2H inputs.', 'Restore buildDerivedMarketInputs().', 'buildDerivedMarketInputs()');
     }
 
     tally(); pass();
-    if (typeof runTennisMarkovSimulation === 'function') {
+    if (typeof window.runTennisMarkovSimulation === 'function') {
       add('INFO', AREA, 'runTennisMarkovSimulation present', 'Core Markov engine entry point is defined.', 'Live Monte-Carlo runs are available at prediction time.', 'No action needed.', 'runTennisMarkovSimulation()');
     } else {
       add('CRITICAL', AREA, 'runTennisMarkovSimulation missing', 'Markov simulator not found.', 'Match/set totals cannot be simulated.', 'Restore runTennisMarkovSimulation().', 'runTennisMarkovSimulation()');
     }
 
     tally(); pass();
-    if (typeof buildMarketResult === 'function') {
+    if (typeof window.buildMarketResult === 'function') {
       add('INFO', AREA, 'buildMarketResult present', 'Per-market result assembler is defined.', 'No action needed.', 'No action needed.', 'buildMarketResult()');
     } else {
       add('CRITICAL', AREA, 'buildMarketResult missing', 'Function not found.', 'Cannot produce pick/edge/confidence packages.', 'Restore buildMarketResult().', 'buildMarketResult()');
@@ -9125,7 +9151,7 @@ const EngineAuditor = (function () {
     const AREA = 'STORAGE';
 
     tally();
-    if (typeof writeAsync === 'function' && typeof readAsync === 'function') {
+    if (typeof window.writeAsync === 'function' && typeof window.readAsync === 'function') {
       const testKey = '__TENNIS_AUDITOR_SELFTEST__';
       const testVal = { probe: true, ts: Date.now(), nonce: Math.random().toString(36).slice(2) };
       try {
@@ -9150,7 +9176,7 @@ const EngineAuditor = (function () {
 
     // IndexedDB availability guard.
     tally(); pass();
-    if (typeof initDatabase === 'function') {
+    if (typeof window.initDatabase === 'function') {
       if (typeof window.indexedDB === 'undefined') {
         add('MEDIUM', AREA, 'IndexedDB unavailable in this environment', 'window.indexedDB is undefined, so initDatabase() cannot use its primary store.', 'Without IndexedDB, the engine should already be falling back to localStorage — worth confirming that fallback path is actually exercised, not just assumed.', 'Manually verify writeAsync/readAsync behave correctly with indexedDB deleted/disabled (e.g. private browsing in some browsers).', 'initDatabase()');
       } else {
@@ -9392,7 +9418,7 @@ const EngineAuditor = (function () {
     }
 
     tally(); pass();
-    if (typeof toggleTheme === 'function') {
+    if (typeof window.toggleTheme === 'function') {
       add('INFO', AREA, 'Theme toggle present', 'toggleTheme() is defined and toggles the "dark-mode" class on document.body.', 'Confirms the light/dark theming feature referenced throughout the stylesheet has a working entry point.', 'No action needed.', 'toggleTheme()');
     } else {
       add('LOW', AREA, 'Theme toggle function not found', 'toggleTheme is not defined as a function in this scope.', 'The page\'s dark-mode CSS variables would have no way to be triggered if this was removed or renamed.', 'Confirm the theme-toggle button\'s onclick handler still resolves to a real function.', 'toggleTheme()');
@@ -9580,8 +9606,8 @@ const EngineAuditor = (function () {
 
     tally(); pass();
     {
-      if (typeof getDefaultTennisConfig === 'function') {
-        const c = safeCall(getDefaultTennisConfig);
+      if (typeof window.getDefaultTennisConfig === 'function') {
+        const c = safeCall(window.getDefaultTennisConfig);
         if (c.ok && c.value && Number(c.value.h2hWeightCap) > 0 && Number(c.value.h2hWeightCap) <= 1) {
           add('INFO', AREA, 'LOCK OK: H2H weight cap in (0,1]', 'h2hWeightCap = ' + c.value.h2hWeightCap, 'Prevents H2H from dominating the blend entirely.', 'No action needed.', 'getDefaultTennisConfig().h2hWeightCap');
         } else {
@@ -9594,8 +9620,8 @@ const EngineAuditor = (function () {
 
     tally(); pass();
     {
-      if (typeof downgradeConfidence === 'function') {
-        const r = safeCall(downgradeConfidence, 'C');
+      if (typeof window.downgradeConfidence === 'function') {
+        const r = safeCall(window.downgradeConfidence, 'C');
         if (r.ok && r.value === 'PASS') {
           add('INFO', AREA, 'LOCK OK: C downgrades to PASS', 'downgradeConfidence("C") → PASS.', 'Floor grade cannot stay actionable after full downgrade.', 'No action needed.', 'downgradeConfidence()');
         } else {
