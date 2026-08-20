@@ -1,3 +1,4 @@
+Z
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7086,14 +7087,17 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       return { records: deduped, h2h: h2h.slice(0, maxMeetings), checks: checks };
     }
 
-    // HARD H2H BOUNDARY: 2025-01-01 onward only. Fetch 2025 and 2026
-    // concurrently rather than serial 180-day windows. Max transport is
-    // 2 seasons x 2 ESPN scopes = 4 requests, all in parallel.
+    // H2H LOOKBACK: rolling 3 calendar years ending at cutoff.
+    // Previous hard floor of 2025-01-01 dropped valid recent H2H (e.g. 2024
+    // Cincinnati Paul vs Cobolli). Fetch each year in the window concurrently
+    // across ESPN scopes (all + tour). Max transport ≈ 3 seasons × 2 scopes.
     const cutoff = cutoffIso ? new Date(cutoffIso) : new Date();
     const effectiveEnd = Number.isFinite(cutoff.getTime()) ? cutoff : new Date();
-    const hardStart = new Date(2025, 0, 1);
+    const hardStart = new Date(effectiveEnd.getFullYear() - 2, 0, 1); // include current year and 2 prior
     const yearWindows = [];
-    [2026, 2025].forEach(function (year) {
+    const years = [];
+    for (let y = effectiveEnd.getFullYear(); y >= hardStart.getFullYear(); y -= 1) years.push(y);
+    years.forEach(function (year) {
       const startDate = new Date(Math.max(hardStart.getTime(), new Date(year, 0, 1).getTime()));
       let endDate = new Date(year, 11, 31, 23, 59, 59, 999);
       if (year === effectiveEnd.getFullYear()) endDate = effectiveEnd;
