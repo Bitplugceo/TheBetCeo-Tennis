@@ -1,4 +1,3 @@
-Z
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6251,11 +6250,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     return dedupeRecords(records);
   }
   function getSeasonYearsForSettlement(savedAtIso) {
-    // HISTORY BOUNDARY: only the current season and the immediately previous
-    // season are eligible for H2H/history work. Never request anything older.
-    const nowYear = new Date().getFullYear();
-    const previousYear = nowYear - 1;
-    return [nowYear, previousYear];
+    // HISTORY BOUNDARY: current season + two prior seasons (rolling 3 years).
+    // A 2-year floor dropped valid H2H such as 2024 Cincinnati when "now" is 2026.
+    const anchor = savedAtIso ? new Date(savedAtIso) : new Date();
+    const nowYear = Number.isFinite(anchor.getTime()) ? anchor.getFullYear() : new Date().getFullYear();
+    return [nowYear, nowYear - 1, nowYear - 2];
   }
   async function fetchAthleteHistoryPayload(url) {
     const payload = await proxyFetch(url, 5000);
@@ -7139,6 +7138,61 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       }
       deduped = dedupeRecords(deduped.concat(result.records));
     });
+
+    // Athlete-history H2H probe: scoreboard year dumps often omit older completed
+    // events. Pull each player's year results and intersect via buildH2HSeries.
+    if (playerAId && playerBId) {
+      const athleteYears = years.slice(); // already rolling 3 years from window build
+      const athleteTasks = [];
+      athleteYears.forEach(function (year) {
+        athleteTasks.push({ year: year, athleteId: playerAId, side: "A" });
+        athleteTasks.push({ year: year, athleteId: playerBId, side: "B" });
+      });
+      const athleteSettled = await Promise.all(athleteTasks.map(async function (task) {
+        const slug = String(league || "").trim().toLowerCase() || "atp";
+        const urls = [
+          "https://site.web.api.espn.com/apis/common/v3/sports/tennis/" + slug + "/athletes/" + task.athleteId + "/results?year=" + task.year + "&limit=1000&page=1",
+          "https://site.api.espn.com/apis/common/v3/sports/tennis/" + slug + "/athletes/" + task.athleteId + "/results?year=" + task.year + "&limit=1000&page=1",
+          "https://site.web.api.espn.com/apis/common/v3/sports/tennis/all/athletes/" + task.athleteId + "/results?year=" + task.year + "&limit=1000&page=1",
+          "https://site.api.espn.com/apis/common/v3/sports/tennis/all/athletes/" + task.athleteId + "/results?year=" + task.year + "&limit=1000&page=1"
+        ];
+        for (let u = 0; u < urls.length; u += 1) {
+          try {
+            const parsed = await fetchAthleteHistoryPayload(urls[u]);
+            const recs = (parsed.records || []).filter(function (record) {
+              return record && record.status && record.status.completed && !record.retired &&
+                Number.isFinite(record.totalGames) && Number.isFinite(record.set1Total) &&
+                Number.isFinite(record.playerAGames) && Number.isFinite(record.playerBGames);
+            });
+            if (recs.length) return { task: task, records: recs };
+          } catch (err) {}
+        }
+        try {
+          const coreParsed = await resolveAthletePageCompetitionRecords(league, task.athleteId, task.year);
+          return { task: task, records: coreParsed.records || [] };
+        } catch (err2) {
+          return { task: task, records: [] };
+        }
+      }));
+      athleteSettled.forEach(function (result) {
+        if (!result.records || !result.records.length) return;
+        const h2hAth = buildH2HSeries(result.records, playerAId, playerBId, playerAName, playerBName);
+        if (h2hAth.length) {
+          checks.push({
+            label: "h2h-athlete-history-hit",
+            query: "side=" + result.task.side + " year=" + result.task.year + " athlete=" + result.task.athleteId,
+            records: h2hAth.length,
+            exact: h2hAth.length,
+            fuzzy: 0,
+            relaxed: 0,
+            sample: h2hAth.slice(0, 5).map(function (record) {
+              return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
+            }).join(" | ")
+          });
+        }
+        deduped = dedupeRecords(deduped.concat(result.records));
+      });
+    }
 
     h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName)
       .filter(function (record) {
