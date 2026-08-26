@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3445,6 +3446,15 @@ let g_clearDebug = {
     let avgB = (_wmB !== null) ? _wmB : (mean(sourceB) !== null ? mean(sourceB) : 0);
     let stdA = stdDev(sourceA);
     let stdB = stdDev(sourceB);
+    // COLD-START VARIANCE FIX: applyPrior() pads thin real samples with a
+    // repeated constant, which crushes stdDev toward 0 and can make a
+    // near-empty sample look artificially consistent. Floor the variance
+    // using the real (pre-padding) sample size from historyCoverage.
+    const _realCountA = ctx && ctx.historyCoverage && ctx.historyCoverage.playerA ? ctx.historyCoverage.playerA.total : sourceA.length;
+    const _realCountB = ctx && ctx.historyCoverage && ctx.historyCoverage.playerB ? ctx.historyCoverage.playerB.total : sourceB.length;
+    const _thinSampleFloor = (mean(sourceA.concat(sourceB)) || 5) * 0.18;
+    if (useCtx && _realCountA < 5) stdA = Math.max(stdA, _thinSampleFloor);
+    if (useCtx && _realCountB < 5) stdB = Math.max(stdB, _thinSampleFloor);
     const notes = [];
     if (useCtx) notes.push("Recency weighted");
     const ALLOWED_BLEND = tennisConfig.allowedBlend;
@@ -3507,11 +3517,17 @@ let g_clearDebug = {
       stdB *= Math.sqrt(expectedSets);
       notes.push(isBO5 ? "Format: BO5 \u00d7" + tennisConfig.expectedSetsBO5 + " sets" : "Normalized: \u00d7" + expectedSets.toFixed(2) + " sets");
     } else if (isMatch && isBO5) {
+      // UNVERIFIED ASSUMPTION FIX: this fallback only fires when manual entry
+      // is used instead of fetched per-set data. It assumes the manually
+      // entered averages are BO3-equivalent totals; if the user actually
+      // entered real BO5 historical totals, this multiplier double-applies
+      // the sets effect. Flag the assumption explicitly instead of silently
+      // trusting it.
       avgA *= tennisConfig.bo5FallbackMult;
       avgB *= tennisConfig.bo5FallbackMult;
       stdA *= Math.sqrt(tennisConfig.bo5FallbackMult);
       stdB *= Math.sqrt(tennisConfig.bo5FallbackMult);
-      notes.push("Format: BO5 Multiplier (" + tennisConfig.bo5FallbackMult + "x)");
+      notes.push("Format: BO5 Multiplier (" + tennisConfig.bo5FallbackMult + "x) — assumes manual entries are BO3-equivalent; verify if entries are already BO5 totals");
     }
     if (ctx.surface === "Grass") {
       const grassMult = tennisConfig.grassMult;
@@ -3634,11 +3650,12 @@ let g_clearDebug = {
         onmessage = function(e) {
           const { pA, pB, line, isBO5, runs, set1Only, teamSide } = e.data;
           let overHits = 0;
+          let pushHits = 0;
           for (let i = 0; i < runs; i++) {
             if (set1Only) {
               let res = simSet(pA, pB, false, "A");
               let val = teamSide === "A" ? res.gA : teamSide === "B" ? res.gB : (res.gA + res.gB);
-              if (val > line) overHits++;
+              if (val === line) pushHits++; else if (val > line) overHits++;
             } else {
               let totalGames = 0, gamesA = 0, gamesB = 0, setsA = 0, setsB = 0;
               let target = isBO5 ? 3 : 2;
@@ -3653,10 +3670,11 @@ let g_clearDebug = {
                 if (res.gA > res.gB) setsA++; else setsB++;
               }
               let val = teamSide === "A" ? gamesA : teamSide === "B" ? gamesB : totalGames;
-              if (val > line) overHits++;
+              if (val === line) pushHits++; else if (val > line) overHits++;
             }
           }
-          postMessage({ overPct: (overHits/runs)*100 });
+          const decided = runs - pushHits;
+          postMessage({ overPct: decided > 0 ? (overHits/decided)*100 : 50, pushPct: (pushHits/runs)*100 });
         };
       `;
       const blob = new Blob([workerCode], { type: "application/javascript" });
@@ -3665,12 +3683,12 @@ let g_clearDebug = {
       worker.onmessage = (e) => {
         worker.terminate();
         URL.revokeObjectURL(blobUrl);
-        resolve({ overPct: e.data.overPct, underPct: 100 - e.data.overPct });
+        resolve({ overPct: e.data.overPct, underPct: 100 - e.data.overPct - (e.data.pushPct || 0), pushPct: e.data.pushPct || 0, simFailed: false });
       };
       worker.onerror = (err) => {
         worker.terminate();
         URL.revokeObjectURL(blobUrl);
-        resolve({ overPct: 50, underPct: 50 });
+        resolve({ overPct: null, underPct: null, pushPct: null, simFailed: true });
       };
       worker.postMessage({ pA: pA_serve, pB: pB_serve, line: lineMid, isBO5, runs, set1Only, teamSide });
     });
@@ -3711,20 +3729,39 @@ let g_clearDebug = {
     let pick = lineDecision.pick;
     let edge = lineDecision.edge;
     let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx?.tour, config.marketKey, config.ctx?.surface, null);
+    // CALIBRATION DISCLOSURE FIX: getRawConfidence only overrides the raw
+    // analytic tier once a bucket has 25+ locally-tracked decided results
+    // (see g_bucketPerformance, stored in this browser's localStorage only).
+    // Below that, the grade is unvalidated magic-number thresholds. Surface
+    // that explicitly instead of letting it look calibrated.
+    if (confidence !== "PASS") {
+      const _calBucketKey = `${config.ctx?.tour}|${config.marketKey}|${config.ctx?.surface}|${confidence}`;
+      const _calPerf = g_bucketPerformance[_calBucketKey];
+      const _calDecided = _calPerf ? _calPerf.wins + _calPerf.losses : 0;
+      if (_calDecided < 25) {
+        notes.push("Confidence is analytic-only (" + _calDecided + "/25 locally tracked results) — not yet probability-calibrated");
+      }
+    }
     if (MARKET_PULL > 0) {
       notes.push("Mkt pull: raw " + fmt(preRegressionProjection) + " \u2192 " + fmt(projection));
     }
     const filtersTriggered = [];
     const _isATP = config.ctx?.tour === "ATP";
-    const _surf  = config.ctx?.surface || "Hard";
-    let baseHoldProb = _isATP
-      ? (_surf === "Clay" ? 0.78 : _surf === "Grass" ? 0.87 : 0.82)
-      : (_surf === "Clay" ? 0.61 : _surf === "Grass" ? 0.67 : 0.64);
+    // DOUBLE-COUNT FIX: surface was previously baked in here via a
+    // surface-keyed baseHoldProb AND again below via _gameDomA (derived from
+    // avgA/avgB, which already carry a clay/grass/hard multiplier from
+    // buildDerivedMarketInputs). Use a single tour-level baseline here so
+    // surface only enters the serve-probability model once.
+    let baseHoldProb = _isATP ? 0.82 : 0.64;
     const _eloA = config.ctx?.eloA || 1500;
     const _eloB = config.ctx?.eloB || 1500;
     const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
     const _gA = Number.isFinite(config.avgA) ? config.avgA : 5;
-    const _gB = Number.isFinite(config.avgB) ? config.avgB : 5;
+    // OPPONENT-ZERO FIX: for team_a/team_b markets config.avgB is hardcoded
+    // to 0 (correct for baseProjection, wrong here). Use the real opposing
+    // player's average when supplied via config.domOpponentAvg so dominance
+    // isn't computed against a fabricated zero-average opponent.
+    const _gB = Number.isFinite(config.domOpponentAvg) ? config.domOpponentAvg : (Number.isFinite(config.avgB) ? config.avgB : 5);
     const _gameDomA = (_gA - _gB) / (_gA + _gB + 2);
     const _rawServeA = 0.5 + _gameDomA * 0.30;
     const _rawServeB = 0.5 - _gameDomA * 0.30;
@@ -3738,7 +3775,12 @@ let g_clearDebug = {
     const pB_point = pointProbFromGameWinProb(pB);
     const teamSide = config.marketKey === "team_a" ? "A" : config.marketKey === "team_b" ? "B" : null;
     const sim = await runTennisMarkovSimulation(pA_point, pB_point, config.lineRange.mid, isBO5, 5000, config.marketKey === "set1", teamSide);
-    const simPct = (pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50;
+    // SIM-FAILURE FIX: a failed worker used to silently resolve as a fake
+    // 50/50 read and flow straight into the confidence checks below as if it
+    // were a real cross-check. Treat simFailed as "no cross-check available"
+    // instead of a real disagreement/agreement signal.
+    const simPct = sim.simFailed ? null : ((pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50);
+    if (sim.simFailed) { notes.push("Simulation unavailable (worker error) — confidence is analytic-only, not simulation cross-checked"); }
     if (lineDecision.atMid) { notes.push("Projection exactly on midpoint"); confidence = "PASS"; pick = "PASS"; }
     const _brutalSampleA = config.ctx && Array.isArray(config.ctx.recentMatchA) ? config.ctx.recentMatchA.length : 0;
     const _brutalSampleB = config.ctx && Array.isArray(config.ctx.recentMatchB) ? config.ctx.recentMatchB.length : 0;
@@ -3781,11 +3823,11 @@ let g_clearDebug = {
       else notes.push("Volatility rescued by math strength");
     }
     if (volatility > 7.0) { filtersTriggered.push("chaos"); notes.push("Extreme volatility / skip zone"); confidence = "PASS"; pick = "PASS"; }
-    if (simPct < 45 && pick !== "PASS") {
+    if (simPct !== null && simPct < 45 && pick !== "PASS") {
       notes.push("Sim strongly disagrees: " + simPct.toFixed(1) + "%");
       confidence = downgradeConfidence(confidence);
       if (confidence === "PASS") pick = "PASS";
-    } else if (simPct < 53 && pick !== "PASS") {
+    } else if (simPct !== null && simPct < 53 && pick !== "PASS") {
       notes.push("Sim Warning: " + simPct.toFixed(1) + "%");
       confidence = downgradeConfidence(confidence);
       if (confidence === "PASS") pick = "PASS";
@@ -3862,6 +3904,7 @@ let g_clearDebug = {
     lineRange: teamALineRange,
     avgA: matchDerived.avgA,
     avgB: 0,
+    domOpponentAvg: matchDerived.avgB,
     stdA: matchDerived.stdA,
     stdB: 0,
     h2h: (ctx && ctx.h2hPlayerA && ctx.h2hPlayerA.length) ? ctx.h2hPlayerA : [],
@@ -3879,6 +3922,7 @@ let g_clearDebug = {
     lineRange: teamBLineRange,
     avgA: matchDerived.avgB,
     avgB: 0,
+    domOpponentAvg: matchDerived.avgA,
     stdA: matchDerived.stdB,
     stdB: 0,
     h2h: (ctx && ctx.h2hPlayerB && ctx.h2hPlayerB.length) ? ctx.h2hPlayerB : [],
@@ -6794,10 +6838,14 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         }
         const isLive = state === "in" || name.includes("IN_PROGRESS") || name.includes("HALFTIME");
         const isScheduled = state === "pre" || name.includes("SCHEDULED") || name.includes("TBD") || name.includes("DELAYED");
-        const isActuallyCompleted = completed || name.includes("FINAL") || name.includes("CANCELED") || name.includes("POSTPONED");
+        // NAMING FIX: this was called "isActuallyCompleted" but is true for
+        // CANCELED/POSTPONED too, which are not completions. Renamed to
+        // reflect what it actually gates: exclusion from the pickable
+        // fixture list.
+        const isUnavailableForPrediction = completed || name.includes("FINAL") || name.includes("CANCELED") || name.includes("POSTPONED");
         const hasRealPlayers = !invalidName(aNorm) && !invalidName(bNorm);
         const notPlaceholderPair = !aNorm.includes(" tbd") && !bNorm.includes(" tbd") && !aNorm.startsWith("tbd ") && !bNorm.startsWith("tbd ") && !aNorm.includes(" winner") && !bNorm.includes(" winner") && !aNorm.includes(" qualifier") && !bNorm.includes(" qualifier") && !aNorm.includes(" bye") && !bNorm.includes(" bye");
-        if (isActuallyCompleted || isLive) return false;
+        if (isUnavailableForPrediction || isLive) return false;
         if (!hasRealPlayers || !notPlaceholderPair) return false;
         if (!hasValidDate) return false;
         if (dateKeyFromDate(scheduledAt) !== targetDayKey) return false;
