@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2388,6 +2389,10 @@ title="Show issues">
 <div style="margin-top:6px;">
   <button type="button" id="fetchStatsBtn" class="fetch-btn">Fetch Stats</button>
   <div id="fetchStatus" style="margin-top:4px; font-size:10px;">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
+  <label style="margin-top:8px;font-size:11px;font-weight:700;">
+    <input type="checkbox" id="useTypedForm" aria-label="Use typed form instead of fetched per-set form" />
+    Use typed form (ignore fetched per-set)
+  </label>
 </div>
 <div class="fetch-note-box" id="fetchNoteBoxA" style="display:none !important;">
   <div class="fetch-note-title">Player A Fetch Notes</div>
@@ -2514,7 +2519,7 @@ title="Show issues">
       <tr>
         <th>Market</th>
         <th>Projection</th>
-        <th>Edge (Games)</th>
+        <th>Sim edge</th>
         <th>Grade</th>
         <th>Pick</th>
       </tr>
@@ -2711,8 +2716,8 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
     items.sort((a, b) => (Date.parse(b.savedAt || 0) - Date.parse(a.savedAt || 0)));
     return { items: items, updatedAt: source.updatedAt || null, vId: source.vId || 0 };
   }
-  const APP_BUILD_VERSION = "tennis_calc_fix_v2_decision_layer";
-  const ENGINE_MODEL_VERSION = "tennis_v2_sim_pick";
+  const APP_BUILD_VERSION = "tennis_calc_fix_v4_calc_remainders";
+  const ENGINE_MODEL_VERSION = "tennis_v4_calc_remainders";
   let g_engineDebugLog = [];
   let g_engineAlertNeedsReview = false;
   let g_trackerSaveInFlight = false;
@@ -3272,23 +3277,28 @@ let g_clearDebug = {
     return { pick: pick, simPct: simPct, simFailed: false, overPct: over, underPct: under, pushPct: push };
   }
 
-        function getRawConfidence(edge, volatility, lineMid, tour, marketKey, surface, baseConfidence) {
-    const absEdge = Math.abs(edge);
-    const safeVol = volatility > 0 ? volatility : 0.01;
-    const edgeZ = absEdge / safeVol;
-    const edgeSignalScore = Math.min(100, edgeZ * 15);
+        function getRawConfidence(edge, volatility, lineMid, tour, marketKey, surface, baseConfidence, simPct) {
     const marketBaseline = marketVolBaseline(marketKey);
-    const volNorm = volatility / marketBaseline;
+    const volNorm = (volatility > 0 ? volatility : 0.01) / marketBaseline;
     let conf = "PASS";
     const isWta = String(tour || "").toUpperCase() === "WTA";
     const isMatch = marketKey === "match";
-    const aEdge = isMatch ? 14.0 : (isWta ? 10.5 : 12.0);
     const aVol  = isMatch ? 0.18 : (isWta ? 0.22 : 0.20);
-    const bEdge = isMatch ? 9.0  : (isWta ? 6.5  : 7.5);
     const bVol  = isMatch ? 0.24 : (isWta ? 0.28 : 0.26);
-    const cEdge = isMatch ? 4.5  : (isWta ? 3.0  : 3.5);
     const cVol  = isMatch ? 0.30 : (isWta ? 0.34 : 0.32);
-    if (volNorm > 0.36) conf = "PASS";
+    let edgeSignalScore;
+    if (simPct != null && Number.isFinite(Number(simPct))) {
+      const cover = Math.max(0, Number(simPct) - 50);
+      edgeSignalScore = Math.min(100, cover * 2);
+    } else {
+      const absEdge = Math.abs(edge);
+      const safeVol = volatility > 0 ? volatility : 0.01;
+      edgeSignalScore = Math.min(100, (absEdge / safeVol) * 15);
+    }
+    const aEdge = isMatch ? 14.0 : (isWta ? 10.5 : 12.0);
+    const bEdge = isMatch ? 9.0  : (isWta ? 6.5  : 7.5);
+    const cEdge = isMatch ? 4.5  : (isWta ? 3.0  : 3.5);
+    if (volNorm > 0.38) conf = "PASS";
     else if (edgeSignalScore >= aEdge && volNorm <= aVol) conf = "A";
     else if (edgeSignalScore >= bEdge && volNorm <= bVol) conf = "B";
     else if (edgeSignalScore >= cEdge && volNorm <= cVol) conf = "C";
@@ -3353,7 +3363,8 @@ let g_clearDebug = {
       h2hGrassFactor: 0.9,
       h2hWeightCap: 0.45,
       eloServeBlendWeight: 0.4,
-      pAPickScaling: 0.28,
+      pAPickScaling: 0.55,
+      h2hDecay: 0.75,
       simPickThreshold: 53,
       edgeSanityZ: 3.0,
       chaosWarnCV: 0.28,
@@ -3473,13 +3484,51 @@ let g_clearDebug = {
   function uniqueNotes(notes) {
     return Array.from(new Set((notes || []).filter(Boolean)));
   }
+
+  function expectedSetsFromForm(avgA, avgB, isBO5, surface) {
+    const sum = Math.max(0.1, Number(avgA) + Number(avgB));
+    const gap = Math.abs(Number(avgA) - Number(avgB)) / sum;
+    const competitiveness = Math.max(0, 1 - gap * 4);
+    let sets = isBO5 ? (3.15 + 0.45 * competitiveness) : (2.18 + 0.42 * competitiveness);
+    if (surface === "Clay") sets += 0.08;
+    else if (surface === "Grass") sets -= 0.10;
+    return Math.max(isBO5 ? 3.05 : 2.10, Math.min(isBO5 ? 3.85 : 2.65, sets));
+  }
+
+  function blendH2HSeries(items, currentSurface, decay) {
+    if (!Array.isArray(items) || !items.length) return { avg: null, n: 0, rich: false, offSurface: 0 };
+    let weighted = 0, wsum = 0, offSurface = 0, rich = false;
+    items.forEach(function (it, i) {
+      const isObj = it && typeof it === "object";
+      const val = isObj ? Number(it.total) : Number(it);
+      if (!Number.isFinite(val)) return;
+      let weight = Math.pow((typeof decay === "number" && isFinite(decay)) ? decay : 0.75, i);
+      if (isObj) {
+        rich = true;
+        if (it.surface && currentSurface && String(it.surface).toLowerCase() !== String(currentSurface).toLowerCase()) {
+          weight *= 0.55;
+          offSurface += 1;
+        }
+        if (it.date && typeof daysBetween === "function") {
+          const days = daysBetween(new Date(), it.date);
+          if (days != null && days > 730) weight *= 0.50;
+          else if (days != null && days > 365) weight *= 0.75;
+        }
+      }
+      weighted += val * weight;
+      wsum += weight;
+    });
+    return { avg: wsum ? weighted / wsum : null, n: items.length, rich: rich, offSurface: offSurface };
+  }
+
     function buildDerivedMarketInputs(options) {
     const ctx = options.ctx;
     const marketKey = options.marketKey;
     const tennisConfig = options.tennisConfig || getDefaultTennisConfig();
     const ctxSeriesA = ctx ? (marketKey === "match" ? ctx.recentMatchA : ctx.recentSet1A) : [];
     const ctxSeriesB = ctx ? (marketKey === "match" ? ctx.recentMatchB : ctx.recentSet1B) : [];
-    const useCtx = ctxSeriesA.length >= 3 && ctxSeriesB.length >= 3;
+    const forceManual = !!options.forceManual;
+    const useCtx = !forceManual && ctxSeriesA.length >= 3 && ctxSeriesB.length >= 3;
     const sourceA = useCtx ? ctxSeriesA : options.manualA;
     const sourceB = useCtx ? ctxSeriesB : options.manualB;
     const _wmA = weightedMean(sourceA, tennisConfig.decay);
@@ -3498,7 +3547,7 @@ let g_clearDebug = {
       notes.push("Recency weighted");
       notes.push("Fetched per-set form is live — on-screen match-total boxes are display-only");
     } else {
-      notes.push("Manual form fields are live");
+      notes.push(forceManual ? "Typed form override is live — fetched per-set series ignored" : "Manual form fields are live");
     }
     const ALLOWED_BLEND = tennisConfig.allowedBlend;
     if (!useCtx) {
@@ -3550,15 +3599,13 @@ let g_clearDebug = {
     const seriesB = marketKey === "match" ? (ctx && ctx.recentMatchB) || [] : (ctx && ctx.recentSet1B) || [];
     const isMatch = marketKey === "match";
     const isBO5 = ctx && ctx.matchFormat === "BO5";
-    if (isMatch && seriesA.length >= 3 && seriesB.length >= 3) {
-      const expectedSets = isBO5 ? tennisConfig.expectedSetsBO5 :
-        (ctx.surface === "Clay" ? tennisConfig.expectedSetsClay :
-         ctx.surface === "Grass" ? tennisConfig.expectedSetsGrass : tennisConfig.expectedSetsHard);
+    if (isMatch && useCtx && seriesA.length >= 3 && seriesB.length >= 3) {
+      const expectedSets = expectedSetsFromForm(avgA, avgB, isBO5, ctx && ctx.surface);
       avgA *= expectedSets;
       avgB *= expectedSets;
       stdA *= Math.sqrt(expectedSets);
       stdB *= Math.sqrt(expectedSets);
-      notes.push(isBO5 ? "Format: BO5 \u00d7" + tennisConfig.expectedSetsBO5 + " sets" : "Normalized: \u00d7" + expectedSets.toFixed(2) + " sets");
+      notes.push((isBO5 ? "Format: BO5" : "Normalized") + " \u00d7" + expectedSets.toFixed(2) + " sets (form-gap, not a fixed table)");
     } else if (isMatch && isBO5) {
       avgA *= tennisConfig.bo5FallbackMult;
       avgB *= tennisConfig.bo5FallbackMult;
@@ -3599,12 +3646,14 @@ let g_clearDebug = {
     const fatigueFracA = computeFatiguePenalty(ctx && ctx.fatigueA, marketKey);
     const fatigueFracB = computeFatiguePenalty(ctx && ctx.fatigueB, marketKey);
     if (fatigueFracA > 0) {
-      avgA = Math.max(0, avgA - avgA * fatigueFracA);
-      notes.push("Fatigue A (-" + Math.round(fatigueFracA * 100) + "%)");
+      avgA = Math.max(0, avgA * (1 - fatigueFracA));
+      avgB = avgB * (1 + fatigueFracA * 0.5);
+      notes.push("Fatigue A (-" + Math.round(fatigueFracA * 100) + "% own / +" + Math.round(fatigueFracA * 50) + "% opp)");
     }
     if (fatigueFracB > 0) {
-      avgB = Math.max(0, avgB - avgB * fatigueFracB);
-      notes.push("Fatigue B (-" + Math.round(fatigueFracB * 100) + "%)");
+      avgB = Math.max(0, avgB * (1 - fatigueFracB));
+      avgA = avgA * (1 + fatigueFracB * 0.5);
+      notes.push("Fatigue B (-" + Math.round(fatigueFracB * 100) + "% own / +" + Math.round(fatigueFracB * 50) + "% opp)");
     }
     if (ctx && ctx.eventLevel) notes.push(ctx.eventLevel);
     return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: uniqueNotes(notes), avgGrind, avgTb, avgS1Kill };
@@ -3683,13 +3732,13 @@ let g_clearDebug = {
           let pushHits = 0;
           for (let i = 0; i < runs; i++) {
             if (set1Only) {
-              let res = simSet(pA, pB, false, "A");
+              let res = simSet(pA, pB, false, Math.random() < 0.5 ? "A" : "B");
               let val = teamSide === "A" ? res.gA : teamSide === "B" ? res.gB : (res.gA + res.gB);
               if (val === line) pushHits++; else if (val > line) overHits++;
             } else {
               let totalGames = 0, gamesA = 0, gamesB = 0, setsA = 0, setsB = 0;
               let target = isBO5 ? 3 : 2;
-              let currentServer = "A";
+              let currentServer = Math.random() < 0.5 ? "A" : "B";
               while (setsA < target && setsB < target) {
                 let isFinalBO5Set = isBO5 && setsA === 2 && setsB === 2;
                 let res = simSet(pA, pB, isFinalBO5Set, currentServer);
@@ -3734,15 +3783,18 @@ let g_clearDebug = {
     const tennisConfig = config.tennisConfig || getDefaultTennisConfig();
     const baseProjection = config.avgA + config.avgB;
     const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
-    const h2hAvg = hasH2H ? mean(config.h2h) : null;
+    const h2hBlend = hasH2H ? blendH2HSeries(config.h2h, config.ctx && config.ctx.surface, tennisConfig.h2hDecay) : { avg: null, n: 0, rich: false, offSurface: 0 };
+    const h2hAvg = h2hBlend.avg;
     let h2hWeight = tennisConfig.h2hWeightGe3;
-    const h2hCount = config.h2h ? config.h2h.length : 0;
+    const h2hCount = h2hBlend.n;
     if (h2hCount >= 5) h2hWeight = tennisConfig.h2hWeightGe5;
     else if (h2hCount >= 3) h2hWeight = tennisConfig.h2hWeightGe3;
     else if (h2hCount >= 2) h2hWeight = tennisConfig.h2hWeightGe2;
     else h2hWeight = 0.0;
-    if (config.ctx && config.ctx.surface === "Clay") h2hWeight *= tennisConfig.h2hClayFactor;
-    else if (config.ctx && config.ctx.surface === "Grass") h2hWeight *= tennisConfig.h2hGrassFactor;
+    if (!h2hBlend.rich) {
+      if (config.ctx && config.ctx.surface === "Clay") h2hWeight *= tennisConfig.h2hClayFactor;
+      else if (config.ctx && config.ctx.surface === "Grass") h2hWeight *= tennisConfig.h2hGrassFactor;
+    }
     h2hWeight = Math.min(tennisConfig.h2hWeightCap, Math.max(0.0, h2hWeight));
     const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
     let projection = projectionCore + (config.projectionShift || 0);
@@ -3754,13 +3806,13 @@ let g_clearDebug = {
       ? (_lineZ > 3.0 ? 0.10 : _lineZ > 2.0 ? 0.03 : 0.0)
       : (_lineZ > 3.0 ? 0.20 : _lineZ > 2.0 ? 0.05 : 0.0);
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
-    let volatility = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2));
-    if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15;
+    const _rho = -0.20;
+    let volatility = Math.sqrt(Math.max(0, Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2) + 2 * _rho * (config.stdA || 0) * (config.stdB || 0)));
     let notes = [].concat(config.extraNotes || []);
     const lineDecision = pickFromRange(projection, config.lineRange);
     let edge = lineDecision.edge;
     const _isATP = config.ctx && config.ctx.tour === "ATP";
-    let baseHoldProb = _isATP ? 0.82 : 0.64;
+    let baseHoldProb = _isATP ? 0.79 : 0.63;
     const _eloA = (config.ctx && config.ctx.eloA) || 1500;
     const _eloB = (config.ctx && config.ctx.eloB) || 1500;
     const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
@@ -3772,13 +3824,16 @@ let g_clearDebug = {
     const _eloW = tennisConfig.eloServeBlendWeight;
     const _blendA = (_eloExpectedA * _eloW) + (_rawServeA * (1 - _eloW));
     const _blendB = ((1 - _eloExpectedA) * _eloW) + (_rawServeB * (1 - _eloW));
-    const pA = baseHoldProb + (_blendA - 0.5) * tennisConfig.pAPickScaling;
-    const pB = baseHoldProb + (_blendB - 0.5) * tennisConfig.pAPickScaling;
+    const _tbHoldBump = (Number(config.avgTb) > 0 ? Math.min(0.05, Number(config.avgTb) * 0.12) : 0);
+    let pA = baseHoldProb + _tbHoldBump + (_blendA - 0.5) * tennisConfig.pAPickScaling;
+    let pB = baseHoldProb + _tbHoldBump + (_blendB - 0.5) * tennisConfig.pAPickScaling;
+    pA = Math.min(0.92, Math.max(0.52, pA));
+    pB = Math.min(0.92, Math.max(0.52, pB));
     const isBO5 = config.ctx && config.ctx.matchFormat === "BO5";
     const pA_point = pointProbFromGameWinProb(pA);
     const pB_point = pointProbFromGameWinProb(pB);
     const teamSide = config.marketKey === "team_a" ? "A" : config.marketKey === "team_b" ? "B" : null;
-    const sim = await runTennisMarkovSimulation(pA_point, pB_point, config.lineRange.mid, isBO5, 5000, config.marketKey === "set1", teamSide);
+    const sim = await runTennisMarkovSimulation(pA_point, pB_point, config.lineRange.mid, isBO5, 10000, config.marketKey === "set1", teamSide);
 
     const simPick = pickFromSimulation(sim, tennisConfig.simPickThreshold);
     let pick;
@@ -3800,8 +3855,16 @@ let g_clearDebug = {
       notes.push("Projection exactly on midpoint");
       pick = "PASS";
     }
+    const gamesEdge = lineDecision.edge;
+    if (!simPick.simFailed && pick !== "PASS") {
+      edge = (pick === "OVER" ? 1 : -1) * Math.abs(simPct - 50);
+      notes.push("Sim edge " + (edge > 0 ? "+" : "") + edge.toFixed(1) + "pp | point-est games " + (gamesEdge > 0 ? "+" : "") + fmt(gamesEdge));
+    } else if (pick === "PASS") {
+      edge = 0;
+    }
+    if (!simPick.simFailed) notes.push("Grade uses sim cover, not games-edge z");
 
-    let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx && config.ctx.tour, config.marketKey, config.ctx && config.ctx.surface, null);
+    let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx && config.ctx.tour, config.marketKey, config.ctx && config.ctx.surface, null, simPct);
     if (pick === "PASS") confidence = "PASS";
 
     if (confidence !== "PASS") {
@@ -3856,7 +3919,7 @@ let g_clearDebug = {
         notes.push("No H2H support");
       }
     } else {
-      notes.push("H2H Blended (" + Math.round(h2hWeight * 100) + "% weight)");
+      notes.push("H2H Blended (" + Math.round(h2hWeight * 100) + "% weight" + (h2hBlend.rich ? ", surface/age weighted" : "") + (h2hBlend.offSurface ? ", " + h2hBlend.offSurface + " off-surface downweighted" : "") + ")");
     }
 
     const volNormFinal = volatility / marketVolBaseline(config.marketKey);
@@ -3889,7 +3952,6 @@ let g_clearDebug = {
     }
     if (!simPick.simFailed && lineDecision.pick !== "PASS" && pick !== "PASS" && pick !== lineDecision.pick) {
       filtersTriggered.push("point_sim_split");
-      riskPenalty += 1;
     }
 
     const cappedPenalty = Math.min(tennisConfig.riskPenaltyCap || 3, riskPenalty);
@@ -3935,8 +3997,9 @@ let g_clearDebug = {
   const set1H2H = qs("use1HH2H").checked ? parseNumericList(qs("a1HH2H").value, "Set 1 H2H totals", 0, 5, true) : [];
   const ctx = getEffectiveContext(tour, playerAName, playerBName);
   const tennisConfig = getDefaultTennisConfig();
-  const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: matchRecentA, manualB: matchRecentB, manualAllowedA: matchAllowedA, manualAllowedB: matchAllowedB, manualH2H: matchH2H, ctx: ctx, tennisConfig: tennisConfig });
-  const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: set1RecentA, manualB: set1RecentB, manualAllowedA: [], manualAllowedB: [], manualH2H: set1H2H, ctx: ctx, tennisConfig: tennisConfig });
+  const forceManual = !!(qs("useTypedForm") && qs("useTypedForm").checked);
+  const matchDerived = buildDerivedMarketInputs({ marketKey: "match", manualA: matchRecentA, manualB: matchRecentB, manualAllowedA: matchAllowedA, manualAllowedB: matchAllowedB, manualH2H: matchH2H, ctx: ctx, tennisConfig: tennisConfig, forceManual: forceManual });
+  const set1Derived = buildDerivedMarketInputs({ marketKey: "set1", manualA: set1RecentA, manualB: set1RecentB, manualAllowedA: [], manualAllowedB: [], manualH2H: set1H2H, ctx: ctx, tennisConfig: tennisConfig, forceManual: forceManual });
   const matchResult = await buildMarketResult({
     marketLabel: "Match Total Games",
     marketKey: "match",
@@ -3945,7 +4008,7 @@ let g_clearDebug = {
     avgB: matchDerived.avgB,
     stdA: matchDerived.stdA,
     stdB: matchDerived.stdB,
-    h2h: matchDerived.h2h,
+    h2h: (ctx && ctx.h2hRichMatch && ctx.h2hRichMatch.length) ? ctx.h2hRichMatch : matchDerived.h2h,
     avgGrind: matchDerived.avgGrind,
     avgTb: matchDerived.avgTb,
     avgS1Kill: matchDerived.avgS1Kill,
@@ -3962,7 +4025,7 @@ let g_clearDebug = {
     avgB: set1Derived.avgB,
     stdA: set1Derived.stdA,
     stdB: set1Derived.stdB,
-    h2h: set1Derived.h2h,
+    h2h: (ctx && ctx.h2hRichSet1 && ctx.h2hRichSet1.length) ? ctx.h2hRichSet1 : set1Derived.h2h,
     avgGrind: set1Derived.avgGrind,
     avgTb: set1Derived.avgTb,
     avgS1Kill: set1Derived.avgS1Kill,
@@ -3979,7 +4042,7 @@ let g_clearDebug = {
     avgB: 0,
     domOpponentAvg: matchDerived.avgB,
     stdA: matchDerived.stdA,
-    stdB: 0,
+    stdB: matchDerived.stdB,
     h2h: (ctx && ctx.h2hPlayerA && ctx.h2hPlayerA.length) ? ctx.h2hPlayerA : [],
     avgGrind: matchDerived.avgGrind,
     avgTb: matchDerived.avgTb,
@@ -3997,7 +4060,7 @@ let g_clearDebug = {
     avgB: 0,
     domOpponentAvg: matchDerived.avgA,
     stdA: matchDerived.stdB,
-    stdB: 0,
+    stdB: matchDerived.stdA,
     h2h: (ctx && ctx.h2hPlayerB && ctx.h2hPlayerB.length) ? ctx.h2hPlayerB : [],
     avgGrind: matchDerived.avgGrind,
     avgTb: matchDerived.avgTb,
@@ -7401,10 +7464,10 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
   function getOpponentQualityMultiplier(opponentRank) {
     if (!Number.isFinite(opponentRank) || opponentRank <= 0) return 1.0;
-    if (opponentRank <= 10) return 1.10;
-    if (opponentRank <= 30) return 1.05;
+    if (opponentRank <= 10) return 1.03;
+    if (opponentRank <= 30) return 1.015;
     if (opponentRank <= 100) return 1.0;
-    return 0.92;
+    return 0.98;
   }
   function buildH2HSeries(records, playerAId, playerBId, playerAName, playerBName) {
     const normA = normalizeName(playerAName);
@@ -7691,8 +7754,8 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const sampleImbalanceWarning = (smallerRawCount > 0 && largerRawCount / smallerRawCount >= 3 && (largerRawCount - smallerRawCount) >= 5)
         ? (" ⚠ ESPN coverage gap likely: A " + recentA.length + " vs B " + recentB.length + " real matches found — the smaller side's true recent form is probably missing lower-tier (e.g. ITF) results ESPN doesn't carry, not just a small sample.")
         : "";
-      const recentAWindow = recentA.slice(0, commonRecentCount);
-      const recentBWindow = recentB.slice(0, commonRecentCount);
+      const recentAWindow = recentA.filter(function (m) { return m && !m.retired; }).slice(0, commonRecentCount);
+      const recentBWindow = recentB.filter(function (m) { return m && !m.retired; }).slice(0, commonRecentCount);
       // Recent form is now a hard five-match sample. Downstream metrics therefore
       // consume those same five real matches rather than a hidden 10-match pool.
       const recentA10 = recentA.slice(0, 5);
@@ -7782,6 +7845,22 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const h2hSet1Totals = h2h.slice(0, 5).map(function (m) {
         return Number.isFinite(m.set1Total) ? Math.round(m.set1Total) : null;
       }).filter(Number.isFinite);
+      const h2hRichMatch = h2h.slice(0, 5).map(function (m) {
+        if (!Number.isFinite(m.totalGames)) return null;
+        return {
+          total: m.totalGames,
+          date: m.date || null,
+          surface: (m.surface || (typeof inferSurfaceFromRecord === "function" ? inferSurfaceFromRecord(m) : "")) || ""
+        };
+      }).filter(Boolean);
+      const h2hRichSet1 = h2h.slice(0, 5).map(function (m) {
+        if (!Number.isFinite(m.set1Total)) return null;
+        return {
+          total: m.set1Total,
+          date: m.date || null,
+          surface: (m.surface || (typeof inferSurfaceFromRecord === "function" ? inferSurfaceFromRecord(m) : "")) || ""
+        };
+      }).filter(Boolean);
       const h2hPlayerAGames = h2h.slice(0, 5).map(function(m) {
         if (m.playerAId === playerAId && Number.isFinite(m.playerAGames)) return m.playerAGames;
         if (m.playerBId === playerAId && Number.isFinite(m.playerBGames)) return m.playerBGames;
@@ -7822,7 +7901,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
       const applyPrior = (dataArray, priorValue) => {
         const result = [...dataArray];
         while (result.length < MIN_SAMPLE_SIZE) {
-          result.push(Math.round(priorValue));
+          result.push(priorValue);
         }
         return result;
       };
@@ -7876,7 +7955,7 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         eloA, eloB, 
         recentMatchA: bayesianANorm, recentMatchB: bayesianBNorm,
         recentSet1A: bayesianS1A, recentSet1B: bayesianS1B,
-        h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals,
+        h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals, h2hRichMatch: h2hRichMatch, h2hRichSet1: h2hRichSet1,
         h2hPlayerA: h2hPlayerAGames, h2hPlayerB: h2hPlayerBGames,
         historyCoverage: {
           playerA: { total: recentA.length, espn: recentA.length },
