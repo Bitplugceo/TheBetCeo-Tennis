@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2712,8 +2711,8 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
     items.sort((a, b) => (Date.parse(b.savedAt || 0) - Date.parse(a.savedAt || 0)));
     return { items: items, updatedAt: source.updatedAt || null, vId: source.vId || 0 };
   }
-  const APP_BUILD_VERSION = "tennis_cleanup_v1_prison_model";
-  const ENGINE_MODEL_VERSION = "tennis_v1_final";
+  const APP_BUILD_VERSION = "tennis_calc_fix_v2_decision_layer";
+  const ENGINE_MODEL_VERSION = "tennis_v2_sim_pick";
   let g_engineDebugLog = [];
   let g_engineAlertNeedsReview = false;
   let g_trackerSaveInFlight = false;
@@ -3236,14 +3235,51 @@ let g_clearDebug = {
     if (confidence === "C") return "PASS";
     return "PASS";
   }
+
+  function confidenceToScore(confidence) {
+    if (confidence === "A") return 3;
+    if (confidence === "B") return 2;
+    if (confidence === "C") return 1;
+    return 0;
+  }
+
+  function scoreToConfidence(score) {
+    const n = Number(score);
+    if (n >= 3) return "A";
+    if (n >= 2) return "B";
+    if (n >= 1) return "C";
+    return "PASS";
+  }
+
+  function marketVolBaseline(marketKey) {
+    if (marketKey === "set1") return 10.0;
+    if (marketKey === "team_a" || marketKey === "team_b") return 11.0;
+    return 22.0;
+  }
+
+  function pickFromSimulation(sim, threshold) {
+    if (!sim || sim.simFailed) {
+      return { pick: null, simPct: null, simFailed: true, overPct: null, underPct: null, pushPct: null };
+    }
+    const over = Number(sim.overPct);
+    const under = Number(sim.underPct);
+    const push = Number(sim.pushPct) || 0;
+    const floor = (typeof threshold === "number" && isFinite(threshold)) ? threshold : 53;
+    let pick = "PASS";
+    if (over >= floor && over >= under) pick = "OVER";
+    else if (under >= floor && under > over) pick = "UNDER";
+    const simPct = pick === "OVER" ? over : pick === "UNDER" ? under : 50;
+    return { pick: pick, simPct: simPct, simFailed: false, overPct: over, underPct: under, pushPct: push };
+  }
+
         function getRawConfidence(edge, volatility, lineMid, tour, marketKey, surface, baseConfidence) {
     const absEdge = Math.abs(edge);
-   const safeVol = volatility > 0 ? volatility : 0.01;
-   const edgeZ = absEdge / safeVol;
-   const edgeSignalScore = Math.min(100, edgeZ * 15);
-   const marketBaseline = (marketKey === "set1") ? 10.0 : (marketKey === "team_a" || marketKey === "team_b") ? 11.0 : 22.0;
-   const volNorm = volatility / marketBaseline;
-   let conf = "PASS";
+    const safeVol = volatility > 0 ? volatility : 0.01;
+    const edgeZ = absEdge / safeVol;
+    const edgeSignalScore = Math.min(100, edgeZ * 15);
+    const marketBaseline = marketVolBaseline(marketKey);
+    const volNorm = volatility / marketBaseline;
+    let conf = "PASS";
     const isWta = String(tour || "").toUpperCase() === "WTA";
     const isMatch = marketKey === "match";
     const aEdge = isMatch ? 14.0 : (isWta ? 10.5 : 12.0);
@@ -3270,7 +3306,7 @@ let g_clearDebug = {
     }
     return conf;
   }
-    function parseLineRange(raw, name, allowEmpty = false) {
+        function parseLineRange(raw, name, allowEmpty = false) {
     const cleaned = String(raw || "")
       .replace(/[\u00A0\ufeff]/g, " ")
       .replace(/[–—]/g, "-")
@@ -3317,10 +3353,16 @@ let g_clearDebug = {
       h2hGrassFactor: 0.9,
       h2hWeightCap: 0.45,
       eloServeBlendWeight: 0.4,
-      pAPickScaling: 0.28
+      pAPickScaling: 0.28,
+      simPickThreshold: 53,
+      edgeSanityZ: 3.0,
+      chaosWarnCV: 0.28,
+      chaosKillCV: 0.38,
+      riskPenaltyCap: 3,
+      applyBlanketSurfaceMult: false
     };
   }
-    function weightedMean(values, decayFactor) {
+        function weightedMean(values, decayFactor) {
     if (!Array.isArray(values) || !values.length) return null;
     const DECAY_FACTOR = (typeof decayFactor === "number" && isFinite(decayFactor)) ? decayFactor : 0.75; 
     let weightedTotal = 0;
@@ -3446,17 +3488,18 @@ let g_clearDebug = {
     let avgB = (_wmB !== null) ? _wmB : (mean(sourceB) !== null ? mean(sourceB) : 0);
     let stdA = stdDev(sourceA);
     let stdB = stdDev(sourceB);
-    // COLD-START VARIANCE FIX: applyPrior() pads thin real samples with a
-    // repeated constant, which crushes stdDev toward 0 and can make a
-    // near-empty sample look artificially consistent. Floor the variance
-    // using the real (pre-padding) sample size from historyCoverage.
     const _realCountA = ctx && ctx.historyCoverage && ctx.historyCoverage.playerA ? ctx.historyCoverage.playerA.total : sourceA.length;
     const _realCountB = ctx && ctx.historyCoverage && ctx.historyCoverage.playerB ? ctx.historyCoverage.playerB.total : sourceB.length;
     const _thinSampleFloor = (mean(sourceA.concat(sourceB)) || 5) * 0.18;
     if (useCtx && _realCountA < 5) stdA = Math.max(stdA, _thinSampleFloor);
     if (useCtx && _realCountB < 5) stdB = Math.max(stdB, _thinSampleFloor);
     const notes = [];
-    if (useCtx) notes.push("Recency weighted");
+    if (useCtx) {
+      notes.push("Recency weighted");
+      notes.push("Fetched per-set form is live — on-screen match-total boxes are display-only");
+    } else {
+      notes.push("Manual form fields are live");
+    }
     const ALLOWED_BLEND = tennisConfig.allowedBlend;
     if (!useCtx) {
       if (options.manualAllowedA && options.manualAllowedA.length >= 3) {
@@ -3498,15 +3541,15 @@ let g_clearDebug = {
     }
     let h2h = (options.manualH2H || []).slice();
     let projectionShift = 0;
-        const brutalA = ctx && ctx.brutalA ? ctx.brutalA : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
+    const brutalA = ctx && ctx.brutalA ? ctx.brutalA : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
     const brutalB = ctx && ctx.brutalB ? ctx.brutalB : { tiebreakIdx: 0, set1Kill: 0, grindRate: 0, surfaceDelta: 0 };
     const avgGrind = (brutalA.grindRate + brutalB.grindRate) / 2;
     const avgTb = (brutalA.tiebreakIdx + brutalB.tiebreakIdx) / 2;
     const avgS1Kill = (brutalA.set1Kill + brutalB.set1Kill) / 2;
-    const seriesA = marketKey === "match" ? ctx.recentMatchA : ctx.recentSet1A;
-    const seriesB = marketKey === "match" ? ctx.recentMatchB : ctx.recentSet1B;
+    const seriesA = marketKey === "match" ? (ctx && ctx.recentMatchA) || [] : (ctx && ctx.recentSet1A) || [];
+    const seriesB = marketKey === "match" ? (ctx && ctx.recentMatchB) || [] : (ctx && ctx.recentSet1B) || [];
     const isMatch = marketKey === "match";
-    const isBO5 = ctx.matchFormat === "BO5";
+    const isBO5 = ctx && ctx.matchFormat === "BO5";
     if (isMatch && seriesA.length >= 3 && seriesB.length >= 3) {
       const expectedSets = isBO5 ? tennisConfig.expectedSetsBO5 :
         (ctx.surface === "Clay" ? tennisConfig.expectedSetsClay :
@@ -3517,32 +3560,28 @@ let g_clearDebug = {
       stdB *= Math.sqrt(expectedSets);
       notes.push(isBO5 ? "Format: BO5 \u00d7" + tennisConfig.expectedSetsBO5 + " sets" : "Normalized: \u00d7" + expectedSets.toFixed(2) + " sets");
     } else if (isMatch && isBO5) {
-      // UNVERIFIED ASSUMPTION FIX: this fallback only fires when manual entry
-      // is used instead of fetched per-set data. It assumes the manually
-      // entered averages are BO3-equivalent totals; if the user actually
-      // entered real BO5 historical totals, this multiplier double-applies
-      // the sets effect. Flag the assumption explicitly instead of silently
-      // trusting it.
       avgA *= tennisConfig.bo5FallbackMult;
       avgB *= tennisConfig.bo5FallbackMult;
       stdA *= Math.sqrt(tennisConfig.bo5FallbackMult);
       stdB *= Math.sqrt(tennisConfig.bo5FallbackMult);
       notes.push("Format: BO5 Multiplier (" + tennisConfig.bo5FallbackMult + "x) — assumes manual entries are BO3-equivalent; verify if entries are already BO5 totals");
     }
-    if (ctx.surface === "Grass") {
-      const grassMult = tennisConfig.grassMult;
-      avgA *= grassMult;
-      avgB *= grassMult;
-      notes.push("Surface: Grass (+3.5%)");
-    } else if (ctx.surface === "Clay") {
-      const clayMult = tennisConfig.clayMult;
-      avgA *= clayMult;
-      avgB *= clayMult;
-      notes.push("Surface: Clay (-3.5%)");
-    } else if (ctx.surface === "Hard") {
-      const hardMult = tennisConfig.hardMult;
-      avgA *= hardMult;
-      avgB *= hardMult;
+    if (tennisConfig.applyBlanketSurfaceMult) {
+      if (ctx && ctx.surface === "Grass") {
+        avgA *= tennisConfig.grassMult;
+        avgB *= tennisConfig.grassMult;
+        notes.push("Surface blanket: Grass (+3.5%)");
+      } else if (ctx && ctx.surface === "Clay") {
+        avgA *= tennisConfig.clayMult;
+        avgB *= tennisConfig.clayMult;
+        notes.push("Surface blanket: Clay (" + Math.round((tennisConfig.clayMult - 1) * 1000) / 10 + "%)");
+      } else if (ctx && ctx.surface === "Hard") {
+        avgA *= tennisConfig.hardMult;
+        avgB *= tennisConfig.hardMult;
+        notes.push("Surface blanket: Hard (" + Math.round((tennisConfig.hardMult - 1) * 1000) / 10 + "%)");
+      }
+    } else if (ctx && ctx.surface) {
+      notes.push("Surface: " + ctx.surface + " via expected-sets + surfaceDelta only");
     }
     const _sdA = (brutalA && Number.isFinite(brutalA.surfaceDelta)) ? brutalA.surfaceDelta : 0;
     const _sdB = (brutalB && Number.isFinite(brutalB.surfaceDelta)) ? brutalB.surfaceDelta : 0;
@@ -3557,8 +3596,8 @@ let g_clearDebug = {
       avgB = Math.max(0, avgB + clampedB);
       notes.push("SurfaceDelta B (" + (clampedB >= 0 ? "+" : "") + clampedB.toFixed(2) + ")");
     }
-    const fatigueFracA = computeFatiguePenalty(ctx.fatigueA, marketKey);
-    const fatigueFracB = computeFatiguePenalty(ctx.fatigueB, marketKey);
+    const fatigueFracA = computeFatiguePenalty(ctx && ctx.fatigueA, marketKey);
+    const fatigueFracB = computeFatiguePenalty(ctx && ctx.fatigueB, marketKey);
     if (fatigueFracA > 0) {
       avgA = Math.max(0, avgA - avgA * fatigueFracA);
       notes.push("Fatigue A (-" + Math.round(fatigueFracA * 100) + "%)");
@@ -3567,10 +3606,10 @@ let g_clearDebug = {
       avgB = Math.max(0, avgB - avgB * fatigueFracB);
       notes.push("Fatigue B (-" + Math.round(fatigueFracB * 100) + "%)");
     }
-    if (ctx.eventLevel) notes.push(ctx.eventLevel);
+    if (ctx && ctx.eventLevel) notes.push(ctx.eventLevel);
     return { avgA, avgB, stdA, stdB, h2h, projectionShift, extraNotes: uniqueNotes(notes), avgGrind, avgTb, avgS1Kill };
   }
-  function gameWinProbFromPointProb(p) {
+    function gameWinProbFromPointProb(p) {
     const q = 1 - p;
     const noDeuce = Math.pow(p, 4) + 4 * Math.pow(p, 4) * q + 10 * Math.pow(p, 4) * q * q;
     const deuceReach = 20 * Math.pow(p, 3) * Math.pow(q, 3);
@@ -3591,10 +3630,10 @@ let g_clearDebug = {
       async function runTennisMarkovSimulation(pA_serve, pB_serve, lineMid, isBO5 = false, runs = 10000, set1Only = false, teamSide = null) {
     return new Promise(resolve => {
       const workerCode = `
-        function simGame(p_server) {
+        function simGame(pA_wins_point) {
           let ptsA = 0, ptsB = 0;
           while (true) {
-            if (Math.random() < p_server) ptsA++; else ptsB++;
+            if (Math.random() < pA_wins_point) ptsA++; else ptsB++;
             if (ptsA >= 4 && ptsA - ptsB >= 2) return "A";
             if (ptsB >= 4 && ptsB - ptsA >= 2) return "B";
           }
@@ -3619,24 +3658,15 @@ let g_clearDebug = {
             if (ptsB >= 10 && ptsB - ptsA >= 2) return "B";
           }
         }
-        /* AUDIT-SKIP — ALREADY FIXED:
-   MONTE CARLO SERVICE ROTATION.
-   Previous issue: every simulated set restarted with Player A serving, which
-   distorted Player A/B per-player game totals. Fixed by carrying the actual
-   simulated server from one set into the next according to the games played.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify service rotation.
-*/
         function simSet(pA, pB, isFinalBO5Set, serverStart) {
           let gA = 0, gB = 0, server = serverStart || "A";
           while (true) {
-            let winner = simGame(server === "A" ? pA : (1 - pB));
+            let pA_wins_point = server === "A" ? pA : (1 - pB);
+            let winner = simGame(pA_wins_point);
             if (winner === "A") gA++; else gB++;
             server = (server === "A") ? "B" : "A";
             if (gA >= 6 && gA - gB >= 2) return { gA, gB };
             if (gB >= 6 && gB - gA >= 2) return { gA, gB };
-            if (gA === 7 && gB === 5) return { gA: 7, gB: 5 };
-            if (gB === 7 && gA === 5) return { gA: 5, gB: 7 };
             if (gA === 6 && gB === 6) {
               if (isFinalBO5Set) {
                 let stWinner = simSuperTiebreak(pA, pB, server);
@@ -3673,8 +3703,10 @@ let g_clearDebug = {
               if (val === line) pushHits++; else if (val > line) overHits++;
             }
           }
-          const decided = runs - pushHits;
-          postMessage({ overPct: decided > 0 ? (overHits/decided)*100 : 50, pushPct: (pushHits/runs)*100 });
+          const overPct = runs > 0 ? (overHits / runs) * 100 : 50;
+          const pushPct = runs > 0 ? (pushHits / runs) * 100 : 0;
+          const underPct = Math.max(0, 100 - overPct - pushPct);
+          postMessage({ overPct: overPct, underPct: underPct, pushPct: pushPct });
         };
       `;
       const blob = new Blob([workerCode], { type: "application/javascript" });
@@ -3683,7 +3715,12 @@ let g_clearDebug = {
       worker.onmessage = (e) => {
         worker.terminate();
         URL.revokeObjectURL(blobUrl);
-        resolve({ overPct: e.data.overPct, underPct: 100 - e.data.overPct - (e.data.pushPct || 0), pushPct: e.data.pushPct || 0, simFailed: false });
+        resolve({
+          overPct: e.data.overPct,
+          underPct: e.data.underPct,
+          pushPct: e.data.pushPct || 0,
+          simFailed: false
+        });
       };
       worker.onerror = (err) => {
         worker.terminate();
@@ -3693,7 +3730,7 @@ let g_clearDebug = {
       worker.postMessage({ pA: pA_serve, pB: pB_serve, line: lineMid, isBO5, runs, set1Only, teamSide });
     });
   }
-  async function buildMarketResult(config) {
+    async function buildMarketResult(config) {
     const tennisConfig = config.tennisConfig || getDefaultTennisConfig();
     const baseProjection = config.avgA + config.avgB;
     const hasH2H = Array.isArray(config.h2h) && config.h2h.length > 0;
@@ -3707,7 +3744,7 @@ let g_clearDebug = {
     if (config.ctx && config.ctx.surface === "Clay") h2hWeight *= tennisConfig.h2hClayFactor;
     else if (config.ctx && config.ctx.surface === "Grass") h2hWeight *= tennisConfig.h2hGrassFactor;
     h2hWeight = Math.min(tennisConfig.h2hWeightCap, Math.max(0.0, h2hWeight));
-        const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
+    const projectionCore = hasH2H ? ((baseProjection * (1 - h2hWeight)) + (h2hAvg * h2hWeight)) : baseProjection;
     let projection = projectionCore + (config.projectionShift || 0);
     const preRegressionProjection = projection;
     const _regVol = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2)) || 1;
@@ -3718,49 +3755,16 @@ let g_clearDebug = {
       : (_lineZ > 3.0 ? 0.20 : _lineZ > 2.0 ? 0.05 : 0.0);
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
     let volatility = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2));
-    if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15; 
-    // LIVE-LINE INTEGRITY FIX:
-    // Prediction edges must always be measured against the exact market line
-    // supplied for this run. Historical line memory is intentionally not
-    // allowed to mutate the live midpoint because doing so can make the
-    // displayed line and calculated edge disagree.
+    if (config.ctx && config.ctx.surface === "Grass") volatility *= 1.15;
     let notes = [].concat(config.extraNotes || []);
     const lineDecision = pickFromRange(projection, config.lineRange);
-    let pick = lineDecision.pick;
     let edge = lineDecision.edge;
-    let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx?.tour, config.marketKey, config.ctx?.surface, null);
-    // CALIBRATION DISCLOSURE FIX: getRawConfidence only overrides the raw
-    // analytic tier once a bucket has 25+ locally-tracked decided results
-    // (see g_bucketPerformance, stored in this browser's localStorage only).
-    // Below that, the grade is unvalidated magic-number thresholds. Surface
-    // that explicitly instead of letting it look calibrated.
-    if (confidence !== "PASS") {
-      const _calBucketKey = `${config.ctx?.tour}|${config.marketKey}|${config.ctx?.surface}|${confidence}`;
-      const _calPerf = g_bucketPerformance[_calBucketKey];
-      const _calDecided = _calPerf ? _calPerf.wins + _calPerf.losses : 0;
-      if (_calDecided < 25) {
-        notes.push("Confidence is analytic-only (" + _calDecided + "/25 locally tracked results) — not yet probability-calibrated");
-      }
-    }
-    if (MARKET_PULL > 0) {
-      notes.push("Mkt pull: raw " + fmt(preRegressionProjection) + " \u2192 " + fmt(projection));
-    }
-    const filtersTriggered = [];
-    const _isATP = config.ctx?.tour === "ATP";
-    // DOUBLE-COUNT FIX: surface was previously baked in here via a
-    // surface-keyed baseHoldProb AND again below via _gameDomA (derived from
-    // avgA/avgB, which already carry a clay/grass/hard multiplier from
-    // buildDerivedMarketInputs). Use a single tour-level baseline here so
-    // surface only enters the serve-probability model once.
+    const _isATP = config.ctx && config.ctx.tour === "ATP";
     let baseHoldProb = _isATP ? 0.82 : 0.64;
-    const _eloA = config.ctx?.eloA || 1500;
-    const _eloB = config.ctx?.eloB || 1500;
+    const _eloA = (config.ctx && config.ctx.eloA) || 1500;
+    const _eloB = (config.ctx && config.ctx.eloB) || 1500;
     const _eloExpectedA = 1 / (1 + Math.pow(10, (_eloB - _eloA) / 400));
     const _gA = Number.isFinite(config.avgA) ? config.avgA : 5;
-    // OPPONENT-ZERO FIX: for team_a/team_b markets config.avgB is hardcoded
-    // to 0 (correct for baseProjection, wrong here). Use the real opposing
-    // player's average when supplied via config.domOpponentAvg so dominance
-    // isn't computed against a fabricated zero-average opponent.
     const _gB = Number.isFinite(config.domOpponentAvg) ? config.domOpponentAvg : (Number.isFinite(config.avgB) ? config.avgB : 5);
     const _gameDomA = (_gA - _gB) / (_gA + _gB + 2);
     const _rawServeA = 0.5 + _gameDomA * 0.30;
@@ -3770,78 +3774,147 @@ let g_clearDebug = {
     const _blendB = ((1 - _eloExpectedA) * _eloW) + (_rawServeB * (1 - _eloW));
     const pA = baseHoldProb + (_blendA - 0.5) * tennisConfig.pAPickScaling;
     const pB = baseHoldProb + (_blendB - 0.5) * tennisConfig.pAPickScaling;
-    const isBO5 = config.ctx?.matchFormat === "BO5";
+    const isBO5 = config.ctx && config.ctx.matchFormat === "BO5";
     const pA_point = pointProbFromGameWinProb(pA);
     const pB_point = pointProbFromGameWinProb(pB);
     const teamSide = config.marketKey === "team_a" ? "A" : config.marketKey === "team_b" ? "B" : null;
     const sim = await runTennisMarkovSimulation(pA_point, pB_point, config.lineRange.mid, isBO5, 5000, config.marketKey === "set1", teamSide);
-    // SIM-FAILURE FIX: a failed worker used to silently resolve as a fake
-    // 50/50 read and flow straight into the confidence checks below as if it
-    // were a real cross-check. Treat simFailed as "no cross-check available"
-    // instead of a real disagreement/agreement signal.
-    const simPct = sim.simFailed ? null : ((pick === "OVER") ? sim.overPct : (pick === "UNDER") ? sim.underPct : 50);
-    if (sim.simFailed) { notes.push("Simulation unavailable (worker error) — confidence is analytic-only, not simulation cross-checked"); }
-    if (lineDecision.atMid) { notes.push("Projection exactly on midpoint"); confidence = "PASS"; pick = "PASS"; }
+
+    const simPick = pickFromSimulation(sim, tennisConfig.simPickThreshold);
+    let pick;
+    let simPct;
+    if (simPick.simFailed) {
+      pick = lineDecision.pick;
+      simPct = null;
+      notes.push("Simulation unavailable (worker error) — side fell back to point estimate; no internal consistency check");
+    } else {
+      pick = simPick.pick;
+      simPct = simPick.simPct;
+      notes.push("Side from Markov P(over/under) — point estimate is diagnostic only");
+      notes.push("Sim (internal consistency, same form inputs): O " + simPick.overPct.toFixed(1) + " / U " + simPick.underPct.toFixed(1) + " / P " + simPick.pushPct.toFixed(1));
+      if (pick !== "PASS" && lineDecision.pick !== "PASS" && pick !== lineDecision.pick) {
+        notes.push("Internal split: sim " + pick + " vs point-estimate " + lineDecision.pick);
+      }
+    }
+    if (lineDecision.atMid && simPick.simFailed) {
+      notes.push("Projection exactly on midpoint");
+      pick = "PASS";
+    }
+
+    let confidence = getRawConfidence(edge, volatility, config.lineRange.mid, config.ctx && config.ctx.tour, config.marketKey, config.ctx && config.ctx.surface, null);
+    if (pick === "PASS") confidence = "PASS";
+
+    if (confidence !== "PASS") {
+      const _calBucketKey = `${config.ctx && config.ctx.tour}|${config.marketKey}|${config.ctx && config.ctx.surface}|${confidence}`;
+      const _calPerf = g_bucketPerformance[_calBucketKey];
+      const _calDecided = _calPerf ? _calPerf.wins + _calPerf.losses : 0;
+      if (_calDecided < 25) {
+        notes.push("Confidence is analytic-only (" + _calDecided + "/25 locally tracked results) — not yet probability-calibrated");
+      }
+    }
+    if (MARKET_PULL > 0) {
+      notes.push("Mkt pull: raw " + fmt(preRegressionProjection) + " \u2192 " + fmt(projection));
+    }
+
+    const filtersTriggered = [];
+    let riskPenalty = 0;
     const _brutalSampleA = config.ctx && Array.isArray(config.ctx.recentMatchA) ? config.ctx.recentMatchA.length : 0;
     const _brutalSampleB = config.ctx && Array.isArray(config.ctx.recentMatchB) ? config.ctx.recentMatchB.length : 0;
     const _hasEnoughBrutalSample = _brutalSampleA >= 5 && _brutalSampleB >= 5;
+    const isRescueEligible = simPct != null && simPct >= 65 && Math.abs(edge) >= 3.0;
+
     if (_hasEnoughBrutalSample && config.avgGrind >= 0.40 && pick === "UNDER" && config.marketKey === "match") {
       filtersTriggered.push("grind_veto");
-      confidence = downgradeConfidence(confidence);
-      notes.push("Grind factor: UNDER downgraded");
-      if (confidence === "PASS") { pick = "PASS"; }
+      riskPenalty += 1;
+      notes.push("Grind factor");
     }
     if (_hasEnoughBrutalSample && config.avgTb >= 0.25 && pick === "UNDER") {
       filtersTriggered.push("tb_veto");
-      confidence = downgradeConfidence(confidence);
-      notes.push("Serve-bot alert: UNDER downgraded");
-      if (confidence === "PASS") { pick = "PASS"; }
+      riskPenalty += 1;
+      notes.push("Serve-bot / tiebreak rate");
     }
     if (_hasEnoughBrutalSample && config.avgS1Kill >= 0.35 && pick === "OVER" && config.marketKey === "set1") {
       filtersTriggered.push("s1kill_veto");
-      confidence = downgradeConfidence(confidence);
-      notes.push("High kill rate: OVER downgraded");
-      if (confidence === "PASS") { pick = "PASS"; }
+      riskPenalty += 1;
+      notes.push("High set-1 kill rate");
     }
+
     const _safeVolFinal = volatility > 0 ? volatility : 0.01;
     const _edgeZFinal = Math.abs(edge) / _safeVolFinal;
-    const edgeSignalScoreFinal = Math.min(100, _edgeZFinal * 15);
-    if (edgeSignalScoreFinal > 18.0 && confidence !== "PASS") {
-      confidence = downgradeConfidence(confidence);
-      notes.push("Edge cap: Z=" + fmt(_edgeZFinal) + " > 1.2 ceiling");
+    const sanityZ = tennisConfig.edgeSanityZ || 3.0;
+    if (_edgeZFinal > sanityZ && pick !== "PASS") {
+      filtersTriggered.push("edge_sanity");
+      riskPenalty += 1;
+      notes.push("Edge sanity cap: Z=" + fmt(_edgeZFinal) + " > " + sanityZ + " (input-error rail, not an A-grade killer)");
     }
-    const isRescueEligible = simPct >= 65 && Math.abs(edge) >= 3.0;
+
     if (!hasH2H) {
-      if (isRescueEligible) notes.push("No H2H, but rescued by extreme edge/sim");
-      else { filtersTriggered.push("missingH2H"); notes.push("No H2H support"); if (confidence !== "PASS") { confidence = downgradeConfidence(confidence); if (confidence === "PASS") pick = "PASS"; } }
+      if (isRescueEligible) notes.push("No H2H, rescued by extreme edge/sim");
+      else {
+        filtersTriggered.push("missingH2H");
+        riskPenalty += 1;
+        notes.push("No H2H support");
+      }
     } else {
-      notes.push(`H2H Blended (${Math.round(h2hWeight * 100)}% weight)`);
+      notes.push("H2H Blended (" + Math.round(h2hWeight * 100) + "% weight)");
     }
-    if (volatility > 5.0 && volatility <= 7.0) {
+
+    const volNormFinal = volatility / marketVolBaseline(config.marketKey);
+    const chaosWarn = tennisConfig.chaosWarnCV || 0.28;
+    const chaosKill = tennisConfig.chaosKillCV || 0.38;
+    if (volNormFinal > chaosKill) {
       filtersTriggered.push("chaos");
-      if (!isRescueEligible) { confidence = downgradeConfidence(confidence); if (confidence === "PASS") pick = "PASS"; }
-      else notes.push("Volatility rescued by math strength");
+      notes.push("Extreme volatility / skip zone (CV " + volNormFinal.toFixed(2) + " vs baseline)");
+      riskPenalty = 99;
+    } else if (volNormFinal > chaosWarn) {
+      filtersTriggered.push("chaos");
+      if (!isRescueEligible) {
+        riskPenalty += 1;
+        notes.push("Elevated volatility (CV " + volNormFinal.toFixed(2) + ")");
+      } else {
+        notes.push("Volatility noted but rescued by math strength");
+      }
     }
-    if (volatility > 7.0) { filtersTriggered.push("chaos"); notes.push("Extreme volatility / skip zone"); confidence = "PASS"; pick = "PASS"; }
-    if (simPct !== null && simPct < 45 && pick !== "PASS") {
-      notes.push("Sim strongly disagrees: " + simPct.toFixed(1) + "%");
-      confidence = downgradeConfidence(confidence);
-      if (confidence === "PASS") pick = "PASS";
-    } else if (simPct !== null && simPct < 53 && pick !== "PASS") {
-      notes.push("Sim Warning: " + simPct.toFixed(1) + "%");
-      confidence = downgradeConfidence(confidence);
-      if (confidence === "PASS") pick = "PASS";
+
+    if (simPct !== null && pick !== "PASS") {
+      if (simPct < 45) {
+        filtersTriggered.push("sim_disagree");
+        riskPenalty += 2;
+        notes.push("Sim strongly disagrees with itself on this side: " + simPct.toFixed(1) + "%");
+      } else if (simPct < 53) {
+        filtersTriggered.push("sim_warning");
+        riskPenalty += 1;
+        notes.push("Sim weak: " + simPct.toFixed(1) + "%");
+      }
     }
+    if (!simPick.simFailed && lineDecision.pick !== "PASS" && pick !== "PASS" && pick !== lineDecision.pick) {
+      filtersTriggered.push("point_sim_split");
+      riskPenalty += 1;
+    }
+
+    const cappedPenalty = Math.min(tennisConfig.riskPenaltyCap || 3, riskPenalty);
+    if (riskPenalty >= 99) {
+      confidence = "PASS";
+      pick = "PASS";
+    } else {
+      const rawScore = confidenceToScore(confidence);
+      confidence = scoreToConfidence(rawScore - cappedPenalty);
+      if (confidence === "PASS") pick = "PASS";
+      if (cappedPenalty > 0 && riskPenalty < 99) {
+        notes.push("Risk score \u2212" + cappedPenalty + " (uncapped flags " + riskPenalty + ")");
+      }
+    }
+
     const finalNotes = uniqueNotes(notes);
     if (!finalNotes.length) finalNotes.push("Clean read");
     return {
       market: config.marketLabel, marketKey: config.marketKey, lineDisplay: config.lineRange.label, lineRange: config.lineRange,
       avgA: config.avgA, avgB: config.avgB, baseProjection: baseProjection, h2hAvg: h2hAvg, projection: projection,
       stdA: config.stdA, stdB: config.stdB, volatility: volatility, edge: edge, pick: pick, confidence: confidence,
-      notes: finalNotes, filtersTriggered: filtersTriggered, simPct: simPct 
+      notes: finalNotes, filtersTriggered: filtersTriggered, simPct: simPct
     };
   }
-  async function buildEngineResults() {
+    async function buildEngineResults() {
   const tour = String(qs("leagueSelect").value || "").trim();
   const playerAName = String(qs("teamAName").value || "").trim();
   const playerBName = String(qs("teamBName").value || "").trim();
