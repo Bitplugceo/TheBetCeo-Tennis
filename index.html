@@ -1,3 +1,4 @@
+K
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Tennis Engine" />
-  <meta name="theme-color" content="#d4af37" />
+  <meta name="theme-color" content="#c91920" />
   <title>Tennis Prediction Engine</title>
   <style>
 :root {
@@ -41,31 +42,31 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111;
-    --text: #d4af37;
-    --panel: #1a1a1a;
-    --panel-border: #333;
-    --panel-soft: #151515;
-    --panel-soft-2: #111;
-    --input-bg: #222;
-    --input-border: #444;
-    --table-head: #111;
-    --muted: #9aa0a8;
-    --chip-text: #d4af37;
-    --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
-    --section-toggle-text: #d4af37;
-    --section-toggle-icon: #d4af37;
-    --injury-title: #aac;
-    --table-border: #333;
-    --tracker-head-bg: #111;
-    --tracker-head-text: #d4af37;
-    --tracker-summary-bg: #151515;
-    --tracker-chip-bg: #151515;
-    --tracker-chip-border: #333;
-    --tracker-strong: #d4af37;
-    --tracker-subtext: #c3aa55;
-    --tracker-mini-head-bg: #111;
-    --tracker-mini-head-text: #d4af37;
+    --bg: #0c0c0c;
+    --text: #f2f2f2;
+    --panel: #161616;
+    --panel-border: #2a2a2a;
+    --panel-soft: #121212;
+    --panel-soft-2: #0f0f0f;
+    --input-bg: #1c1c1c;
+    --input-border: #333;
+    --table-head: #1a1a1a;
+    --muted: #9a9a9a;
+    --chip-text: #e8e8e8;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+    --section-toggle-text: #f2f2f2;
+    --section-toggle-icon: #e53935;
+    --injury-title: #cfcfcf;
+    --table-border: #2a2a2a;
+    --tracker-head-bg: #141414;
+    --tracker-head-text: #ffffff;
+    --tracker-summary-bg: #121212;
+    --tracker-chip-bg: #1a1a1a;
+    --tracker-chip-border: #2e2e2e;
+    --tracker-strong: #ffffff;
+    --tracker-subtext: #a0a0a0;
+    --tracker-mini-head-bg: #1a1a1a;
+    --tracker-mini-head-text: #ffffff;
   }
 }
 html {
@@ -79,31 +80,31 @@ body.tracker-open {
   overflow: hidden;
 }
 body.dark-mode {
-  --bg: #111;
-  --text: #d4af37;
-  --panel: #1a1a1a;
-  --panel-border: #333;
-  --panel-soft: #151515;
-  --panel-soft-2: #111;
-  --input-bg: #222;
-  --input-border: #444;
-  --table-head: #111;
-  --muted: #9aa0a8;
-  --chip-text: #d4af37;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
-    --section-toggle-text: #d4af37;
-  --section-toggle-icon: #d4af37;
-  --injury-title: #aac;
-  --table-border: #333;
-  --tracker-head-bg: #111;
-  --tracker-head-text: #d4af37;
-  --tracker-summary-bg: #151515;
-  --tracker-chip-bg: #151515;
-  --tracker-chip-border: #333;
-  --tracker-strong: #d4af37;
-  --tracker-subtext: #c3aa55;
-  --tracker-mini-head-bg: #111;
-  --tracker-mini-head-text: #d4af37;
+  --bg: #0c0c0c;
+  --text: #f2f2f2;
+  --panel: #161616;
+  --panel-border: #2a2a2a;
+  --panel-soft: #121212;
+  --panel-soft-2: #0f0f0f;
+  --input-bg: #1c1c1c;
+  --input-border: #333;
+  --table-head: #1a1a1a;
+  --muted: #9a9a9a;
+  --chip-text: #e8e8e8;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  --section-toggle-text: #f2f2f2;
+  --section-toggle-icon: #e53935;
+  --injury-title: #cfcfcf;
+  --table-border: #2a2a2a;
+  --tracker-head-bg: #141414;
+  --tracker-head-text: #ffffff;
+  --tracker-summary-bg: #121212;
+  --tracker-chip-bg: #1a1a1a;
+  --tracker-chip-border: #2e2e2e;
+  --tracker-strong: #ffffff;
+  --tracker-subtext: #a0a0a0;
+  --tracker-mini-head-bg: #1a1a1a;
+  --tracker-mini-head-text: #ffffff;
 }
     button,
     input,
@@ -632,9 +633,9 @@ input,
   line-height: 1 !important;
 }
 body.dark-mode .tracker-manual-btn {
-  background: #151515 !important;
-  color: #d4af37 !important;
-  border-color: #333 !important;
+  background: #1a1a1a !important;
+  color: #f2f2f2 !important;
+  border-color: #2a2a2a !important;
 }
 .tracker-manual-hint {
   font-size: 9px;
