@@ -39,6 +39,38 @@
   --tracker-mini-head-bg: #eceff3;
   --tracker-mini-head-text: #2a2f38;
 }
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111;
+    --text: #d4af37;
+    --panel: #1a1a1a;
+    --panel-border: #333;
+    --panel-soft: #151515;
+    --panel-soft-2: #111;
+    --input-bg: #222;
+    --input-border: #444;
+    --table-head: #111;
+    --muted: #9aa0a8;
+    --chip-text: #d4af37;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+    --section-toggle-text: #d4af37;
+    --section-toggle-icon: #d4af37;
+    --injury-title: #aac;
+    --table-border: #333;
+    --tracker-head-bg: #111;
+    --tracker-head-text: #d4af37;
+    --tracker-summary-bg: #151515;
+    --tracker-chip-bg: #151515;
+    --tracker-chip-border: #333;
+    --tracker-strong: #d4af37;
+    --tracker-subtext: #c3aa55;
+    --tracker-mini-head-bg: #111;
+    --tracker-mini-head-text: #d4af37;
+  }
+}
+html {
+  color-scheme: light dark;
+}
 body.tracker-open {
   position: fixed;
   width: 100%;
@@ -2401,7 +2433,6 @@ title="Show issues">
 ⚠️
   </button>
   <span class="brand-right">
-    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🎾</button>
     <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
     <button class="theme-toggle" type="button" id="afdbBtn" title="Debug Brain" onclick="AFDB.open()">🔬</button>
     PREDICTIONS
@@ -3124,14 +3155,30 @@ let g_clearDebug = {
     unlockSection(id);
   });
 }
+  function applySystemTheme() {
+    try {
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.body.classList.toggle("dark-mode", !!prefersDark);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", prefersDark ? "#111111" : "#d91f26");
+    } catch (_e) {}
+  }
   function toggleTheme() {
-    const isDark = document.body.classList.toggle("dark-mode");
-    localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+    applySystemTheme();
   }
   function applySavedTheme() {
-    if (localStorage.getItem(THEME_KEY) === "dark") {
-      document.body.classList.add("dark-mode");
-    }
+    applySystemTheme();
+    try {
+      if (window.matchMedia) {
+        const mq = window.matchMedia("(prefers-color-scheme: dark)");
+        if (mq.addEventListener) mq.addEventListener("change", applySystemTheme);
+        else if (mq.addListener) mq.addListener(applySystemTheme);
+      }
+    } catch (_e2) {}
+    try {
+      localStorage.removeItem(THEME_KEY);
+      localStorage.removeItem("theme");
+    } catch (_e3) {}
   }
   function setFetchStatus(text, state) {
     const el = qs("fetchStatus");
@@ -3410,8 +3457,19 @@ let g_clearDebug = {
     return { min: low, max: high, mid: (low + high) / 2, label: fmt(low) + " - " + fmt(high) };
   }
   function pickFromRange(projection, lineRange) {
-    if (projection > lineRange.mid) return { pick: "OVER", edge: projection - lineRange.mid, atMid: false };
-    if (projection < lineRange.mid) return { pick: "UNDER", edge: projection - lineRange.mid, atMid: false };
+    const mid = Number(lineRange && lineRange.mid);
+    const lo = Number(lineRange && lineRange.min);
+    const hi = Number(lineRange && lineRange.max);
+    if (!Number.isFinite(projection) || !Number.isFinite(mid)) {
+      return { pick: "PASS", edge: 0, atMid: true };
+    }
+    if (Number.isFinite(lo) && Number.isFinite(hi) && hi > lo) {
+      if (projection > hi) return { pick: "OVER", edge: projection - hi, atMid: false };
+      if (projection < lo) return { pick: "UNDER", edge: projection - lo, atMid: false };
+      return { pick: "PASS", edge: projection - mid, atMid: Math.abs(projection - mid) < 1e-9 };
+    }
+    if (projection > mid) return { pick: "OVER", edge: projection - mid, atMid: false };
+    if (projection < mid) return { pick: "UNDER", edge: projection - mid, atMid: false };
     return { pick: "PASS", edge: 0, atMid: true };
   }
   function getDefaultTennisConfig() {
@@ -3918,10 +3976,22 @@ let g_clearDebug = {
     } else {
       pick = simPick.pick;
       simPct = simPick.simPct;
-      notes.push("Side from Markov P(over/under) — point estimate is diagnostic only");
       notes.push("Sim (internal consistency, same form inputs): O " + simPick.overPct.toFixed(1) + " / U " + simPick.underPct.toFixed(1) + " / P " + simPick.pushPct.toFixed(1));
+      notes.push("Point estimate vs mid/range: " + lineDecision.pick + " (proj " + fmt(projection) + ")");
       if (pick !== "PASS" && lineDecision.pick !== "PASS" && pick !== lineDecision.pick) {
-        notes.push("Internal split: sim " + pick + " vs point-estimate " + lineDecision.pick);
+        notes.push("Internal split: sim " + pick + " vs point-estimate " + lineDecision.pick + " — NO PLAY");
+        pick = "PASS";
+      } else if (
+        pick !== "PASS" &&
+        lineDecision.pick === "PASS" &&
+        Number.isFinite(projection) &&
+        Number.isFinite(config.lineRange.mid) &&
+        Math.abs(projection - config.lineRange.mid) >= 1.5 &&
+        ((pick === "OVER" && projection < config.lineRange.mid) ||
+          (pick === "UNDER" && projection > config.lineRange.mid))
+      ) {
+        notes.push("Sim vs point gap ≥1.5 games opposite way — NO PLAY");
+        pick = "PASS";
       }
     }
     if (lineDecision.atMid && simPick.simFailed) {
@@ -3945,7 +4015,8 @@ let g_clearDebug = {
       const _calPerf = g_bucketPerformance[_calBucketKey];
       const _calDecided = _calPerf ? _calPerf.wins + _calPerf.losses : 0;
       if (_calDecided < 25) {
-        notes.push("Confidence is analytic-only (" + _calDecided + "/25 locally tracked results) — not yet probability-calibrated");
+        notes.push("Confidence is analytic-only (" + _calDecided + "/25 locally tracked results) — cap C");
+        if (confidence === "A" || confidence === "B") confidence = "C";
       }
     }
     if (MARKET_PULL > 0) {
@@ -3976,12 +4047,13 @@ let g_clearDebug = {
     }
 
     const _safeVolFinal = volatility > 0 ? volatility : 0.01;
-    const _edgeZFinal = Math.abs(edge) / _safeVolFinal;
+    const _gamesZ = Math.abs(Number(gamesEdge) || 0) / _safeVolFinal;
+    const _simCoverZ = simPct != null && Number.isFinite(Number(simPct)) ? Math.abs(Number(simPct) - 50) / 12 : 0;
     const sanityZ = tennisConfig.edgeSanityZ || 3.0;
-    if (_edgeZFinal > sanityZ && pick !== "PASS") {
+    if (pick !== "PASS" && _gamesZ > sanityZ && _simCoverZ > 2.5) {
       filtersTriggered.push("edge_sanity");
       riskPenalty += 1;
-      notes.push("Edge sanity cap: Z=" + fmt(_edgeZFinal) + " > " + sanityZ + " (input-error rail, not an A-grade killer)");
+      notes.push("Edge sanity: games Z=" + fmt(_gamesZ) + " and sim cover extreme — check inputs");
     }
 
     if (!hasH2H) {
@@ -4023,8 +4095,14 @@ let g_clearDebug = {
         notes.push("Sim weak: " + simPct.toFixed(1) + "%");
       }
     }
-    if (!simPick.simFailed && lineDecision.pick !== "PASS" && pick !== "PASS" && pick !== lineDecision.pick) {
-      filtersTriggered.push("point_sim_split");
+    if (!simPick.simFailed && lineDecision.pick !== pick && (lineDecision.pick !== "PASS" || pick !== "PASS")) {
+      if (lineDecision.pick !== "PASS" && pick !== "PASS" && lineDecision.pick !== pick) {
+        filtersTriggered.push("point_sim_split");
+        pick = "PASS";
+        confidence = "PASS";
+        riskPenalty = 99;
+        notes.push("point_sim_split hard kill");
+      }
     }
 
     const cappedPenalty = Math.min(tennisConfig.riskPenaltyCap || 3, riskPenalty);
