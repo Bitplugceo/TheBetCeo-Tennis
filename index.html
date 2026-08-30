@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -810,6 +809,71 @@ body.dark-mode.engine-alert .section {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+.tracker-delete-confirm {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 24px 16px;
+}
+.tracker-delete-confirm.open {
+  display: flex;
+}
+.tracker-delete-confirm-card {
+  width: min(420px, 100%);
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 18px 16px 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+.tracker-delete-confirm-card p {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.tracker-delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.tracker-delete-confirm-actions button {
+  min-height: 44px;
+  min-width: 72px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 800;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.tracker-delete-confirm-actions .tracker-delete-ok {
+  background: #d91f26;
+  color: #fff;
+  border-color: #d91f26;
+}
+body.dark-mode .fixture-day {
+  background: #1a1a1a !important;
+  color: #d4af37 !important;
+  border-color: #333 !important;
+}
+body.dark-mode .fixture-day.active {
+  background: #49a443 !important;
+  color: #fff !important;
+  border-color: #49a443 !important;
+}
+body.dark-mode .track-pending {
+  background: #151515 !important;
+  color: #d4af37 !important;
 }
 .tracker-body-scroll {
   flex: 1;
@@ -2539,6 +2603,15 @@ title="Show issues">
       <div class="tracker-head-actions">
         <button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Military Grade Settle" onclick="window.triggerTrackerMilitaryRaid()">🚨</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
+      </div>
+    </div>
+    <div id="trackerDeleteConfirm" class="tracker-delete-confirm" aria-hidden="true">
+      <div class="tracker-delete-confirm-card" role="dialog" aria-modal="true" aria-labelledby="trackerDeleteConfirmText">
+        <p id="trackerDeleteConfirmText"></p>
+        <div class="tracker-delete-confirm-actions">
+          <button type="button" id="trackerDeleteCancelBtn">Cancel</button>
+          <button type="button" id="trackerDeleteOkBtn" class="tracker-delete-ok">OK</button>
+        </div>
       </div>
     </div>
     <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
@@ -4813,6 +4886,50 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     saveTrackerItems(remaining);
     updateTrackerUI();
     return true;
+  }
+  function showTrackerDeleteConfirm(pickLabel) {
+    return new Promise(function (resolve) {
+      const overlay = document.getElementById("trackerDeleteConfirm");
+      const textEl = document.getElementById("trackerDeleteConfirmText");
+      const okBtn = document.getElementById("trackerDeleteOkBtn");
+      const cancelBtn = document.getElementById("trackerDeleteCancelBtn");
+      if (!overlay || !textEl || !okBtn || !cancelBtn) {
+        resolve(
+          window.confirm(
+            "Delete this pick permanently?\n\n" +
+              (pickLabel || "") +
+              "\n\nThis cannot be undone.",
+          ),
+        );
+        return;
+      }
+      textEl.textContent =
+        "Delete this pick permanently?\n\n" +
+        (pickLabel || "This pick") +
+        "\n\nThis cannot be undone.";
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+      const finish = function (ok) {
+        overlay.classList.remove("open");
+        overlay.setAttribute("aria-hidden", "true");
+        okBtn.removeEventListener("click", onOk);
+        cancelBtn.removeEventListener("click", onCancel);
+        overlay.removeEventListener("click", onOverlay);
+        resolve(!!ok);
+      };
+      const onOk = function () {
+        finish(true);
+      };
+      const onCancel = function () {
+        finish(false);
+      };
+      const onOverlay = function (e) {
+        if (e.target === overlay) finish(false);
+      };
+      okBtn.addEventListener("click", onOk);
+      cancelBtn.addEventListener("click", onCancel);
+      overlay.addEventListener("click", onOverlay);
+    });
   }
   function getTrackerEdgeBucket(edge) {
     const absEdge = Math.abs(Number(edge) || 0);
@@ -8112,11 +8229,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const delId = deletePick.getAttribute("data-id") || "";
         if (delId) {
           const pickLabel = deletePick.textContent.trim();
-          const confirmed = window.confirm(
-            "Delete this pick permanently?\n\n" + pickLabel +
-            "\n\nThis cannot be undone. It will be removed from local storage and the synced record everywhere."
-          );
-          if (confirmed) deleteTrackerItemForever(delId);
+          showTrackerDeleteConfirm(pickLabel).then(function (ok) {
+            if (ok) deleteTrackerItemForever(delId);
+          });
         }
         return;
       }
