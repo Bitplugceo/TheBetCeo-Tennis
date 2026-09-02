@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3632,10 +3631,11 @@ let g_clearDebug = {
     const sum = Math.max(0.1, Number(avgA) + Number(avgB));
     const gap = Math.abs(Number(avgA) - Number(avgB)) / sum;
     const competitiveness = Math.max(0, 1 - gap * 4);
-    let sets = isBO5 ? (3.15 + 0.45 * competitiveness) : (2.18 + 0.42 * competitiveness);
+    // Raised base + competitiveness slope so true coin-flip BO5s land ~3.70–3.80 instead of ~3.52
+    let sets = isBO5 ? (3.28 + 0.55 * competitiveness) : (2.18 + 0.42 * competitiveness);
     if (surface === "Clay") sets += 0.08;
     else if (surface === "Grass") sets -= 0.10;
-    return Math.max(isBO5 ? 3.05 : 2.10, Math.min(isBO5 ? 3.85 : 2.65, sets));
+    return Math.max(isBO5 ? 3.10 : 2.10, Math.min(isBO5 ? 3.95 : 2.65, sets));
   }
 
   function blendH2HSeries(items, currentSurface, decay) {
@@ -3712,8 +3712,10 @@ let g_clearDebug = {
         const trendA = (recentA - baseA) / baseA;
         const absMoveA = Math.abs(recentA - baseA);
         if (Math.abs(trendA) > tennisConfig.hotColdTrendThreshold || (baseStdA > 0 && absMoveA > 2 * baseStdA)) {
-          avgA *= (1 + trendA * tennisConfig.hotColdFactor);
-          notes.push("A " + (trendA > 0 ? "hot" : "cold") + " " + (trendA > 0 ? "+" : "") + Math.round(trendA * 100) + "%");
+          // Cap extreme cold/hot so a single blowout R1 cannot swing form by more than ~8%
+          const cappedTrendA = Math.max(-1.6, Math.min(1.6, trendA));
+          avgA *= (1 + cappedTrendA * tennisConfig.hotColdFactor);
+          notes.push("A " + (trendA > 0 ? "hot" : "cold") + " " + (trendA > 0 ? "+" : "") + Math.round(trendA * 100) + "% (capped)");
         }
       }
     }
@@ -3978,8 +3980,9 @@ let g_clearDebug = {
     const _regVol = Math.sqrt(Math.pow(config.stdA, 2) + Math.pow(config.stdB, 2)) || 1;
     const _lineZ = Math.abs(config.lineRange.mid - projection) / _regVol;
     const isMatchMarket = config.marketKey === "match";
+    // Stronger regression on large form edges (especially post-blowout) so pure recent form cannot dominate
     const MARKET_PULL = isMatchMarket
-      ? (_lineZ > 3.0 ? 0.10 : _lineZ > 2.0 ? 0.03 : 0.0)
+      ? (_lineZ > 3.5 ? 0.22 : _lineZ > 2.5 ? 0.12 : _lineZ > 1.8 ? 0.05 : 0.0)
       : (_lineZ > 3.0 ? 0.20 : _lineZ > 2.0 ? 0.05 : 0.0);
     projection = (projection * (1 - MARKET_PULL)) + (config.lineRange.mid * MARKET_PULL);
     const _rho = -0.20;
