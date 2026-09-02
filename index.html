@@ -1,3 +1,4 @@
+H
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5040,12 +5041,26 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
   }
   function isTrackerItemVisibleOnPage(item) {
     if (!item) return false;
-    const ts = getTrackerItemTimeMs(item);
-    if (!ts) return false;
-    const hoursOld = (Date.now() - ts) / (1000 * 60 * 60);
     const status = String(item.status || "PENDING").toLowerCase();
-    if (status === "pending") return hoursOld < 24;
-    return hoursOld < 10;
+    if (status === "pending") {
+      const ts = getTrackerItemTimeMs(item);
+      if (!ts) return false;
+      const hoursOld = (Date.now() - ts) / (1000 * 60 * 60);
+      return hoursOld < 24;
+    }
+    // BUG FIX — WRONG TIMESTAMP BASIS: settled items were using
+    // getTrackerItemTimeMs(), which checks fixtureDate before settledAt.
+    // Settlement always happens after the fixture date, so by the time an
+    // item settles, "hours since fixtureDate" is already well past 10 —
+    // the pick vanished from the page almost immediately instead of
+    // staying visible for 10 hours after it was actually settled. This now
+    // matches shouldArchiveTrackerItem's own convention (settledAt only),
+    // so a pick disappears from the live table at exactly the same moment
+    // it becomes eligible for archiveOldTrackerItems to archive it.
+    const settleTs = item.settledAt ? Date.parse(item.settledAt) : 0;
+    if (!settleTs) return true; // settled but not yet timestamped — don't hide by accident
+    const hoursSinceSettlement = (Date.now() - settleTs) / (1000 * 60 * 60);
+    return hoursSinceSettlement < 10;
   }
     function shouldArchiveTrackerItem(item) {
     if (!item || item.archived) return false;
@@ -5783,6 +5798,11 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
     const body = qs("trackedPicksBody");
     const tableWrap = document.querySelector(".tracker-table-wrap");
     const archiveWrap = qs("trackerArchiveWrap");
+    const archiveBody = qs("trackerArchiveBody");
+    const archivedItems = items
+      .filter(function (item) { return !!item.archived; })
+      .sort(function (a, b) { return getTrackerItemTimeMs(b) - getTrackerItemTimeMs(a); });
+    if (archiveBody) archiveBody.innerHTML = archivedItems.map(archiveRowHtml).join("");
     const activeItems = items.filter(isTrackerItemVisibleOnPage);
     const displayPicks = activeItems.slice().sort(function(a, b) {
       const aPend = String(a.status || "PENDING").toUpperCase() === "PENDING" ? 0 : 1;
@@ -5816,13 +5836,37 @@ const sectionIds = ["leagueSection", "espnSection", "marketSection", "teamASecti
         empty.textContent = "No live/recent picks. Older picks moved to record.";
       }
       if (tableWrap) tableWrap.style.display = "none";
-      if (archiveWrap) archiveWrap.style.display = "none"; 
+      if (archiveWrap) archiveWrap.style.display = archivedItems.length ? "block" : "none";
       if (body) body.innerHTML = "";
       return;
     }
     if (empty) empty.style.display = "none";
     if (tableWrap) tableWrap.style.display = "block";
-    if (archiveWrap) archiveWrap.style.display = "none"; 
+    if (archiveWrap) archiveWrap.style.display = archivedItems.length ? "block" : "none";
+                function archiveRowHtml(item) {
+    // BUG FIX — DEAD ARCHIVE VIEW: #trackerArchiveBody existed in the
+    // markup but nothing ever wrote rows into it, so "archived" picks had
+    // no UI to be seen in at all — functionally indistinguishable from
+    // deletion even though the record was still in storage the whole time.
+    const status = String(item.status || "PENDING").toUpperCase();
+    const statusClass = status === "WIN" ? "track-win" : status === "LOSS" ? "track-loss" : status === "PUSH" ? "track-push" : "track-pending";
+    const _conf = String(item.confidence || "—").toUpperCase();
+    const _edgeNum = isFinite(Number(item.edge)) ? Number(item.edge) : null;
+    const _edgeTxt = _edgeNum !== null ? ((_edgeNum > 0 ? "+" : "") + _edgeNum.toFixed(2)) : "—";
+    const _statusLabel = status + (isFinite(Number(item.actualTotal)) ? ' (Total: ' + item.actualTotal + ')' : '');
+    return (
+      '<tr>' +
+        '<td>' + htmlEscape(formatTrackerDate(item.fixtureDate || item.savedAt)) + '</td>' +
+        '<td style="font-weight:900;text-transform:uppercase;">' + htmlEscape(item.match) + '</td>' +
+        '<td style="font-weight:800;">' + htmlEscape(item.market) + '</td>' +
+        '<td>' + htmlEscape(String(item.line || "—")) + '</td>' +
+        '<td style="white-space:nowrap;font-size:11px;">' + htmlEscape(item.pick) + '</td>' +
+        '<td style="font-weight:700;color:var(--muted);">' + htmlEscape(_conf) + '</td>' +
+        '<td>' + htmlEscape(_edgeTxt) + '</td>' +
+        '<td class="' + statusClass + '">' + htmlEscape(_statusLabel) + '</td>' +
+      '</tr>'
+    );
+  }
                 function rowHtml(item) {
     const status = String(item.status || "PENDING").toUpperCase();
     const statusClass = status === "WIN" ? "track-win" : status === "LOSS" ? "track-loss" : status === "PUSH" ? "track-push" : "track-pending";
