@@ -1,8 +1,9 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="generator" content="tt_v6_1_afdb_opaque_20260924" />
+  <meta name="generator" content="tt_v6_3_ui_chrome_100_20260924" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -12,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@1,800;1,900&display=swap" rel="stylesheet" />
   <title>TheBetCeo TT — Table Tennis</title>
+  <!-- build tt_v6_3_ui_chrome_100_20260924 | BB UI chrome 100% (accordion/typography/spacing) + TT-only sport logic -->
 <style id="bb-critical-lock">
 #engineLockOverlay{position:fixed;inset:0;z-index:2147483646;background:#0c0c0e;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
 #engineLockOverlay.hidden{display:none !important}
@@ -2854,40 +2856,68 @@ body.dark-mode .tracker-analytics-section-head {
 }
 
 </style>
-<style id="tt-extra-chrome">
-#autofetchSection { margin-top: 0; }
-#trackPickBtn { display:none; background:#1f6feb !important; color:#fff !important; padding:5px 14px !important; font-size:12px !important; font-weight:700 !important; }
-.tracker-tabs { display:flex; gap:6px; padding:8px 16px; background:var(--tracker-summary-bg); border-bottom:1px solid var(--panel-border); }
-.tracker-tab { background:var(--panel); color:var(--text); border:1px solid var(--table-border); padding:6px 10px; font-size:10px; font-weight:800; text-transform:uppercase; margin:0; }
-.tracker-tab.active { background:var(--tracker-head-bg); color:var(--tracker-head-text); border-color:var(--tracker-head-bg); }
-#raidToast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:#111; color:#fff; border:1px solid #d91f26; padding:10px 14px; font-size:12px; font-weight:800; z-index:100000; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
-#raidToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-.siren-pulse { animation: engineAlertPulse 0.6s ease-in-out 3; }
+<style id="tt-v6-extras">
+/* v6.3 TT extras — AFDB/tracker only; main chrome = BB style blocks */
+.tracker-tabs { display:flex; gap:0; border-bottom:1px solid var(--panel-border,#dedede); background:var(--panel-soft,#f6f7f9); }
+.tracker-tab { flex:1; padding:10px; font-size:11px; font-weight:800; background:transparent; color:var(--muted,#7b8088); border:none; border-bottom:2px solid transparent; margin:0; cursor:pointer; }
+.tracker-tab.active { color:var(--text,#1f2430); border-bottom-color:#e41827; }
+.raid-toast { display:none; position:fixed; left:50%; top:18%; transform:translateX(-50%); z-index:120000; background:#2a0608; color:#fff; border:1px solid #d91f26; padding:14px 22px; font-weight:900; font-size:14px; box-shadow:0 0 24px rgba(217,31,38,.55); }
+.raid-toast.show { display:block; }
+#afdbOverlay.open, #afdbOverlay[data-open="1"] { display:flex !important; }
 #afdbOverlay { background:#080808 !important; }
-#afdbPanel { background:#080808; color:#ddd; }
+#afdbPanel { background:#080808; color:#ddd; display:flex; flex-direction:column; height:100%; overflow:hidden; }
 .afdb-head { background:#080808; border-bottom:1px solid #222; padding:12px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; flex-shrink:0; }
 .afdb-title { color:#d4af37; font-size:14px; font-weight:900; letter-spacing:1px; }
 .afdb-head-btns { display:flex; gap:8px; flex-wrap:wrap; }
-.afdb-head-btns button { margin:0; background:#111; border:1px solid #333; color:#ccc; padding:6px 12px; font-size:11px; font-weight:700; }
+.afdb-head-btns button { margin:0; background:#111; border:1px solid #333; color:#ccc; padding:6px 12px; font-size:11px; font-weight:700; cursor:pointer; }
 .afdb-head-btns .raid { background:#2a0608 !important; border:1px solid #d91f26 !important; color:#fff !important; }
 .afdb-head-btns .ok { color:#49d45f; }
 .afdb-head-btns .bad { color:#ff5c61; }
-.afdb-subbar { padding:8px 12px; background:#0d0d0d; border-bottom:1px solid #1a1a1a; color:#888; font-size:11px; font-weight:700; }
+.afdb-subbar { padding:8px 12px; background:#0d0d0d; border-bottom:1px solid #1a1a1a; color:#9fef9f; font-size:11px; font-weight:700; flex-shrink:0; }
 .afdb-body { flex:1; overflow-y:auto; background:#0a0a0a; -webkit-overflow-scrolling:touch; }
-.afdb-section-h { padding:10px 12px; background:#111; color:#d4af37; font-size:11px; font-weight:900; text-transform:uppercase; border-bottom:1px solid #222; position:sticky; top:0; }
+.afdb-section-h { padding:10px 12px; background:#111; color:#d4af37; font-size:11px; font-weight:900; text-transform:uppercase; border-bottom:1px solid #222; position:sticky; top:0; z-index:2; }
 .afdb-pad { padding:12px; }
-.afdb-inner input { max-width:none; width:100%; background:#111; color:#eee; border:1px solid #333; }
-.req-log, .raw-peek, #debugLog { background:#070707; border:1px solid #222; color:#9fef9f; font-size:10px; padding:8px; min-height:72px; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,Consolas,monospace; }
-.tracker-card { border:1px solid var(--table-border); background:var(--panel); margin:8px 16px; padding:10px; }
-.tc-title { font-weight:900; font-size:13px; }
-.tc-meta { color:var(--muted); font-size:11px; font-weight:700; margin-top:4px; }
-.tc-actions { display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; }
-.tc-actions button { margin:0; padding:5px 8px; font-size:10px; }
-#buildChip { font-size:10px; color:var(--muted); text-align:center; padding:0 10px 16px; font-weight:700; }
-.auto-tag { display:none; color:#2f8f4a; font-size:10px; font-weight:800; }
-.auto-tag.show { display:inline; }
-</style>
+.afdb-pad input { max-width:none; width:100%; background:#111; color:#eee; border:1px solid #333; padding:8px; font-size:12px; box-sizing:border-box; margin:6px 0; }
+.req-log, .raw-peek, #debugLog { background:#070707; border:1px solid #222; color:#9fef9f; font-size:10px; padding:8px; min-height:72px; max-height:220px; overflow:auto; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,Consolas,monospace; margin-top:4px; }
+.raw-peek { color:#c9a66b; }
+#debugLog { color:#9fef9f; }
+.status-line { text-align:center; font-size:11px; font-weight:700; color:var(--muted,#7b8088); min-height:16px; margin:4px 0 8px; }
+.pred-over { background:#3a9c35 !important; color:#fff !important; font-weight:800 !important; }
+.pred-under { background:#c91920 !important; color:#fff !important; font-weight:800 !important; }
+.pred-none { background:#888 !important; color:#fff !important; }
+.track-pick-wrap { text-align:center; margin:8px 0 16px; }
+#trackPickBtn { background:#e41827; display:none; }
+/* Auto-Fetch chrome: use BB main CSS (.fetch-btn / .fixture-day #49a443) — do not recolor */
+.autofill-indicator { font-size:10px; color:#2f8f4a; display:none; }
+.autofill-indicator.show { display:inline; }
+#last10SeriesAlert{
+  display:none;
+  margin:8px 0 0;
+  padding:10px 12px;
+  border:2px solid #d92d2a;
+  background:#4a0d0d;
+  color:#fff;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.35;
+  border-radius:6px;
+}
+#last10SeriesAlert.visible{display:block;}
+.section-pad { padding:0 10px 10px; }
+.market-grid-2, .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:0 10px 10px; }
+.build-chip { text-align:center; font-size:9px; color:#aaa; padding:4px 0 16px; }
+.tracker-card { border:1px solid var(--panel-border,#dedede); background:var(--panel,#fff); padding:10px; margin:8px 10px; }
+.tracker-card .tc-title { font-weight:800; font-size:13px; }
+.tracker-card .tc-meta { font-size:11px; color:var(--muted,#7b8088); margin-top:4px; }
+.tracker-card .tc-actions { margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; }
+.tracker-card .tc-actions button { padding:4px 10px; font-size:11px; margin:0; }
+.siren-pulse { animation: sirenBlink .35s ease-in-out 4; }
+@keyframes sirenBlink { 0%,100%{filter:none;} 50%{filter:drop-shadow(0 0 8px #ff1a1a);} }
+/* BB class aliases — real rules live in main BB style block; keep tracker modal open helper */
+.tracker-modal.open { display:flex; }
+.autocomplete-wrap { position:relative; }
 
+</style>
 <script>
 (function () {
   try {
@@ -2902,6 +2932,7 @@ body.dark-mode .tracker-analytics-section-head {
 })();
 </script>
 </head>
+
 <body>
 <div id="engineLockOverlay">
   <div class="engine-lock-card">
@@ -2913,14 +2944,15 @@ body.dark-mode .tracker-analytics-section-head {
     <div class="engine-lock-error" id="engineLockError"></div>
   </div>
 </div>
+
 <header class="app-header">
   <span class="brand-name">TheBetCeo ⚡️</span>
   <span class="header-center">
-    <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show fetch/input issues" aria-label="Show fetch and input issues">⚠️</button>
+    <button class="header-error-btn" type="button" id="headerErrorBtn" title="Show fetch/input issues" aria-label="Show fetch and input issues" onclick="if(typeof openEngineErrorPage==='function')openEngineErrorPage();">⚠️</button>
   </span>
   <span class="brand-right">
     <button class="header-icon-btn" type="button" id="trackerToggleBtn" title="Open tracked picks" aria-label="Open tracked picks">📊</button>
-    <button class="header-icon-btn" type="button" id="afdbBtn" title="Auto-Fetch Debugger" aria-label="Open Auto-Fetch Debugger">🔬</button>
+    <button class="header-icon-btn" type="button" id="afdbBtn" title="Auto-Fetch Debugger" aria-label="Open Auto-Fetch Debugger" onclick="if(typeof AFDB!=='undefined'&&AFDB.open)AFDB.open();">🔬</button>
     <button class="header-icon-btn" type="button" id="engineRelockBtn" title="Lock the engine">PREDICTIONS</button>
   </span>
 </header>
@@ -2929,152 +2961,252 @@ body.dark-mode .tracker-analytics-section-head {
   <div class="section" id="leagueSection">
     <h3>League Tier</h3>
     <label>Select League</label>
-    <select id="leagueSelect" class="league-box">
+    <select id="leagueSelect" class="league-box" aria-label="Select League">
       <option value="">- Select League -</option>
-      <optgroup label="── Autofetch ──────────">
+      <optgroup label="── TT Autofetch ──────────">
         <option value="setka">Setka Cup</option>
-        <option value="wtt">WTT</option>
+        <option value="wtt">WTT (World Table Tennis)</option>
         <option value="wtt_contender">WTT Contender</option>
         <option value="wtt_champions">WTT Champions</option>
       </optgroup>
-      <optgroup label="── Nationals (manual) ─">
-        <option value="hungary_nbi">Hungary - NB I. A</option>
-        <option value="czechia_extraliga">Czechia - Extraleague</option>
-        <option value="germany_ttl">Germany - TTBL</option>
-        <option value="france_proa_tt">France - Pro A</option>
+      <optgroup label="── C ──────────────────">
+        <option value="czech_extraliga">Czech Republic - Extraliga</option>
+        <option value="china_superliga">China - Super League</option>
+      </optgroup>
+      <optgroup label="── F ──────────────────">
+        <option value="france_pro_a">France - Pro A</option>
+      </optgroup>
+      <optgroup label="── G ──────────────────">
+        <option value="germany_bundesliga">Germany - Bundesliga</option>
+      </optgroup>
+      <optgroup label="── H ──────────────────">
+        <option value="hungary_nb1">Hungary - NB I. A</option>
+      </optgroup>
+      <optgroup label="── I ──────────────────">
+        <option value="ittf_world">ITTF World Tour / Events</option>
+      </optgroup>
+      <optgroup label="── J ──────────────────">
+        <option value="japan_t_league">Japan - T.League</option>
+      </optgroup>
+      <optgroup label="── L ──────────────────">
+        <option value="liga_pro">Liga Pro</option>
+      </optgroup>
+      <optgroup label="── P ──────────────────">
+        <option value="poland_superliga">Poland - Superliga</option>
+      </optgroup>
+      <optgroup label="── R ──────────────────">
+        <option value="russia_superliga">Russia - Superliga</option>
+      </optgroup>
+      <optgroup label="── S ──────────────────">
         <option value="sweden_pingisligan">Sweden - Pingisligan</option>
-        <option value="poland_superliga_tt">Poland - Superliga</option>
-        <option value="manual">Other / Mixed (manual)</option>
+      </optgroup>
+      <optgroup label="── T ──────────────────">
+        <option value="tt_cup">TT Cup</option>
       </optgroup>
     </select>
   </div>
 
-  <div class="section" id="autofetchSection" style="display:none">
-    <h3>⚡ Auto-Fetch <span style="font-size:11px;color:#aaa">(Setka via Worker · WTT direct)</span></h3>
+  <div class="section" id="autofetchSection" style="display: none">
+    <h3>
+      ⚡ Auto-Fetch
+      <span style="font-size: 11px; color: #aaa"
+        >(Setka Cup · WTT · Contender · Champions)</span
+      >
+    </h3>
+
     <div id="fixtureToolbar" class="fixture-toolbar">
       <button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
       <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
     </div>
-    <label id="fixtureSelectLabel" style="font-size:12px">Select match</label>
+
+    <label id="fixtureSelectLabel" style="font-size: 12px">Select match</label>
     <select id="fixtureSelect" class="league-box">
       <option value="">- Select match -</option>
     </select>
-    <label id="teamALabel" style="font-size:12px">Player A (Home)</label>
+
+    <label id="teamALabel" style="font-size: 12px">Team A Name (Home)</label>
+
     <div class="autocomplete-wrap">
-      <input id="teamAName" placeholder="e.g. Fan Zhendong" autocomplete="off" aria-label="Player A Name" />
+      <input
+        id="teamAName"
+        placeholder="e.g. Fan Zhendong"
+        autocomplete="off"
+        aria-label="Team A Name (Home)"
+      />
       <div class="autocomplete-list" id="dropA"></div>
     </div>
-    <label id="teamBLabel" style="font-size:12px;margin-top:6px">Player B (Away)</label>
+
+    <label id="teamBLabel" style="font-size: 12px; margin-top: 6px">Team B Name (Away)</label>
+
     <div class="autocomplete-wrap">
-      <input id="teamBName" placeholder="e.g. Ma Long" autocomplete="off" aria-label="Player B Name" />
+      <input
+        id="teamBName"
+        placeholder="e.g. Ma Long"
+        autocomplete="off"
+        aria-label="Team B Name (Away)"
+      />
       <div class="autocomplete-list" id="dropB"></div>
     </div>
-    <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Fixtures</button>
+
+    <button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
+
     <div id="fetchStatus"></div>
     <div id="last10SeriesAlert" role="alert"></div>
   </div>
 
-  <div class="section collapsed" id="marketSection">
-    <button type="button" class="section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
-      <span class="toggle-title">Market Lines</span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <div id="marketCoreGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div id="q1MarketCell">
-          <label id="q1MarketLabel">1st Game Total</label>
-          <input id="q1Market" placeholder="18.5 - 21.5" aria-label="1st Game Total" />
-        </div>
-        <div id="ftMarketCell">
-          <label id="ftMarketLabel">Match Total Points</label>
-          <input id="ftMarket" placeholder="165.5 - 185.5" aria-label="Match Total Points" />
-        </div>
-      </div>
-      <small class="muted-note">Only two markets: 1st-game points O/U and match total points O/U. Settle from per-game point scores, not set wins.</small>
-    </div>
-  </div>
+  <div class="section" id="marketSection">
+    <h3>Market Lines</h3>
 
-  <div class="section collapsed" id="teamASection">
-    <button type="button" class="section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
-      <span class="toggle-title">Team A - Last 10 Overall <span class="auto-tag" id="aAutoTag">✅ Auto-filled</span></span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-        <div>
-          <label>G1 Points <span style="font-size:10px;color:#888">(recent → oldest)</span></label>
-          <input id="aQ1Scored" placeholder="19,21,18,20,17" aria-label="Player A last-10 first-game totals" />
-        </div>
-        <div>
-          <label>Match Points</label>
-          <input id="aFTScored" placeholder="178,165,190,172,181" aria-label="Player A last-10 match totals" />
-        </div>
+    <div
+      id="marketCoreGrid"
+      style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0"
+    >
+      <div id="ftMarketCell">
+        <label id="ftMarketLabel">Match Total Points</label
+        ><input id="ftMarket" placeholder="65.5 - 85.5" aria-label="Match Total Points" />
+      </div>
+      <div id="q1MarketCell">
+        <label id="q1MarketLabel">1st Game Total</label
+        ><input id="q1Market" placeholder="17.5 - 21.5" aria-label="1st Game Total" />
       </div>
     </div>
   </div>
 
-  <div class="section collapsed" id="teamBSection">
-    <button type="button" class="section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
-      <span class="toggle-title">Team B - Last 10 Overall <span class="auto-tag" id="bAutoTag">✅ Auto-filled</span></span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-        <div>
-          <label>G1 Points <span style="font-size:10px;color:#888">(recent → oldest)</span></label>
-          <input id="bQ1Scored" placeholder="20,18,22,19,21" aria-label="Player B last-10 first-game totals" />
-        </div>
-        <div>
-          <label>Match Points</label>
-          <input id="bFTScored" placeholder="170,188,162,176,184" aria-label="Player B last-10 match totals" />
-        </div>
+  <div class="section" id="teamASection">
+    <h3>
+      Team A - Last 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>
+    </h3>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px">
+      <div>
+        <label id="aFTScoredLabel"
+          >Match Total Pts
+          <span style="font-size: 10px; color: #888">(recent → oldest, max 10)</span></label
+        >
+        <input
+          id="aFTScored"
+          placeholder="72,68,81,75,70,79,66,74,77,71"
+          aria-label="Match Total Pts (recent → oldest, max 10)"
+        />
+      </div>
+      <div>
+        <label id="aQ1ScoredLabel">1st Game Pts</label>
+        <input
+          id="aQ1Scored"
+          placeholder="19,21,18,20,22,17,23,19,20,18"
+          aria-label="1st Game Pts"
+        />
       </div>
     </div>
   </div>
 
-  <div class="section collapsed" id="h2hSection">
-    <button type="button" class="section-toggle" onclick="this.parentElement.classList.toggle('collapsed')">
-      <span class="toggle-title">H2H TEST</span>
-      <span class="toggle-icon">▾</span>
-    </button>
-    <div class="section-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-        <div>
-          <label>H2H 1st Game Totals</label>
-          <input id="aQ1H2H" placeholder="19,20,18" aria-label="H2H first-game totals" />
-        </div>
-        <div>
-          <label>H2H Match Totals</label>
-          <input id="aFTH2H" placeholder="176,169,183" aria-label="H2H match totals" />
-        </div>
+  <div class="section" id="teamBSection">
+    <h3>
+      Team B - Last 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>
+    </h3>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px">
+      <div>
+        <label id="bFTScoredLabel"
+          >Match Total Pts
+          <span style="font-size: 10px; color: #888">(recent → oldest, max 10)</span></label
+        >
+        <input
+          id="bFTScored"
+          placeholder="70,76,69,80,73,67,78,72,75,68"
+          aria-label="Match Total Pts (recent → oldest, max 10)"
+        />
+      </div>
+      <div>
+        <label id="bQ1ScoredLabel">1st Game Pts</label>
+        <input
+          id="bQ1Scored"
+          placeholder="20,18,21,19,17,22,18,20,21,19"
+          aria-label="1st Game Pts"
+        />
       </div>
     </div>
   </div>
-</div>
+
+  <div class="section" id="h2hSection">
+    <h3>
+      H2H TEST
+      <span class="autofill-indicator" id="h2hAutoTag"
+        >✅ Auto-filled</span
+      >
+    </h3>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px">
+      <div>
+        <label id="aFTH2HLabel">H2H Match Totals</label>
+        <input id="aFTH2H" placeholder="74,71,79,68,76" aria-label="H2H Match Totals" />
+      </div>
+      <div>
+        <label id="aQ1H2HLabel">H2H 1st Game Totals</label>
+        <input id="aQ1H2H" placeholder="19,20,18,21,17" aria-label="H2H 1st Game Totals" />
+      </div>
+    </div>
+  </div>
 
 <div class="actions">
   <button id="runBtn" type="button">Run</button>
   <button id="clearBtn" type="button">Clear</button>
-  <button id="auditCopyBtn" type="button" title="Copy Audit" style="background:#d4af37 !important;color:#111 !important;box-shadow:0 2px 8px rgba(212,175,55,.35) !important;font-weight:700 !important;border:none !important;padding:5px 14px !important;font-size:12px !important;cursor:pointer !important;width:auto !important;min-width:0 !important;">📋</button>
-  <button id="inputsCopyBtn" type="button" title="Copy Inputs &amp; Market Lines" style="background:#d4af37 !important;color:#111 !important;box-shadow:0 2px 8px rgba(212,175,55,.35) !important;font-weight:700 !important;border:none !important;padding:5px 14px !important;font-size:12px !important;cursor:pointer !important;width:auto !important;min-width:0 !important;">🗒️</button>
-  <button id="trackPickBtn" type="button">Track pick</button>
+  <button
+    id="auditCopyBtn"
+    type="button"
+    title="Copy Audit"
+    style="
+      background: #d4af37 !important;
+      color: #111 !important;
+      box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important;
+      font-weight: 700 !important;
+      border: none !important;
+      padding: 5px 14px !important;
+      font-size: 12px !important;
+      cursor: pointer !important;
+      width: auto !important;
+      min-width: 0 !important;
+    "
+  >
+    📋
+  </button>
+  <button
+    id="inputsCopyBtn"
+    type="button"
+    title="Copy Inputs &amp; Market Lines"
+    style="
+      background: #d4af37 !important;
+      color: #111 !important;
+      box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important;
+      font-weight: 700 !important;
+      border: none !important;
+      padding: 5px 14px !important;
+      font-size: 12px !important;
+      cursor: pointer !important;
+      width: auto !important;
+      min-width: 0 !important;
+    "
+  >
+    🗒️
+  </button>
 </div>
 
-<div class="table-wrap">
-  <table id="results" style="display:none">
-    <thead>
-      <tr>
-        <th>Pick</th>
-        <th>Projection</th>
-        <th>Edge</th>
-        <th>Model Grade</th>
-        <th>Prediction</th>
-      </tr>
-    </thead>
-    <tbody id="resultsBody"></tbody>
-  </table>
+  <div id="statusLine" class="status-line"></div>
+
+  <div class="table-wrap">
+    <table id="results" style="display:none">
+      <thead>
+        <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="track-pick-wrap">
+    <button type="button" id="trackPickBtn">Track Pick</button>
+  </div>
+  <div class="build-chip" id="buildChip"></div>
 </div>
-<div id="buildChip"></div>
 
 <div id="trackerModal" class="tracker-modal" aria-hidden="true">
   <div class="tracker-panel">
@@ -3082,8 +3214,8 @@ body.dark-mode .tracker-analytics-section-head {
       <span id="trackerHeadTitle">Tracked Picks</span>
       <span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:12px;font-weight:900;pointer-events:none;white-space:nowrap;"></span>
       <div class="tracker-head-actions">
-        <button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Military Raid">🚨</button>
-        <button type="button" id="trackerHealthBtn" class="tracker-insights-btn" title="Engine health dashboard">❤️</button>
+        <button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Military Raid" onclick="triggerTrackerMilitaryRaid()">🚨</button>
+        <button type="button" id="trackerHealthBtn" class="tracker-insights-btn" title="Engine health / accuracy">❤️</button>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
     </div>
@@ -3096,42 +3228,16 @@ body.dark-mode .tracker-analytics-section-head {
     <div class="tracker-body-scroll" id="trackedPicksWrap">
       <div id="trackerEmpty" class="tracker-empty">No tracked picks saved yet.</div>
       <div id="trackerList"></div>
-      <div class="table-wrap tracker-table-wrap">
-        <table id="trackedPicksTable">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>League</th>
-              <th>Match</th>
-              <th>Market</th>
-              <th>Line</th>
-              <th>Pick</th>
-              <th>Grade</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="trackedPicksBody"></tbody>
-        </table>
-      </div>
-    </div>
-    <div id="trackerDeleteConfirm" class="tracker-delete-confirm" aria-hidden="true">
-      <div class="tracker-delete-confirm-card" role="dialog" aria-modal="true">
-        <p id="trackerDeleteConfirmText">Delete this pick permanently? It cannot be resurrected.</p>
-        <div class="tracker-delete-confirm-actions">
-          <button type="button" id="trackerDeleteCancelBtn">Cancel</button>
-          <button type="button" id="trackerDeleteOkBtn" class="tracker-delete-ok">OK</button>
-        </div>
-      </div>
     </div>
   </div>
 </div>
 
 <div id="manualSettleOverlay" class="manual-settle-overlay" aria-hidden="true">
   <div class="manual-settle-card" role="dialog" aria-modal="true">
-    <p id="manualSettleTitle" class="manual-settle-title">Settle pick</p>
+    <p id="manualSettleTitle" class="manual-settle-title"></p>
     <p id="manualSettleMatch" class="manual-settle-match"></p>
     <p id="manualSettleMarket" class="manual-settle-market"></p>
-    <input id="manualSettleInput" type="text" inputmode="decimal" autocomplete="off" placeholder="Actual points (e.g. 19 or 176)" />
+    <input id="manualSettleInput" type="text" autocomplete="off" autocapitalize="characters" />
     <div class="manual-settle-actions">
       <button type="button" id="manualSettleCancelBtn">Cancel</button>
       <button type="button" id="manualSettleOkBtn">OK</button>
@@ -3140,251 +3246,323 @@ body.dark-mode .tracker-analytics-section-head {
 </div>
 
 <div id="engineErrorOverlay" style="display:none;position:fixed;inset:0;z-index:100000;background:#050505;color:#fff;flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);" role="dialog" aria-modal="true">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 12px;background:#0b0b0b;border-bottom:1px solid #3a1012;flex-shrink:0;">
-    <div id="engineErrorTitle" style="color:#ff5c61;font-size:14px;font-weight:900;letter-spacing:.7px;">⚠️ ENGINE ERROR</div>
-    <button type="button" id="engineErrorCloseBtn" style="margin:0;background:#111;border:1px solid #555;color:#ccc;padding:7px 12px;font-size:11px;font-weight:900;cursor:pointer;border-radius:4px;">✕ BACK</button>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px;background:#0b0b0b;border-bottom:1px solid #3a1012;flex-shrink:0;">
+    <div id="engineErrorTitle" style="color:#ff5c61;font-size:14px;font-weight:900;">⚠️ ENGINE ERROR</div>
+    <button type="button" id="engineErrorCloseBtn" style="margin:0;background:#111;border:1px solid #555;color:#ccc;padding:7px 12px;font-size:11px;font-weight:900;cursor:pointer;">✕ BACK</button>
   </div>
   <div id="engineErrorBody" style="flex:1;overflow-y:auto;padding:14px;background:#070707;"></div>
 </div>
 
-<div id="afdbOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:#080808;flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
+<div id="afdbOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
   <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden"></div>
 </div>
-<div id="raidToast">Military raid complete</div>
+
+<div class="raid-toast" id="raidToast">Military raid complete</div>
 
 <script>
 (function () {
-  const BUILD_ID = "tt_v6_1_afdb_opaque_20260924";
-  const TT_MARKETS = ["game1_total", "match_total"];
-  const WTT_CMS = "https://wtt-mobile-app-services-api.azurewebsites.net";
-  const ARCHIVE_MS = 10 * 60 * 60 * 1000;
-  const NO_PLAY_EDGE = 0.45;
-  const BASELINE_G1 = 19.2;
-  const BASELINE_PER_GAME = 19.15;
-  const STORE = {
-    picks: "tt_engine_picks",
-    deleted: "tt_engine_deleted",
-    tombs: "tt_engine_tombstones",
-    learn: "tt_engine_learning",
-    acc: "tt_engine_accuracy",
-    lines: "tt_engine_line_memory",
-    worker: "tt_engine_worker",
-    fixtures: "tt_engine_fixtures",
-    unlocked: "tt_engineUnlocked",
-    unlockedAt: "tt_engineUnlockedAt",
-    lockFails: "tt_engineLockFails",
-    log: "tt_engine_debuglog"
-  };
-  const ENGINE_LOCK_PIN_HASH = "dc69839a54b801d7badf5c5d5a64ad5800f49c2cb4cca4f99a1767940240b711";
-  const ENGINE_LOCK_SALT = "bb" + "_" + "engine" + "_lock_v1";
+/* SECTION 6 — PIN lock / engineUnlocked */
+  /* DESIGN CHOICE (not a defect): intentional client-side UX lock only — NOT access control.
+     PIN hash+salt live in this file; unlock flag is localStorage (`engineUnlocked` / `engineUnlockedAt`).
+     Operators accept that anyone with DevTools can bypass via localStorage or offline hash crack.
+     Do not treat this overlay as authentication or authorization. */
+  const ENGINE_LOCK_PIN_HASH = "5aec22044b64b8526e14955a8dcdff063b5504471cb6d69ae02d47c6d9093c38";
+  const ENGINE_LOCK_SALT = "tt_engine_lock_v1";
+  const overlay = document.getElementById("engineLockOverlay");
+  const LOCKOUT_KEY = "tt_engineLockFails";
+  const UNLOCK_TS_KEY = "tt_engineUnlockedAt";
+  const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+  const unlockedAt = parseInt(localStorage.getItem(UNLOCK_TS_KEY) || "0", 10);
+  if (
+    localStorage.getItem("tt_engineUnlocked") === "yes" &&
+    unlockedAt &&
+    Date.now() - unlockedAt < SESSION_TTL_MS
+  ) {
+    overlay.classList.add("hidden");
+  } else {
+    localStorage.removeItem("tt_engineUnlocked");
+    localStorage.removeItem(UNLOCK_TS_KEY);
+  }
+  async function _sha256Hex(str) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf))
+      .map(function (b) {
+        return b.toString(16).padStart(2, "0");
+      })
+      .join("");
+  }
+  async function tryUnlock() {
+    const val = document.getElementById("engineLockInput").value;
+    const err = document.getElementById("engineLockError");
+    let failState = { n: 0, until: 0 };
+    try {
+      failState = JSON.parse(localStorage.getItem(LOCKOUT_KEY) || '{"n":0,"until":0}');
+    } catch (_e) {}
+    if (failState.until && Date.now() < failState.until) {
+      const secs = Math.ceil((failState.until - Date.now()) / 1000);
+      err.textContent = "Locked out " + secs + "s — too many attempts";
+      return;
+    }
+    if (!window.crypto || !window.crypto.subtle) {
+      err.textContent = "Secure crypto unavailable — open in HTTPS / modern browser";
+      return;
+    }
+    const salted = await _sha256Hex(ENGINE_LOCK_SALT + ":" + val);
+    if (salted === ENGINE_LOCK_PIN_HASH) {
+      localStorage.setItem("tt_engineUnlocked", "yes");
+      localStorage.setItem(UNLOCK_TS_KEY, String(Date.now()));
+      localStorage.removeItem(LOCKOUT_KEY);
+      overlay.classList.add("hidden");
+      err.textContent = "";
+    } else {
+      failState.n = (failState.n || 0) + 1;
+      const backoff = Math.min(300000, 1000 * Math.pow(2, Math.min(8, failState.n)));
+      if (failState.n >= 5) failState.until = Date.now() + backoff;
+      try {
+        localStorage.setItem(LOCKOUT_KEY, JSON.stringify(failState));
+      } catch (_e2) {}
+      err.textContent =
+        failState.n >= 5 ? "Wrong PIN — locked " + Math.ceil(backoff / 1000) + "s" : "Wrong PIN";
+      document.getElementById("engineLockInput").value = "";
+    }
+  }
+  document.getElementById("engineLockBtn").addEventListener("click", tryUnlock);
+  document.getElementById("engineLockInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") tryUnlock();
+  });
+})();
 
-  function $(id) { return document.getElementById(id); }
-  function clamp(n, a, b) { n = Number(n); if (!isFinite(n)) return a; return Math.max(a, Math.min(b, n)); }
-  function avg(arr) {
-    const xs = (arr || []).map(Number).filter(function (n) { return isFinite(n); });
-    if (!xs.length) return null;
-    return xs.reduce(function (s, n) { return s + n; }, 0) / xs.length;
+</script>
+<script>
+(function () {
+  "use strict";
+  const BUILD_ID = "tt_v6_3_ui_chrome_100_20260924";
+  window.__TT_INTEGRITY_BUILD__ = BUILD_ID;
+  window.TT_BUILD_ID = BUILD_ID;
+  window.TT_PREDICTION_STUB = false;
+  const TT_MARKETS = Object.freeze(["game1_total", "match_total"]);
+  window.TT_MARKETS = TT_MARKETS;
+
+  const ARCHIVE_MS = 10 * 60 * 60 * 1000;
+  const WTT_CMS = "https://wtt-mobile-app-services-api.azurewebsites.net/api/cms";
+  const BASELINE_G1 = 18.5;
+  const BASELINE_PER_GAME = 18.5;
+  const NO_PLAY_EDGE = 0.35;
+  const STORE = Object.freeze({
+    picks: "tt_engine_tracker_picks",
+    deleted: "tt_engine_tracker_deleted",
+    tombstones: "tt_engine_tracker_tombstones",
+    worker: "tt_engine_worker",
+    lineMem: "tt_engine_line_memory_v1",
+    fixtures: "tt_engine_fixtures",
+    accuracy: "tt_engine_accuracy_log",
+    learning: "tt_engine_learning_v1",
+  });
+
+  const $ = (id) => document.getElementById(id);
+  const logLines = [];
+  const reqLogLines = [];
+  let lastRawPeek = "";
+  let fixtureMap = {};
+  let selectedMatch = null;
+  let fixtureDayOffset = 0;
+  let trackerTab = "active";
+  let lastRows = [];
+  let lastModel = null;
+  const errorLines = [];
+
+  function engineDebug(msg, extra) {
+    const line = "[" + new Date().toISOString() + "] " + msg + (extra ? " " + JSON.stringify(extra) : "");
+    logLines.push(line);
+    if (logLines.length > 200) logLines.shift();
+    const el = $("debugLog");
+    if (el) el.textContent = logLines.slice(-80).join("\n");
+    try { console.log("[TT]", msg, extra || ""); } catch (_e) {}
   }
-  function weightedMean(parts) {
-    let s = 0, w = 0;
-    (parts || []).forEach(function (p) {
-      if (p && p.v != null && isFinite(p.v) && p.w > 0) { s += p.v * p.w; w += p.w; }
-    });
-    return w ? s / w : null;
+  function setRawPeek(obj) {
+    try {
+      const s = typeof obj === "string" ? obj : JSON.stringify(obj);
+      lastRawPeek = s.length > 1800 ? s.slice(0, 1800) + "…" : s;
+    } catch (_e) { lastRawPeek = String(obj).slice(0, 1800); }
+    const el = $("rawPeek");
+    if (el) el.textContent = lastRawPeek || "(empty)";
   }
-  function parseSeries(str) {
-    if (!str) return [];
-    return String(str).split(/[,\s;]+/).map(function (x) { return parseFloat(x); }).filter(function (n) { return isFinite(n); }).slice(0, 10);
+  function pushReqLog(entry) {
+    const line = (entry.ms != null ? entry.ms + "ms " : "") +
+      (entry.status != null ? "[" + entry.status + "] " : "") +
+      (entry.method || "GET") + " " + (entry.url || "") +
+      (entry.error ? " ERR " + entry.error : "");
+    reqLogLines.push(line);
+    if (reqLogLines.length > 80) reqLogLines.shift();
+    const el = $("reqLog");
+    if (el) el.textContent = reqLogLines.slice(-40).join("\n");
   }
   function lsGet(key, fallback) {
     try {
-      const raw = localStorage.getItem(key);
-      if (raw == null) return fallback;
-      return JSON.parse(raw);
+      const v = localStorage.getItem(key);
+      if (v == null) return fallback;
+      return JSON.parse(v);
     } catch (_e) { return fallback; }
   }
   function lsSet(key, val) {
     try { localStorage.setItem(key, JSON.stringify(val)); return true; }
     catch (_e) { return false; }
   }
-  function isAutofetchLeague(lg) {
-    lg = String(lg || "").toLowerCase();
-    return lg === "setka" || lg.indexOf("wtt") === 0;
-  }
   function workerBase() {
-    try { return (localStorage.getItem(STORE.worker) || "").replace(/\/+$/, ""); }
-    catch (_e) { return ""; }
-  }
-  const logLines = [];
-  const reqLogLines = [];
-  const errorLines = [];
-  let lastRawPeek = "";
-  let fixtureDayOffset = 0;
-  let fixtureMap = {};
-  let selectedMatch = null;
-  let lastRows = [];
-  let lastModel = null;
-  let trackerTab = "active";
-  let pendingDeleteId = null;
-  let pendingSettleId = null;
-
-  function engineDebug(msg, extra) {
-    const line = new Date().toISOString().slice(11, 19) + " " + msg + (extra ? " " + safeJson(extra) : "");
-    logLines.push(line);
-    if (logLines.length > 200) logLines.shift();
-    const low = String(msg).toLowerCase();
-    if (low.indexOf("error") >= 0 || low.indexOf("fail") >= 0 || low.indexOf("crash") >= 0) {
-      errorLines.push(line);
-      const btn = $("headerErrorBtn");
-      if (btn) btn.classList.add("active");
-    }
-  }
-  function safeJson(o) {
-    try { return JSON.stringify(o); } catch (_e) { return String(o); }
-  }
-  function setStatus(msg, kind) {
-    const el = $("fetchStatus");
-    if (!el) return;
-    el.textContent = msg || "";
-    el.className = kind || "";
-  }
-  function setRawPeek(data) {
-    try { lastRawPeek = typeof data === "string" ? data.slice(0, 4000) : JSON.stringify(data, null, 2).slice(0, 4000); }
-    catch (_e) { lastRawPeek = String(data).slice(0, 4000); }
-  }
-
-  /* PIN lock — same hash as sister app; TT storage keys only */
-  (function initLock() {
-    const overlay = $("engineLockOverlay");
-    const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
-    const unlockedAt = parseInt(localStorage.getItem(STORE.unlockedAt) || "0", 10);
-    if (localStorage.getItem(STORE.unlocked) === "yes" && unlockedAt && Date.now() - unlockedAt < SESSION_TTL_MS) {
-      if (overlay) overlay.classList.add("hidden");
-    } else {
-      localStorage.removeItem(STORE.unlocked);
-      localStorage.removeItem(STORE.unlockedAt);
-    }
-    async function sha256Hex(str) {
-      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-      return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
-    }
-    async function tryUnlock() {
-      const err = $("engineLockError");
-      const fails = parseInt(localStorage.getItem(STORE.lockFails) || "0", 10);
-      if (fails >= 8) {
-        if (err) err.textContent = "Too many attempts — reload later";
-        return;
-      }
-      const val = ($("engineLockInput") || {}).value || "";
-      if (!val) return;
-      const hex = await sha256Hex(ENGINE_LOCK_SALT + ":" + val);
-      if (hex === ENGINE_LOCK_PIN_HASH) {
-        localStorage.setItem(STORE.unlocked, "yes");
-        localStorage.setItem(STORE.unlockedAt, String(Date.now()));
-        localStorage.removeItem(STORE.lockFails);
-        if (overlay) overlay.classList.add("hidden");
-        if (err) err.textContent = "";
-      } else {
-        localStorage.setItem(STORE.lockFails, String(fails + 1));
-        if (err) err.textContent = "Wrong PIN";
-      }
-    }
-    $("engineLockBtn") && $("engineLockBtn").addEventListener("click", function () { tryUnlock(); });
-    $("engineLockInput") && $("engineLockInput").addEventListener("keydown", function (e) {
-      if (e.key === "Enter") tryUnlock();
-    });
-  })();
-
-  async function ttFetch(url, opt) {
-    opt = opt || {};
-    const ctrl = new AbortController();
-    const t = setTimeout(function () { ctrl.abort(); }, opt.timeout || 20000);
-    reqLogLines.push(new Date().toISOString().slice(11, 19) + " GET " + url);
-    if (reqLogLines.length > 80) reqLogLines.shift();
     try {
-      const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
-      const text = await res.text();
-      let json = null;
-      try { json = JSON.parse(text); } catch (_e) { json = text; }
+      const v = localStorage.getItem(STORE.worker) || localStorage.getItem("tt_engine_worker_url") || "";
+      return String(v).replace(/\/+$/, "");
+    } catch (_e) { return ""; }
+  }
+  function pushError(msg) {
+    errorLines.push("[" + new Date().toISOString() + "] " + msg);
+    if (errorLines.length > 40) errorLines.shift();
+    const btn = $("headerErrorBtn");
+    if (btn) btn.classList.add("active");
+  }
+  async function ttFetch(url, opts) {
+    const t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    const ctrl = new AbortController();
+    const timeout = (opts && opts.timeout) || 20000;
+    const timer = setTimeout(() => ctrl.abort(), timeout);
+    let status = 0, errMsg = null, data = null;
+    try {
+      const res = await fetch(url, { signal: ctrl.signal, cache: "no-store", headers: { Accept: "application/json" } });
+      status = res.status;
+      const textBody = await res.text();
+      try { data = textBody ? JSON.parse(textBody) : null; } catch (_e) { data = textBody; }
       if (!res.ok) throw new Error("HTTP " + res.status);
-      return json;
+      setRawPeek(data);
+      return data;
     } catch (e) {
-      engineDebug("ttFetch fail", { url: url, error: String(e && e.message || e) });
+      errMsg = e && e.name === "AbortError" ? "timeout" : (e && e.message ? e.message : String(e));
+      pushError(errMsg + " · " + url);
       throw e;
     } finally {
-      clearTimeout(t);
+      clearTimeout(timer);
+      const t1 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+      pushReqLog({ url, status: status || null, ms: Math.round(t1 - t0), error: errMsg, method: "GET" });
     }
   }
-
-  function padDocumentCode(code) {
-    let s = String(code || "");
-    while (s.length < 42) s += "-";
-    return s.slice(0, 42);
+  function setStatus(msg, kind) {
+    const el = $("statusLine");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.style.color = kind === "err" ? "#c91920" : kind === "ok" ? "#3a9c35" : "";
   }
-  function parseGameScores(raw) {
-    const games = [];
-    String(raw || "").split(/[;,]/).forEach(function (part) {
-      const m = String(part).trim().match(/(\d+)\s*[-:]\s*(\d+)/);
-      if (m) games.push({ p1: Number(m[1]), p2: Number(m[2]) });
+  function parseSeries(str) {
+    if (!str || !String(str).trim()) return [];
+    return String(str).split(/[,\s]+/).map((x) => parseFloat(x)).filter((n) => !isNaN(n) && n > 0);
+  }
+  function avg(arr) {
+    if (!arr || !arr.length) return null;
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
+  function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+  function weightedMean(pairs) {
+    let sw = 0, sv = 0;
+    pairs.forEach((p) => {
+      if (p.v == null || !isFinite(p.v) || !(p.w > 0)) return;
+      sw += p.w; sv += p.v * p.w;
     });
-    return games;
+    return sw > 0 ? sv / sw : null;
   }
   function game1Total(match) {
-    if (!match || !match.games || !match.games.length) return null;
-    const g = match.games[0];
-    const n = Number(g.p1 || 0) + Number(g.p2 || 0);
-    return n > 0 ? n : null;
+    const g = ((match && match.games) || [])[0];
+    if (!g) return null;
+    return g.p1Points + g.p2Points;
   }
   function matchTotalPts(match) {
-    if (!match || !match.games || !match.games.length) return null;
-    const n = match.games.reduce(function (s, g) { return s + Number(g.p1 || 0) + Number(g.p2 || 0); }, 0);
-    return n > 0 ? n : null;
+    const games = (match && match.games) || [];
+    if (!games.length) return null;
+    return games.reduce((s, g) => s + g.p1Points + g.p2Points, 0);
   }
   function settleSide(actual, line) {
-    if (actual == null || line == null || !isFinite(actual) || !isFinite(line)) return null;
-    if (actual === line) return "push";
-    return actual > line ? "over" : "under";
+    if (actual == null || line == null || !isFinite(Number(line))) return null;
+    const a = Number(actual), L = Number(line);
+    if (a > L) return "over";
+    if (a < L) return "under";
+    return "push";
   }
-  function normalizeSetkaMatch(m, tName) {
-    const p1 = m.player1 || m.homePlayer || m.home || {};
-    const p2 = m.player2 || m.awayPlayer || m.away || {};
-    const nameOf = function (p, fb) {
-      return (p && (p.displayName || p.name || p.fullName || [p.firstName, p.lastName].filter(Boolean).join(" "))) || fb;
+  function mapSetkaStatus(id) {
+    if (id === 1) return "scheduled";
+    if (id === 2) return "live";
+    if (id === 3) return "finished";
+    if (id === 4) return "cancelled";
+    return "unknown";
+  }
+  function normalizeSetkaMatch(m, tournamentName) {
+    const p1 = m.player1 || {};
+    const p2 = m.player2 || {};
+    const games = (m.setScores || []).map((s) => ({
+      gameNumber: s.number,
+      p1Points: Number(s.p1Score) || 0,
+      p2Points: Number(s.p2Score) || 0,
+    }));
+    const dn = (p) => [p.firstName, p.lastName].filter(Boolean).join(" ") || p.fullName || p.name || "";
+    return {
+      id: "setka:" + m.id,
+      league: "setka",
+      competitionName: m.tournamentName || tournamentName || "Setka",
+      startTime: m.startDate || null,
+      status: mapSetkaStatus(m.statusId),
+      bestOf: 5,
+      player1: {
+        id: "setka:" + p1.id, league: "setka", rawId: p1.id,
+        displayName: dn(p1) || "P1",
+        rating: p1.ratingSc != null ? Number(p1.ratingSc) : (p1.rating != null ? Number(p1.rating) : null),
+      },
+      player2: {
+        id: "setka:" + p2.id, league: "setka", rawId: p2.id,
+        displayName: dn(p2) || "P2",
+        rating: p2.ratingSc != null ? Number(p2.ratingSc) : (p2.rating != null ? Number(p2.rating) : null),
+      },
+      games,
+      setsP1: games.filter((g) => g.p1Points > g.p2Points).length,
+      setsP2: games.filter((g) => g.p2Points > g.p1Points).length,
+      raw: m,
     };
-    const scores = m.setScores || m.SetScores || [];
-    const games = (Array.isArray(scores) ? scores : []).map(function (s) {
+  }
+  function padDocumentCode(code) {
+    const c = String(code || "");
+    return c.length >= 42 ? c : c.padEnd(42, "-");
+  }
+  function parseGameScores(str) {
+    if (!str || typeof str !== "string") return [];
+    return str.split(",").map((seg, i) => {
+      const parts = seg.trim().split("-").map((x) => Number(x));
       return {
-        n: s.number || 0,
-        p1: Number(s.p1Score != null ? s.p1Score : s.homeScore) || 0,
-        p2: Number(s.p2Score != null ? s.p2Score : s.awayScore) || 0
+        gameNumber: i + 1,
+        p1Points: Number.isFinite(parts[0]) ? parts[0] : 0,
+        p2Points: Number.isFinite(parts[1]) ? parts[1] : 0,
       };
     });
-    const st = String(m.status || m.matchStatus || "scheduled").toLowerCase();
-    return {
-      id: "setka:" + String(m.id || m.matchId || Math.random()),
-      league: "setka",
-      player1: { displayName: nameOf(p1, "P1"), rawId: p1.id || p1.playerId, rating: p1.rating },
-      player2: { displayName: nameOf(p2, "P2"), rawId: p2.id || p2.playerId, rating: p2.rating },
-      games: games,
-      status: /finish|official|complete|ended/.test(st) ? "finished" : /live|play/.test(st) ? "live" : "scheduled",
-      competitionName: tName,
-      startTime: m.startTime || m.start || m.date || "",
-      bestOf: Number(m.bestOf || 5)
-    };
+  }
+  function isAutofetchLeague(league) {
+    const k = String(league || "").toLowerCase();
+    return k === "setka" || k === "wtt" || k === "wtt_contender" || k === "wtt_champions";
   }
 
-  function loadLearning() { return lsGet(STORE.learn, { biasG1: 0, biasMt: 0, samples: 0 }) || { biasG1: 0, biasMt: 0, samples: 0 }; }
-  function saveLearning(L) { lsSet(STORE.learn, L); }
-  function loadAccuracy() { return lsGet(STORE.acc, []) || []; }
-  function saveAccuracy(log) { lsSet(STORE.acc, (log || []).slice(0, 400)); }
+  /* learning / accuracy / line memory */
+  function loadLineMem() { return lsGet(STORE.lineMem, {}) || {}; }
+  function saveLineMem(m) { return lsSet(STORE.lineMem, m); }
+  function loadAccuracy() { return lsGet(STORE.accuracy, []) || []; }
+  function saveAccuracy(arr) { return lsSet(STORE.accuracy, (arr || []).slice(0, 500)); }
+  function loadLearning() {
+    return lsGet(STORE.learning, { biasG1: 0, biasMt: 0, samples: 0, updatedAt: null }) ||
+      { biasG1: 0, biasMt: 0, samples: 0 };
+  }
+  function saveLearning(o) { return lsSet(STORE.learning, o); }
+  function recordLineMemory(market, line, proj, league) {
+    const mem = loadLineMem();
+    const key = String(league || "any") + "|" + market;
+    const row = mem[key] || { n: 0, sumLine: 0, sumProj: 0, lastAt: 0 };
+    row.n += 1; row.sumLine += Number(line) || 0; row.sumProj += Number(proj) || 0; row.lastAt = Date.now();
+    mem[key] = row; saveLineMem(mem);
+  }
   function applyLearningBias(projG1, projMt) {
     const L = loadLearning();
     return { projG1: projG1 + (L.biasG1 || 0), projMt: projMt + (L.biasMt || 0) };
-  }
-  function recordLineMemory(market, line, proj, league) {
-    const mem = lsGet(STORE.lines, []) || [];
-    mem.unshift({ at: Date.now(), market: market, line: line, proj: proj, league: league || "" });
-    lsSet(STORE.lines, mem.slice(0, 250));
   }
   function retrospectiveUpdate(pick, actual) {
     if (actual == null || !pick || pick.projection == null) return;
@@ -3399,15 +3577,15 @@ body.dark-mode .tracker-analytics-section-head {
     const log = loadAccuracy();
     log.unshift({
       at: Date.now(), market: pick.market, league: pick.league, line: pick.line, side: pick.side,
-      projection: pick.projection, actual: actual, result: pick.result, err: err, build: BUILD_ID
+      projection: pick.projection, actual, result: pick.result, err, build: BUILD_ID,
     });
     saveAccuracy(log);
-    engineDebug("retrospective", { market: pick.market, err: err, biasG1: L.biasG1, biasMt: L.biasMt });
+    engineDebug("retrospective", { market: pick.market, err, biasG1: L.biasG1, biasMt: L.biasMt });
   }
   function accuracySummary() {
     const log = loadAccuracy();
     let w = 0, l = 0, p = 0;
-    log.forEach(function (r) {
+    log.forEach((r) => {
       if (r.result === "won") w++;
       else if (r.result === "lost") l++;
       else if (r.result === "push") p++;
@@ -3416,6 +3594,7 @@ body.dark-mode .tracker-analytics-section-head {
     return { n: log.length, wins: w, losses: l, pushes: p, biasG1: L.biasG1 || 0, biasMt: L.biasMt || 0, samples: L.samples || 0 };
   }
 
+  /* TT model */
   function binomial(n, k) {
     if (k < 0 || k > n) return 0;
     k = Math.min(k, n - k);
@@ -3476,20 +3655,20 @@ body.dark-mode .tracker-analytics-section-head {
     const bestOf = inputs.bestOf || 5;
     const formG1 = weightedMean([
       { v: avg(aG1), w: aG1.length ? Math.min(aG1.length, 8) : 0 },
-      { v: avg(bG1), w: bG1.length ? Math.min(bG1.length, 8) : 0 }
+      { v: avg(bG1), w: bG1.length ? Math.min(bG1.length, 8) : 0 },
     ]);
     const h2hG1Avg = avg(h2hG1);
     let projG1 = weightedMean([
       { v: BASELINE_G1, w: 1.0 },
       { v: formG1, w: formG1 != null ? 2.2 : 0 },
-      { v: h2hG1Avg, w: h2hG1Avg != null ? 1.6 : 0 }
+      { v: h2hG1Avg, w: h2hG1Avg != null ? 1.6 : 0 },
     ]) || BASELINE_G1;
     const pWin = estimateGameWinProb(aG1, bG1, aMt, bMt, inputs.ratingA, inputs.ratingB);
     const expGames = expectedGamesBO(bestOf, pWin);
     const baselineMt = expGames * BASELINE_PER_GAME;
     const formMt = weightedMean([
       { v: avg(aMt), w: aMt.length ? Math.min(aMt.length, 8) : 0 },
-      { v: avg(bMt), w: bMt.length ? Math.min(bMt.length, 8) : 0 }
+      { v: avg(bMt), w: bMt.length ? Math.min(bMt.length, 8) : 0 },
     ]);
     const scaledFromG1 = formG1 != null ? formG1 * expGames : null;
     const h2hMtAvg = avg(h2hMt);
@@ -3497,7 +3676,7 @@ body.dark-mode .tracker-analytics-section-head {
       { v: baselineMt, w: 1.0 },
       { v: formMt, w: formMt != null ? 2.4 : 0 },
       { v: scaledFromG1, w: formMt == null && scaledFromG1 != null ? 1.4 : 0 },
-      { v: h2hMtAvg, w: h2hMtAvg != null ? 1.8 : 0 }
+      { v: h2hMtAvg, w: h2hMtAvg != null ? 1.8 : 0 },
     ]) || baselineMt;
     const biased = applyLearningBias(projG1, projMt);
     projG1 = biased.projG1; projMt = biased.projMt;
@@ -3506,7 +3685,7 @@ body.dark-mode .tracker-analytics-section-head {
       (aMt.length ? 1 : 0) + (bMt.length ? 1 : 0) +
       (h2hG1.length ? 1 : 0) + (h2hMt.length ? 1 : 0);
     const dataScore = clamp(dataPts / 6, 0, 1);
-    return { projG1: projG1, projMt: projMt, expGames: expGames, pWin: pWin, dataScore: dataScore, baselineMt: baselineMt, thin: dataScore < 0.15 };
+    return { projG1, projMt, expGames, pWin, dataScore, baselineMt, thin: dataScore < 0.15 };
   }
   function buildRow(name, key, line, proj, dataScore) {
     const hasLine = line != null && !isNaN(line);
@@ -3519,17 +3698,23 @@ body.dark-mode .tracker-analytics-section-head {
     if (hasLine && edgeNum != null && units > 0) {
       side = edgeNum > 0 ? "OVER" : edgeNum < 0 ? "UNDER" : "NO PLAY";
     }
-    const cls = side === "OVER" ? "pred-over" : side === "UNDER" ? "pred-under" : "pred-noplay";
+    const cls = side === "OVER" ? "pred-over" : side === "UNDER" ? "pred-under" : "pred-none";
     return {
-      name: name, key: key, line: hasLine ? line : null, projection: projection, edge: edge, edgeNum: edgeNum,
+      name, key, line: hasLine ? line : null, projection, edge, edgeNum,
       grade: gradeFromEdge(edgeNum, dataScore),
-      units: units.toFixed(1) + "u", unitsNum: units, side: side, cls: cls, projNum: proj
+      units: units.toFixed(1) + "u", unitsNum: units, side, cls, projNum: proj,
     };
   }
 
   async function runEngine() {
     try {
       const league = (($("leagueSelect") || {}).value || "").toLowerCase();
+      if (isAutofetchLeague(league)) {
+        const sel = $("fixtureSelect");
+        if (sel && sel.options.length <= 1) {
+          try { await autofetchFixtures(league); } catch (_e) {}
+        }
+      }
       const g1Line = parseFloat(($("q1Market") || {}).value);
       const mtLine = parseFloat(($("ftMarket") || {}).value);
       const aG1 = parseSeries(($("aQ1Scored") || {}).value);
@@ -3541,18 +3726,18 @@ body.dark-mode .tracker-analytics-section-head {
       const bestOf = (selectedMatch && selectedMatch.bestOf) || 5;
       const ratingA = selectedMatch && selectedMatch.player1 && selectedMatch.player1.rating;
       const ratingB = selectedMatch && selectedMatch.player2 && selectedMatch.player2.rating;
-      const model = projectMarkets({ aG1: aG1, bG1: bG1, aMt: aMt, bMt: bMt, h2hG1: h2hG1, h2hMt: h2hMt, bestOf: bestOf, ratingA: ratingA, ratingB: ratingB });
+      const model = projectMarkets({ aG1, bG1, aMt, bMt, h2hG1, h2hMt, bestOf, ratingA, ratingB });
       const rows = [
         buildRow("1st Game Total", "game1_total", isNaN(g1Line) ? null : g1Line, model.projG1, model.dataScore),
-        buildRow("Match Total Points", "match_total", isNaN(mtLine) ? null : mtLine, model.projMt, model.dataScore)
+        buildRow("Match Total Points", "match_total", isNaN(mtLine) ? null : mtLine, model.projMt, model.dataScore),
       ];
       const tbody = $("resultsBody");
       const table = $("results");
       if (tbody && table) {
-        tbody.innerHTML = rows.map(function (r) {
-          return "<tr><td>" + r.name + "</td><td>" + r.projection + "</td><td>" + r.edge + "</td><td>" + r.grade +
-            '</td><td class="' + r.cls + '">' + r.side + " · " + r.units + "</td></tr>";
-        }).join("");
+        tbody.innerHTML = rows.map((r) =>
+          "<tr><td>" + r.name + "</td><td>" + r.projection + "</td><td>" + r.edge + "</td><td>" + r.grade +
+          '</td><td class="' + r.cls + '">' + r.side + " · " + r.units + "</td></tr>"
+        ).join("");
         table.style.display = "";
       }
       lastRows = rows;
@@ -3561,16 +3746,16 @@ body.dark-mode .tracker-analytics-section-head {
       window.__ttLastModel = model;
       const trackBtn = $("trackPickBtn");
       if (trackBtn) trackBtn.style.display = "";
-      rows.forEach(function (r) {
+      rows.forEach((r) => {
         if (r.line != null && r.projNum != null) recordLineMemory(r.key, r.line, r.projNum, league);
       });
-      const playable = rows.filter(function (r) { return r.unitsNum > 0; }).length;
+      const playable = rows.filter((r) => r.unitsNum > 0).length;
       setStatus(
         "Run · proj G1 " + model.projG1.toFixed(1) + " / MT " + model.projMt.toFixed(1) +
         " · E[games] " + model.expGames.toFixed(2) + " · " + playable + " play(s) · " + BUILD_ID,
         "ok"
       );
-      engineDebug("runEngine ok", { playable: playable, dataScore: model.dataScore });
+      engineDebug("runEngine ok", { playable, dataScore: model.dataScore });
     } catch (err) {
       setStatus("Run error: " + (err && err.message ? err.message : String(err)), "err");
       engineDebug("runEngine crash", { error: String(err) });
@@ -3580,7 +3765,7 @@ body.dark-mode .tracker-analytics-section-head {
   function clearAll() {
     ["q1Market", "ftMarket", "teamAName", "teamBName",
       "aQ1Scored", "aFTScored", "bQ1Scored", "bFTScored", "aQ1H2H", "aFTH2H"
-    ].forEach(function (id) { const el = $(id); if (el) el.value = ""; });
+    ].forEach((id) => { const el = $(id); if (el) el.value = ""; });
     const league = $("leagueSelect"); if (league) league.value = "";
     populateFixtureSelect([]);
     selectedMatch = null;
@@ -3589,24 +3774,13 @@ body.dark-mode .tracker-analytics-section-head {
     const trackBtn = $("trackPickBtn"); if (trackBtn) trackBtn.style.display = "none";
     lastRows = []; lastModel = null;
     const af = $("autofetchSection"); if (af) af.style.display = "none";
-    ["aAutoTag", "bAutoTag"].forEach(function (id) { const t = $(id); if (t) t.classList.remove("show"); });
+    updateSectionLocks();
+    accordionOpen("leagueSection");
     setStatus("Cleared", "ok");
   }
 
-  function copyText(text, okMsg) {
-    const finish = function (ok) { setStatus(ok ? okMsg : "Copy blocked", ok ? "ok" : "err"); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { finish(true); }).catch(function () {
-        try {
-          const ta = document.createElement("textarea");
-          ta.value = text; document.body.appendChild(ta); ta.select();
-          finish(document.execCommand("copy")); document.body.removeChild(ta);
-        } catch (_e) { finish(false); }
-      });
-    }
-  }
   function copyInputs() {
-    copyText([
+    const parts = [
       "TheBetCeo TT Inputs", "Build: " + BUILD_ID,
       "League: " + (($("leagueSelect") || {}).value || ""),
       "Player A: " + (($("teamAName") || {}).value || ""),
@@ -3618,30 +3792,38 @@ body.dark-mode .tracker-analytics-section-head {
       "B G1: " + (($("bQ1Scored") || {}).value || ""),
       "B MT: " + (($("bFTScored") || {}).value || ""),
       "H2H G1: " + (($("aQ1H2H") || {}).value || ""),
-      "H2H MT: " + (($("aFTH2H") || {}).value || "")
-    ].join("\n"), "Inputs copied");
+      "H2H MT: " + (($("aFTH2H") || {}).value || ""),
+    ];
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(parts.join("\n"))
+        .then(() => setStatus("Inputs copied", "ok"))
+        .catch(() => setStatus("Copy blocked", "err"));
+    }
   }
   function copyAudit() {
     const rows = lastRows || [];
     const m = lastModel || {};
     const acc = accuracySummary();
-    copyText(
-      "TheBetCeo TT Audit\n" + BUILD_ID + "\n" +
+    const text = "TheBetCeo TT Audit\n" + BUILD_ID + "\n" +
       "E[games]=" + (m.expGames != null ? m.expGames.toFixed(2) : "?") +
       " dataScore=" + (m.dataScore != null ? m.dataScore.toFixed(2) : "?") +
       " learnBias G1=" + acc.biasG1.toFixed(2) + " MT=" + acc.biasMt.toFixed(2) +
       " acc=" + acc.wins + "-" + acc.losses + "-" + acc.pushes + "\n" +
-      rows.map(function (r) { return r.name + " | proj " + r.projection + " | edge " + r.edge + " | " + r.side + " " + r.units + " | " + r.grade; }).join("\n"),
-      "Audit copied"
-    );
+      rows.map((r) => r.name + " | proj " + r.projection + " | edge " + r.edge + " | " + r.side + " " + r.units + " | " + r.grade).join("\n");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => setStatus("Audit copied", "ok"))
+        .catch(() => setStatus("Copy blocked", "err"));
+    }
   }
 
+  /* Tracker */
   function loadPicks() { return lsGet(STORE.picks, []) || []; }
   function savePicks(arr) { return lsSet(STORE.picks, arr); }
   function loadDeleted() { return lsGet(STORE.deleted, []) || []; }
   function saveDeleted(arr) { return lsSet(STORE.deleted, arr); }
-  function loadTombstones() { return lsGet(STORE.tombs, {}) || {}; }
-  function saveTombstones(m) { return lsSet(STORE.tombs, m); }
+  function loadTombstones() { return lsGet(STORE.tombstones, {}) || {}; }
+  function saveTombstones(m) { return lsSet(STORE.tombstones, m); }
   function pickSig(p) {
     return [p.matchId || "", p.market || "", p.line, p.side, p.playerA, p.playerB].join("|");
   }
@@ -3650,23 +3832,21 @@ body.dark-mode .tracker-analytics-section-head {
     let picks = loadPicks();
     const kept = [];
     let pruned = 0;
-    picks.forEach(function (p) {
+    picks.forEach((p) => {
       if (p.status === "settled" && p.settledAt && (now - p.settledAt) >= ARCHIVE_MS) pruned++;
       else kept.push(p);
     });
-    /* 10h rule: settled picks older than 10h stay stored but leave Active view.
-       We keep them in the same array and filter by tab; prune only very old deleted/tombs. */
-    savePicks(picks);
+    if (pruned) savePicks(kept);
     let del = loadDeleted();
     const before = del.length;
-    del = del.filter(function (p) { return !p.deletedAt || (now - p.deletedAt) < ARCHIVE_MS * 3; });
+    del = del.filter((p) => !p.deletedAt || (now - p.deletedAt) < ARCHIVE_MS * 3);
     saveDeleted(del);
     const tombs = loadTombstones();
-    Object.keys(tombs).forEach(function (k) {
+    Object.keys(tombs).forEach((k) => {
       if (now - tombs[k] >= ARCHIVE_MS * 3) delete tombs[k];
     });
     saveTombstones(tombs);
-    return { pruned: pruned, tombsPurged: before - del.length, kept: kept.length };
+    return { pruned, tombsPurged: before - del.length, kept: kept.length };
   }
   function openTracker() {
     const m = $("trackerModal");
@@ -3695,21 +3875,21 @@ body.dark-mode .tracker-analytics-section-head {
       id: selectedMatch.id, league: selectedMatch.league,
       games: selectedMatch.games || [], status: selectedMatch.status,
       bestOf: selectedMatch.bestOf || 5,
-      player1: selectedMatch.player1, player2: selectedMatch.player2
+      player1: selectedMatch.player1, player2: selectedMatch.player2,
     } : null;
     let n = 0;
-    rows.forEach(function (r) {
+    rows.forEach((r) => {
       if (r.line == null || r.side === "NO PLAY") return;
       const draft = {
         id: "tt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
-        createdAt: Date.now(), league: league, playerA: a, playerB: b,
+        createdAt: Date.now(), league, playerA: a, playerB: b,
         market: r.key, marketName: r.name, line: r.line, side: r.side,
         units: r.unitsNum || 0, projection: r.projNum, grade: r.grade,
         status: "active", settledAt: null, result: null,
-        matchId: matchSnap && matchSnap.id, match: matchSnap, build: BUILD_ID
+        matchId: matchSnap && matchSnap.id, match: matchSnap, build: BUILD_ID,
       };
       const sig = pickSig(draft);
-      if (tombs[sig]) { engineDebug("tombstone block", { sig: sig }); return; }
+      if (tombs[sig]) { engineDebug("tombstone block", { sig }); return; }
       picks.unshift(draft); n++;
     });
     savePicks(picks);
@@ -3718,7 +3898,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
   function settlePick(id, result, actual) {
     const picks = loadPicks();
-    const p = picks.find(function (x) { return x.id === id; });
+    const p = picks.find((x) => x.id === id);
     if (!p) return;
     p.status = "settled"; p.result = result; p.settledAt = Date.now();
     if (actual != null) p.actual = actual;
@@ -3744,16 +3924,11 @@ body.dark-mode .tracker-analytics-section-head {
     retrospectiveUpdate(pick, actual);
     return true;
   }
-  function requestDelete(id) {
-    pendingDeleteId = id;
-    const box = $("trackerDeleteConfirm");
-    if (box) { box.classList.add("open"); box.setAttribute("aria-hidden", "false"); }
-  }
   function deletePick(id) {
     let picks = loadPicks();
-    const p = picks.find(function (x) { return x.id === id; });
+    const p = picks.find((x) => x.id === id);
     if (!p) return;
-    picks = picks.filter(function (x) { return x.id !== id; });
+    picks = picks.filter((x) => x.id !== id);
     savePicks(picks);
     const del = loadDeleted();
     del.unshift(Object.assign({}, p, { deletedAt: Date.now() }));
@@ -3767,97 +3942,51 @@ body.dark-mode .tracker-analytics-section-head {
     const list = $("trackerList");
     const empty = $("trackerEmpty");
     const summary = $("trackerSummary");
-    const tbody = $("trackedPicksBody");
+    if (!list) return;
     const now = Date.now();
     pruneTracker(now);
     const picks = loadPicks();
     let items = [];
-    if (trackerTab === "active") items = picks.filter(function (p) { return p.status === "active"; });
-    else if (trackerTab === "archive") items = picks.filter(function (p) { return p.status === "settled" && p.settledAt && (now - p.settledAt) < ARCHIVE_MS * 24; });
+    if (trackerTab === "active") items = picks.filter((p) => p.status === "active");
+    else if (trackerTab === "archive") items = picks.filter((p) => p.status === "settled" && p.settledAt && (now - p.settledAt) < ARCHIVE_MS);
     else items = loadDeleted();
-    const live = picks.filter(function (p) { return p.status === "active"; }).length;
-    const wins = picks.filter(function (p) { return p.result === "won"; }).length;
-    const losses = picks.filter(function (p) { return p.result === "lost"; }).length;
+    const live = picks.filter((p) => p.status === "active").length;
+    const wins = picks.filter((p) => p.result === "won").length;
+    const losses = picks.filter((p) => p.result === "lost").length;
     if (summary) summary.textContent = live + " live • " + wins + " wins • " + losses + " losses";
-    const acc = accuracySummary();
-    const label = $("trackerStatusLabel");
-    if (label) label.textContent = acc.wins + "W / " + acc.losses + "L";
     if (!items.length) {
-      if (list) list.innerHTML = "";
-      if (tbody) tbody.innerHTML = "";
+      list.innerHTML = "";
       if (empty) { empty.style.display = ""; empty.textContent = "No tracked picks yet."; }
       return;
     }
     if (empty) empty.style.display = "none";
-    if (list) {
-      list.innerHTML = items.map(function (p) {
-        const title = (p.playerA || "?") + " vs " + (p.playerB || "?");
-        const u = (p.units != null ? Number(p.units).toFixed(1) : "0.0") + "u";
-        const meta = (p.league || "—") + " · " + (p.marketName || p.market) + " " +
-          (p.side || "") + " " + (p.line != null ? p.line : "") +
-          (p.grade ? " · " + p.grade : "") +
-          (p.result ? " · " + p.result : "") +
-          (p.actual != null ? " · actual " + p.actual : "") + " · " + u;
-        let actions = "";
-        if (trackerTab === "active") {
-          actions = '<button type="button" data-act="won" data-id="' + p.id + '">Won</button>' +
-            '<button type="button" data-act="lost" data-id="' + p.id + '">Lost</button>' +
-            '<button type="button" data-act="push" data-id="' + p.id + '">Push</button>' +
-            '<button type="button" data-act="score" data-id="' + p.id + '">Score</button>' +
-            '<button type="button" data-act="del" data-id="' + p.id + '">Delete</button>';
-        }
-        return '<div class="tracker-card"><div class="tc-title">' + title +
-          '</div><div class="tc-meta">' + meta + "</div>" +
-          (actions ? '<div class="tc-actions">' + actions + "</div>" : "") + "</div>";
-      }).join("");
-      list.querySelectorAll("button[data-act]").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          const id = btn.getAttribute("data-id");
-          const act = btn.getAttribute("data-act");
-          if (act === "del") requestDelete(id);
-          else if (act === "score") openManualSettle(id);
-          else settlePick(id, act);
-        });
+    list.innerHTML = items.map((p) => {
+      const title = (p.playerA || "?") + " vs " + (p.playerB || "?");
+      const u = (p.units != null ? Number(p.units).toFixed(1) : "0.0") + "u";
+      const meta = (p.league || "—") + " · " + (p.marketName || p.market) + " " +
+        (p.side || "") + " " + (p.line != null ? p.line : "") +
+        (p.grade ? " · " + p.grade : "") +
+        (p.result ? " · " + p.result : "") +
+        (p.actual != null ? " · actual " + p.actual : "") + " · " + u;
+      let actions = "";
+      if (trackerTab === "active") {
+        actions = '<button type="button" data-act="won" data-id="' + p.id + '">Won</button>' +
+          '<button type="button" data-act="lost" data-id="' + p.id + '">Lost</button>' +
+          '<button type="button" data-act="push" data-id="' + p.id + '">Push</button>' +
+          '<button type="button" data-act="del" data-id="' + p.id + '">Delete</button>';
+      }
+      return '<div class="tracker-card"><div class="tc-title">' + title +
+        '</div><div class="tc-meta">' + meta + "</div>" +
+        (actions ? '<div class="tc-actions">' + actions + "</div>" : "") + "</div>";
+    }).join("");
+    list.querySelectorAll("button[data-act]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const act = btn.getAttribute("data-act");
+        if (act === "del") deletePick(id);
+        else settlePick(id, act);
       });
-    }
-    if (tbody) {
-      tbody.innerHTML = items.map(function (p) {
-        const st = p.status === "active" ? "track-pending" : (p.result === "won" ? "track-win" : p.result === "lost" ? "track-loss" : "track-push");
-        const when = new Date(p.createdAt || Date.now()).toLocaleDateString();
-        return "<tr><td>" + when + "</td><td>" + (p.league || "—") + "</td><td>" +
-          (p.playerA || "?") + " vs " + (p.playerB || "?") + "</td><td>" +
-          (p.marketName || p.market) + "</td><td>" + (p.line != null ? p.line : "—") +
-          "</td><td>" + (p.side || "—") + "</td><td>" + (p.grade || "—") +
-          '</td><td class="' + st + '">' + (p.result || p.status || "—") + "</td></tr>";
-      }).join("");
-    }
-  }
-  function openManualSettle(id) {
-    pendingSettleId = id;
-    const p = loadPicks().find(function (x) { return x.id === id; });
-    if ($("manualSettleMatch")) $("manualSettleMatch").textContent = p ? (p.playerA + " vs " + p.playerB) : "";
-    if ($("manualSettleMarket")) $("manualSettleMarket").textContent = p ? ((p.marketName || p.market) + " " + p.side + " " + p.line) : "";
-    if ($("manualSettleInput")) $("manualSettleInput").value = "";
-    const ov = $("manualSettleOverlay");
-    if (ov) { ov.classList.add("open"); ov.setAttribute("aria-hidden", "false"); }
-  }
-  function confirmManualSettle() {
-    const raw = parseFloat(($("manualSettleInput") || {}).value);
-    const id = pendingSettleId;
-    const ov = $("manualSettleOverlay");
-    if (ov) { ov.classList.remove("open"); ov.setAttribute("aria-hidden", "true"); }
-    if (!id || !isFinite(raw)) return;
-    const picks = loadPicks();
-    const p = picks.find(function (x) { return x.id === id; });
-    if (!p) return;
-    const side = settleSide(raw, p.line);
-    let result = "push";
-    const pickSide = String(p.side || "").toLowerCase();
-    if (side === "push") result = "push";
-    else if (pickSide.indexOf("over") >= 0) result = side === "over" ? "won" : "lost";
-    else if (pickSide.indexOf("under") >= 0) result = side === "under" ? "won" : "lost";
-    settlePick(id, result, raw);
-    pendingSettleId = null;
+    });
   }
 
   function showRaidToast(msg) {
@@ -3867,7 +3996,7 @@ body.dark-mode .tracker-analytics-section-head {
     toast.classList.add("show");
     const btn = $("trackerMilitaryRaidBtn");
     if (btn) btn.classList.add("siren-pulse");
-    setTimeout(function () {
+    setTimeout(() => {
       toast.classList.remove("show");
       if (btn) btn.classList.remove("siren-pulse");
     }, 1800);
@@ -3876,7 +4005,7 @@ body.dark-mode .tracker-analytics-section-head {
     const now = Date.now();
     const picks = loadPicks();
     let settledN = 0;
-    picks.forEach(function (p) {
+    picks.forEach((p) => {
       if (p.status === "active" && p.match && p.match.games && p.match.games.length) {
         if (autoSettleFromMatch(p, p.match)) settledN++;
       }
@@ -3885,21 +4014,27 @@ body.dark-mode .tracker-analytics-section-head {
       }
     });
     savePicks(picks);
-    pruneTracker(now);
-    engineDebug("military raid", { settled: settledN });
-    showRaidToast("Military raid complete");
+    const pruned = pruneTracker(now);
+    engineDebug("military raid", { settled: settledN, pruned: pruned.pruned, tombs: pruned.tombsPurged });
+    showRaidToast("Raid · settled " + settledN + " · archived " + pruned.pruned);
     renderTracker();
     openTracker();
     setStatus("Military raid complete", "ok");
   }
   window.triggerTrackerMilitaryRaid = runMilitaryRaid;
 
+  /* AFDB — BB chrome pattern + live log panels (not opaque) */
+  function refreshAfdbLogs() {
+    if ($("reqLog")) $("reqLog").textContent = reqLogLines.slice(-40).join("\n") || "(no requests yet — tap Health / Setka / WTT)";
+    if ($("rawPeek")) $("rawPeek").textContent = lastRawPeek || "(empty — fetch returns JSON here)";
+    if ($("debugLog")) $("debugLog").textContent = logLines.slice(-80).join("\n") || "(engine log empty — actions write here)";
+  }
   function renderAfdbPanel() {
     const panel = $("afdbPanel");
     if (!panel) return;
     const wb = workerBase();
     const acc = accuracySummary();
-    const savedWorker = (wb || "").replace(/"/g, "");
+    const savedWorker = (wb || "").replace(/"/g, "&quot;");
     panel.innerHTML =
       '<div class="afdb-head"><div class="afdb-title">🔬 AUTO-FETCH DEBUG BRAIN (TT)</div>' +
       '<div class="afdb-head-btns">' +
@@ -3914,48 +4049,72 @@ body.dark-mode .tracker-analytics-section-head {
       " · learn bias G1 " + acc.biasG1.toFixed(2) + " / MT " + acc.biasMt.toFixed(2) +
       " · n=" + acc.samples + " · " + BUILD_ID + "</div>" +
       '<div class="afdb-body"><div class="afdb-section-h">Worker / feeds</div><div class="afdb-pad">' +
-      '<label style="color:#888;display:block;font-size:11px;">Worker base URL — required for Setka. WTT can run direct.</label>' +
+      '<label style="color:#888;display:block;font-size:11px;">Worker base URL — required for Setka. WTT can run direct (CORS *).</label>' +
       '<input id="workerUrlInput" placeholder="https://your-worker.workers.dev" value="' + savedWorker + '" />' +
-      '<div style="color:#666;font-size:10px;margin-top:6px;">Phone autofetch for Setka fails without a Worker. Paste the URL and tap Save Worker.</div></div>' +
-      '<div class="afdb-section-h">📡 FETCH & ENGINE LOGS</div><div class="afdb-pad">' +
+      '<div style="color:#666;font-size:10px;margin-top:4px;">Phone Setka autofetch fails without a Worker. Paste URL → Save Worker. Health / Setka / WTT buttons write into the logs below.</div></div>' +
+      '<div class="afdb-section-h">📡 FETCH &amp; ENGINE LOGS</div><div class="afdb-pad">' +
       '<div id="reqLog" class="req-log"></div>' +
       '<div style="color:#d4af37;font-size:10px;font-weight:900;margin:10px 0 4px;">LAST RAW JSON PEEK</div>' +
       '<div id="rawPeek" class="raw-peek"></div>' +
       '<div style="color:#d4af37;font-size:10px;font-weight:900;margin:10px 0 4px;">ENGINE</div>' +
       '<div id="debugLog"></div></div></div>';
+    refreshAfdbLogs();
     wireAfdbButtons();
   }
   function wireAfdbButtons() {
-    $("dbgSaveWorker") && $("dbgSaveWorker").addEventListener("click", function () {
+    $("dbgSaveWorker") && $("dbgSaveWorker").addEventListener("click", () => {
       const v = (($("workerUrlInput") || {}).value || "").trim().replace(/\/+$/, "");
       try { localStorage.setItem(STORE.worker, v); } catch (_e) {}
-      engineDebug("worker saved", { v: v });
-      setStatus("Worker saved", "ok");
+      engineDebug("worker saved", { v: v || "(cleared)" });
+      setStatus(v ? "Worker saved" : "Worker cleared", "ok");
+      refreshAfdbLogs();
     });
-    $("dbgHealth") && $("dbgHealth").addEventListener("click", async function () {
+    $("dbgHealth") && $("dbgHealth").addEventListener("click", async () => {
       const wb = workerBase();
-      if (!wb) { setStatus("Set Worker URL first", "err"); return; }
+      if (!wb) {
+        engineDebug("health skip", { error: "NO_WORKER" });
+        setStatus("Set Worker URL first (paste in AFDB)", "err");
+        refreshAfdbLogs();
+        return;
+      }
       try {
         const j = await ttFetch(wb + "/tt/health", { timeout: 8000 });
-        engineDebug("health", j);
+        setRawPeek(j);
+        engineDebug("health ok", j);
         setStatus("Worker healthy", "ok");
-      } catch (e) { setStatus("Health ping failed", "err"); }
+      } catch (e) {
+        engineDebug("health fail", { error: String(e && e.message || e) });
+        setStatus("Health ping failed", "err");
+      }
+      refreshAfdbLogs();
     });
-    $("autofetchBtn") && $("autofetchBtn").addEventListener("click", function () {
+    $("autofetchBtn") && $("autofetchBtn").addEventListener("click", async () => {
       if ($("leagueSelect") && !$("leagueSelect").value) $("leagueSelect").value = "setka";
-      autofetchFixtures("setka");
+      const af = $("autofetchSection"); if (af) af.style.display = "";
+      engineDebug("afdb Setka tap", { dayOffset: fixtureDayOffset });
+      refreshAfdbLogs();
+      await autofetchFixtures("setka");
+      refreshAfdbLogs();
     });
-    $("autofetchWttBtn") && $("autofetchWttBtn").addEventListener("click", function () {
+    $("autofetchWttBtn") && $("autofetchWttBtn").addEventListener("click", async () => {
       if ($("leagueSelect") && !$("leagueSelect").value) $("leagueSelect").value = "wtt";
       const lg = (($("leagueSelect") || {}).value || "wtt");
-      autofetchFixtures(lg.indexOf("wtt") === 0 ? lg : "wtt");
+      const force = lg.indexOf("wtt") === 0 ? lg : "wtt";
+      const af = $("autofetchSection"); if (af) af.style.display = "";
+      engineDebug("afdb WTT tap", { league: force, dayOffset: fixtureDayOffset });
+      refreshAfdbLogs();
+      await autofetchFixtures(force);
+      refreshAfdbLogs();
     });
-    $("dbgRaid") && $("dbgRaid").addEventListener("click", runMilitaryRaid);
-    $("dbgClearLog") && $("dbgClearLog").addEventListener("click", function () {
+    $("dbgRaid") && $("dbgRaid").addEventListener("click", () => {
+      runMilitaryRaid();
+      engineDebug("military raid from AFDB", {});
+      refreshAfdbLogs();
+    });
+    $("dbgClearLog") && $("dbgClearLog").addEventListener("click", () => {
       logLines.length = 0; reqLogLines.length = 0; lastRawPeek = "";
-      if ($("debugLog")) $("debugLog").textContent = "";
-      if ($("reqLog")) $("reqLog").textContent = "(no requests yet)";
-      if ($("rawPeek")) $("rawPeek").textContent = "(empty)";
+      engineDebug("logs cleared", {});
+      refreshAfdbLogs();
     });
     $("dbgClose") && $("dbgClose").addEventListener("click", closeAfdb);
   }
@@ -3963,6 +4122,7 @@ body.dark-mode .tracker-analytics-section-head {
     const o = $("afdbOverlay");
     if (!o) return;
     o.style.display = "flex";
+    o.setAttribute("data-open", "1");
     o.classList.add("open");
     renderAfdbPanel();
   }
@@ -3970,6 +4130,7 @@ body.dark-mode .tracker-analytics-section-head {
     const o = $("afdbOverlay");
     if (!o) return;
     o.style.display = "none";
+    o.removeAttribute("data-open");
     o.classList.remove("open");
   }
   window.AFDB = { open: openAfdb, close: closeAfdb };
@@ -3988,6 +4149,7 @@ body.dark-mode .tracker-analytics-section-head {
   window.openEngineErrorPage = openEngineErrorPage;
   window.closeEngineErrorPage = closeEngineErrorPage;
 
+  /* Autofetch */
   function ymdOffset(days) {
     const d = new Date();
     d.setDate(d.getDate() + (days || 0));
@@ -3998,7 +4160,7 @@ body.dark-mode .tracker-analytics-section-head {
     const sel = $("fixtureSelect");
     if (!sel) return;
     const html = '<option value="">- Select match (' + options.length + ") -</option>" +
-      options.map(function (o) {
+      options.map((o) => {
         fixtureMap[o.id] = o;
         const esc = String(o.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
         return '<option value="' + String(o.id).replace(/"/g, "") + '">' + esc + "</option>";
@@ -4006,6 +4168,12 @@ body.dark-mode .tracker-analytics-section-head {
     sel.innerHTML = options.length ? html : '<option value="">- Select match -</option>';
     window.__ttFixtureMap = fixtureMap;
     try { lsSet(STORE.fixtures, options.slice(0, 120)); } catch (_e) {}
+  }
+  function setFetchStatus(msg, kind) {
+    const el = $("fetchStatus");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = kind === "ok" ? "ok" : kind === "err" ? "err" : kind === "loading" ? "loading" : "";
   }
   async function fetchSetkaTournaments(dateStr) {
     const wb = workerBase();
@@ -4019,38 +4187,42 @@ body.dark-mode .tracker-analytics-section-head {
   async function fetchSetkaPlayer(rawId) {
     const wb = workerBase();
     if (!wb || rawId == null) return null;
-    try { return await ttFetch(wb + "/tt/setka/player/" + encodeURIComponent(rawId), { timeout: 15000 }); }
-    catch (e) { engineDebug("setka player miss", { rawId: rawId, error: String(e && e.message || e) }); return null; }
+    try {
+      return await ttFetch(wb + "/tt/setka/player/" + encodeURIComponent(rawId), { timeout: 15000 });
+    } catch (e) {
+      engineDebug("setka player miss", { rawId, error: String(e && e.message || e) });
+      return null;
+    }
   }
   function extractSeriesFromSetkaPlayer(playerPayload) {
     const g1 = [], mt = [];
-    if (!playerPayload) return { g1: g1, mt: mt };
+    if (!playerPayload) return { g1, mt };
     const root = playerPayload.player || playerPayload;
-    const matches = root.matches || root.lastMatches || root.history || root.recentMatches || playerPayload.matches || playerPayload.lastMatches || [];
-    (Array.isArray(matches) ? matches : []).slice(0, 10).forEach(function (m) {
+    const matches =
+      root.matches || root.lastMatches || root.history || root.recentMatches ||
+      playerPayload.matches || playerPayload.lastMatches || [];
+    (Array.isArray(matches) ? matches : []).slice(0, 10).forEach((m) => {
       const scores = m.setScores || m.SetScores || [];
       if (!Array.isArray(scores) || !scores.length) return;
-      const games = scores.map(function (s) {
-        return {
-          p1: Number(s.p1Score != null ? s.p1Score : s.homeScore) || 0,
-          p2: Number(s.p2Score != null ? s.p2Score : s.awayScore) || 0,
-          n: s.number || 0
-        };
-      });
-      const first = games.find(function (g) { return g.n === 1; }) || games[0];
+      const games = scores.map((s) => ({
+        p1: Number(s.p1Score != null ? s.p1Score : s.homeScore) || 0,
+        p2: Number(s.p2Score != null ? s.p2Score : s.awayScore) || 0,
+        n: s.number || 0,
+      }));
+      const first = games.find((g) => g.n === 1) || games[0];
       if (first) g1.push(first.p1 + first.p2);
-      const total = games.reduce(function (s, g) { return s + g.p1 + g.p2; }, 0);
+      const total = games.reduce((s, g) => s + g.p1 + g.p2, 0);
       if (total > 0) mt.push(total);
     });
-    return { g1: g1, mt: mt };
+    return { g1, mt };
   }
   async function autofillFromSetka(norm) {
     if (!norm || norm.league !== "setka") return;
     const idA = norm.player1 && norm.player1.rawId;
     const idB = norm.player2 && norm.player2.rawId;
-    const pair = await Promise.all([fetchSetkaPlayer(idA), fetchSetkaPlayer(idB)]);
-    const sa = extractSeriesFromSetkaPlayer(pair[0]);
-    const sb = extractSeriesFromSetkaPlayer(pair[1]);
+    const [pa, pb] = await Promise.all([fetchSetkaPlayer(idA), fetchSetkaPlayer(idB)]);
+    const sa = extractSeriesFromSetkaPlayer(pa);
+    const sb = extractSeriesFromSetkaPlayer(pb);
     if (sa.g1.length && $("aQ1Scored")) $("aQ1Scored").value = sa.g1.join(",");
     if (sa.mt.length && $("aFTScored")) $("aFTScored").value = sa.mt.join(",");
     if (sb.g1.length && $("bQ1Scored")) $("bQ1Scored").value = sb.g1.join(",");
@@ -4064,10 +4236,10 @@ body.dark-mode .tracker-analytics-section-head {
     setRawPeek(data);
     const tournaments = Array.isArray(data) ? data : (data.tournaments || data.items || []);
     const options = [];
-    (Array.isArray(tournaments) ? tournaments : []).forEach(function (t) {
+    (Array.isArray(tournaments) ? tournaments : []).forEach((t) => {
       const tName = (t && (t.name || t.tournamentName || t.token)) || "Setka";
       const matches = (t && (t.matches || t.Matches)) || [];
-      matches.forEach(function (m) {
+      matches.forEach((m) => {
         const norm = normalizeSetkaMatch(m, tName);
         const label =
           (norm.startTime ? String(norm.startTime).slice(11, 16) + " " : "") +
@@ -4075,9 +4247,9 @@ body.dark-mode .tracker-analytics-section-head {
           " · " + (norm.competitionName || tName) +
           (norm.status === "finished" ? " ✓" : "");
         options.push({
-          id: norm.id, label: label,
+          id: norm.id, label,
           home: norm.player1.displayName, away: norm.player2.displayName,
-          date: norm.startTime, status: norm.status, _tt: norm
+          date: norm.startTime, status: norm.status, _tt: norm,
         });
       });
     });
@@ -4103,71 +4275,132 @@ body.dark-mode .tracker-analytics-section-head {
     else if (live && (live.eventId || live.EventId || live.id)) events = [live];
     else if (live && typeof live === "object") {
       const vals = Object.values(live);
-      events = vals.filter(function (v) { return v && (v.eventId || v.EventId || v.id); });
+      events = vals.filter((v) => v && (v.eventId || v.EventId || v.id));
       if (!events.length) events = [live];
     }
     const hint = String(filterHint || "").toLowerCase();
     if (hint.indexOf("contender") >= 0) {
-      const filtered = events.filter(function (e) { return /contender/i.test(JSON.stringify(e).slice(0, 400)); });
+      const filtered = events.filter((e) => /contender/i.test(JSON.stringify(e).slice(0, 400)));
       if (filtered.length) events = filtered;
     } else if (hint.indexOf("champion") >= 0) {
-      const filtered = events.filter(function (e) { return /champion/i.test(JSON.stringify(e).slice(0, 400)); });
+      const filtered = events.filter((e) => /champion/i.test(JSON.stringify(e).slice(0, 400)));
       if (filtered.length) events = filtered;
     }
+    function extractWttUnits(sched) {
+      const units = [];
+      const pushUnit = (u) => { if (u && (u.Code || u.code)) units.push(u); };
+      if (!sched) return units;
+      if (Array.isArray(sched)) {
+        sched.forEach((day) => {
+          const list = (day && day.Competition && (day.Competition.Unit || day.Competition.Units)) || day.units || day.Units || [];
+          (Array.isArray(list) ? list : []).forEach(pushUnit);
+        });
+        return units;
+      }
+      const direct = sched.units || sched.Units || sched.schedule || sched.Schedule || [];
+      if (Array.isArray(direct) && direct.length && (direct[0].Code || direct[0].code)) {
+        direct.forEach(pushUnit);
+        return units;
+      }
+      if (sched.Competition && (sched.Competition.Unit || sched.Competition.Units)) {
+        (sched.Competition.Unit || sched.Competition.Units || []).forEach(pushUnit);
+        return units;
+      }
+      // day-map object
+      Object.values(sched).forEach((day) => {
+        if (!day || typeof day !== "object") return;
+        const list = (day.Competition && (day.Competition.Unit || day.Competition.Units)) || day.units || [];
+        (Array.isArray(list) ? list : []).forEach(pushUnit);
+      });
+      return units;
+    }
+    function wttPlayerName(startEntry) {
+      if (!startEntry) return "";
+      const comp = startEntry.Competitor || startEntry.competitor || startEntry;
+      const team = (comp.Description && (comp.Description.TeamName || comp.Description.teamName)) || comp.TeamName || "";
+      if (team) return String(team).trim();
+      const athletes = (comp.Composition && (comp.Composition.Athlete || comp.Composition.athlete)) || [];
+      const a0 = Array.isArray(athletes) ? athletes[0] : null;
+      const desc = (a0 && a0.Description) || {};
+      const nm = [desc.GivenName || desc.givenName, desc.FamilyName || desc.familyName].filter(Boolean).join(" ");
+      return nm || comp.PrintName || comp.printName || "";
+    }
     const options = [];
-    for (let i = 0; i < events.slice(0, 8).length; i++) {
-      const ev = events[i];
+    const eventSlice = events.slice(0, 6);
+    const schedules = await Promise.all(eventSlice.map(async (ev) => {
       const eventId = String(ev.eventId || ev.EventId || ev.id || "").trim();
-      if (!eventId) continue;
+      if (!eventId) return { ev, eventId: "", sched: null };
       let sched = null;
       try {
         if (wb) {
-          try { sched = await ttFetch(wb + "/tt/wtt/schedule/" + encodeURIComponent(eventId), { timeout: 30000 }); }
+          try { sched = await ttFetch(wb + "/tt/wtt/schedule/" + encodeURIComponent(eventId), { timeout: 20000 }); }
           catch (_e) { sched = null; }
         }
-        if (!sched) sched = await ttFetch(WTT_CMS + "/GetEventSchedule/" + encodeURIComponent(eventId), { timeout: 30000 });
+        if (!sched) sched = await ttFetch(WTT_CMS + "/GetEventSchedule/" + encodeURIComponent(eventId), { timeout: 20000 });
       } catch (e) {
-        engineDebug("wtt schedule miss", { eventId: eventId, error: String(e && e.message || e) });
-        continue;
+        engineDebug("wtt schedule miss", { eventId, error: String(e && e.message || e) });
       }
-      const units = (sched && (sched.units || sched.Units || sched.schedule || sched.Schedule)) || [];
-      (Array.isArray(units) ? units : []).forEach(function (u) {
+      return { ev, eventId, sched };
+    }));
+    for (const { ev, eventId, sched } of schedules) {
+      if (!eventId || !sched) continue;
+      const units = extractWttUnits(sched);
+      units.forEach((u) => {
         const code = u.Code || u.code || u.documentCode || "";
         if (!code) return;
-        const startList = u.StartList || u.startList || [];
+        const startListRaw = u.StartList || u.startList || null;
+        let starts = [];
+        if (Array.isArray(startListRaw)) starts = startListRaw;
+        else if (startListRaw && Array.isArray(startListRaw.Start)) starts = startListRaw.Start;
+        else if (startListRaw && Array.isArray(startListRaw.start)) starts = startListRaw.start;
         let p1 = "P1", p2 = "P2";
-        if (Array.isArray(startList) && startList.length >= 2) {
-          const n1 = startList[0] || {};
-          const n2 = startList[1] || {};
-          p1 = [n1.GivenName || n1.givenName, n1.FamilyName || n1.familyName].filter(Boolean).join(" ") || n1.PrintName || n1.printName || "P1";
-          p2 = [n2.GivenName || n2.givenName, n2.FamilyName || n2.familyName].filter(Boolean).join(" ") || n2.PrintName || n2.printName || "P2";
-        } else if (u.Description || u.description) {
-          const d = String(u.Description || u.description);
+        if (starts.length >= 2) {
+          p1 = wttPlayerName(starts[0]) || "P1";
+          p2 = wttPlayerName(starts[1]) || "P2";
+        } else if (u.Description || u.description || (u.ItemDescription && u.ItemDescription[0])) {
+          const d = String(
+            u.Description || u.description ||
+            ((u.ItemDescription && u.ItemDescription[0] && u.ItemDescription[0].Value) || "")
+          );
           if (/\svs\s/i.test(d)) {
             const parts = d.split(/\s+vs\s+/i);
             p1 = parts[0] || p1; p2 = parts[1] || p2;
           }
         }
+        // Skip unnamed placeholder rows
+        if ((p1 === "P1" && p2 === "P2") && starts.length < 2) return;
         const doc = padDocumentCode(code);
         const id = "wtt:" + eventId + ":" + doc;
-        const start = u.StartDateTime || u.startDateTime || u.ScheduleDate || "";
+        const start = u.StartDateTime || u.startDateTime || u.StartDate || u.startDate || u.ScheduleDate || "";
         const st = String(u.ScheduleStatus || u.resultStatus || "scheduled").toLowerCase();
         options.push({
-          id: id,
+          id,
           label: (start ? String(start).slice(11, 16) + " " : "") + p1 + " vs " + p2 + " · WTT",
           home: p1, away: p2, date: start, status: st,
           _tt: {
-            id: id, league: "wtt", eventId: eventId, documentCode: doc,
+            id, league: "wtt", eventId, documentCode: doc,
             player1: { displayName: p1 }, player2: { displayName: p2 },
             games: [],
             status: /official|finished|complete/i.test(st) ? "finished" : /live|running/i.test(st) ? "live" : "scheduled",
             competitionName: (ev.eventName || ev.EventName || ev.name || "WTT"),
-            startTime: start, bestOf: 5
-          }
+            startTime: start, bestOf: 5,
+          },
         });
       });
     }
-    return options;
+    const dayTarget = ymdOffset(fixtureDayOffset);
+    const dated = options.filter((o) => {
+      const d = o.date ? String(o.date).slice(0, 10) : "";
+      if (!d) return true;
+      if (d === dayTarget) return true;
+      if (/live|running/i.test(String(o.status || ""))) return true;
+      return false;
+    });
+    let list = dated.length ? dated : options;
+    // Prefer rows with both player names; phone-friendly cap
+    const named = list.filter((o) => o.home && o.away && o.home !== "P1" && o.away !== "P2");
+    if (named.length) list = named;
+    return list.slice(0, 120);
   }
   async function autofetchFixtures(forceLeague) {
     const league = String(forceLeague || (($("leagueSelect") || {}).value || "")).toLowerCase();
@@ -4175,31 +4408,35 @@ body.dark-mode .tracker-analytics-section-head {
     const af = $("autofetchSection");
     if (af) af.style.display = isAutofetchLeague(league) ? "" : "none";
     if (!isAutofetchLeague(league)) {
-      if (af) af.style.display = "";
-      setStatus("Manual league — enter players & lines", "ok");
+      setFetchStatus("Manual league — enter players & lines");
       return;
     }
-    setStatus("Fetching…", "loading");
+    setFetchStatus("Fetching…", "loading");
+    setStatus("Autofetching…", "ok");
     try {
       let options = [];
       if (league === "setka") {
         options = await loadSetkaOptions(ymdOffset(fixtureDayOffset));
-        setStatus(options.length + " Setka fixtures (" + ymdOffset(fixtureDayOffset) + ")", "ok");
+        setFetchStatus(options.length + " Setka fixtures (" + ymdOffset(fixtureDayOffset) + ")", "ok");
       } else {
         options = await loadWttOptions(league);
-        setStatus(options.length + " WTT schedule units", "ok");
+        setFetchStatus(options.length + " WTT schedule units", "ok");
       }
       populateFixtureSelect(options);
-      engineDebug("autofetch ok", { league: league, count: options.length });
+      setStatus("Autofetch ok · " + options.length + " matches", "ok");
+      engineDebug("autofetch ok", { league, count: options.length, day: ymdOffset(fixtureDayOffset) });
+      refreshAfdbLogs();
     } catch (err) {
       const msg = err && err.message ? err.message : String(err);
+      setFetchStatus("Fetch failed: " + msg, "err");
       if (err && err.code === "NO_WORKER") {
         setStatus("Worker URL required for Setka", "err");
         openAfdb();
       } else {
         setStatus("Autofetch failed: " + msg, "err");
       }
-      engineDebug("autofetch error", { error: msg, league: league });
+      engineDebug("autofetch error", { error: msg, league });
+      refreshAfdbLogs();
     }
   }
   async function onFixturePick() {
@@ -4219,10 +4456,14 @@ body.dark-mode .tracker-analytics-section-head {
       try {
         const wb = workerBase();
         let card = null;
-        const path = "/GetMatchCardDetails_Minimal/" + encodeURIComponent(selectedMatch.eventId) + "/" + encodeURIComponent(selectedMatch.documentCode);
+        const path = "/GetMatchCardDetails_Minimal/" +
+          encodeURIComponent(selectedMatch.eventId) + "/" + encodeURIComponent(selectedMatch.documentCode);
         if (wb) {
           try {
-            card = await ttFetch(wb + "/tt/wtt/card/" + encodeURIComponent(selectedMatch.eventId) + "/" + encodeURIComponent(selectedMatch.documentCode), { timeout: 12000 });
+            card = await ttFetch(
+              wb + "/tt/wtt/card/" + encodeURIComponent(selectedMatch.eventId) + "/" + encodeURIComponent(selectedMatch.documentCode),
+              { timeout: 12000 }
+            );
           } catch (_e) { card = null; }
         }
         if (!card) card = await ttFetch(WTT_CMS + path, { timeout: 12000 });
@@ -4250,10 +4491,103 @@ body.dark-mode .tracker-analytics-section-head {
     engineDebug("health view", acc);
   }
 
+
+  /* BB chrome: collapsible section toggles (red ▾) + lock/accordion */
+  function openSection(id) {
+    const el = document.getElementById(id);
+    if (!el || el.classList.contains("locked")) return;
+    el.classList.remove("collapsed");
+  }
+  function closeSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add("collapsed");
+  }
+  function lockSection(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add("locked");
+    if (id !== "marketSection") el.classList.add("collapsed");
+  }
+  function unlockSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove("locked");
+  }
+  function accordionOpen(id, keepMarketOpen) {
+    [
+      "leagueSection",
+      "autofetchSection",
+      "marketSection",
+      "teamASection",
+      "teamBSection",
+      "h2hSection",
+    ].forEach(function (sectionId) {
+      if (sectionId !== id && !(keepMarketOpen && sectionId === "marketSection")) {
+        closeSection(sectionId);
+      }
+    });
+    openSection(id);
+  }
+  function lockFrom(startId) {
+    const order = ["autofetchSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
+    let locking = false;
+    order.forEach(function (id) {
+      if (id === startId) locking = true;
+      if (locking) lockSection(id);
+    });
+  }
+  function updateSectionLocks() {
+    const league = (document.getElementById("leagueSelect") && document.getElementById("leagueSelect").value) || "";
+    const ids = ["autofetchSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
+    if (!league) {
+      ids.forEach(lockSection);
+      return;
+    }
+    ids.forEach(unlockSection);
+  }
+  function makeSectionsCollapsible() {
+    document.querySelectorAll(".section").forEach(function (section) {
+      if (section.dataset.collapsibleReady === "1") return;
+      const heading = section.querySelector("h3");
+      if (!heading) return;
+      section.dataset.collapsibleReady = "1";
+      const titleHTML = heading.innerHTML;
+      const body = document.createElement("div");
+      body.className = "section-body";
+      const children = Array.prototype.slice.call(section.childNodes);
+      children.forEach(function (node) {
+        if (node !== heading) body.appendChild(node);
+      });
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "section-toggle";
+      const titleSpan = document.createElement("span");
+      titleSpan.className = "toggle-title";
+      titleSpan.innerHTML = titleHTML;
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "toggle-icon";
+      iconSpan.innerHTML = "&#9662;";
+      btn.appendChild(titleSpan);
+      btn.appendChild(iconSpan);
+      btn.addEventListener("click", function () {
+        if (section.classList.contains("locked")) return;
+        section.classList.toggle("collapsed");
+      });
+      section.innerHTML = "";
+      section.appendChild(btn);
+      section.appendChild(body);
+      section.classList.add("collapsed");
+    });
+  }
+
   function boot() {
+    makeSectionsCollapsible();
+    updateSectionLocks();
+    accordionOpen("leagueSection");
+
     const chip = $("buildChip");
     if (chip) chip.textContent = BUILD_ID + " · markets: " + TT_MARKETS.join(", ");
-    $("runBtn") && $("runBtn").addEventListener("click", function () { runEngine(); });
+
+    $("runBtn") && $("runBtn").addEventListener("click", () => { runEngine(); });
     $("clearBtn") && $("clearBtn").addEventListener("click", clearAll);
     $("auditCopyBtn") && $("auditCopyBtn").addEventListener("click", copyAudit);
     $("inputsCopyBtn") && $("inputsCopyBtn").addEventListener("click", copyInputs);
@@ -4265,68 +4599,87 @@ body.dark-mode .tracker-analytics-section-head {
     $("afdbBtn") && $("afdbBtn").addEventListener("click", openAfdb);
     $("headerErrorBtn") && $("headerErrorBtn").addEventListener("click", openEngineErrorPage);
     $("engineErrorCloseBtn") && $("engineErrorCloseBtn").addEventListener("click", closeEngineErrorPage);
-    $("engineRelockBtn") && $("engineRelockBtn").addEventListener("click", function () {
-      try { localStorage.removeItem(STORE.unlocked); localStorage.removeItem(STORE.unlockedAt); } catch (_e) {}
+    $("engineRelockBtn") && $("engineRelockBtn").addEventListener("click", () => {
+      try {
+        localStorage.removeItem("tt_engineUnlocked");
+        localStorage.removeItem("tt_engineUnlockedAt");
+      } catch (_e) {}
       location.reload();
     });
-    $("fetchBtn") && $("fetchBtn").addEventListener("click", function () {
-      autofetchFixtures((($("leagueSelect") || {}).value || ""));
+    $("fetchBtn") && $("fetchBtn").addEventListener("click", async () => {
+      const lg = (($("leagueSelect") || {}).value || "");
+      const selId = (($("fixtureSelect") || {}).value) || "";
+      if (selId && fixtureMap[selId]) {
+        setFetchStatus("Fetching player stats…", "loading");
+        setStatus("Fetching Last 10…", "ok");
+        engineDebug("fetch stats for selected", { id: selId, league: lg });
+        try {
+          await onFixturePick();
+          setFetchStatus("Stats filled for " + (fixtureMap[selId].home || "") + " vs " + (fixtureMap[selId].away || ""), "ok");
+          setStatus("Last 10 updated", "ok");
+        } catch (e) {
+          setFetchStatus("Stats fetch failed: " + (e && e.message || e), "err");
+          setStatus("Stats fetch failed", "err");
+        }
+        refreshAfdbLogs();
+        return;
+      }
+      await autofetchFixtures(lg);
+      refreshAfdbLogs();
     });
     $("fixtureSelect") && $("fixtureSelect").addEventListener("change", onFixturePick);
-    $("fixturesTodayBtn") && $("fixturesTodayBtn").addEventListener("click", function () {
+    $("fixturesTodayBtn") && $("fixturesTodayBtn").addEventListener("click", () => {
       fixtureDayOffset = 0;
-      document.querySelectorAll(".fixture-day").forEach(function (b) { b.classList.remove("active"); });
+      document.querySelectorAll(".fixture-day").forEach((b) => b.classList.remove("active"));
       $("fixturesTodayBtn").classList.add("active");
       const lg = (($("leagueSelect") || {}).value || "");
       if (isAutofetchLeague(lg)) autofetchFixtures(lg);
     });
-    $("fixturesTomorrowBtn") && $("fixturesTomorrowBtn").addEventListener("click", function () {
+    $("fixturesTomorrowBtn") && $("fixturesTomorrowBtn").addEventListener("click", () => {
       fixtureDayOffset = 1;
-      document.querySelectorAll(".fixture-day").forEach(function (b) { b.classList.remove("active"); });
+      document.querySelectorAll(".fixture-day").forEach((b) => b.classList.remove("active"));
       $("fixturesTomorrowBtn").classList.add("active");
       const lg = (($("leagueSelect") || {}).value || "");
       if (isAutofetchLeague(lg)) autofetchFixtures(lg);
     });
-    $("leagueSelect") && $("leagueSelect").addEventListener("change", function () {
+    $("leagueSelect") && $("leagueSelect").addEventListener("change", () => {
       const lg = (($("leagueSelect") || {}).value || "").toLowerCase();
       populateFixtureSelect([]);
       selectedMatch = null;
       const af = $("autofetchSection");
-      if (af) af.style.display = (lg ? "" : "none");
-      if (isAutofetchLeague(lg)) autofetchFixtures(lg);
-      else setStatus(lg ? "Manual league — enter players & lines" : "", "ok");
+      if (af) af.style.display = isAutofetchLeague(lg) ? "" : "none";
+      updateSectionLocks();
+      if (!lg) {
+        accordionOpen("leagueSection");
+      } else if (isAutofetchLeague(lg)) {
+        accordionOpen("autofetchSection", true);
+        autofetchFixtures(lg);
+      } else {
+        accordionOpen("marketSection", true);
+        setFetchStatus("Manual league — enter players & lines");
+      }
     });
-    document.querySelectorAll(".tracker-tab").forEach(function (tab) {
-      tab.addEventListener("click", function () {
-        document.querySelectorAll(".tracker-tab").forEach(function (t) { t.classList.remove("active"); });
+    document.querySelectorAll(".tracker-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tracker-tab").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
         trackerTab = tab.getAttribute("data-tab");
         renderTracker();
       });
     });
-    $("trackerDeleteCancelBtn") && $("trackerDeleteCancelBtn").addEventListener("click", function () {
-      pendingDeleteId = null;
-      const box = $("trackerDeleteConfirm");
-      if (box) { box.classList.remove("open"); box.setAttribute("aria-hidden", "true"); }
-    });
-    $("trackerDeleteOkBtn") && $("trackerDeleteOkBtn").addEventListener("click", function () {
-      if (pendingDeleteId) deletePick(pendingDeleteId);
-      pendingDeleteId = null;
-      const box = $("trackerDeleteConfirm");
-      if (box) { box.classList.remove("open"); box.setAttribute("aria-hidden", "true"); }
-    });
-    $("manualSettleCancelBtn") && $("manualSettleCancelBtn").addEventListener("click", function () {
-      const ov = $("manualSettleOverlay");
-      if (ov) { ov.classList.remove("open"); ov.setAttribute("aria-hidden", "true"); }
-      pendingSettleId = null;
-    });
-    $("manualSettleOkBtn") && $("manualSettleOkBtn").addEventListener("click", confirmManualSettle);
+
     pruneTracker();
-    engineDebug("boot", { build: BUILD_ID, markets: TT_MARKETS });
+    engineDebug("boot", {
+      build: BUILD_ID, markets: TT_MARKETS,
+      leagues: document.querySelectorAll("#leagueSelect option").length,
+      stub: false,
+    });
   }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })();
 </script>
+
 </body>
 </html>
