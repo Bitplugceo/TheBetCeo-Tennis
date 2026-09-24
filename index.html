@@ -1,9 +1,8 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="generator" content="tt_v6_chromeport_20260924" />
+  <meta name="generator" content="tt_v6_1_afdb_opaque_20260924" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -2864,13 +2863,21 @@ body.dark-mode .tracker-analytics-section-head {
 #raidToast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:#111; color:#fff; border:1px solid #d91f26; padding:10px 14px; font-size:12px; font-weight:800; z-index:100000; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
 #raidToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 .siren-pulse { animation: engineAlertPulse 0.6s ease-in-out 3; }
-.afdb-inner { padding:14px; color:#ddd; overflow:auto; height:100%; }
-.afdb-inner h3 { color:#fff; margin-bottom:10px; }
+#afdbOverlay { background:#080808 !important; }
+#afdbPanel { background:#080808; color:#ddd; }
+.afdb-head { background:#080808; border-bottom:1px solid #222; padding:12px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; flex-shrink:0; }
+.afdb-title { color:#d4af37; font-size:14px; font-weight:900; letter-spacing:1px; }
+.afdb-head-btns { display:flex; gap:8px; flex-wrap:wrap; }
+.afdb-head-btns button { margin:0; background:#111; border:1px solid #333; color:#ccc; padding:6px 12px; font-size:11px; font-weight:700; }
+.afdb-head-btns .raid { background:#2a0608 !important; border:1px solid #d91f26 !important; color:#fff !important; }
+.afdb-head-btns .ok { color:#49d45f; }
+.afdb-head-btns .bad { color:#ff5c61; }
+.afdb-subbar { padding:8px 12px; background:#0d0d0d; border-bottom:1px solid #1a1a1a; color:#888; font-size:11px; font-weight:700; }
+.afdb-body { flex:1; overflow-y:auto; background:#0a0a0a; -webkit-overflow-scrolling:touch; }
+.afdb-section-h { padding:10px 12px; background:#111; color:#d4af37; font-size:11px; font-weight:900; text-transform:uppercase; border-bottom:1px solid #222; position:sticky; top:0; }
+.afdb-pad { padding:12px; }
 .afdb-inner input { max-width:none; width:100%; background:#111; color:#eee; border:1px solid #333; }
-.afdb-actions { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
-.afdb-actions button { margin:0; font-size:11px; }
-.afdb-actions .raid { background:#d91f26 !important; }
-.req-log, .raw-peek, #debugLog { background:#0a0a0a; border:1px solid #222; color:#9fef9f; font-size:10px; padding:8px; min-height:60px; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,Consolas,monospace; }
+.req-log, .raw-peek, #debugLog { background:#070707; border:1px solid #222; color:#9fef9f; font-size:10px; padding:8px; min-height:72px; white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,Consolas,monospace; }
 .tracker-card { border:1px solid var(--table-border); background:var(--panel); margin:8px 16px; padding:10px; }
 .tc-title { font-weight:900; font-size:13px; }
 .tc-meta { color:var(--muted); font-size:11px; font-weight:700; margin-top:4px; }
@@ -3140,14 +3147,14 @@ body.dark-mode .tracker-analytics-section-head {
   <div id="engineErrorBody" style="flex:1;overflow-y:auto;padding:14px;background:#070707;"></div>
 </div>
 
-<div id="afdbOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
+<div id="afdbOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:#080808;flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
   <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden"></div>
 </div>
 <div id="raidToast">Military raid complete</div>
 
 <script>
 (function () {
-  const BUILD_ID = "tt_v6_chromeport_20260924";
+  const BUILD_ID = "tt_v6_1_afdb_opaque_20260924";
   const TT_MARKETS = ["game1_total", "match_total"];
   const WTT_CMS = "https://wtt-mobile-app-services-api.azurewebsites.net";
   const ARCHIVE_MS = 10 * 60 * 60 * 1000;
@@ -3892,30 +3899,30 @@ body.dark-mode .tracker-analytics-section-head {
     if (!panel) return;
     const wb = workerBase();
     const acc = accuracySummary();
-    panel.innerHTML = '<div class="afdb-inner"><h3>TT Debug / AFDB</h3>' +
-      '<label style="color:#ccc;display:block;">Worker base URL (Setka proxy)</label>' +
-      '<input id="workerUrlInput" placeholder="https://your-worker.workers.dev" value="' + (wb || "").replace(/"/g, "") + '" />' +
-      '<div class="afdb-actions">' +
-      '<button type="button" id="dbgSaveWorker">💾 Save Worker</button>' +
+    const savedWorker = (wb || "").replace(/"/g, "");
+    panel.innerHTML =
+      '<div class="afdb-head"><div class="afdb-title">🔬 AUTO-FETCH DEBUG BRAIN (TT)</div>' +
+      '<div class="afdb-head-btns">' +
+      '<button type="button" id="dbgSaveWorker" class="ok">💾 Save Worker</button>' +
       '<button type="button" id="dbgHealth">❤️ Health</button>' +
-      '<button type="button" id="autofetchBtn">⬇️ Autofetch Setka</button>' +
-      '<button type="button" id="autofetchWttBtn">⬇️ Autofetch WTT</button>' +
+      '<button type="button" id="autofetchBtn">⬇️ Setka</button>' +
+      '<button type="button" id="autofetchWttBtn">⬇️ WTT</button>' +
       '<button type="button" id="dbgRaid" class="raid">🚨 MILITARY RAID</button>' +
-      '<button type="button" id="dbgClearLog">🗑️ Clear Log</button>' +
-      '<button type="button" id="dbgClose">✕ Close</button></div>' +
-      '<div style="color:#9fef9f;margin:6px 0;">Accuracy ' + acc.wins + "-" + acc.losses + "-" + acc.pushes +
+      '<button type="button" id="dbgClearLog" class="bad">🗑️ Clear</button>' +
+      '<button type="button" id="dbgClose">✕ Close</button></div></div>' +
+      '<div class="afdb-subbar">Accuracy ' + acc.wins + "-" + acc.losses + "-" + acc.pushes +
       " · learn bias G1 " + acc.biasG1.toFixed(2) + " / MT " + acc.biasMt.toFixed(2) +
-      " · n=" + acc.samples + "</div>" +
-      '<small style="color:#888;display:block;margin-bottom:8px;">Setka needs a Worker URL. WTT can run direct. Phone autofetch for Setka will fail without the Worker.</small>' +
-      '<label style="color:#ccc;margin-top:8px;display:block;">Live request log</label>' +
+      " · n=" + acc.samples + " · " + BUILD_ID + "</div>" +
+      '<div class="afdb-body"><div class="afdb-section-h">Worker / feeds</div><div class="afdb-pad">' +
+      '<label style="color:#888;display:block;font-size:11px;">Worker base URL — required for Setka. WTT can run direct.</label>' +
+      '<input id="workerUrlInput" placeholder="https://your-worker.workers.dev" value="' + savedWorker + '" />' +
+      '<div style="color:#666;font-size:10px;margin-top:6px;">Phone autofetch for Setka fails without a Worker. Paste the URL and tap Save Worker.</div></div>' +
+      '<div class="afdb-section-h">📡 FETCH & ENGINE LOGS</div><div class="afdb-pad">' +
       '<div id="reqLog" class="req-log"></div>' +
-      '<label style="color:#ccc;margin-top:8px;display:block;">Last raw JSON peek</label>' +
+      '<div style="color:#d4af37;font-size:10px;font-weight:900;margin:10px 0 4px;">LAST RAW JSON PEEK</div>' +
       '<div id="rawPeek" class="raw-peek"></div>' +
-      '<div id="debugLog"></div>' +
-      '<div style="color:#666;margin-top:8px;" id="dbgBuild">Build: ' + BUILD_ID + "</div></div>";
-    if ($("reqLog")) $("reqLog").textContent = reqLogLines.slice(-40).join("\n") || "(no requests yet)";
-    if ($("rawPeek")) $("rawPeek").textContent = lastRawPeek || "(empty)";
-    if ($("debugLog")) $("debugLog").textContent = logLines.slice(-80).join("\n");
+      '<div style="color:#d4af37;font-size:10px;font-weight:900;margin:10px 0 4px;">ENGINE</div>' +
+      '<div id="debugLog"></div></div></div>';
     wireAfdbButtons();
   }
   function wireAfdbButtons() {
