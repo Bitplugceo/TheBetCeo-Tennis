@@ -1,8 +1,9 @@
+Q
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="generator" content="tt_v6_3_ui_chrome_100_20260924" />
+  <meta name="generator" content="tt_v6_4_fetchstats_parity_20260924" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -12,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@1,800;1,900&display=swap" rel="stylesheet" />
   <title>TheBetCeo TT — Table Tennis</title>
-  <!-- build tt_v6_3_ui_chrome_100_20260924 | BB UI chrome 100% (accordion/typography/spacing) + TT-only sport logic -->
+  <!-- build tt_v6_4_fetchstats_parity_20260924 | Fetch Stats Last-10 parity (Setka+WTT fill + accordion open) + BB UI chrome -->
 <style id="bb-critical-lock">
 #engineLockOverlay{position:fixed;inset:0;z-index:2147483646;background:#0c0c0e;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
 #engineLockOverlay.hidden{display:none !important}
@@ -3335,7 +3336,7 @@ body.dark-mode .tracker-analytics-section-head {
 <script>
 (function () {
   "use strict";
-  const BUILD_ID = "tt_v6_3_ui_chrome_100_20260924";
+  const BUILD_ID = "tt_v6_4_fetchstats_parity_20260924";
   window.__TT_INTEGRITY_BUILD__ = BUILD_ID;
   window.TT_BUILD_ID = BUILD_ID;
   window.TT_PREDICTION_STUB = false;
@@ -3363,6 +3364,9 @@ body.dark-mode .tracker-analytics-section-head {
   const reqLogLines = [];
   let lastRawPeek = "";
   let fixtureMap = {};
+  let wttUnitCache = []; /* Official/finished WTT units for Last-10 history */
+  window.__ttWttUnitCache = () => wttUnitCache;
+  window.__ttFindWttHistory = (code, name, excludeDoc) => findWttHistoryUnits(code, name, excludeDoc);
   let selectedMatch = null;
   let fixtureDayOffset = 0;
   let trackerTab = "active";
@@ -4215,20 +4219,301 @@ body.dark-mode .tracker-analytics-section-head {
     });
     return { g1, mt };
   }
+  function normPlayerKey(s) {
+    return String(s || "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+  }
+  function totalsFromGames(games) {
+    const played = (games || []).filter((g) => (g.p1Points || 0) + (g.p2Points || 0) > 0);
+    if (!played.length) return null;
+    const g1 = played[0].p1Points + played[0].p2Points;
+    const mt = played.reduce((s, g) => s + g.p1Points + g.p2Points, 0);
+    return { g1, mt };
+  }
+  function showAutoTag(id, on) {
+    const t = $(id);
+    if (!t) return;
+    if (on) { t.classList.add("show"); t.style.display = "inline"; }
+    else { t.classList.remove("show"); t.style.display = "none"; }
+  }
+  function applyLast10Series(side, g1, mt) {
+    const q1 = side === "A" ? "aQ1Scored" : "bQ1Scored";
+    const ft = side === "A" ? "aFTScored" : "bFTScored";
+    const tag = side === "A" ? "aAutoTag" : "bAutoTag";
+    let filled = 0;
+    if (g1 && g1.length && $(q1)) { $(q1).value = g1.join(","); filled = Math.max(filled, g1.length); }
+    if (mt && mt.length && $(ft)) { $(ft).value = mt.join(","); filled = Math.max(filled, mt.length); }
+    showAutoTag(tag, filled > 0);
+    return filled;
+  }
+  function revealAutofillSections(openH2H) {
+    ["marketSection", "teamASection", "teamBSection", "h2hSection"].forEach(unlockSection);
+    openSection("marketSection");
+    openSection("teamASection");
+    openSection("teamBSection");
+    if (openH2H) openSection("h2hSection");
+  }
   async function autofillFromSetka(norm) {
-    if (!norm || norm.league !== "setka") return;
+    if (!norm || norm.league !== "setka") return { a: 0, b: 0, h2h: 0 };
     const idA = norm.player1 && norm.player1.rawId;
     const idB = norm.player2 && norm.player2.rawId;
     const [pa, pb] = await Promise.all([fetchSetkaPlayer(idA), fetchSetkaPlayer(idB)]);
     const sa = extractSeriesFromSetkaPlayer(pa);
     const sb = extractSeriesFromSetkaPlayer(pb);
-    if (sa.g1.length && $("aQ1Scored")) $("aQ1Scored").value = sa.g1.join(",");
-    if (sa.mt.length && $("aFTScored")) $("aFTScored").value = sa.mt.join(",");
-    if (sb.g1.length && $("bQ1Scored")) $("bQ1Scored").value = sb.g1.join(",");
-    if (sb.mt.length && $("bFTScored")) $("bFTScored").value = sb.mt.join(",");
-    if (sa.g1.length || sa.mt.length) { const t = $("aAutoTag"); if (t) t.classList.add("show"); }
-    if (sb.g1.length || sb.mt.length) { const t = $("bAutoTag"); if (t) t.classList.add("show"); }
-    engineDebug("autofill history", { aG1: sa.g1.length, aMt: sa.mt.length, bG1: sb.g1.length, bMt: sb.mt.length });
+    const aN = applyLast10Series("A", sa.g1, sa.mt);
+    const bN = applyLast10Series("B", sb.g1, sb.mt);
+    /* H2H: finished meetings already in today's fixture pool */
+    let h2hG1 = [], h2hMt = [];
+    Object.keys(fixtureMap).forEach((fid) => {
+      const row = fixtureMap[fid];
+      const m = row && row._tt;
+      if (!m || m.league !== "setka" || m.status !== "finished") return;
+      const a = m.player1 && m.player1.rawId;
+      const b = m.player2 && m.player2.rawId;
+      const pair = (a === idA && b === idB) || (a === idB && b === idA);
+      if (!pair) return;
+      const games = m.games || [];
+      const tot = totalsFromGames(games);
+      if (!tot) return;
+      h2hG1.push(tot.g1);
+      h2hMt.push(tot.mt);
+    });
+    h2hG1 = h2hG1.slice(0, 5);
+    h2hMt = h2hMt.slice(0, 5);
+    if (h2hMt.length && $("aFTH2H")) $("aFTH2H").value = h2hMt.join(",");
+    if (h2hG1.length && $("aQ1H2H")) $("aQ1H2H").value = h2hG1.join(",");
+    showAutoTag("h2hAutoTag", h2hMt.length >= 1);
+    revealAutofillSections(h2hMt.length >= 1);
+    engineDebug("autofill setka history", { aG1: sa.g1.length, aMt: sa.mt.length, bG1: sb.g1.length, bMt: sb.mt.length, h2h: h2hMt.length });
+    return { a: aN, b: bN, h2h: h2hMt.length };
+  }
+  function pushWttUnitToCache(eventId, u, eventName) {
+    if (!u) return;
+    const code = u.Code || u.code || u.documentCode || "";
+    if (!code) return;
+    const startListRaw = u.StartList || u.startList || null;
+    let starts = [];
+    if (Array.isArray(startListRaw)) starts = startListRaw;
+    else if (startListRaw && Array.isArray(startListRaw.Start)) starts = startListRaw.Start;
+    else if (startListRaw && Array.isArray(startListRaw.start)) starts = startListRaw.start;
+    let p1Name = "", p2Name = "", p1Code = "", p2Code = "";
+    if (starts.length >= 2) {
+      p1Name = wttPlayerNameFromStart(starts[0]) || "";
+      p2Name = wttPlayerNameFromStart(starts[1]) || "";
+      p1Code = wttPlayerCodeFromStart(starts[0]) || "";
+      p2Code = wttPlayerCodeFromStart(starts[1]) || "";
+    }
+    const st = String(u.ScheduleStatus || u.resultStatus || u.ResultStatus || "").toLowerCase();
+    const official = /official|finished|complete/.test(st);
+    const doc = padDocumentCode(code);
+    const key = String(eventId) + "|" + doc;
+    if (wttUnitCache.some((x) => x.key === key)) return;
+    wttUnitCache.push({
+      key, eventId: String(eventId), code, documentCode: doc,
+      status: official ? "finished" : st,
+      official, p1Name, p2Name, p1Code, p2Code,
+      start: u.StartDateTime || u.startDateTime || u.StartDate || "",
+      eventName: eventName || "",
+      prev1: (starts[0] && (starts[0].PreviousUnit || starts[0].previousUnit)) || "",
+      prev2: (starts[1] && (starts[1].PreviousUnit || starts[1].previousUnit)) || "",
+    });
+  }
+  function wttPlayerNameFromStart(startEntry) {
+    if (!startEntry) return "";
+    const comp = startEntry.Competitor || startEntry.competitor || startEntry;
+    const team = (comp.Description && (comp.Description.TeamName || comp.Description.teamName)) || comp.TeamName || "";
+    if (team) return String(team).trim();
+    const athletes = (comp.Composition && (comp.Composition.Athlete || comp.Composition.athlete)) || [];
+    const a0 = Array.isArray(athletes) ? athletes[0] : null;
+    const desc = (a0 && a0.Description) || {};
+    const nm = [desc.GivenName || desc.givenName, desc.FamilyName || desc.familyName].filter(Boolean).join(" ");
+    return nm || comp.PrintName || comp.printName || "";
+  }
+  function wttPlayerCodeFromStart(startEntry) {
+    if (!startEntry) return "";
+    const comp = startEntry.Competitor || startEntry.competitor || startEntry;
+    return String(comp.Code || comp.code || (comp.Description && comp.Description.IfId) || "").trim();
+  }
+  function unitMatchesPlayer(unit, code, name) {
+    const nk = normPlayerKey(name);
+    const c = String(code || "");
+    if (c && (unit.p1Code === c || unit.p2Code === c)) return true;
+    if (nk && (normPlayerKey(unit.p1Name) === nk || normPlayerKey(unit.p2Name) === nk)) return true;
+    return false;
+  }
+  function findWttHistoryUnits(code, name, excludeDoc) {
+    const out = [];
+    const seen = {};
+    wttUnitCache.forEach((u) => {
+      if (!u.official) return;
+      if (excludeDoc && u.documentCode === excludeDoc) return;
+      if (!unitMatchesPlayer(u, code, name)) return;
+      if (seen[u.key]) return;
+      seen[u.key] = 1;
+      out.push(u);
+    });
+    out.sort((a, b) => String(b.start || "").localeCompare(String(a.start || "")));
+    return out;
+  }
+  function findWttH2HUnits(codeA, nameA, codeB, nameB, excludeDoc) {
+    const out = [];
+    wttUnitCache.forEach((u) => {
+      if (!u.official) return;
+      if (excludeDoc && u.documentCode === excludeDoc) return;
+      const aOk = unitMatchesPlayer(u, codeA, nameA);
+      const bOk = unitMatchesPlayer(u, codeB, nameB);
+      if (aOk && bOk) out.push(u);
+    });
+    out.sort((a, b) => String(b.start || "").localeCompare(String(a.start || "")));
+    return out;
+  }
+  async function fetchWttCard(eventId, documentCode) {
+    const wb = workerBase();
+    let card = null;
+    const path = "/GetMatchCardDetails_Minimal/" +
+      encodeURIComponent(eventId) + "/" + encodeURIComponent(documentCode);
+    if (wb) {
+      try {
+        card = await ttFetch(
+          wb + "/tt/wtt/card/" + encodeURIComponent(eventId) + "/" + encodeURIComponent(documentCode),
+          { timeout: 12000 }
+        );
+      } catch (_e) { card = null; }
+    }
+    if (!card) card = await ttFetch(WTT_CMS + path, { timeout: 12000 });
+    return card;
+  }
+  async function seriesFromWttUnits(units, limit) {
+    const g1 = [], mt = [];
+    const slice = (units || []).slice(0, limit || 10);
+    const cards = await Promise.all(slice.map(async (u) => {
+      try {
+        const card = await fetchWttCard(u.eventId, u.documentCode);
+        return { u, card };
+      } catch (e) {
+        engineDebug("wtt card history miss", { eventId: u.eventId, doc: u.documentCode, error: String(e && e.message || e) });
+        return { u, card: null };
+      }
+    }));
+    cards.forEach(({ card }) => {
+      if (!card) return;
+      const gs = card.resultsGameScores || card.gameScores || "";
+      const games = parseGameScores(gs);
+      const tot = totalsFromGames(games);
+      if (!tot) return;
+      g1.push(tot.g1);
+      mt.push(tot.mt);
+    });
+    return { g1, mt };
+  }
+  async function expandWttHistoryCache(extraEvents) {
+    const wb = workerBase();
+    let live = null;
+    try { if (wb) live = await ttFetch(wb + "/tt/wtt/live-events", { timeout: 15000 }); }
+    catch (_e) { live = null; }
+    if (!live) {
+      try { live = await ttFetch(WTT_CMS + "/GetLiveEvent", { timeout: 15000 }); }
+      catch (_e) {
+        try { live = await ttFetch(WTT_CMS + "/GetAllLiveOrActiveEvents", { timeout: 15000 }); }
+        catch (_e2) { return; }
+      }
+    }
+    let events = [];
+    if (Array.isArray(live)) events = live;
+    else if (live && Array.isArray(live.result)) events = live.result;
+    else if (live && Array.isArray(live.events)) events = live.events;
+    else if (live && (live.eventId || live.EventId || live.id)) events = [live];
+    const have = {};
+    wttUnitCache.forEach((u) => { have[u.eventId] = 1; });
+    const need = [];
+    events.forEach((ev) => {
+      const eventId = String(ev.eventId || ev.EventId || ev.id || "").trim();
+      if (!eventId || have[eventId]) return;
+      need.push(ev);
+    });
+    const slice = need.slice(0, extraEvents || 6);
+    await Promise.all(slice.map(async (ev) => {
+      const eventId = String(ev.eventId || ev.EventId || ev.id || "").trim();
+      const eventName = ev.eventName || ev.EventName || ev.name || "WTT";
+      let sched = null;
+      try {
+        if (wb) {
+          try { sched = await ttFetch(wb + "/tt/wtt/schedule/" + encodeURIComponent(eventId), { timeout: 20000 }); }
+          catch (_e) { sched = null; }
+        }
+        if (!sched) sched = await ttFetch(WTT_CMS + "/GetEventSchedule/" + encodeURIComponent(eventId), { timeout: 20000 });
+      } catch (e) {
+        engineDebug("wtt expand schedule miss", { eventId, error: String(e && e.message || e) });
+        return;
+      }
+      extractWttUnits(sched).forEach((u) => pushWttUnitToCache(eventId, u, eventName));
+    }));
+  }
+  /* shared unit extractor used by loadWttOptions + expand */
+  function extractWttUnits(sched) {
+    const units = [];
+    const pushUnit = (u) => { if (u && (u.Code || u.code)) units.push(u); };
+    if (!sched) return units;
+    if (Array.isArray(sched)) {
+      sched.forEach((day) => {
+        const list = (day && day.Competition && (day.Competition.Unit || day.Competition.Units)) || day.units || day.Units || [];
+        (Array.isArray(list) ? list : []).forEach(pushUnit);
+      });
+      return units;
+    }
+    const direct = sched.units || sched.Units || sched.schedule || sched.Schedule || [];
+    if (Array.isArray(direct) && direct.length && (direct[0].Code || direct[0].code)) {
+      direct.forEach(pushUnit);
+      return units;
+    }
+    if (sched.Competition && (sched.Competition.Unit || sched.Competition.Units)) {
+      (sched.Competition.Unit || sched.Competition.Units || []).forEach(pushUnit);
+      return units;
+    }
+    Object.values(sched).forEach((day) => {
+      if (!day || typeof day !== "object") return;
+      const list = (day.Competition && (day.Competition.Unit || day.Competition.Units)) || day.units || [];
+      (Array.isArray(list) ? list : []).forEach(pushUnit);
+    });
+    return units;
+  }
+  async function autofillFromWtt(norm) {
+    if (!norm || String(norm.league || "").indexOf("wtt") !== 0) return { a: 0, b: 0, h2h: 0 };
+    const nameA = (norm.player1 && norm.player1.displayName) || "";
+    const nameB = (norm.player2 && norm.player2.displayName) || "";
+    const codeA = (norm.player1 && (norm.player1.rawId || norm.player1.code)) || "";
+    const codeB = (norm.player2 && (norm.player2.rawId || norm.player2.code)) || "";
+    const excludeDoc = norm.documentCode || "";
+    let histA = findWttHistoryUnits(codeA, nameA, excludeDoc);
+    let histB = findWttHistoryUnits(codeB, nameB, excludeDoc);
+    /* Expand only when thin — avoid long no-op schedule crawls when form already present */
+    if (histA.length < 2 || histB.length < 2) {
+      try { await expandWttHistoryCache(6); } catch (e) {
+        engineDebug("wtt expand fail", { error: String(e && e.message || e) });
+      }
+      histA = findWttHistoryUnits(codeA, nameA, excludeDoc);
+      histB = findWttHistoryUnits(codeB, nameB, excludeDoc);
+    }
+    const [sa, sb] = await Promise.all([
+      seriesFromWttUnits(histA, 10),
+      seriesFromWttUnits(histB, 10),
+    ]);
+    const aN = applyLast10Series("A", sa.g1, sa.mt);
+    const bN = applyLast10Series("B", sb.g1, sb.mt);
+    const h2hUnits = findWttH2HUnits(codeA, nameA, codeB, nameB, excludeDoc).slice(0, 5);
+    let h2hG1 = [], h2hMt = [];
+    if (h2hUnits.length) {
+      const hs = await seriesFromWttUnits(h2hUnits, 5);
+      h2hG1 = hs.g1; h2hMt = hs.mt;
+      if (h2hMt.length && $("aFTH2H")) $("aFTH2H").value = h2hMt.join(",");
+      if (h2hG1.length && $("aQ1H2H")) $("aQ1H2H").value = h2hG1.join(",");
+      showAutoTag("h2hAutoTag", h2hMt.length >= 1);
+    }
+    revealAutofillSections(h2hMt.length >= 1);
+    engineDebug("autofill wtt history", {
+      aG1: sa.g1.length, aMt: sa.mt.length, bG1: sb.g1.length, bMt: sb.mt.length,
+      h2h: h2hMt.length, cache: wttUnitCache.length, candA: histA.length, candB: histB.length,
+    });
+    return { a: aN, b: bN, h2h: h2hMt.length };
   }
   async function loadSetkaOptions(dateStr) {
     const data = await fetchSetkaTournaments(dateStr);
@@ -4285,47 +4570,8 @@ body.dark-mode .tracker-analytics-section-head {
       const filtered = events.filter((e) => /champion/i.test(JSON.stringify(e).slice(0, 400)));
       if (filtered.length) events = filtered;
     }
-    function extractWttUnits(sched) {
-      const units = [];
-      const pushUnit = (u) => { if (u && (u.Code || u.code)) units.push(u); };
-      if (!sched) return units;
-      if (Array.isArray(sched)) {
-        sched.forEach((day) => {
-          const list = (day && day.Competition && (day.Competition.Unit || day.Competition.Units)) || day.units || day.Units || [];
-          (Array.isArray(list) ? list : []).forEach(pushUnit);
-        });
-        return units;
-      }
-      const direct = sched.units || sched.Units || sched.schedule || sched.Schedule || [];
-      if (Array.isArray(direct) && direct.length && (direct[0].Code || direct[0].code)) {
-        direct.forEach(pushUnit);
-        return units;
-      }
-      if (sched.Competition && (sched.Competition.Unit || sched.Competition.Units)) {
-        (sched.Competition.Unit || sched.Competition.Units || []).forEach(pushUnit);
-        return units;
-      }
-      // day-map object
-      Object.values(sched).forEach((day) => {
-        if (!day || typeof day !== "object") return;
-        const list = (day.Competition && (day.Competition.Unit || day.Competition.Units)) || day.units || [];
-        (Array.isArray(list) ? list : []).forEach(pushUnit);
-      });
-      return units;
-    }
-    function wttPlayerName(startEntry) {
-      if (!startEntry) return "";
-      const comp = startEntry.Competitor || startEntry.competitor || startEntry;
-      const team = (comp.Description && (comp.Description.TeamName || comp.Description.teamName)) || comp.TeamName || "";
-      if (team) return String(team).trim();
-      const athletes = (comp.Composition && (comp.Composition.Athlete || comp.Composition.athlete)) || [];
-      const a0 = Array.isArray(athletes) ? athletes[0] : null;
-      const desc = (a0 && a0.Description) || {};
-      const nm = [desc.GivenName || desc.givenName, desc.FamilyName || desc.familyName].filter(Boolean).join(" ");
-      return nm || comp.PrintName || comp.printName || "";
-    }
     const options = [];
-    const eventSlice = events.slice(0, 6);
+    const eventSlice = events.slice(0, 8);
     const schedules = await Promise.all(eventSlice.map(async (ev) => {
       const eventId = String(ev.eventId || ev.EventId || ev.id || "").trim();
       if (!eventId) return { ev, eventId: "", sched: null };
@@ -4343,7 +4589,9 @@ body.dark-mode .tracker-analytics-section-head {
     }));
     for (const { ev, eventId, sched } of schedules) {
       if (!eventId || !sched) continue;
+      const eventName = ev.eventName || ev.EventName || ev.name || "WTT";
       const units = extractWttUnits(sched);
+      units.forEach((u) => pushWttUnitToCache(eventId, u, eventName));
       units.forEach((u) => {
         const code = u.Code || u.code || u.documentCode || "";
         if (!code) return;
@@ -4352,10 +4600,12 @@ body.dark-mode .tracker-analytics-section-head {
         if (Array.isArray(startListRaw)) starts = startListRaw;
         else if (startListRaw && Array.isArray(startListRaw.Start)) starts = startListRaw.Start;
         else if (startListRaw && Array.isArray(startListRaw.start)) starts = startListRaw.start;
-        let p1 = "P1", p2 = "P2";
+        let p1 = "P1", p2 = "P2", c1 = "", c2 = "";
         if (starts.length >= 2) {
-          p1 = wttPlayerName(starts[0]) || "P1";
-          p2 = wttPlayerName(starts[1]) || "P2";
+          p1 = wttPlayerNameFromStart(starts[0]) || "P1";
+          p2 = wttPlayerNameFromStart(starts[1]) || "P2";
+          c1 = wttPlayerCodeFromStart(starts[0]);
+          c2 = wttPlayerCodeFromStart(starts[1]);
         } else if (u.Description || u.description || (u.ItemDescription && u.ItemDescription[0])) {
           const d = String(
             u.Description || u.description ||
@@ -4366,7 +4616,6 @@ body.dark-mode .tracker-analytics-section-head {
             p1 = parts[0] || p1; p2 = parts[1] || p2;
           }
         }
-        // Skip unnamed placeholder rows
         if ((p1 === "P1" && p2 === "P2") && starts.length < 2) return;
         const doc = padDocumentCode(code);
         const id = "wtt:" + eventId + ":" + doc;
@@ -4378,10 +4627,11 @@ body.dark-mode .tracker-analytics-section-head {
           home: p1, away: p2, date: start, status: st,
           _tt: {
             id, league: "wtt", eventId, documentCode: doc,
-            player1: { displayName: p1 }, player2: { displayName: p2 },
+            player1: { displayName: p1, rawId: c1, code: c1 },
+            player2: { displayName: p2, rawId: c2, code: c2 },
             games: [],
             status: /official|finished|complete/i.test(st) ? "finished" : /live|running/i.test(st) ? "live" : "scheduled",
-            competitionName: (ev.eventName || ev.EventName || ev.name || "WTT"),
+            competitionName: eventName,
             startTime: start, bestOf: 5,
           },
         });
@@ -4396,9 +4646,10 @@ body.dark-mode .tracker-analytics-section-head {
       return false;
     });
     let list = dated.length ? dated : options;
-    // Prefer rows with both player names; phone-friendly cap
     const named = list.filter((o) => o.home && o.away && o.home !== "P1" && o.away !== "P2");
     if (named.length) list = named;
+    engineDebug("wtt cache built", { options: list.length, cache: wttUnitCache.length, official: wttUnitCache.filter((u) => u.official).length });
+    try { window.__ttWttCacheStats = { options: list.length, cache: wttUnitCache.length, official: wttUnitCache.filter((u) => u.official).length }; } catch (_e) {}
     return list.slice(0, 120);
   }
   async function autofetchFixtures(forceLeague) {
@@ -4440,32 +4691,21 @@ body.dark-mode .tracker-analytics-section-head {
   }
   async function onFixturePick() {
     const id = (($("fixtureSelect") || {}).value) || "";
-    if (!id) return;
+    if (!id) return { a: 0, b: 0, h2h: 0 };
     const row = fixtureMap[id];
-    if (!row) return;
+    if (!row) return { a: 0, b: 0, h2h: 0 };
     selectedMatch = row._tt || null;
     if ($("teamAName")) $("teamAName").value = row.home || "";
     if ($("teamBName")) $("teamBName").value = row.away || "";
     setStatus("Match selected: " + (row.home || "") + " vs " + (row.away || ""), "ok");
+    let fill = { a: 0, b: 0, h2h: 0 };
     if (selectedMatch && selectedMatch.league === "setka") {
-      try { await autofillFromSetka(selectedMatch); }
-      catch (e) { engineDebug("autofill fail", { error: String(e) }); }
+      try { fill = await autofillFromSetka(selectedMatch) || fill; }
+      catch (e) { engineDebug("autofill setka fail", { error: String(e) }); }
     }
-    if (selectedMatch && selectedMatch.league === "wtt" && selectedMatch.eventId && selectedMatch.documentCode) {
+    if (selectedMatch && String(selectedMatch.league || "").indexOf("wtt") === 0 && selectedMatch.eventId && selectedMatch.documentCode) {
       try {
-        const wb = workerBase();
-        let card = null;
-        const path = "/GetMatchCardDetails_Minimal/" +
-          encodeURIComponent(selectedMatch.eventId) + "/" + encodeURIComponent(selectedMatch.documentCode);
-        if (wb) {
-          try {
-            card = await ttFetch(
-              wb + "/tt/wtt/card/" + encodeURIComponent(selectedMatch.eventId) + "/" + encodeURIComponent(selectedMatch.documentCode),
-              { timeout: 12000 }
-            );
-          } catch (_e) { card = null; }
-        }
-        if (!card) card = await ttFetch(WTT_CMS + path, { timeout: 12000 });
+        const card = await fetchWttCard(selectedMatch.eventId, selectedMatch.documentCode);
         if (card) {
           const gs = card.resultsGameScores || card.gameScores || "";
           selectedMatch.games = parseGameScores(gs);
@@ -4477,7 +4717,10 @@ body.dark-mode .tracker-analytics-section-head {
       } catch (e) {
         engineDebug("wtt card miss", { error: String(e && e.message || e) });
       }
+      try { fill = await autofillFromWtt(selectedMatch) || fill; }
+      catch (e) { engineDebug("autofill wtt fail", { error: String(e) }); }
     }
+    return fill;
   }
   function showHealth() {
     const acc = accuracySummary();
@@ -4613,9 +4856,21 @@ body.dark-mode .tracker-analytics-section-head {
         setStatus("Fetching Last 10…", "ok");
         engineDebug("fetch stats for selected", { id: selId, league: lg });
         try {
-          await onFixturePick();
-          setFetchStatus("Stats filled for " + (fixtureMap[selId].home || "") + " vs " + (fixtureMap[selId].away || ""), "ok");
-          setStatus("Last 10 updated", "ok");
+          const fill = await onFixturePick() || { a: 0, b: 0, h2h: 0 };
+          const home = fixtureMap[selId].home || "A";
+          const away = fixtureMap[selId].away || "B";
+          const msgParts = [];
+          msgParts.push(home + ": " + (fill.a || 0) + " games" + (fill.a ? " ✅" : " ❌"));
+          msgParts.push(away + ": " + (fill.b || 0) + " games" + (fill.b ? " ✅" : " ❌"));
+          if (fill.h2h) msgParts.push("H2H: " + fill.h2h + " ✅");
+          setFetchStatus("Stats filled · " + msgParts.join(" · "), fill.a || fill.b ? "ok" : "err");
+          setStatus(
+            (fill.a || fill.b)
+              ? ("Last 10 updated · A " + (fill.a || 0) + " / B " + (fill.b || 0) + (fill.h2h ? " · H2H " + fill.h2h : ""))
+              : "Last 10 empty — no history cards yet",
+            fill.a || fill.b ? "ok" : "err"
+          );
+          revealAutofillSections(!!fill.h2h);
         } catch (e) {
           setFetchStatus("Stats fetch failed: " + (e && e.message || e), "err");
           setStatus("Stats fetch failed", "err");
