@@ -1,8 +1,9 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="generator" content="tt_v7_bb_ui_tt_complete_20260924" />
+  <meta name="generator" content="tt_v8_bb_ui_tt_complete_20260924" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -11,8 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@1,800;1,900&display=swap" rel="stylesheet" />
-  <title>TheBetCeo TT — Table Tennis Prediction Engine</title>
-  <!-- build tt_v7_bb_ui_tt_complete_20260924 | Fetch Stats Last-10 parity (Setka+WTT fill + accordion open) + BB UI chrome -->
+  <title>TheBetCeo TT — Table Tennis</title>
+  <!-- build tt_v8_bb_ui_tt_complete_20260924 | Full TT conversion: BB chrome parity + TT-only markets/tracker/autofetch -->
 <style id="bb-critical-lock">
 #engineLockOverlay{position:fixed;inset:0;z-index:2147483646;background:#0c0c0e;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
 #engineLockOverlay.hidden{display:none !important}
@@ -736,13 +737,13 @@ td {
   font-weight: 800 !important;
 }
 
-.pred-player-a {
+.pred-home {
   background: #3a9c35 !important;
   color: #fff !important;
   font-weight: 800 !important;
 }
 
-.pred-player-b {
+.pred-away {
   background: #c91920 !important;
   color: #fff !important;
   font-weight: 800 !important;
@@ -2916,6 +2917,9 @@ body.dark-mode .tracker-analytics-section-head {
 .tracker-modal.open { display:flex; }
 .autocomplete-wrap { position:relative; }
 
+
+/* TT tracker table controls — same compact phone chrome */
+.tracker-row-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}.tracker-row-actions button{width:auto!important;min-width:0!important;margin:0!important;padding:4px 7px!important;font-size:10px!important}.tracker-table-wrap{overflow-x:auto}.tracker-table-wrap table{min-width:760px}.tracker-analytics-panel{padding:8px 10px;margin-bottom:8px;border:1px solid var(--panel-border,#333);background:var(--panel,#111);border-radius:4px}
 </style>
 <script>
 (function () {
@@ -3019,15 +3023,15 @@ body.dark-mode .tracker-analytics-section-head {
     </div>
 
     <label id="fixtureSelectLabel" style="font-size: 12px">Select match</label>
-    <select id="fixtureSelect" class="league-box">
+    <select id="fixtureSelect" class="league-box" disabled>
       <option value="">- Select match -</option>
     </select>
 
-    <label id="playerALabel" style="font-size: 12px">Player A Name</label>
+    <label id="teamALabel" style="font-size: 12px">Player A Name</label>
 
     <div class="autocomplete-wrap">
       <input
-        id="playerAName"
+        id="teamAName"
         placeholder="e.g. Fan Zhendong"
         autocomplete="off"
         aria-label="Player A Name"
@@ -3035,11 +3039,11 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="autocomplete-list" id="dropA"></div>
     </div>
 
-    <label id="playerBLabel" style="font-size: 12px; margin-top: 6px">Player B Name</label>
+    <label id="teamBLabel" style="font-size: 12px; margin-top: 6px">Player B Name</label>
 
     <div class="autocomplete-wrap">
       <input
-        id="playerBName"
+        id="teamBName"
         placeholder="e.g. Ma Long"
         autocomplete="off"
         aria-label="Player B Name"
@@ -3060,68 +3064,68 @@ body.dark-mode .tracker-analytics-section-head {
       id="marketCoreGrid"
       style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0"
     >
-      <div id="matchTotalMarketCell">
-        <label id="matchTotalMarketLabel">Match Total Points</label
-        ><input id="matchTotalMarket" placeholder="65.5 - 85.5" aria-label="Match Total Points" />
+      <div id="ftMarketCell">
+        <label id="ftMarketLabel">Match Total Points</label
+        ><input id="ftMarket" placeholder="65.5 - 85.5" aria-label="Match Total Points" />
       </div>
-      <div id="game1MarketCell">
-        <label id="game1MarketLabel">1st Game Total Points</label
-        ><input id="game1Market" placeholder="17.5 - 21.5" aria-label="1st Game Total Points" />
+      <div id="q1MarketCell">
+        <label id="q1MarketLabel">1st Game Total</label
+        ><input id="q1Market" placeholder="17.5 - 21.5" aria-label="1st Game Total" />
       </div>
     </div>
   </div>
 
-  <div class="section" id="playerASection">
+  <div class="section" id="teamASection">
     <h3>
-      Player A - Last 10 Matches <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>
+      Player A - Last 10 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>
     </h3>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px">
       <div>
-        <label id="aMatchTotalScoredLabel"
-          >Match Total Points
+        <label id="aFTScoredLabel"
+          >Match Total Pts
           <span style="font-size: 10px; color: #888">(recent → oldest, max 10)</span></label
         >
         <input
-          id="aMatchTotalScored"
+          id="aFTScored"
           placeholder="72,68,81,75,70,79,66,74,77,71"
-          aria-label="Match Total Points (recent → oldest, max 10)"
+          aria-label="Match Total Pts (recent → oldest, max 10)"
         />
       </div>
       <div>
-        <label id="aGame1ScoredLabel">1st Game Points</label>
+        <label id="aQ1ScoredLabel">1st Game Pts</label>
         <input
-          id="aGame1Scored"
+          id="aQ1Scored"
           placeholder="19,21,18,20,22,17,23,19,20,18"
-          aria-label="1st Game Points"
+          aria-label="1st Game Pts"
         />
       </div>
     </div>
   </div>
 
-  <div class="section" id="playerBSection">
+  <div class="section" id="teamBSection">
     <h3>
-      Player B - Last 10 Matches <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>
+      Player B - Last 10 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>
     </h3>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px">
       <div>
-        <label id="bMatchTotalScoredLabel"
-          >Match Total Points
+        <label id="bFTScoredLabel"
+          >Match Total Pts
           <span style="font-size: 10px; color: #888">(recent → oldest, max 10)</span></label
         >
         <input
-          id="bMatchTotalScored"
+          id="bFTScored"
           placeholder="70,76,69,80,73,67,78,72,75,68"
-          aria-label="Match Total Points (recent → oldest, max 10)"
+          aria-label="Match Total Pts (recent → oldest, max 10)"
         />
       </div>
       <div>
-        <label id="bGame1ScoredLabel">1st Game Points</label>
+        <label id="bQ1ScoredLabel">1st Game Pts</label>
         <input
-          id="bGame1Scored"
+          id="bQ1Scored"
           placeholder="20,18,21,19,17,22,18,20,21,19"
-          aria-label="1st Game Points"
+          aria-label="1st Game Pts"
         />
       </div>
     </div>
@@ -3129,7 +3133,7 @@ body.dark-mode .tracker-analytics-section-head {
 
   <div class="section" id="h2hSection">
     <h3>
-      H2H
+      H2H TEST
       <span class="autofill-indicator" id="h2hAutoTag"
         >✅ Auto-filled</span
       >
@@ -3137,12 +3141,12 @@ body.dark-mode .tracker-analytics-section-head {
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px">
       <div>
-        <label id="aMatchTotalH2HLabel">H2H Match Totals</label>
-        <input id="aMatchTotalH2H" placeholder="74,71,79,68,76" aria-label="H2H Match Totals" />
+        <label id="aFTH2HLabel">H2H Match Totals</label>
+        <input id="aFTH2H" placeholder="74,71,79,68,76" aria-label="H2H Match Totals" />
       </div>
       <div>
-        <label id="aGame1H2HLabel">H2H 1st Game Total Points</label>
-        <input id="aGame1H2H" placeholder="19,20,18,21,17" aria-label="H2H 1st Game Total Points" />
+        <label id="aQ1H2HLabel">H2H 1st Game Totals</label>
+        <input id="aQ1H2H" placeholder="19,20,18,21,17" aria-label="H2H 1st Game Totals" />
       </div>
     </div>
   </div>
@@ -3201,36 +3205,19 @@ body.dark-mode .tracker-analytics-section-head {
     </table>
   </div>
 
+  <div id="ttMarketLikes" class="section" style="margin-top:8px;display:none"><h3>Market Likes</h3><div class="section-body"><div id="ttMarketLikesBody" style="font-size:12px;line-height:1.65"></div></div></div>
   <div class="track-pick-wrap">
     <button type="button" id="trackPickBtn">Track Pick</button>
   </div>
   <div class="build-chip" id="buildChip"></div>
 </div>
 
-<div id="trackerModal" class="tracker-modal" aria-hidden="true">
-  <div class="tracker-panel">
-    <div class="tracker-head">
-      <span id="trackerHeadTitle">Tracked Picks</span>
-      <span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:12px;font-weight:900;pointer-events:none;white-space:nowrap;"></span>
-      <div class="tracker-head-actions">
-        <button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Military Raid" onclick="triggerTrackerMilitaryRaid()">🚨</button>
-        <button type="button" id="trackerHealthBtn" class="tracker-insights-btn" title="Engine health / accuracy">❤️</button>
-        <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
-      </div>
-    </div>
-    <div class="tracker-summary" id="trackerSummary">0 live • 0 wins • 0 losses</div>
-    <div class="tracker-tabs">
-      <button type="button" class="tracker-tab active" data-tab="active">Active</button>
-      <button type="button" class="tracker-tab" data-tab="archive">Archive</button>
-      <button type="button" class="tracker-tab" data-tab="deleted">Deleted</button>
-    </div>
-    <div class="tracker-body-scroll" id="trackedPicksWrap">
-      <div id="trackerEmpty" class="tracker-empty">No tracked picks saved yet.</div>
-      <div id="trackerList"></div>
-    </div>
-  </div>
-</div>
-
+<div id="trackerModal" class="tracker-modal" aria-hidden="true"><div class="tracker-panel">
+<div class="tracker-head"><span id="trackerHeadTitle">Tracked Picks</span><span id="trackerStatusLabel" style="position:absolute;left:50%;transform:translateX(-50%);font-size:12px;font-weight:900;pointer-events:none;white-space:nowrap;"></span><div class="tracker-head-actions">
+<button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Military Raid" onclick="triggerTrackerMilitaryRaid()">🚨</button><button type="button" id="trackerHealthBtn" class="tracker-insights-btn" title="Engine health / accuracy">❤️</button><button type="button" id="trackerConfigBtn" class="tracker-insights-btn" title="View verified TT configuration">⚙️</button><button type="button" id="trackerCopyDataBtn" class="tracker-insights-btn" title="Copy tracker data">📑</button><button type="button" id="trackerCopyDataJsonBtn" class="tracker-insights-btn" title="Copy tracker data as JSON">🧾</button><span class="engine-battery" id="engineHealthBatteryWrap" title="Rolling TT engine performance"><span class="engine-battery-shell"><span class="engine-battery-fill" id="enginePerfFill" style="width:0%"></span></span><span class="engine-battery-pct" id="enginePerfPct">—</span></span><button type="button" id="trackerCloseBtn" class="tracker-close">✕</button></div></div>
+<div class="tracker-summary" id="trackerSummary">0 live • 0 wins • 0 losses</div><div class="tracker-tabs"><button type="button" class="tracker-tab active" data-tab="active">Active</button><button type="button" class="tracker-tab" data-tab="archive">Archive</button><button type="button" class="tracker-tab" data-tab="deleted">Deleted</button></div>
+<div class="tracker-body-scroll" id="trackedPicksWrap"><div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div><div id="trackerEmpty" class="tracker-empty">No tracked picks saved yet.</div><div class="table-wrap tracker-table-wrap"><table id="trackedPicksTable"><thead><tr><th>Date</th><th>League</th><th>Match</th><th>Market</th><th>Line</th><th>Pick</th><th>Grade</th><th>Status</th></tr></thead><tbody id="trackedPicksBody"></tbody></table></div><div id="trackerList" style="display:none"></div></div>
+<div id="trackerDeleteConfirm" class="tracker-delete-confirm" aria-hidden="true"><div class="tracker-delete-confirm-card" role="dialog" aria-modal="true"><p id="trackerDeleteConfirmText"></p><div class="tracker-delete-confirm-actions"><button type="button" id="trackerDeleteCancelBtn">Cancel</button><button type="button" id="trackerDeleteOkBtn" class="tracker-delete-ok">OK</button></div></div></div></div></div>
 <div id="manualSettleOverlay" class="manual-settle-overlay" aria-hidden="true">
   <div class="manual-settle-card" role="dialog" aria-modal="true">
     <p id="manualSettleTitle" class="manual-settle-title"></p>
@@ -3335,12 +3322,11 @@ body.dark-mode .tracker-analytics-section-head {
 <script>
 (function () {
   "use strict";
-  const BUILD_ID = "tt_v7_bb_ui_tt_complete_20260924";
+  const BUILD_ID = "tt_v6_4_fetchstats_parity_20260924";
   window.__TT_INTEGRITY_BUILD__ = BUILD_ID;
   window.TT_BUILD_ID = BUILD_ID;
   window.TT_PREDICTION_STUB = false;
   const TT_MARKETS = Object.freeze(["game1_total", "match_total"]);
-  // Table-tennis-only market contract: only table-tennis total-point markets are exposed by this engine.
   window.TT_MARKETS = TT_MARKETS;
 
   const ARCHIVE_MS = 10 * 60 * 60 * 1000;
@@ -3718,20 +3704,20 @@ body.dark-mode .tracker-analytics-section-head {
           try { await autofetchFixtures(league); } catch (_e) {}
         }
       }
-      const g1Line = parseFloat(($("game1Market") || {}).value);
-      const mtLine = parseFloat(($("matchTotalMarket") || {}).value);
-      const aG1 = parseSeries(($("aGame1Scored") || {}).value);
-      const bG1 = parseSeries(($("bGame1Scored") || {}).value);
-      const aMt = parseSeries(($("aMatchTotalScored") || {}).value);
-      const bMt = parseSeries(($("bMatchTotalScored") || {}).value);
-      const h2hG1 = parseSeries(($("aGame1H2H") || {}).value);
-      const h2hMt = parseSeries(($("aMatchTotalH2H") || {}).value);
+      const g1Line = parseFloat(($("q1Market") || {}).value);
+      const mtLine = parseFloat(($("ftMarket") || {}).value);
+      const aG1 = parseSeries(($("aQ1Scored") || {}).value);
+      const bG1 = parseSeries(($("bQ1Scored") || {}).value);
+      const aMt = parseSeries(($("aFTScored") || {}).value);
+      const bMt = parseSeries(($("bFTScored") || {}).value);
+      const h2hG1 = parseSeries(($("aQ1H2H") || {}).value);
+      const h2hMt = parseSeries(($("aFTH2H") || {}).value);
       const bestOf = (selectedMatch && selectedMatch.bestOf) || 5;
       const ratingA = selectedMatch && selectedMatch.player1 && selectedMatch.player1.rating;
       const ratingB = selectedMatch && selectedMatch.player2 && selectedMatch.player2.rating;
       const model = projectMarkets({ aG1, bG1, aMt, bMt, h2hG1, h2hMt, bestOf, ratingA, ratingB });
       const rows = [
-        buildRow("1st Game Total Points", "game1_total", isNaN(g1Line) ? null : g1Line, model.projG1, model.dataScore),
+        buildRow("1st Game Total", "game1_total", isNaN(g1Line) ? null : g1Line, model.projG1, model.dataScore),
         buildRow("Match Total Points", "match_total", isNaN(mtLine) ? null : mtLine, model.projMt, model.dataScore),
       ];
       const tbody = $("resultsBody");
@@ -3745,6 +3731,15 @@ body.dark-mode .tracker-analytics-section-head {
       }
       lastRows = rows;
       lastModel = model;
+      const likes = $("ttMarketLikes"), likesBody = $("ttMarketLikesBody");
+      if (likes && likesBody) {
+        likes.style.display = "block";
+        likesBody.innerHTML = rows.map((r) => {
+          const lineText = r.line != null ? " @ " + r.line : "";
+          const text = r.side === "NO PLAY" ? "NO PLAY" : (r.side + lineText + " · " + r.grade);
+          return '<div><strong>' + r.name + '</strong> — ' + text + ' · projection ' + r.projection + ' · edge ' + r.edge + '</div>';
+        }).join("");
+      }
       window.__ttLastRows = rows;
       window.__ttLastModel = model;
       const trackBtn = $("trackPickBtn");
@@ -3754,7 +3749,7 @@ body.dark-mode .tracker-analytics-section-head {
       });
       const playable = rows.filter((r) => r.unitsNum > 0).length;
       setStatus(
-        "Run · proj Game 1 " + model.projG1.toFixed(1) + " / Match Total " + model.projMt.toFixed(1) +
+        "Run · proj G1 " + model.projG1.toFixed(1) + " / MT " + model.projMt.toFixed(1) +
         " · E[games] " + model.expGames.toFixed(2) + " · " + playable + " play(s) · " + BUILD_ID,
         "ok"
       );
@@ -3766,8 +3761,8 @@ body.dark-mode .tracker-analytics-section-head {
   }
 
   function clearAll() {
-    ["game1Market", "matchTotalMarket", "playerAName", "playerBName",
-      "aGame1Scored", "aMatchTotalScored", "bGame1Scored", "bMatchTotalScored", "aGame1H2H", "aMatchTotalH2H"
+    ["q1Market", "ftMarket", "teamAName", "teamBName",
+      "aQ1Scored", "aFTScored", "bQ1Scored", "bFTScored", "aQ1H2H", "aFTH2H"
     ].forEach((id) => { const el = $(id); if (el) el.value = ""; });
     const league = $("leagueSelect"); if (league) league.value = "";
     populateFixtureSelect([]);
@@ -3775,6 +3770,7 @@ body.dark-mode .tracker-analytics-section-head {
     const table = $("results"); if (table) table.style.display = "none";
     const tbody = $("resultsBody"); if (tbody) tbody.innerHTML = "";
     const trackBtn = $("trackPickBtn"); if (trackBtn) trackBtn.style.display = "none";
+    const likes = $("ttMarketLikes"); if (likes) likes.style.display = "none";
     lastRows = []; lastModel = null;
     const af = $("autofetchSection"); if (af) af.style.display = "none";
     updateSectionLocks();
@@ -3786,16 +3782,16 @@ body.dark-mode .tracker-analytics-section-head {
     const parts = [
       "TheBetCeo TT Inputs", "Build: " + BUILD_ID,
       "League: " + (($("leagueSelect") || {}).value || ""),
-      "Player A: " + (($("playerAName") || {}).value || ""),
-      "Player B: " + (($("playerBName") || {}).value || ""),
-      "1st Game Total Points: " + (($("game1Market") || {}).value || ""),
-      "Match Total: " + (($("matchTotalMarket") || {}).value || ""),
-      "Player A Game 1 Points: " + (($("aGame1Scored") || {}).value || ""),
-      "Player A Match Total: " + (($("aMatchTotalScored") || {}).value || ""),
-      "Player B Game 1 Points: " + (($("bGame1Scored") || {}).value || ""),
-      "Player B Match Total: " + (($("bMatchTotalScored") || {}).value || ""),
-      "H2H Game 1: " + (($("aGame1H2H") || {}).value || ""),
-      "H2H Match Total: " + (($("aMatchTotalH2H") || {}).value || ""),
+      "Player A: " + (($("teamAName") || {}).value || ""),
+      "Player B: " + (($("teamBName") || {}).value || ""),
+      "1st Game Total: " + (($("q1Market") || {}).value || ""),
+      "Match Total: " + (($("ftMarket") || {}).value || ""),
+      "A G1: " + (($("aQ1Scored") || {}).value || ""),
+      "A MT: " + (($("aFTScored") || {}).value || ""),
+      "B G1: " + (($("bQ1Scored") || {}).value || ""),
+      "B MT: " + (($("bFTScored") || {}).value || ""),
+      "H2H G1: " + (($("aQ1H2H") || {}).value || ""),
+      "H2H MT: " + (($("aFTH2H") || {}).value || ""),
     ];
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(parts.join("\n"))
@@ -3869,8 +3865,8 @@ body.dark-mode .tracker-analytics-section-head {
   function trackCurrentPick() {
     const rows = lastRows || [];
     if (!rows.length) { setStatus("Run first", "err"); return; }
-    const a = (($("playerAName") || {}).value || "Player A").trim();
-    const b = (($("playerBName") || {}).value || "Player B").trim();
+    const a = (($("teamAName") || {}).value || "Player A").trim();
+    const b = (($("teamBName") || {}).value || "Player B").trim();
     const league = (($("leagueSelect") || {}).value || "").trim();
     const picks = loadPicks();
     const tombs = loadTombstones();
@@ -3942,54 +3938,15 @@ body.dark-mode .tracker-analytics-section-head {
     renderTracker();
   }
   function renderTracker() {
-    const list = $("trackerList");
-    const empty = $("trackerEmpty");
-    const summary = $("trackerSummary");
-    if (!list) return;
-    const now = Date.now();
-    pruneTracker(now);
-    const picks = loadPicks();
-    let items = [];
-    if (trackerTab === "active") items = picks.filter((p) => p.status === "active");
-    else if (trackerTab === "archive") items = picks.filter((p) => p.status === "settled" && p.settledAt && (now - p.settledAt) < ARCHIVE_MS);
-    else items = loadDeleted();
-    const live = picks.filter((p) => p.status === "active").length;
-    const wins = picks.filter((p) => p.result === "won").length;
-    const losses = picks.filter((p) => p.result === "lost").length;
-    if (summary) summary.textContent = live + " live • " + wins + " wins • " + losses + " losses";
-    if (!items.length) {
-      list.innerHTML = "";
-      if (empty) { empty.style.display = ""; empty.textContent = "No tracked picks yet."; }
-      return;
-    }
-    if (empty) empty.style.display = "none";
-    list.innerHTML = items.map((p) => {
-      const title = (p.playerA || "?") + " vs " + (p.playerB || "?");
-      const u = (p.units != null ? Number(p.units).toFixed(1) : "0.0") + "u";
-      const meta = (p.league || "—") + " · " + (p.marketName || p.market) + " " +
-        (p.side || "") + " " + (p.line != null ? p.line : "") +
-        (p.grade ? " · " + p.grade : "") +
-        (p.result ? " · " + p.result : "") +
-        (p.actual != null ? " · actual " + p.actual : "") + " · " + u;
-      let actions = "";
-      if (trackerTab === "active") {
-        actions = '<button type="button" data-act="won" data-id="' + p.id + '">Won</button>' +
-          '<button type="button" data-act="lost" data-id="' + p.id + '">Lost</button>' +
-          '<button type="button" data-act="push" data-id="' + p.id + '">Push</button>' +
-          '<button type="button" data-act="del" data-id="' + p.id + '">Delete</button>';
-      }
-      return '<div class="tracker-card"><div class="tc-title">' + title +
-        '</div><div class="tc-meta">' + meta + "</div>" +
-        (actions ? '<div class="tc-actions">' + actions + "</div>" : "") + "</div>";
-    }).join("");
-    list.querySelectorAll("button[data-act]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-id");
-        const act = btn.getAttribute("data-act");
-        if (act === "del") deletePick(id);
-        else settlePick(id, act);
-      });
-    });
+    const body=$("trackedPicksBody"), list=$("trackerList"), empty=$("trackerEmpty"), summary=$("trackerSummary"), analytics=$("trackerAnalyticsPanel");
+    if(!body&&!list)return; const now=Date.now(); pruneTracker(now); const picks=loadPicks();
+    let items=trackerTab==="active"?picks.filter(p=>p.status==="active"):trackerTab==="archive"?picks.filter(p=>p.status==="settled"&&p.settledAt&&(now-p.settledAt)<ARCHIVE_MS):loadDeleted();
+    const live=picks.filter(p=>p.status==="active").length,wins=picks.filter(p=>p.result==="won").length,losses=picks.filter(p=>p.result==="lost").length,pushes=picks.filter(p=>p.result==="push").length,settled=wins+losses+pushes,pct=settled?Math.round(wins/settled*100):0;
+    if(summary)summary.textContent=live+" live • "+wins+" wins • "+losses+" losses"; const fill=$("enginePerfFill"),pctEl=$("enginePerfPct"); if(fill)fill.style.width=pct+"%"; if(pctEl)pctEl.textContent=settled?pct+"%":"—";
+    if(analytics)analytics.innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;font-weight:900"><span>TT PICKS: '+picks.length+'</span><span>SETTLED: '+settled+'</span><span>WIN RATE: '+(settled?pct+'%':'—')+'</span><span>G1 / MATCH TOTAL ONLY</span></div>';
+    if(body)body.innerHTML=items.map(p=>{const date=p.createdAt?new Date(p.createdAt).toLocaleString():"—",match=(p.playerA||"Player A")+" vs "+(p.playerB||"Player B"),market=p.marketName||p.market||"—",line=p.line!=null?p.line:"—",pick=p.side||"—",grade=p.grade||"—";let status=p.status==="active"?"LIVE":(p.result||"SETTLED").toUpperCase();if(p.actual!=null)status+=" · "+p.actual;const actions=trackerTab==="active"?'<div class="tracker-row-actions"><button type="button" data-act="won" data-id="'+p.id+'">Won</button><button type="button" data-act="lost" data-id="'+p.id+'">Lost</button><button type="button" data-act="push" data-id="'+p.id+'">Push</button><button type="button" data-act="del" data-id="'+p.id+'">Delete</button></div>':'';return '<tr><td>'+date+'</td><td>'+(p.league||"—")+'</td><td>'+match+'</td><td>'+market+'</td><td>'+line+'</td><td>'+pick+'</td><td>'+grade+'</td><td>'+status+actions+'</td></tr>';}).join("");
+    if(body)body.querySelectorAll("button[data-act]").forEach(btn=>btn.addEventListener("click",()=>{const id=btn.getAttribute("data-id"),act=btn.getAttribute("data-act");if(act==="del")deletePick(id);else settlePick(id,act);}));
+    if(list)list.innerHTML=""; if(empty){empty.style.display=items.length?"none":"";empty.textContent=trackerTab==="active"?"No active tracked picks saved yet.":trackerTab==="archive"?"No archived TT picks yet.":"No deleted TT picks yet.";}
   }
 
   function showRaidToast(msg) {
@@ -4236,20 +4193,20 @@ body.dark-mode .tracker-analytics-section-head {
     else { t.classList.remove("show"); t.style.display = "none"; }
   }
   function applyLast10Series(side, g1, mt) {
-    const game1 = side === "A" ? "aGame1Scored" : "bGame1Scored";
-    const matchTotal = side === "A" ? "aMatchTotalScored" : "bMatchTotalScored";
+    const q1 = side === "A" ? "aQ1Scored" : "bQ1Scored";
+    const ft = side === "A" ? "aFTScored" : "bFTScored";
     const tag = side === "A" ? "aAutoTag" : "bAutoTag";
     let filled = 0;
-    if (g1 && g1.length && $(game1)) { $(game1).value = g1.join(","); filled = Math.max(filled, g1.length); }
-    if (mt && mt.length && $(matchTotal)) { $(matchTotal).value = mt.join(","); filled = Math.max(filled, mt.length); }
+    if (g1 && g1.length && $(q1)) { $(q1).value = g1.join(","); filled = Math.max(filled, g1.length); }
+    if (mt && mt.length && $(ft)) { $(ft).value = mt.join(","); filled = Math.max(filled, mt.length); }
     showAutoTag(tag, filled > 0);
     return filled;
   }
   function revealAutofillSections(openH2H) {
-    ["marketSection", "playerASection", "playerBSection", "h2hSection"].forEach(unlockSection);
+    ["marketSection", "teamASection", "teamBSection", "h2hSection"].forEach(unlockSection);
     openSection("marketSection");
-    openSection("playerASection");
-    openSection("playerBSection");
+    openSection("teamASection");
+    openSection("teamBSection");
     if (openH2H) openSection("h2hSection");
   }
   async function autofillFromSetka(norm) {
@@ -4279,8 +4236,8 @@ body.dark-mode .tracker-analytics-section-head {
     });
     h2hG1 = h2hG1.slice(0, 5);
     h2hMt = h2hMt.slice(0, 5);
-    if (h2hMt.length && $("aMatchTotalH2H")) $("aMatchTotalH2H").value = h2hMt.join(",");
-    if (h2hG1.length && $("aGame1H2H")) $("aGame1H2H").value = h2hG1.join(",");
+    if (h2hMt.length && $("aFTH2H")) $("aFTH2H").value = h2hMt.join(",");
+    if (h2hG1.length && $("aQ1H2H")) $("aQ1H2H").value = h2hG1.join(",");
     showAutoTag("h2hAutoTag", h2hMt.length >= 1);
     revealAutofillSections(h2hMt.length >= 1);
     engineDebug("autofill setka history", { aG1: sa.g1.length, aMt: sa.mt.length, bG1: sb.g1.length, bMt: sb.mt.length, h2h: h2hMt.length });
@@ -4504,8 +4461,8 @@ body.dark-mode .tracker-analytics-section-head {
     if (h2hUnits.length) {
       const hs = await seriesFromWttUnits(h2hUnits, 5);
       h2hG1 = hs.g1; h2hMt = hs.mt;
-      if (h2hMt.length && $("aMatchTotalH2H")) $("aMatchTotalH2H").value = h2hMt.join(",");
-      if (h2hG1.length && $("aGame1H2H")) $("aGame1H2H").value = h2hG1.join(",");
+      if (h2hMt.length && $("aFTH2H")) $("aFTH2H").value = h2hMt.join(",");
+      if (h2hG1.length && $("aQ1H2H")) $("aQ1H2H").value = h2hG1.join(",");
       showAutoTag("h2hAutoTag", h2hMt.length >= 1);
     }
     revealAutofillSections(h2hMt.length >= 1);
@@ -4532,7 +4489,7 @@ body.dark-mode .tracker-analytics-section-head {
           (norm.status === "finished" ? " ✓" : "");
         options.push({
           id: norm.id, label,
-          playerA: norm.player1.displayName, playerB: norm.player2.displayName,
+          home: norm.player1.displayName, away: norm.player2.displayName,
           date: norm.startTime, status: norm.status, _tt: norm,
         });
       });
@@ -4624,7 +4581,7 @@ body.dark-mode .tracker-analytics-section-head {
         options.push({
           id,
           label: (start ? String(start).slice(11, 16) + " " : "") + p1 + " vs " + p2 + " · WTT",
-          playerA: p1, playerB: p2, date: start, status: st,
+          home: p1, away: p2, date: start, status: st,
           _tt: {
             id, league: "wtt", eventId, documentCode: doc,
             player1: { displayName: p1, rawId: c1, code: c1 },
@@ -4646,7 +4603,7 @@ body.dark-mode .tracker-analytics-section-head {
       return false;
     });
     let list = dated.length ? dated : options;
-    const named = list.filter((o) => o.playerA && o.playerB && o.playerA !== "P1" && o.playerB !== "P2");
+    const named = list.filter((o) => o.home && o.away && o.home !== "P1" && o.away !== "P2");
     if (named.length) list = named;
     engineDebug("wtt cache built", { options: list.length, cache: wttUnitCache.length, official: wttUnitCache.filter((u) => u.official).length });
     try { window.__ttWttCacheStats = { options: list.length, cache: wttUnitCache.length, official: wttUnitCache.filter((u) => u.official).length }; } catch (_e) {}
@@ -4658,7 +4615,7 @@ body.dark-mode .tracker-analytics-section-head {
     const af = $("autofetchSection");
     if (af) af.style.display = isAutofetchLeague(league) ? "" : "none";
     if (!isAutofetchLeague(league)) {
-      setFetchStatus("Manual league — enter players & table-tennis market lines");
+      setFetchStatus("Manual league — enter players & lines");
       return;
     }
     setFetchStatus("Fetching…", "loading");
@@ -4673,6 +4630,7 @@ body.dark-mode .tracker-analytics-section-head {
         setFetchStatus(options.length + " WTT schedule units", "ok");
       }
       populateFixtureSelect(options);
+      const fixtureSelectEl = $("fixtureSelect"); if (fixtureSelectEl) fixtureSelectEl.disabled = false;
       setStatus("Autofetch ok · " + options.length + " matches", "ok");
       engineDebug("autofetch ok", { league, count: options.length, day: ymdOffset(fixtureDayOffset) });
       refreshAfdbLogs();
@@ -4680,10 +4638,12 @@ body.dark-mode .tracker-analytics-section-head {
       const msg = err && err.message ? err.message : String(err);
       setFetchStatus("Fetch failed: " + msg, "err");
       if (err && err.code === "NO_WORKER") {
-        setStatus("Worker URL required for Setka", "err");
-        openAfdb();
+        setStatus("Worker URL required for Setka · open 🔬 AFDB to configure it", "err");
+        const sel = $("fixtureSelect");
+        if (sel) { sel.innerHTML = '<option value="">Worker URL required — open 🔬 AFDB</option>'; sel.disabled = true; }
       } else {
         setStatus("Autofetch failed: " + msg, "err");
+        const sel = $("fixtureSelect"); if (sel) sel.disabled = false;
       }
       engineDebug("autofetch error", { error: msg, league });
       refreshAfdbLogs();
@@ -4695,9 +4655,9 @@ body.dark-mode .tracker-analytics-section-head {
     const row = fixtureMap[id];
     if (!row) return { a: 0, b: 0, h2h: 0 };
     selectedMatch = row._tt || null;
-    if ($("playerAName")) $("playerAName").value = row.playerA || "";
-    if ($("playerBName")) $("playerBName").value = row.playerB || "";
-    setStatus("Match selected: " + (row.playerA || "") + " vs " + (row.playerB || ""), "ok");
+    if ($("teamAName")) $("teamAName").value = row.home || "";
+    if ($("teamBName")) $("teamBName").value = row.away || "";
+    setStatus("Match selected: " + (row.home || "") + " vs " + (row.away || ""), "ok");
     let fill = { a: 0, b: 0, h2h: 0 };
     if (selectedMatch && selectedMatch.league === "setka") {
       try { fill = await autofillFromSetka(selectedMatch) || fill; }
@@ -4759,8 +4719,8 @@ body.dark-mode .tracker-analytics-section-head {
       "leagueSection",
       "autofetchSection",
       "marketSection",
-      "playerASection",
-      "playerBSection",
+      "teamASection",
+      "teamBSection",
       "h2hSection",
     ].forEach(function (sectionId) {
       if (sectionId !== id && !(keepMarketOpen && sectionId === "marketSection")) {
@@ -4770,7 +4730,7 @@ body.dark-mode .tracker-analytics-section-head {
     openSection(id);
   }
   function lockFrom(startId) {
-    const order = ["autofetchSection", "marketSection", "playerASection", "playerBSection", "h2hSection"];
+    const order = ["autofetchSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
     let locking = false;
     order.forEach(function (id) {
       if (id === startId) locking = true;
@@ -4779,7 +4739,7 @@ body.dark-mode .tracker-analytics-section-head {
   }
   function updateSectionLocks() {
     const league = (document.getElementById("leagueSelect") && document.getElementById("leagueSelect").value) || "";
-    const ids = ["autofetchSection", "marketSection", "playerASection", "playerBSection", "h2hSection"];
+    const ids = ["autofetchSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
     if (!league) {
       ids.forEach(lockSection);
       return;
@@ -4827,7 +4787,7 @@ body.dark-mode .tracker-analytics-section-head {
     accordionOpen("leagueSection");
 
     const chip = $("buildChip");
-    if (chip) chip.textContent = BUILD_ID + " · TT markets: " + TT_MARKETS.join(", ");
+    if (chip) chip.textContent = BUILD_ID + " · markets: " + TT_MARKETS.join(", ");
 
     $("runBtn") && $("runBtn").addEventListener("click", () => { runEngine(); });
     $("clearBtn") && $("clearBtn").addEventListener("click", clearAll);
@@ -4838,6 +4798,9 @@ body.dark-mode .tracker-analytics-section-head {
     $("trackerCloseBtn") && $("trackerCloseBtn").addEventListener("click", closeTracker);
     $("trackerMilitaryRaidBtn") && $("trackerMilitaryRaidBtn").addEventListener("click", runMilitaryRaid);
     $("trackerHealthBtn") && $("trackerHealthBtn").addEventListener("click", showHealth);
+    $("trackerConfigBtn") && $("trackerConfigBtn").addEventListener("click", () => { const cfg={build:BUILD_ID,markets:TT_MARKETS,workerConfigured:!!workerBase(),archiveMs:ARCHIVE_MS}; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(JSON.stringify(cfg,null,2)).then(()=>setStatus("TT config copied","ok")); });
+    $("trackerCopyDataBtn") && $("trackerCopyDataBtn").addEventListener("click", () => { const txt=JSON.stringify({active:loadPicks(),deleted:loadDeleted(),accuracy:accuracySummary()},null,2); if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>setStatus("Tracker data copied","ok")); });
+    $("trackerCopyDataJsonBtn") && $("trackerCopyDataJsonBtn").addEventListener("click", () => { const txt=JSON.stringify({active:loadPicks(),deleted:loadDeleted(),tombstones:loadTombstones()},null,2); if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>setStatus("Tracker JSON copied","ok")); });
     $("afdbBtn") && $("afdbBtn").addEventListener("click", openAfdb);
     $("headerErrorBtn") && $("headerErrorBtn").addEventListener("click", openEngineErrorPage);
     $("engineErrorCloseBtn") && $("engineErrorCloseBtn").addEventListener("click", closeEngineErrorPage);
@@ -4857,16 +4820,16 @@ body.dark-mode .tracker-analytics-section-head {
         engineDebug("fetch stats for selected", { id: selId, league: lg });
         try {
           const fill = await onFixturePick() || { a: 0, b: 0, h2h: 0 };
-          const playerA = fixtureMap[selId].playerA || "A";
-          const playerB = fixtureMap[selId].playerB || "B";
+          const home = fixtureMap[selId].home || "A";
+          const away = fixtureMap[selId].away || "B";
           const msgParts = [];
-          msgParts.push(playerA + ": " + (fill.a || 0) + " matches" + (fill.a ? " ✅" : " ❌"));
-          msgParts.push(playerB + ": " + (fill.b || 0) + " matches" + (fill.b ? " ✅" : " ❌"));
+          msgParts.push(home + ": " + (fill.a || 0) + " games" + (fill.a ? " ✅" : " ❌"));
+          msgParts.push(away + ": " + (fill.b || 0) + " games" + (fill.b ? " ✅" : " ❌"));
           if (fill.h2h) msgParts.push("H2H: " + fill.h2h + " ✅");
           setFetchStatus("Stats filled · " + msgParts.join(" · "), fill.a || fill.b ? "ok" : "err");
           setStatus(
             (fill.a || fill.b)
-              ? ("Last 10 updated · Player A " + (fill.a || 0) + " · Player B " + (fill.b || 0) + (fill.h2h ? " · H2H " + fill.h2h : ""))
+              ? ("Last 10 updated · A " + (fill.a || 0) + " / B " + (fill.b || 0) + (fill.h2h ? " · H2H " + fill.h2h : ""))
               : "Last 10 empty — no history cards yet",
             fill.a || fill.b ? "ok" : "err"
           );
@@ -4910,7 +4873,7 @@ body.dark-mode .tracker-analytics-section-head {
         autofetchFixtures(lg);
       } else {
         accordionOpen("marketSection", true);
-        setFetchStatus("Manual league — enter players & table-tennis market lines");
+        setFetchStatus("Manual league — enter players & lines");
       }
     });
     document.querySelectorAll(".tracker-tab").forEach((tab) => {
