@@ -1,943 +1,1003 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>TheBetCeo TT — Engine</title>
-<meta name="description" content="Table tennis tracker scaffold — Setka Cup + WTT. Markets: 1st game total & match total points." />
-<style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TheBetCeo TT" />
+  <meta name="theme-color" content="#e41827" />
+  <meta name="generator" content="tt_v2_exact_ui_20260924" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@1,800;1,900&display=swap" rel="stylesheet" />
+  <title>TheBetCeo TT</title>
+<style id="tt-engine-css">
 :root {
-  --bg: #0b0d10;
-  --bg2: #12161c;
-  --panel: #171c24;
-  --panel2: #1e2530;
-  --border: #2a3340;
-  --text: #e8edf4;
-  --muted: #8b97a8;
-  --red: #e11d48;
-  --red-dim: #9f1239;
-  --gold: #f5c542;
-  --gold-dim: #a67c1a;
-  --green: #22c55e;
-  --blue: #38bdf8;
-  --danger: #f87171;
-  --radius: 12px;
-  --font: "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --bg: #efefef;
+  --text: #1f2430;
+  --panel: #ffffff;
+  --panel-border: #dedede;
+  --panel-soft: #f6f7f9;
+  --input-bg: #ffffff;
+  --input-border: #cfd4da;
+  --table-head: #3a404c;
+  --muted: #7b8088;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --section-toggle-text: #20242c;
+  --section-toggle-icon: #d91f26;
+  --table-border: #dfe2e7;
+  --tracker-head-bg: #3a404c;
+  --tracker-head-text: #ffffff;
+  --tracker-summary-bg: #f6f7f9;
+  --tracker-strong: #20242c;
+  --tracker-subtext: #5a5f6b;
 }
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
-body { min-height: 100dvh; }
-button, input, select { font: inherit; color: inherit; }
-a { color: var(--gold); }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; background: #e41827; height: 100%; }
+html, body { background-color: #f4f4f5; }
+body {
+  margin: 0; padding: 0;
+  background: #f4f4f5;
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+button, input, select, .section, table, th, td, .tracker-panel { border-radius: 0; }
 
 .app-header {
-  position: sticky; top: 0; z-index: 40;
-  background: linear-gradient(180deg, #1a0f12 0%, #12161c 100%);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 14px 12px;
-  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+  position: relative; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 0;
+  padding-top: 12px;
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  padding-bottom: 10px;
+  min-height: 54px;
+  background: #e41827; color: #fff;
+  box-shadow: none; border-bottom: none;
 }
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-mark {
-  width: 36px; height: 36px; border-radius: 10px;
-  background: radial-gradient(circle at 30% 30%, var(--gold), var(--red));
-  display: grid; place-items: center; font-weight: 800; color: #111; font-size: 13px;
-  box-shadow: 0 0 18px rgba(225, 29, 72, 0.35);
+.brand-name {
+  font-family: Nunito, "Avenir Next", "Arial Black", sans-serif;
+  font-size: 23px; font-weight: 900; font-style: italic;
+  letter-spacing: -0.4px; color: #fff; line-height: 1;
 }
-.brand h1 { margin: 0; font-size: 1.05rem; letter-spacing: 0.02em; }
-.brand .sub { color: var(--muted); font-size: 0.72rem; margin-top: 1px; }
+.brand-right {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.85); text-transform: uppercase;
+}
+.header-icon-btn {
+  background: none !important; border: none !important; box-shadow: none !important;
+  padding: 0 !important; margin: 0 !important;
+  font-size: 11px !important; font-weight: 700 !important;
+  letter-spacing: 1.5px !important;
+  color: rgba(255,255,255,0.85) !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important; opacity: 1 !important;
+}
+.wrapper {
+  max-width: 760px; margin: 0 auto;
+  padding: 10px 10px 0; background: transparent;
+}
+.section {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  margin: 8px 0; width: 100%;
+  box-sizing: border-box;
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+.section-toggle {
+  width: 100%; background: none !important; border: none;
+  padding: 12px 10px; margin: 0 !important;
+  color: var(--section-toggle-text) !important;
+  display: flex; align-items: center; justify-content: space-between;
+  text-align: left; cursor: pointer;
+}
+.section-toggle .toggle-title {
+  display: block; font-weight: 800;
+  color: var(--section-toggle-text) !important; font-size: 16px;
+}
+.section-toggle .toggle-icon {
+  font-size: 15px; line-height: 1;
+  transition: transform 0.2s ease;
+  color: #e53935 !important; display: inline-block !important;
+}
+.section-body { padding: 0 10px 10px; margin-top: 0; }
+.section.collapsed .section-body { display: none; }
+.section.collapsed .section-toggle .toggle-icon { transform: rotate(-90deg); }
 
-.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.toolbar label { font-size: 0.72rem; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
-.toolbar select, .toolbar input[type="date"], .toolbar input[type="text"], .toolbar input[type="number"] {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-  padding: 7px 10px; min-width: 0;
+h3 { margin: 0; font-size: 16px; font-weight: 800; }
+label {
+  display: block; font-size: 12px; margin-bottom: 4px;
+  color: var(--text); font-weight: 600;
 }
-.btn {
-  appearance: none; border: 1px solid var(--border); background: var(--panel2);
-  color: var(--text); border-radius: 8px; padding: 8px 12px; cursor: pointer;
-  font-weight: 600; font-size: 0.85rem; transition: 0.15s ease;
+input, .league-box, select.league-box {
+  width: 100%; max-width: 260px; box-sizing: border-box;
+  display: block; padding: 6px 8px; font-size: 12px;
+  background: var(--input-bg); color: var(--text);
+  border: 1px solid var(--input-border); margin-bottom: 6px;
+  appearance: none; -webkit-appearance: none;
 }
-.btn:hover { border-color: var(--gold-dim); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { background: linear-gradient(135deg, var(--red-dim), #7f1d1d); border-color: var(--red); }
-.btn-gold { background: linear-gradient(135deg, #7a5a12, var(--gold-dim)); border-color: var(--gold); color: #111; }
-.btn-ghost { background: transparent; }
-.btn-siren { background: linear-gradient(135deg, #4c0519, var(--red)); border-color: #fecdd3; animation: pulse 1.8s infinite; }
-@keyframes pulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(225,29,72,0.35);} 50%{ box-shadow: 0 0 0 6px rgba(225,29,72,0);} }
+input:focus, select:focus {
+  outline: none; border-color: #4aa346;
+  box-shadow: 0 0 0 2px rgba(74,163,70,0.12);
+}
+input::placeholder { color: var(--muted); opacity: 0.75; }
+button {
+  padding: 8px 16px; margin: 6px; font-weight: 700;
+  background: #313744; color: #fff; border: none; cursor: pointer;
+}
+button:hover { opacity: 0.95; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.layout {
-  display: grid; gap: 12px; padding: 12px;
-  grid-template-columns: 1fr;
-  max-width: 1400px; margin: 0 auto;
+.actions { text-align: center; padding-bottom: 20px; }
+#runBtn, #clearBtn {
+  opacity: 1 !important; border: none !important; cursor: pointer !important;
+  padding: 5px 14px !important; font-size: 12px !important;
+  font-weight: 700 !important; min-width: 0 !important; width: auto !important;
 }
-@media (min-width: 960px) {
-  .layout { grid-template-columns: 1.2fr 0.9fr; align-items: start; }
+#runBtn {
+  background: #3a9c35 !important; color: #fff !important;
+  box-shadow: 0 2px 8px rgba(58,156,53,0.35) !important;
+}
+#clearBtn {
+  background: #3a404c !important; color: #fff !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+}
+.gold-icon-btn {
+  background: #d4af37 !important; color: #111 !important;
+  box-shadow: 0 2px 8px rgba(212,175,55,0.35) !important;
+  font-weight: 700 !important; border: none !important;
+  padding: 5px 14px !important; font-size: 12px !important;
+  cursor: pointer !important; width: auto !important; min-width: 0 !important;
 }
 
-.panel {
-  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-  overflow: hidden;
+.table-wrap { overflow-x: auto; margin: 0 6px 10px; }
+table {
+  width: 100%; border-collapse: collapse; margin-top: 10px;
+  font-size: 12px; background: var(--panel) !important;
 }
-.panel-h {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 10px 12px; border-bottom: 1px solid var(--border);
-  background: var(--bg2);
+th, td {
+  border: 1px solid var(--table-border);
+  padding: 10px 8px !important; text-align: center; vertical-align: middle;
 }
-.panel-h h2 { margin: 0; font-size: 0.92rem; }
-.panel-b { padding: 10px 12px; }
-.badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 3px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted);
+th { background: var(--table-head) !important; color: #fff !important; font-weight: 700; }
+td { background: var(--panel) !important; color: var(--text) !important; font-weight: 600 !important; }
+.pred-over { background: #3a9c35 !important; color: #fff !important; font-weight: 800 !important; }
+.pred-under { background: #c91920 !important; color: #fff !important; font-weight: 800 !important; }
+.pred-none { background: #888 !important; color: #fff !important; }
+.status-line {
+  text-align: center; font-size: 11px; font-weight: 700;
+  color: var(--muted); min-height: 16px; margin: 4px 0 8px;
 }
-.badge.live { color: #fecaca; border-color: var(--red); background: rgba(225,29,72,0.15); }
-.badge.fin { color: #bbf7d0; border-color: var(--green); background: rgba(34,197,94,0.12); }
-.badge.sch { color: var(--blue); border-color: #0369a1; background: rgba(56,189,248,0.1); }
-.badge.setka { color: var(--gold); }
-.badge.wtt { color: #c4b5fd; border-color: #7c3aed; }
+.market-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0;
+}
+.form-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+}
 
-.status-bar {
-  font-size: 0.78rem; color: var(--muted); padding: 0 12px 10px;
-  display: flex; flex-wrap: wrap; gap: 8px 14px;
+/* Tracker modal — BB chrome subset */
+.tracker-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: none; align-items: stretch; justify-content: flex-end;
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  z-index: 9999; overscroll-behavior: none;
 }
-.status-bar strong { color: var(--text); font-weight: 600; }
+.tracker-modal.open { display: flex; }
+.tracker-panel {
+  position: relative; width: 100%; height: 100%; max-height: 100%;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.22);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.tracker-head {
+  position: relative; display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; background: var(--tracker-head-bg);
+  color: var(--tracker-head-text); border-bottom: 1px solid var(--panel-border);
+  font-weight: 800; font-size: 13px;
+}
+.tracker-head-actions { display: flex; align-items: center; gap: 8px; }
+.tracker-insights-btn {
+  background: transparent !important; border: none !important;
+  color: var(--tracker-head-text) !important; font-size: 16px !important;
+  padding: 4px !important; margin: 0 !important; cursor: pointer !important;
+}
+.tracker-close-btn {
+  background: transparent !important; border: none !important;
+  color: var(--tracker-head-text) !important; font-size: 18px !important;
+  padding: 4px 8px !important; margin: 0 !important; cursor: pointer !important;
+  font-weight: 900 !important;
+}
+.tracker-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--panel-border);
+  background: var(--panel-soft);
+}
+.tracker-tab {
+  flex: 1; padding: 10px; font-size: 11px; font-weight: 800;
+  background: transparent; color: var(--tracker-subtext);
+  border: none; border-bottom: 2px solid transparent; margin: 0; cursor: pointer;
+}
+.tracker-tab.active {
+  color: var(--tracker-strong); border-bottom-color: #e41827;
+}
+.tracker-body-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 10px 12px max(8px, env(safe-area-inset-bottom));
+}
+.tracker-empty {
+  text-align: center; padding: 40px 16px; color: var(--muted);
+  font-size: 13px; font-weight: 700;
+}
+.tracker-card {
+  border: 1px solid var(--panel-border); background: var(--panel);
+  padding: 10px; margin-bottom: 8px;
+}
+.tracker-card .tc-title { font-weight: 800; font-size: 13px; }
+.tracker-card .tc-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.tracker-card .tc-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.tracker-card .tc-actions button {
+  padding: 4px 10px; font-size: 11px; margin: 0;
+}
 
-.match-list { display: flex; flex-direction: column; gap: 8px; max-height: 62vh; overflow: auto; }
-.match-card {
-  border: 1px solid var(--border); border-radius: 10px; padding: 10px;
-  background: var(--panel2); cursor: pointer; transition: border-color 0.15s;
+/* Debug overlay */
+#debugOverlay {
+  display: none; position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,0.72); align-items: flex-end; justify-content: center;
 }
-.match-card:hover, .match-card.selected { border-color: var(--gold-dim); }
-.match-card.selected { box-shadow: inset 0 0 0 1px var(--gold-dim); }
-.match-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
-.match-names { font-weight: 650; font-size: 0.92rem; line-height: 1.25; }
-.match-meta { font-size: 0.72rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; }
-.score-line { font-family: var(--mono); font-size: 0.78rem; color: var(--gold); margin-top: 6px; }
-
-.markets { display: grid; gap: 10px; }
-.market {
-  border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--bg2);
+#debugOverlay.open { display: flex; }
+.debug-panel {
+  width: 100%; max-width: 760px; max-height: 85vh;
+  background: #111; color: #49d45f; border-top: 2px solid #d91f26;
+  padding: 14px; overflow-y: auto; font-family: ui-monospace, Menlo, monospace; font-size: 11px;
 }
-.market h3 { margin: 0 0 6px; font-size: 0.88rem; }
-.market .hint { font-size: 0.72rem; color: var(--muted); margin-bottom: 8px; }
-.market-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
-.market-row label { font-size: 0.72rem; color: var(--muted); display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 90px; }
-.market-row input, .market-row select {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+.debug-panel h3 { color: #fff; margin: 0 0 10px; font-size: 14px; }
+.debug-panel input {
+  max-width: 100%; background: #1c1c1c; color: #eee; border: 1px solid #333;
+  font-family: inherit;
 }
-.pred-stub {
-  margin-top: 8px; font-size: 0.78rem; color: var(--muted);
-  padding: 8px; border-radius: 8px; background: rgba(245,197,66,0.06); border: 1px dashed var(--gold-dim);
+.debug-panel .dbg-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.debug-panel .dbg-actions button {
+  background: #111; border: 1px solid #333; color: #49d45f;
+  padding: 6px 12px; font-size: 11px; font-weight: 700; margin: 0;
 }
-.pred-stub em { color: var(--gold); font-style: normal; }
-
-.tracker-tabs { display: flex; gap: 6px; }
-.tracker-tabs .btn { padding: 5px 9px; font-size: 0.75rem; }
-.tracker-tabs .btn.active { border-color: var(--gold); color: var(--gold); }
-.track-item {
-  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 7px;
-  background: var(--panel2); font-size: 0.82rem;
+.debug-panel .dbg-actions button.raid {
+  background: #2a0608; border-color: #d91f26; color: #fff;
+  box-shadow: 0 0 8px rgba(217,31,38,0.4); font-weight: 900;
 }
-.track-item .row { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.track-item .tomb { color: var(--danger); font-size: 0.7rem; }
-.track-empty { color: var(--muted); font-size: 0.82rem; padding: 12px 4px; }
-
-.debug {
-  font-family: var(--mono); font-size: 0.7rem; white-space: pre-wrap; word-break: break-word;
-  max-height: 220px; overflow: auto; background: #0a0c0f; border-radius: 8px; padding: 8px;
-  border: 1px solid var(--border); color: #a8b3c4;
+#debugLog {
+  background: #0a0a0a; border: 1px solid #222; padding: 8px;
+  min-height: 120px; max-height: 240px; overflow: auto; white-space: pre-wrap;
+  color: #9fef9f; margin-top: 8px;
 }
-.cfg-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 8px; }
-.cfg-row label { flex: 1; min-width: 180px; font-size: 0.72rem; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
-.cfg-row input { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
-
-.foot {
-  text-align: center; color: var(--muted); font-size: 0.7rem; padding: 8px 12px 20px;
+.raid-toast {
+  position: fixed; left: 50%; top: 20%; transform: translateX(-50%);
+  z-index: 11000; background: #2a0608; color: #fff; border: 1px solid #d91f26;
+  padding: 14px 20px; font-weight: 900; font-size: 14px;
+  box-shadow: 0 0 20px rgba(217,31,38,0.5); display: none;
 }
-.toast {
-  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-  background: #1f2937; border: 1px solid var(--gold-dim); color: var(--text);
-  padding: 10px 14px; border-radius: 10px; font-size: 0.82rem; z-index: 99;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.45); max-width: min(92vw, 420px); display: none;
+.raid-toast.show { display: block; }
+.build-chip {
+  text-align: center; font-size: 9px; color: #aaa; padding: 4px 0 12px;
 }
-.toast.show { display: block; }
 </style>
 </head>
 <body>
 <header class="app-header">
-  <div class="brand">
-    <div class="brand-mark">TT</div>
-    <div>
-      <h1>TheBetCeo TT</h1>
-      <div class="sub">Table Tennis Engine · game1_total + match_total</div>
-    </div>
-  </div>
-  <div class="toolbar">
-    <label>League
-      <select id="leagueSelect">
-        <option value="all">All autofetch</option>
-        <option value="setka">Setka Cup</option>
-        <option value="wtt">WTT</option>
-      </select>
-    </label>
-    <label>Date
-      <input type="date" id="dateInput" />
-    </label>
-    <button class="btn btn-primary" id="btnFetch" type="button">Autofetch</button>
-    <button class="btn btn-siren" id="btnRaid" type="button" title="Godfather raid — archive + tombstone + render">⚡ Raid</button>
-    <button class="btn btn-ghost" id="btnDebug" type="button">Debug</button>
-  </div>
+  <span class="brand-name">TheBetCeo ⚡️</span>
+  <span class="brand-right">
+    <button class="header-icon-btn" type="button" id="trackerToggleBtn" title="Open tracked picks" aria-label="Open tracked picks">📊</button>
+    <button class="header-icon-btn" type="button" id="afdbBtn" title="Debug / AFDB" aria-label="Open debug">🤖</button>
+    <button class="header-icon-btn" type="button" id="predictionsLabelBtn" title="Predictions home">PREDICTIONS</button>
+  </span>
 </header>
 
-<div class="status-bar" id="statusBar">
-  <span>Status: <strong id="statusText">idle</strong></span>
-  <span>Matches: <strong id="matchCount">0</strong></span>
-  <span>Worker: <strong id="workerHint">not set</strong></span>
+<div class="wrapper" id="predictionsHome">
+  <!-- 1. League Tier -->
+  <div class="section" id="leagueSection">
+    <h3>League Tier</h3>
+    <label>Select League</label>
+    <select id="leagueSelect" class="league-box" aria-label="Select League">
+      <option value="">- Select League -</option>
+      <optgroup label="── TT Autofetch ──────────">
+        <option value="setka">Setka Cup</option>
+        <option value="wtt">WTT (World Table Tennis)</option>
+        <option value="wtt_contender">WTT Contender</option>
+        <option value="wtt_champions">WTT Champions</option>
+      </optgroup>
+      <optgroup label="── C ──────────────────">
+        <option value="czech_extraliga">Czech Republic - Extraliga</option>
+        <option value="china_superliga">China - Super League</option>
+      </optgroup>
+      <optgroup label="── F ──────────────────">
+        <option value="france_pro_a">France - Pro A</option>
+      </optgroup>
+      <optgroup label="── G ──────────────────">
+        <option value="germany_bundesliga">Germany - Bundesliga</option>
+      </optgroup>
+      <optgroup label="── H ──────────────────">
+        <option value="hungary_nb1">Hungary - NB I. A</option>
+      </optgroup>
+      <optgroup label="── I ──────────────────">
+        <option value="ittf_world">ITTF World Tour / Events</option>
+      </optgroup>
+      <optgroup label="── J ──────────────────">
+        <option value="japan_t_league">Japan - T.League</option>
+      </optgroup>
+      <optgroup label="── L ──────────────────">
+        <option value="liga_pro">Liga Pro</option>
+      </optgroup>
+      <optgroup label="── P ──────────────────">
+        <option value="poland_superliga">Poland - Superliga</option>
+      </optgroup>
+      <optgroup label="── R ──────────────────">
+        <option value="russia_superliga">Russia - Superliga</option>
+      </optgroup>
+      <optgroup label="── S ──────────────────">
+        <option value="sweden_pingisligan">Sweden - Pingisligan</option>
+      </optgroup>
+      <optgroup label="── T ──────────────────">
+        <option value="tt_cup">TT Cup</option>
+      </optgroup>
+    </select>
+  </div>
+
+  <!-- 2. Market Lines -->
+  <div class="section collapsed" id="marketSection">
+    <h3>Market Lines</h3>
+    <div class="market-grid">
+      <div>
+        <label for="game1Market">1st Game Total O/U</label>
+        <input id="game1Market" placeholder="18.5 - 21.5" aria-label="1st Game Total O/U" />
+      </div>
+      <div>
+        <label for="matchTotalMarket">Match Total Points O/U</label>
+        <input id="matchTotalMarket" placeholder="65.5 - 85.5" aria-label="Match Total Points O/U" />
+      </div>
+    </div>
+    <div style="margin-top:6px;">
+      <label for="playerAName">Player A (Home)</label>
+      <input id="playerAName" placeholder="e.g. Player A" aria-label="Player A" style="max-width:100%;" />
+      <label for="playerBName">Player B (Away)</label>
+      <input id="playerBName" placeholder="e.g. Player B" aria-label="Player B" style="max-width:100%;" />
+    </div>
+  </div>
+
+  <!-- 3. Team A Last 10 -->
+  <div class="section collapsed" id="teamASection">
+    <h3>Team A - Last 10 Overall</h3>
+    <div class="form-grid">
+      <div>
+        <label for="aGame1Pts">Game 1 Points <span style="font-size:10px;color:#888">(recent → oldest)</span></label>
+        <input id="aGame1Pts" placeholder="19,21,18,20,22,17,23,19,20,18" aria-label="Team A Game 1 points" />
+      </div>
+      <div>
+        <label for="aMatchPts">Match Total Points</label>
+        <input id="aMatchPts" placeholder="72,68,81,75,70,79,66,74,77,71" aria-label="Team A match totals" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Team B Last 10 -->
+  <div class="section collapsed" id="teamBSection">
+    <h3>Team B - Last 10 Overall</h3>
+    <div class="form-grid">
+      <div>
+        <label for="bGame1Pts">Game 1 Points <span style="font-size:10px;color:#888">(recent → oldest)</span></label>
+        <input id="bGame1Pts" placeholder="20,18,21,19,17,22,18,20,21,19" aria-label="Team B Game 1 points" />
+      </div>
+      <div>
+        <label for="bMatchPts">Match Total Points</label>
+        <input id="bMatchPts" placeholder="70,76,69,80,73,67,78,72,75,68" aria-label="Team B match totals" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. H2H TEST -->
+  <div class="section collapsed" id="h2hSection">
+    <h3>H2H TEST</h3>
+    <div class="form-grid">
+      <div>
+        <label for="h2hGame1">H2H Game 1 Totals</label>
+        <input id="h2hGame1" placeholder="19,20,18,21,17" aria-label="H2H game 1 totals" />
+      </div>
+      <div>
+        <label for="h2hMatch">H2H Match Totals</label>
+        <input id="h2hMatch" placeholder="74,71,79,68,76" aria-label="H2H match totals" />
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="runBtn" type="button">Run</button>
+    <button id="clearBtn" type="button">Clear</button>
+    <button id="auditCopyBtn" type="button" class="gold-icon-btn" title="Copy Audit">📋</button>
+    <button id="inputsCopyBtn" type="button" class="gold-icon-btn" title="Copy Inputs &amp; Market Lines">🗒️</button>
+  </div>
+
+  <div id="statusLine" class="status-line"></div>
+
+  <div class="table-wrap">
+    <table id="results" style="display:none">
+      <thead>
+        <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+
+  <div style="text-align:center;margin-bottom:16px;">
+    <button type="button" id="trackPickBtn" style="background:#e41827;display:none;">Track Pick</button>
+  </div>
+
+  <div class="build-chip" id="buildChip" style="display:none;"></div>
 </div>
 
-<main class="layout">
-  <section class="panel">
-    <div class="panel-h">
-      <h2>Match list</h2>
-      <span class="badge" id="listFilterBadge">nearest / date</span>
-    </div>
-    <div class="panel-b">
-      <div class="match-list" id="matchList">
-        <div class="track-empty">Pick a league and hit Autofetch. WTT talks to Azure CMS directly; Setka needs the Worker (or relative /api/setka).</div>
+<!-- Tracker -->
+<div id="trackerModal" class="tracker-modal" aria-hidden="true">
+  <div class="tracker-panel">
+    <div class="tracker-head">
+      <span id="trackerHeadTitle">Tracked Picks</span>
+      <div class="tracker-head-actions">
+        <button type="button" id="trackerMilitaryRaidBtn" class="tracker-insights-btn" title="Military Raid">🚨</button>
+        <button type="button" id="trackerCloseBtn" class="tracker-close-btn" title="Close">✕</button>
       </div>
     </div>
-  </section>
+    <div class="tracker-tabs">
+      <button type="button" class="tracker-tab active" data-tab="active">Active</button>
+      <button type="button" class="tracker-tab" data-tab="archive">Archive</button>
+      <button type="button" class="tracker-tab" data-tab="deleted">Deleted</button>
+    </div>
+    <div class="tracker-body-scroll" id="trackedPicksWrap">
+      <div class="tracker-empty" id="trackerEmpty">No tracked picks yet.</div>
+      <div id="trackerList"></div>
+    </div>
+  </div>
+</div>
 
-  <aside style="display:flex;flex-direction:column;gap:12px;">
-    <section class="panel">
-      <div class="panel-h">
-        <h2>Markets</h2>
-        <span class="badge">2 only</span>
-      </div>
-      <div class="panel-b markets" id="marketsPanel">
-        <div class="track-empty" id="marketsEmpty">Select a match to set lines.</div>
-        <div id="marketsBody" style="display:none;">
-          <div class="match-names" id="selMatchTitle" style="margin-bottom:8px;"></div>
-          <div class="market" data-kind="game1_total">
-            <h3>1st game total <span class="badge">game1_total</span></h3>
-            <div class="hint">O/U on points in game 1 only (p1+p2).</div>
-            <div class="market-row">
-              <label>Line <input type="number" id="lineGame1" step="0.5" value="17.5" /></label>
-              <label>Pick
-                <select id="pickGame1">
-                  <option value="over">Over</option>
-                  <option value="under">Under</option>
-                </select>
-              </label>
-              <button class="btn btn-gold" type="button" data-track="game1_total">Track</button>
-            </div>
-            <div class="pred-stub">Prediction math: <em>coming soon</em> — placeholder edge ~0.0u (honest stub).</div>
-          </div>
-          <div class="market" data-kind="match_total">
-            <h3>Match total points <span class="badge">match_total</span></h3>
-            <div class="hint">O/U on sum of all game points.</div>
-            <div class="market-row">
-              <label>Line <input type="number" id="lineMatch" step="0.5" value="72.5" /></label>
-              <label>Pick
-                <select id="pickMatch">
-                  <option value="over">Over</option>
-                  <option value="under">Under</option>
-                </select>
-              </label>
-              <button class="btn btn-gold" type="button" data-track="match_total">Track</button>
-            </div>
-            <div class="pred-stub">Prediction math: <em>coming soon</em> — placeholder edge ~0.0u (honest stub).</div>
-          </div>
-        </div>
-      </div>
-    </section>
+<!-- Debug -->
+<div id="debugOverlay" aria-hidden="true">
+  <div class="debug-panel">
+    <h3>TT Debug / AFDB</h3>
+    <label style="color:#ccc;">Worker base URL (Setka proxy)</label>
+    <input id="workerUrlInput" placeholder="https://your-worker.workers.dev" style="max-width:100%;" />
+    <div class="dbg-actions">
+      <button type="button" id="dbgSaveWorker">💾 Save Worker</button>
+      <button type="button" id="dbgHealth">❤️ Health</button>
+      <button type="button" id="autofetchBtn">⬇️ Autofetch Setka</button>
+      <button type="button" id="dbgRaid" class="raid">🚨 MILITARY RAID</button>
+      <button type="button" id="dbgClearLog">🗑️ Clear Log</button>
+      <button type="button" id="dbgClose">✕ Close</button>
+    </div>
+    <label style="color:#ccc;margin-top:8px;display:block;">Fixtures</label>
+    <select id="fixtureSelect" class="league-box" style="max-width:100%;background:#1c1c1c;color:#eee;border-color:#333;">
+      <option value="">- Fixtures -</option>
+    </select>
+    <div id="fixtureStatus" class="status-line" style="text-align:left;color:#9fef9f;"></div>
+    <div id="debugLog"></div>
+    <div style="color:#666;margin-top:8px;" id="dbgBuild"></div>
+  </div>
+</div>
 
-    <section class="panel">
-      <div class="panel-h">
-        <h2>Tracker</h2>
-        <div class="tracker-tabs">
-          <button class="btn active" type="button" data-tab="active">Active</button>
-          <button class="btn" type="button" data-tab="archive">Archive</button>
-          <button class="btn" type="button" data-tab="deleted">Deleted</button>
-        </div>
-      </div>
-      <div class="panel-b" id="trackerList"></div>
-    </section>
-
-    <section class="panel" id="debugPanel" style="display:none;">
-      <div class="panel-h"><h2>Debug / Worker</h2></div>
-      <div class="panel-b">
-        <div class="cfg-row">
-          <label>Worker base URL (CORS proxy for Setka)
-            <input type="text" id="workerBase" placeholder="https://your-tt-proxy.workers.dev" />
-          </label>
-          <button class="btn" type="button" id="btnSaveWorker">Save</button>
-        </div>
-        <div class="hint" style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;">
-          Setka tries: Worker → relative <code>/api/setka/...</code> → direct (usually CORS-blocked). WTT uses Azure CMS with CORS *.
-        </div>
-        <div class="debug" id="debugLog">ready</div>
-      </div>
-    </section>
-  </aside>
-</main>
-
-<p class="foot">TheBetCeo TT · scaffold phase 1 · no basketball bytes · WAT local</p>
-<div class="toast" id="toast"></div>
+<div class="raid-toast" id="raidToast">Military raid complete</div>
 
 <script>
-(() => {
-  'use strict';
-
-  /* ========== constants ========== */
-  const STORE_KEY = 'tt-engine-v1';
-  const ARCHIVE_MS = 10 * 60 * 60 * 1000; // 10h
-  const WTT_CMS = 'https://wtt-mobile-app-services-api.azurewebsites.net/api/cms';
-  const SETKA_DIRECT = 'https://tabletennis.setkacup.com/api';
-  const MARKETS = Object.freeze(['game1_total', 'match_total']);
-
-  /* ========== state ========== */
-  const state = {
-    league: 'all',
-    matches: [],
-    selectedId: null,
-    trackerTab: 'active',
-    store: loadStore(),
-    lastDebug: [],
+(function () {
+  "use strict";
+  const BUILD_ID = "tt_v2_exact_ui_20260924";
+  const TT_MARKETS = Object.freeze(["game1_total", "match_total"]);
+  const TRACKER_SETTLED_VISIBLE_MS = 10 * 60 * 60 * 1000;
+  const STORE = {
+    picks: "tt_engine_tracker_picks",
+    deleted: "tt_engine_tracker_deleted",
+    worker: "tt_engine_worker_url",
+    lineMem: "tt_engine_line_memory",
   };
+  window.TT_PREDICTION_STUB = true;
+  window.TT_BUILD_ID = BUILD_ID;
 
-  /* ========== DOM ========== */
   const $ = (id) => document.getElementById(id);
-  const leagueSelect = $('leagueSelect');
-  const dateInput = $('dateInput');
-  const matchListEl = $('matchList');
-  const statusText = $('statusText');
-  const matchCount = $('matchCount');
-  const workerHint = $('workerHint');
-  const debugLog = $('debugLog');
-  const toastEl = $('toast');
-  const workerBaseInput = $('workerBase');
+  const logLines = [];
 
-  /* today in local (box = Africa/Lagos) */
-  const todayLocal = () => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-  dateInput.value = todayLocal();
-  workerBaseInput.value = state.store.workerBase || '';
-  refreshWorkerHint();
-
-  /* ========== storage / tracker ========== */
-  function defaultStore() {
-    return {
-      workerBase: '',
-      active: [],          // tracked picks
-      archive: [],         // finished / archived picks
-      deletedSignatures: {}, // signature -> tombstone ts
-      updatedAt: new Date().toISOString(),
-    };
+  function engineDebug(msg, extra) {
+    const line = "[" + new Date().toISOString() + "] " + msg + (extra ? " " + JSON.stringify(extra) : "");
+    logLines.push(line);
+    if (logLines.length > 200) logLines.shift();
+    const el = $("debugLog");
+    if (el) el.textContent = logLines.slice(-80).join("\n");
+    try { console.log("[TT]", msg, extra || ""); } catch (_e) {}
   }
-  function loadStore() {
+
+  function lsGet(key, fallback) {
     try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return defaultStore();
-      const parsed = JSON.parse(raw);
-      return Object.assign(defaultStore(), parsed);
-    } catch (_) {
-      return defaultStore();
-    }
+      const v = localStorage.getItem(key);
+      if (v == null) return fallback;
+      return JSON.parse(v);
+    } catch (_e) { return fallback; }
   }
-  function saveStore() {
-    pruneArchive();
-    state.store.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORE_KEY, JSON.stringify(state.store));
-  }
-  function signatureOf(pick) {
-    return [pick.matchId, pick.kind, pick.line, pick.selection].join('|');
-  }
-  function pruneArchive() {
-    const now = Date.now();
-    state.store.archive = (state.store.archive || []).filter((p) => {
-      const t = Date.parse(p.archivedAt || p.createdAt || 0);
-      return Number.isFinite(t) && now - t < ARCHIVE_MS;
-    });
-    // expire old tombstones with archive window
-    const del = state.store.deletedSignatures || {};
-    Object.keys(del).forEach((sig) => {
-      if (now - del[sig] >= ARCHIVE_MS) delete del[sig];
-    });
-  }
-  function tombstoneDelete(pick) {
-    const sig = signatureOf(pick);
-    state.store.deletedSignatures[sig] = Date.now();
-    state.store.active = state.store.active.filter((p) => signatureOf(p) !== sig);
-    state.store.archive = state.store.archive.filter((p) => signatureOf(p) !== sig);
-    saveStore();
-  }
-  function archivePick(pick) {
-    const sig = signatureOf(pick);
-    if (state.store.deletedSignatures[sig]) return;
-    state.store.active = state.store.active.filter((p) => signatureOf(p) !== sig);
-    const copy = Object.assign({}, pick, { archivedAt: new Date().toISOString() });
-    state.store.archive = state.store.archive.filter((p) => signatureOf(p) !== sig);
-    state.store.archive.unshift(copy);
-    saveStore();
-  }
-  function addTrack(pick) {
-    const sig = signatureOf(pick);
-    if (state.store.deletedSignatures[sig]) {
-      toast('Tombstoned — clear deleted tab / wait 10h');
-      return;
-    }
-    if (state.store.active.some((p) => signatureOf(p) === sig)) {
-      toast('Already tracked');
-      return;
-    }
-    state.store.active.unshift(pick);
-    saveStore();
-    renderTracker();
-    toast('Tracked ' + pick.kind);
+  function lsSet(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch (_e) { return false; }
   }
 
-  /* ========== markets helpers ========== */
-  function game1Total(match) {
-    const g = (match.games || [])[0];
-    if (!g) return null;
-    return g.p1Points + g.p2Points;
-  }
-  function matchTotal(match) {
-    const games = match.games || [];
-    if (!games.length) return null;
-    return games.reduce((s, g) => s + g.p1Points + g.p2Points, 0);
-  }
-  function settleStub(actual, line) {
-    if (actual == null || line == null) return null;
-    if (actual > line) return 'over';
-    if (actual < line) return 'under';
-    return 'push';
-  }
-
-  /* ========== adapters: Setka ========== */
-  function mapSetkaStatus(id) {
-    if (id === 1) return 'scheduled';
-    if (id === 2) return 'live';
-    if (id === 3) return 'finished';
-    if (id === 4) return 'cancelled';
-    return 'unknown';
-  }
-  function normalizeSetkaMatch(m, tournamentName) {
-    const p1 = m.player1 || {};
-    const p2 = m.player2 || {};
-    const games = (m.setScores || []).map((s) => ({
-      gameNumber: s.number,
-      p1Points: Number(s.p1Score) || 0,
-      p2Points: Number(s.p2Score) || 0,
-    }));
-    const setsP1 = games.filter((g) => g.p1Points > g.p2Points).length;
-    const setsP2 = games.filter((g) => g.p2Points > g.p1Points).length;
-    return {
-      id: 'setka:' + m.id,
-      league: 'setka',
-      competitionName: m.tournamentName || tournamentName || 'Setka',
-      startTime: m.startDate || null,
-      status: mapSetkaStatus(m.statusId),
-      bestOf: 5,
-      player1: {
-        id: 'setka:' + p1.id,
-        league: 'setka',
-        rawId: p1.id,
-        firstName: p1.firstName || '',
-        lastName: p1.lastName || '',
-        displayName: [p1.firstName, p1.lastName].filter(Boolean).join(' ') || 'P1',
-      },
-      player2: {
-        id: 'setka:' + p2.id,
-        league: 'setka',
-        rawId: p2.id,
-        firstName: p2.firstName || '',
-        lastName: p2.lastName || '',
-        displayName: [p2.firstName, p2.lastName].filter(Boolean).join(' ') || 'P2',
-      },
-      games,
-      setsP1,
-      setsP2,
-      raw: m,
-    };
-  }
-
-  async function fetchSetkaByDate(dateStr) {
-    const paths = [];
-    const wb = (state.store.workerBase || '').replace(/\/+$/, '');
-    if (wb) {
-      paths.push(`${wb}/tt/setka/tournaments?date=${encodeURIComponent(dateStr)}`);
-      paths.push(`${wb}/api/setka/tournaments?date=${encodeURIComponent(dateStr)}`);
-    }
-    // relative Worker / Pages Functions style
-    paths.push(`/api/setka/tournaments?date=${encodeURIComponent(dateStr)}`);
-    paths.push(`/tt/setka/tournaments?date=${encodeURIComponent(dateStr)}`);
-    // direct last (usually CORS-blocked in browser)
-    paths.push(`${SETKA_DIRECT}/Tournaments/byDate?date=${encodeURIComponent(dateStr)}`);
-
-    let lastErr = null;
-    for (const url of paths) {
-      try {
-        logDebug('SETKA try ' + url);
-        const res = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!res.ok) throw new Error('HTTP ' + res.status + ' @ ' + url);
-        const data = await res.json();
-        if (!Array.isArray(data)) throw new Error('unexpected Setka payload');
-        const matches = [];
-        data.forEach((t) => {
-          (t.matches || []).forEach((m) => matches.push(normalizeSetkaMatch(m, t.token)));
-        });
-        logDebug('SETKA ok ' + matches.length + ' matches via ' + url);
-        return matches;
-      } catch (err) {
-        lastErr = err;
-        logDebug('SETKA fail: ' + (err && err.message ? err.message : err));
-      }
-    }
-    throw lastErr || new Error('Setka fetch failed — deploy worker/tt-proxy.js and set Worker base URL');
-  }
-
-  /* ========== adapters: WTT ========== */
-  function padDocumentCode(code) {
-    const c = String(code || '');
-    return c.length >= 42 ? c : c.padEnd(42, '-');
-  }
-  function mapWttScheduleStatus(st) {
-    const s = String(st || '').toLowerCase();
-    if (s === 'official') return 'finished';
-    if (s.includes('live') || s.includes('running') || s === 'geting') return 'live';
-    if (s.includes('schedul') || s.includes('start list') || s === 'scheduled') return 'scheduled';
-    return 'unknown';
-  }
-  function parseGameScores(str) {
-    if (!str || typeof str !== 'string') return [];
-    return str.split(',').map((seg, i) => {
-      const [a, b] = seg.trim().split('-').map((x) => Number(x));
-      return {
-        gameNumber: i + 1,
-        p1Points: Number.isFinite(a) ? a : 0,
-        p2Points: Number.isFinite(b) ? b : 0,
-      };
-    }).filter((g) => g.p1Points || g.p2Points || true);
-  }
-  function athleteName(comp) {
-    if (!comp) return 'TBD';
-    const desc = comp.Description || {};
-    if (desc.TeamName) return desc.TeamName;
-    const ath = (((comp.Composition || {}).Athlete) || [])[0];
-    if (ath && ath.Description) {
-      const d = ath.Description;
-      return [d.GivenName, d.FamilyName].filter(Boolean).join(' ') || d.PrintName || 'Athlete';
-    }
-    return desc.PrintName || comp.Code || 'TBD';
-  }
-  function normalizeWttUnit(unit, eventId, eventName) {
-    const starts = (((unit.StartList || {}).Start) || []);
-    const c1 = (starts[0] || {}).Competitor;
-    const c2 = (starts[1] || {}).Competitor;
-    const code = unit.Code || '';
-    const doc = padDocumentCode(code);
-    const nameEng = ((unit.ItemName || []).find((x) => x.Language === 'ENG') || {}).Value
-      || ((unit.ItemDescription || [])[0] || {}).Value
-      || unit.SubEvent
-      || 'WTT';
-    return {
-      id: 'wtt:' + eventId + ':' + doc,
-      league: 'wtt',
-      competitionName: (eventName || 'WTT') + ' · ' + nameEng,
-      startTime: unit.StartDate ? new Date(unit.StartDate + 'Z').toISOString() : null,
-      status: mapWttScheduleStatus(unit.ScheduleStatus),
-      bestOf: Number(unit.MaxGamesPerIndividualMatch) || 5,
-      player1: {
-        id: 'wtt:' + (c1 && c1.Code),
-        league: 'wtt',
-        rawId: c1 && c1.Code,
-        firstName: '',
-        lastName: '',
-        displayName: athleteName(c1),
-        country: c1 && c1.Organization,
-      },
-      player2: {
-        id: 'wtt:' + (c2 && c2.Code),
-        league: 'wtt',
-        rawId: c2 && c2.Code,
-        firstName: '',
-        lastName: '',
-        displayName: athleteName(c2),
-        country: c2 && c2.Organization,
-      },
-      games: [],
-      setsP1: null,
-      setsP2: null,
-      _wtt: { eventId, documentCode: doc, code },
-      raw: unit,
-    };
-  }
-
-  async function fetchWttLiveEvents() {
-    const url = `${WTT_CMS}/GetLiveEvent`;
-    logDebug('WTT GetLiveEvent ' + url);
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error('WTT live HTTP ' + res.status);
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  }
-
-  async function fetchWttSchedule(eventId) {
-    const url = `${WTT_CMS}/GetEventSchedule/${encodeURIComponent(eventId)}`;
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error('WTT schedule HTTP ' + res.status + ' event ' + eventId);
-    return res.json();
-  }
-
-  async function fetchWttCard(eventId, documentCode) {
-    const url = `${WTT_CMS}/GetMatchCardDetails_Minimal/${encodeURIComponent(eventId)}/${documentCode}`;
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error('WTT card HTTP ' + res.status);
-    return res.json();
-  }
-
-  async function fetchWttMatches({ maxEvents = 3, enrichCards = true } = {}) {
-    const events = await fetchWttLiveEvents();
-    logDebug('WTT events: ' + events.length);
-    // Prefer events that look "current" — take first N for scaffold speed
-    const picked = events.slice(0, maxEvents);
-    const out = [];
-    for (const ev of picked) {
-      const eventId = ev.eventId;
-      const eventName = ev.eventName || ('Event ' + eventId);
-      try {
-        const sched = await fetchWttSchedule(eventId);
-        const units = [];
-        (Array.isArray(sched) ? sched : []).forEach((block) => {
-          const list = (((block || {}).Competition || {}).Unit) || [];
-          list.forEach((u) => units.push(u));
-        });
-        logDebug(`WTT schedule ${eventId}: ${units.length} units`);
-        // Cap units listed for UI scaffold
-        const slice = units.slice(0, 40);
-        for (const u of slice) {
-          out.push(normalizeWttUnit(u, eventId, eventName));
-        }
-      } catch (err) {
-        logDebug('WTT schedule fail ' + eventId + ': ' + err.message);
-      }
-    }
-
-    if (enrichCards) {
-      // Enrich a few live/finished with point scores
-      const enrichable = out.filter((m) => m.status === 'live' || m.status === 'finished').slice(0, 8);
-      for (const m of enrichable) {
-        try {
-          const card = await fetchWttCard(m._wtt.eventId, m._wtt.documentCode);
-          const scores = card.resultsGameScores || card.gameScores || '';
-          m.games = parseGameScores(scores);
-          const rs = String(card.resultStatus || '').toUpperCase();
-          if (rs === 'OFFICIAL') m.status = 'finished';
-          else if (rs === 'LIVE' || rs === 'RUNNING') m.status = 'live';
-          if (card.overallScores || card.resultOverallScores) {
-            const [a, b] = String(card.resultOverallScores || card.overallScores).split('-').map(Number);
-            m.setsP1 = a; m.setsP2 = b;
-          }
-          m.rawCard = card;
-        } catch (err) {
-          logDebug('WTT card fail ' + m.id + ': ' + err.message);
-        }
-      }
-    }
-    return out;
-  }
-
-  /* ========== UI ========== */
-  function logDebug(msg) {
-    const line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-    state.lastDebug.push(line);
-    if (state.lastDebug.length > 200) state.lastDebug.shift();
-    if (debugLog) debugLog.textContent = state.lastDebug.slice(-80).join('\n');
-  }
-  function toast(msg) {
-    toastEl.textContent = msg;
-    toastEl.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => toastEl.classList.remove('show'), 2600);
-  }
-  function setStatus(t) { statusText.textContent = t; }
-  function refreshWorkerHint() {
-    const wb = state.store.workerBase;
-    workerHint.textContent = wb ? wb : 'not set (Setka may fail CORS)';
-  }
-  function fmtTime(iso) {
-    if (!iso) return '—';
-    try {
-      return new Date(iso).toLocaleString(undefined, {
-        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  /* ---- Accordion (BB makeSectionsCollapsible) ---- */
+  function makeSectionsCollapsible() {
+    document.querySelectorAll(".section").forEach((section) => {
+      if (section.dataset.collapsibleReady === "1") return;
+      const heading = section.querySelector("h3");
+      if (!heading) return;
+      section.dataset.collapsibleReady = "1";
+      const titleHTML = heading.innerHTML;
+      const body = document.createElement("div");
+      body.className = "section-body";
+      const children = [...section.childNodes];
+      children.forEach((node) => {
+        if (node !== heading) body.appendChild(node);
       });
-    } catch (_) { return iso; }
-  }
-  function statusBadge(st) {
-    if (st === 'live') return '<span class="badge live">live</span>';
-    if (st === 'finished') return '<span class="badge fin">finished</span>';
-    if (st === 'scheduled') return '<span class="badge sch">scheduled</span>';
-    return '<span class="badge">' + st + '</span>';
-  }
-  function leagueBadge(lg) {
-    return '<span class="badge ' + lg + '">' + lg + '</span>';
-  }
-
-  function renderMatches() {
-    matchCount.textContent = String(state.matches.length);
-    if (!state.matches.length) {
-      matchListEl.innerHTML = '<div class="track-empty">No matches loaded.</div>';
-      return;
-    }
-    // Sort: live → scheduled → finished; then startTime
-    const order = { live: 0, scheduled: 1, unknown: 2, finished: 3, cancelled: 4, walkover: 4 };
-    const sorted = state.matches.slice().sort((a, b) => {
-      const oa = order[a.status] ?? 9;
-      const ob = order[b.status] ?? 9;
-      if (oa !== ob) return oa - ob;
-      return String(a.startTime || '').localeCompare(String(b.startTime || ''));
-    });
-    matchListEl.innerHTML = sorted.map((m) => {
-      const g1 = game1Total(m);
-      const mt = matchTotal(m);
-      const scoreBits = [];
-      if (m.setsP1 != null && m.setsP2 != null) scoreBits.push(`Sets ${m.setsP1}-${m.setsP2}`);
-      if (g1 != null) scoreBits.push(`G1 ${g1}`);
-      if (mt != null) scoreBits.push(`Σ ${mt}`);
-      if (m.games && m.games.length) {
-        scoreBits.push(m.games.map((g) => `${g.p1Points}-${g.p2Points}`).join(', '));
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "section-toggle";
+      const titleSpan = document.createElement("span");
+      titleSpan.className = "toggle-title";
+      titleSpan.innerHTML = titleHTML;
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "toggle-icon";
+      iconSpan.innerHTML = "&#9662;";
+      btn.appendChild(titleSpan);
+      btn.appendChild(iconSpan);
+      btn.addEventListener("click", () => {
+        section.classList.toggle("collapsed");
+      });
+      section.innerHTML = "";
+      section.appendChild(btn);
+      section.appendChild(body);
+      if (!section.classList.contains("collapsed") && section.id !== "leagueSection") {
+        section.classList.add("collapsed");
       }
-      const sel = m.id === state.selectedId ? ' selected' : '';
-      return `<article class="match-card${sel}" data-id="${escapeAttr(m.id)}">
-        <div class="match-top">
-          <div class="match-names">${escapeHtml(m.player1.displayName)} <span style="color:var(--muted)">vs</span> ${escapeHtml(m.player2.displayName)}</div>
-          <div>${leagueBadge(m.league)} ${statusBadge(m.status)}</div>
-        </div>
-        <div class="match-meta">
-          <span>${escapeHtml(m.competitionName)}</span>
-          <span>·</span>
-          <span>${escapeHtml(fmtTime(m.startTime))}</span>
-        </div>
-        ${scoreBits.length ? `<div class="score-line">${escapeHtml(scoreBits.join(' · '))}</div>` : ''}
-      </article>`;
-    }).join('');
+    });
+    // League Tier starts open (screenshot)
+    const league = $("leagueSection");
+    if (league) league.classList.remove("collapsed");
   }
 
-  function selectMatch(id) {
-    state.selectedId = id;
-    const m = state.matches.find((x) => x.id === id);
-    renderMatches();
-    if (!m) {
-      $('marketsEmpty').style.display = '';
-      $('marketsBody').style.display = 'none';
-      return;
+  function accordionOpen(id) {
+    const s = $(id);
+    if (s) s.classList.remove("collapsed");
+  }
+
+  function setStatus(msg, kind) {
+    const el = $("statusLine");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.style.color = kind === "err" ? "#c91920" : kind === "ok" ? "#3a9c35" : "var(--muted)";
+  }
+
+  function parseSeries(str) {
+    if (!str || !String(str).trim()) return [];
+    return String(str).split(/[,\s]+/).map((x) => parseFloat(x)).filter((n) => !isNaN(n));
+  }
+  function avg(arr) {
+    if (!arr.length) return null;
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
+
+  /* ---- Stub prediction math (0.0u, never crash) ---- */
+  function runEngine() {
+    try {
+      const g1Line = parseFloat(($("game1Market") || {}).value);
+      const mtLine = parseFloat(($("matchTotalMarket") || {}).value);
+      const aG1 = parseSeries(($("aGame1Pts") || {}).value);
+      const bG1 = parseSeries(($("bGame1Pts") || {}).value);
+      const aMt = parseSeries(($("aMatchPts") || {}).value);
+      const bMt = parseSeries(($("bMatchPts") || {}).value);
+
+      const projG1 = (avg(aG1) != null || avg(bG1) != null)
+        ? ((avg(aG1) || 19.5) + (avg(bG1) || 19.5)) / 2
+        : null;
+      const projMt = (avg(aMt) != null || avg(bMt) != null)
+        ? ((avg(aMt) || 72) + (avg(bMt) || 72)) / 2
+        : null;
+
+      const rows = [];
+      function stubRow(name, key, line, proj) {
+        const hasLine = !isNaN(line);
+        const projection = proj != null ? proj.toFixed(1) : "—";
+        const edge = hasLine && proj != null ? (proj - line).toFixed(1) : "0.0";
+        const side = hasLine && proj != null ? (proj > line ? "OVER" : proj < line ? "UNDER" : "NO PLAY") : "NO PLAY";
+        const cls = side === "OVER" ? "pred-over" : side === "UNDER" ? "pred-under" : "pred-none";
+        rows.push({
+          name, key, line: hasLine ? line : null, projection, edge,
+          grade: "STUB", units: "0.0u", side, cls,
+        });
+      }
+      stubRow("1st Game Total", "game1_total", g1Line, projG1);
+      stubRow("Match Total Points", "match_total", mtLine, projMt);
+
+      const tbody = $("resultsBody");
+      const table = $("results");
+      if (tbody && table) {
+        tbody.innerHTML = rows.map((r) =>
+          "<tr><td>" + r.name + "</td><td>" + r.projection +
+          "</td><td>" + r.edge + "</td><td>" + r.grade +
+          '</td><td class="' + r.cls + '">' + r.side + " · " + r.units + "</td></tr>"
+        ).join("");
+        table.style.display = "";
+      }
+      window.__ttLastRows = rows;
+      const trackBtn = $("trackPickBtn");
+      if (trackBtn) trackBtn.style.display = "";
+      setStatus("Run complete (stub model · 0.0u) · " + BUILD_ID, "ok");
+      engineDebug("runEngine stub ok", { rows: rows.length });
+      accordionOpen("marketSection");
+    } catch (err) {
+      setStatus("Run error: " + (err && err.message ? err.message : String(err)), "err");
+      engineDebug("runEngine crash caught", { error: String(err) });
     }
-    $('marketsEmpty').style.display = 'none';
-    $('marketsBody').style.display = '';
-    $('selMatchTitle').textContent = `${m.player1.displayName} vs ${m.player2.displayName}`;
-    const g1 = game1Total(m);
-    const mt = matchTotal(m);
-    // soft defaults from observed scores when present
-    if (g1 != null) $('lineGame1').value = (Math.floor(g1) + 0.5);
-    if (mt != null) $('lineMatch').value = (Math.floor(mt / 0.5) * 0.5);
+  }
+
+  function clearAll() {
+    [
+      "game1Market", "matchTotalMarket", "playerAName", "playerBName",
+      "aGame1Pts", "aMatchPts", "bGame1Pts", "bMatchPts", "h2hGame1", "h2hMatch",
+    ].forEach((id) => { const el = $(id); if (el) el.value = ""; });
+    const league = $("leagueSelect"); if (league) league.value = "";
+    const fix = $("fixtureSelect"); if (fix) fix.innerHTML = '<option value="">- Fixtures -</option>';
+    const table = $("results"); if (table) table.style.display = "none";
+    const tbody = $("resultsBody"); if (tbody) tbody.innerHTML = "";
+    const trackBtn = $("trackPickBtn"); if (trackBtn) trackBtn.style.display = "none";
+    window.__ttLastRows = null;
+    setStatus("Cleared", "ok");
+  }
+
+  function copyInputs() {
+    const parts = [
+      "TheBetCeo TT Inputs",
+      "League: " + (($("leagueSelect") || {}).value || ""),
+      "Player A: " + (($("playerAName") || {}).value || ""),
+      "Player B: " + (($("playerBName") || {}).value || ""),
+      "1st Game Total: " + (($("game1Market") || {}).value || ""),
+      "Match Total: " + (($("matchTotalMarket") || {}).value || ""),
+      "A G1: " + (($("aGame1Pts") || {}).value || ""),
+      "A MT: " + (($("aMatchPts") || {}).value || ""),
+      "B G1: " + (($("bGame1Pts") || {}).value || ""),
+      "B MT: " + (($("bMatchPts") || {}).value || ""),
+      "H2H G1: " + (($("h2hGame1") || {}).value || ""),
+      "H2H MT: " + (($("h2hMatch") || {}).value || ""),
+    ];
+    const text = parts.join("\n");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => setStatus("Inputs copied", "ok"))
+        .catch(() => setStatus("Copy blocked", "err"));
+    } else {
+      setStatus("Clipboard unavailable", "err");
+    }
+  }
+
+  function copyAudit() {
+    const rows = window.__ttLastRows || [];
+    const text = "TheBetCeo TT Audit\n" + BUILD_ID + "\n" +
+      rows.map((r) => r.name + " | proj " + r.projection + " | edge " + r.edge + " | " + r.side + " " + r.units).join("\n");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => setStatus("Audit copied", "ok"))
+        .catch(() => setStatus("Copy blocked", "err"));
+    }
+  }
+
+  /* ---- Tracker ---- */
+  function loadPicks() { return lsGet(STORE.picks, []) || []; }
+  function savePicks(arr) { return lsSet(STORE.picks, arr); }
+  function loadDeleted() { return lsGet(STORE.deleted, []) || []; }
+  function saveDeleted(arr) { return lsSet(STORE.deleted, arr); }
+
+  let trackerTab = "active";
+
+  function openTracker() {
+    const m = $("trackerModal");
+    if (!m) return;
+    m.classList.add("open");
+    m.setAttribute("aria-hidden", "false");
+    document.body.classList.add("tracker-open");
+    renderTracker();
+  }
+  function closeTracker() {
+    const m = $("trackerModal");
+    if (!m) return;
+    m.classList.remove("open");
+    m.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("tracker-open");
+  }
+
+  function trackCurrentPick() {
+    const rows = window.__ttLastRows || [];
+    if (!rows.length) { setStatus("Run first", "err"); return; }
+    const a = (($("playerAName") || {}).value || "Player A").trim();
+    const b = (($("playerBName") || {}).value || "Player B").trim();
+    const league = (($("leagueSelect") || {}).value || "").trim();
+    const picks = loadPicks();
+    rows.forEach((r) => {
+      if (r.line == null) return;
+      picks.unshift({
+        id: "tt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+        createdAt: Date.now(),
+        league, playerA: a, playerB: b,
+        market: r.key, marketName: r.name,
+        line: r.line, side: r.side, units: 0,
+        status: "active", settledAt: null, result: null,
+      });
+    });
+    savePicks(picks);
+    setStatus("Tracked " + rows.filter((r) => r.line != null).length + " pick(s)", "ok");
+    openTracker();
+  }
+
+  function settlePick(id, result) {
+    const picks = loadPicks();
+    const p = picks.find((x) => x.id === id);
+    if (!p) return;
+    p.status = "settled";
+    p.result = result;
+    p.settledAt = Date.now();
+    savePicks(picks);
+    renderTracker();
+  }
+
+  function deletePick(id) {
+    let picks = loadPicks();
+    const p = picks.find((x) => x.id === id);
+    if (!p) return;
+    picks = picks.filter((x) => x.id !== id);
+    savePicks(picks);
+    const del = loadDeleted();
+    del.unshift(Object.assign({}, p, { deletedAt: Date.now() }));
+    saveDeleted(del.slice(0, 200));
+    renderTracker();
   }
 
   function renderTracker() {
-    pruneArchive();
-    const tab = state.trackerTab;
-    const listEl = $('trackerList');
-    let rows = [];
-    if (tab === 'active') rows = state.store.active || [];
-    else if (tab === 'archive') rows = state.store.archive || [];
-    else {
-      rows = Object.entries(state.store.deletedSignatures || {}).map(([sig, ts]) => ({
-        _tomb: true, signature: sig, deletedAt: new Date(ts).toISOString(),
-      }));
+    const list = $("trackerList");
+    const empty = $("trackerEmpty");
+    if (!list) return;
+    const now = Date.now();
+    let picks = loadPicks();
+    let items = [];
+    if (trackerTab === "active") {
+      items = picks.filter((p) => p.status === "active");
+    } else if (trackerTab === "archive") {
+      items = picks.filter((p) => p.status === "settled" && p.settledAt && (now - p.settledAt) < TRACKER_SETTLED_VISIBLE_MS);
+    } else {
+      items = loadDeleted();
     }
-    if (!rows.length) {
-      listEl.innerHTML = `<div class="track-empty">No ${tab} items. 10h archive rule applies.</div>`;
+    if (!items.length) {
+      list.innerHTML = "";
+      if (empty) { empty.style.display = ""; empty.textContent = "No tracked picks yet."; }
       return;
     }
-    listEl.innerHTML = rows.map((p) => {
-      if (p._tomb) {
-        return `<div class="track-item"><div class="row"><span class="tomb">tombstone</span><span>${escapeHtml(fmtTime(p.deletedAt))}</span></div>
-          <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-top:4px;">${escapeHtml(p.signature)}</div></div>`;
+    if (empty) empty.style.display = "none";
+    list.innerHTML = items.map((p) => {
+      const title = (p.playerA || "?") + " vs " + (p.playerB || "?");
+      const meta = (p.league || "—") + " · " + (p.marketName || p.market) + " " +
+        (p.side || "") + " " + (p.line != null ? p.line : "") +
+        (p.result ? " · " + p.result : "") + " · 0.0u";
+      let actions = "";
+      if (trackerTab === "active") {
+        actions = '<button type="button" data-act="won" data-id="' + p.id + '">Won</button>' +
+          '<button type="button" data-act="lost" data-id="' + p.id + '">Lost</button>' +
+          '<button type="button" data-act="push" data-id="' + p.id + '">Push</button>' +
+          '<button type="button" data-act="del" data-id="' + p.id + '">Delete</button>';
       }
-      const actualHint = p.kind === 'game1_total' ? 'G1 pts' : 'Match Σ';
-      return `<div class="track-item">
-        <div class="row">
-          <strong>${escapeHtml(p.label || p.matchId)}</strong>
-          <span class="badge">${escapeHtml(p.kind)}</span>
-        </div>
-        <div class="row" style="margin-top:4px;color:var(--muted);font-size:0.75rem;">
-          <span>${escapeHtml(String(p.selection).toUpperCase())} ${escapeHtml(String(p.line))} · ${escapeHtml(actualHint)}</span>
-          <span>${escapeHtml(fmtTime(p.createdAt))}</span>
-        </div>
-        <div class="row" style="margin-top:6px;gap:6px;">
-          ${tab === 'active' ? `<button class="btn" type="button" data-arch="${escapeAttr(signatureOf(p))}">Archive</button>
-            <button class="btn" type="button" data-del="${escapeAttr(signatureOf(p))}">Delete</button>` : ''}
-          ${tab === 'archive' ? `<button class="btn" type="button" data-del="${escapeAttr(signatureOf(p))}">Delete</button>` : ''}
-        </div>
-      </div>`;
-    }).join('');
-  }
-
-  function escapeHtml(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-  function escapeAttr(s) { return escapeHtml(s).replace(/'/g, '&#39;'); }
-
-  /* ========== actions ========== */
-  async function autofetch() {
-    const league = leagueSelect.value;
-    const dateStr = dateInput.value || todayLocal();
-    state.league = league;
-    setStatus('fetching…');
-    $('btnFetch').disabled = true;
-    const collected = [];
-    const errors = [];
-    try {
-      if (league === 'setka' || league === 'all') {
-        try {
-          const m = await fetchSetkaByDate(dateStr);
-          collected.push(...m);
-        } catch (e) {
-          errors.push('Setka: ' + e.message);
-          toast('Setka needs Worker — see Debug');
-        }
-      }
-      if (league === 'wtt' || league === 'all') {
-        try {
-          const m = await fetchWttMatches({ maxEvents: league === 'wtt' ? 4 : 2 });
-          collected.push(...m);
-        } catch (e) {
-          errors.push('WTT: ' + e.message);
-        }
-      }
-      state.matches = collected;
-      state.selectedId = null;
-      renderMatches();
-      $('marketsEmpty').style.display = '';
-      $('marketsBody').style.display = 'none';
-      setStatus(errors.length
-        ? `done with errors (${collected.length} matches)`
-        : `ok · ${collected.length} matches`);
-      if (errors.length) logDebug('ERRORS\n' + errors.join('\n'));
-      toast(`Loaded ${collected.length} match(es)`);
-    } finally {
-      $('btnFetch').disabled = false;
-    }
-  }
-
-  /** Godfather raid stub: archive eligible active picks + tombstone nothing fancy + re-render */
-  function godfatherRaid() {
-    setStatus('raid…');
-    logDebug('⚡ Godfather raid — archive finished-linked picks + prune + render');
-    // Archive any active pick whose match is finished in current list
-    const finishedIds = new Set(state.matches.filter((m) => m.status === 'finished').map((m) => m.id));
-    let n = 0;
-    (state.store.active || []).slice().forEach((p) => {
-      if (finishedIds.has(p.matchId)) {
-        archivePick(p);
-        n++;
-      }
-    });
-    // Also force prune / re-save
-    pruneArchive();
-    saveStore();
-    renderTracker();
-    renderMatches();
-    setStatus(`raid done · archived ${n}`);
-    toast(`⚡ Raid: archived ${n}, tracker refreshed`);
-  }
-
-  /* ========== events ========== */
-  $('btnFetch').addEventListener('click', () => autofetch());
-  $('btnRaid').addEventListener('click', () => godfatherRaid());
-  $('btnDebug').addEventListener('click', () => {
-    const p = $('debugPanel');
-    p.style.display = p.style.display === 'none' ? '' : 'none';
-  });
-  $('btnSaveWorker').addEventListener('click', () => {
-    state.store.workerBase = workerBaseInput.value.trim();
-    saveStore();
-    refreshWorkerHint();
-    toast('Worker base saved');
-  });
-  leagueSelect.addEventListener('change', () => { state.league = leagueSelect.value; });
-
-  matchListEl.addEventListener('click', (ev) => {
-    const card = ev.target.closest('.match-card');
-    if (!card) return;
-    selectMatch(card.getAttribute('data-id'));
-  });
-
-  document.querySelectorAll('[data-track]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const kind = btn.getAttribute('data-track');
-      const m = state.matches.find((x) => x.id === state.selectedId);
-      if (!m) { toast('Pick a match first'); return; }
-      if (!MARKETS.includes(kind)) return;
-      const line = Number(kind === 'game1_total' ? $('lineGame1').value : $('lineMatch').value);
-      const selection = kind === 'game1_total' ? $('pickGame1').value : $('pickMatch').value;
-      const actual = kind === 'game1_total' ? game1Total(m) : matchTotal(m);
-      const result = settleStub(actual, line);
-      addTrack({
-        matchId: m.id,
-        kind,
-        line,
-        selection,
-        label: `${m.player1.displayName} vs ${m.player2.displayName}`,
-        league: m.league,
-        createdAt: new Date().toISOString(),
-        predictedEdge: 0,
-        note: 'prediction stub',
-        actual,
-        settleHint: result,
+      return '<div class="tracker-card"><div class="tc-title">' + title +
+        '</div><div class="tc-meta">' + meta + '</div>' +
+        (actions ? '<div class="tc-actions">' + actions + "</div>" : "") + "</div>";
+    }).join("");
+    list.querySelectorAll("button[data-act]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const act = btn.getAttribute("data-act");
+        if (act === "del") deletePick(id);
+        else settlePick(id, act);
       });
     });
-  });
+  }
 
-  document.querySelectorAll('[data-tab]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-tab]').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.trackerTab = btn.getAttribute('data-tab');
-      renderTracker();
+  /* ---- Military Raid ---- */
+  function runMilitaryRaid() {
+    const now = Date.now();
+    let picks = loadPicks();
+    const kept = [];
+    const pruned = [];
+    picks.forEach((p) => {
+      if (p.status === "settled" && p.settledAt && (now - p.settledAt) >= TRACKER_SETTLED_VISIBLE_MS) {
+        pruned.push(p);
+      } else kept.push(p);
     });
-  });
-
-  $('trackerList').addEventListener('click', (ev) => {
-    const arch = ev.target.getAttribute('data-arch');
-    const del = ev.target.getAttribute('data-del');
-    if (arch) {
-      const p = (state.store.active || []).find((x) => signatureOf(x) === arch);
-      if (p) { archivePick(p); renderTracker(); toast('Archived'); }
+    savePicks(kept);
+    let del = loadDeleted();
+    del = del.filter((p) => !p.deletedAt || (now - p.deletedAt) < TRACKER_SETTLED_VISIBLE_MS * 3);
+    saveDeleted(del);
+    engineDebug("military raid", { pruned: pruned.length, kept: kept.length });
+    const toast = $("raidToast");
+    if (toast) {
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1800);
     }
-    if (del) {
-      const pool = [...(state.store.active || []), ...(state.store.archive || [])];
-      const p = pool.find((x) => signatureOf(x) === del);
-      if (p) { tombstoneDelete(p); renderTracker(); toast('Deleted (tombstone)'); }
-    }
-  });
+    renderTracker();
+    closeDebug();
+    openTracker();
+    setStatus("Military raid complete", "ok");
+  }
 
-  /* boot */
-  logDebug('TheBetCeo TT scaffold boot · markets game1_total, match_total');
-  logDebug('Setka Worker draft: worker/tt-proxy.js');
-  renderTracker();
-  renderMatches();
-  setStatus('ready');
+  /* ---- Debug ---- */
+  function openDebug() {
+    const o = $("debugOverlay");
+    if (!o) return;
+    o.classList.add("open");
+    o.setAttribute("aria-hidden", "false");
+    const inp = $("workerUrlInput");
+    if (inp) {
+      try { inp.value = localStorage.getItem(STORE.worker) || ""; } catch (_e) {}
+    }
+    const el = $("debugLog");
+    if (el) el.textContent = logLines.slice(-80).join("\n") || "(empty)";
+  }
+  function closeDebug() {
+    const o = $("debugOverlay");
+    if (!o) return;
+    o.classList.remove("open");
+    o.setAttribute("aria-hidden", "true");
+  }
+
+  function workerBase() {
+    try { return (localStorage.getItem(STORE.worker) || "").replace(/\/+$/, ""); }
+    catch (_e) { return ""; }
+  }
+
+  /* ---- Autofetch (Setka via worker) ---- */
+  async function autofetchFixtures() {
+    const league = (($("leagueSelect") || {}).value || "").toLowerCase();
+    const status = $("fixtureStatus");
+    const sel = $("fixtureSelect");
+    if (!league) { setStatus("Select a league first", "err"); return; }
+    if (status) status.textContent = "Fetching…";
+    try {
+      if (league === "setka") {
+        const wb = workerBase();
+        if (!wb) {
+          if (status) status.textContent = "Set worker URL in Debug (🤖) for Setka.";
+          setStatus("Worker URL required for Setka", "err");
+          openDebug();
+          return;
+        }
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, "0");
+        const d = String(today.getDate()).padStart(2, "0");
+        const dateStr = y + "-" + m + "-" + d;
+        const url = wb + "/tt/setka/tournaments?date=" + encodeURIComponent(dateStr);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const matches = [];
+        const tournaments = Array.isArray(data) ? data : (data.tournaments || data.items || []);
+        tournaments.forEach((t) => {
+          const ms = t.matches || t.Matches || [];
+          ms.forEach((m) => {
+            const p1 = (m.player1 && (m.player1.fullName || m.player1.name)) || m.p1Name || "P1";
+            const p2 = (m.player2 && (m.player2.fullName || m.player2.name)) || m.p2Name || "P2";
+            matches.push({
+              id: String(m.id || matches.length),
+              label: p1 + " vs " + p2,
+              playerA: p1, playerB: p2,
+            });
+          });
+        });
+        if (sel) {
+          sel.innerHTML = '<option value="">- Fixtures (' + matches.length + ") -</option>" +
+            matches.slice(0, 80).map((m, i) =>
+              '<option value="' + i + '">' + m.label.replace(/</g, "") + "</option>"
+            ).join("");
+          sel._ttFixtures = matches;
+        }
+        if (status) status.textContent = matches.length + " Setka fixtures (" + dateStr + ")";
+        setStatus("Autofetch ok", "ok");
+        engineDebug("setka autofetch", { count: matches.length });
+      } else if (league === "wtt" || league === "wtt_contender" || league === "wtt_champions") {
+        if (status) status.textContent = "WTT autofetch: open Debug for Worker; CMS stub — pick players manually for now.";
+        setStatus("WTT fixtures: manual / Worker TBD", "ok");
+        engineDebug("wtt autofetch stub", { league });
+      } else {
+        if (status) status.textContent = "No autofetch for this league (manual entry).";
+        setStatus("Manual league — enter players & lines", "ok");
+      }
+    } catch (err) {
+      if (status) status.textContent = "Fetch failed: " + (err.message || err);
+      setStatus("Autofetch failed", "err");
+      engineDebug("autofetch error", { error: String(err) });
+    }
+  }
+
+  function onFixturePick() {
+    const sel = $("fixtureSelect");
+    if (!sel || !sel._ttFixtures) return;
+    const idx = parseInt(sel.value, 10);
+    if (isNaN(idx)) return;
+    const m = sel._ttFixtures[idx];
+    if (!m) return;
+    if ($("playerAName")) $("playerAName").value = m.playerA || "";
+    if ($("playerBName")) $("playerBName").value = m.playerB || "";
+    accordionOpen("marketSection");
+  }
+
+  /* ---- Boot ---- */
+  function boot() {
+    makeSectionsCollapsible();
+    const chip = $("buildChip");
+    if (chip) chip.textContent = BUILD_ID + " · markets: " + TT_MARKETS.join(", ");
+    const dbgBuild = $("dbgBuild");
+    if (dbgBuild) dbgBuild.textContent = BUILD_ID;
+
+    $("runBtn") && $("runBtn").addEventListener("click", runEngine);
+    $("clearBtn") && $("clearBtn").addEventListener("click", clearAll);
+    $("auditCopyBtn") && $("auditCopyBtn").addEventListener("click", copyAudit);
+    $("inputsCopyBtn") && $("inputsCopyBtn").addEventListener("click", copyInputs);
+    $("trackPickBtn") && $("trackPickBtn").addEventListener("click", trackCurrentPick);
+    $("trackerToggleBtn") && $("trackerToggleBtn").addEventListener("click", openTracker);
+    $("trackerCloseBtn") && $("trackerCloseBtn").addEventListener("click", closeTracker);
+    $("trackerMilitaryRaidBtn") && $("trackerMilitaryRaidBtn").addEventListener("click", runMilitaryRaid);
+    $("afdbBtn") && $("afdbBtn").addEventListener("click", openDebug);
+    $("predictionsLabelBtn") && $("predictionsLabelBtn").addEventListener("click", () => {
+      closeTracker(); closeDebug();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    $("autofetchBtn") && $("autofetchBtn").addEventListener("click", autofetchFixtures);
+    $("fixtureSelect") && $("fixtureSelect").addEventListener("change", onFixturePick);
+
+    document.querySelectorAll(".tracker-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tracker-tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        trackerTab = tab.getAttribute("data-tab");
+        renderTracker();
+      });
+    });
+
+    $("dbgSaveWorker") && $("dbgSaveWorker").addEventListener("click", () => {
+      const v = (($("workerUrlInput") || {}).value || "").trim().replace(/\/+$/, "");
+      try { localStorage.setItem(STORE.worker, v); } catch (_e) {}
+      engineDebug("worker saved", { v });
+      setStatus("Worker saved", "ok");
+    });
+    $("dbgHealth") && $("dbgHealth").addEventListener("click", async () => {
+      const wb = workerBase();
+      if (!wb) { engineDebug("no worker url"); return; }
+      try {
+        const r = await fetch(wb + "/tt/health");
+        const j = await r.json();
+        engineDebug("health", j);
+      } catch (e) { engineDebug("health fail", { error: String(e) }); }
+    });
+    $("dbgRaid") && $("dbgRaid").addEventListener("click", runMilitaryRaid);
+    $("dbgClearLog") && $("dbgClearLog").addEventListener("click", () => {
+      logLines.length = 0;
+      if ($("debugLog")) $("debugLog").textContent = "";
+    });
+    $("dbgClose") && $("dbgClose").addEventListener("click", closeDebug);
+
+    engineDebug("boot", { build: BUILD_ID, markets: TT_MARKETS, leagues: document.querySelectorAll("#leagueSelect option").length });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
 })();
 </script>
 </body>
