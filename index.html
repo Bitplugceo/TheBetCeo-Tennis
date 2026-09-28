@@ -1,11 +1,10 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
   />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -2568,7 +2567,7 @@ title="Show issues">
   </div>
   <div class="section" id="pointStatsSection">
     <h3>Serve / Return Point Data <span class="autofill-indicator" id="pointStatsAutoTag">Auto-fetch only</span></h3>
-    <div class="section-note">No manual point-rate entry. The engine requests match-level serve/return statistics from the fetched completed matches. If the source does not provide the required statistics, the engine returns <strong>NO PLAY</strong> rather than fabricating or asking for synthetic values.</div>
+    <div class="section-note">Serve/return point statistics are optional enrichment. The prediction engine does not depend on this ESPN summary feed; it uses completed score history and Elo so missing point summaries do not force <strong>NO PLAY</strong>.</div>
     <div id="pointStatsAutoStatus" class="section-note" style="margin-top:6px;">Waiting for match selection.</div>
   </div>
   <div class="section" id="h2hSection">
@@ -2590,19 +2589,19 @@ title="Show issues">
   <div class="section" id="intelSection">
     <h3>📈 Intelligence Pack <span class="autofill-indicator" id="intelAutoTag">✅ Auto-derived</span></h3>
 <div style="font-size:11px;color:#7b8088;margin:0 0 8px 0;font-weight:700;line-height:1.5;">
-  This shell now uses player-only recent games for Player A and Player B, while H2H stays on shared total-games history.
+  This engine uses recent completed score history, H2H, Elo, surface context, fatigue uncertainty, and exact tennis scoring simulation. Serve/return point summaries are optional enrichment.
 </div>
-<label>Player A Summary</label>
-<input id="aFormIntel" aria-label="Player A form intelligence" style="max-width:100%;" placeholder="Games avg | Set1 avg | volatility" readonly />
-<label>Player B Summary</label>
-<input id="bFormIntel" aria-label="Player B form intelligence" style="max-width:100%;" placeholder="Games avg | Set1 avg | volatility" readonly />
+<label>Match Point/Win Summary</label>
+<input id="aFormIntel" aria-label="Match point and win probability intelligence" style="max-width:100%;" placeholder="Games avg | Set1 avg | volatility" readonly />
+<label>Set Distribution Summary</label>
+<input id="bFormIntel" aria-label="Set distribution intelligence" style="max-width:100%;" placeholder="Games avg | Set1 avg | volatility" readonly />
 <label>Match Total Summary</label>
 <input id="aSpreadIntel" aria-label="Player A projection versus line" style="max-width:100%;" placeholder="Projection vs line" readonly />
-<label>Set 1 Summary</label>
-<input id="bSpreadIntel" aria-label="Player B projection versus line" style="max-width:100%;" placeholder="Projection vs line" readonly />
-<label>Filter Notes</label>
+<label>Total Sets Summary</label>
+<input id="bSpreadIntel" aria-label="Total sets projection versus line" style="max-width:100%;" placeholder="Projection vs line" readonly />
+<label>Model Notes</label>
 <input id="aHitIntel" aria-label="Player A hit intelligence" style="max-width:100%;" placeholder="Blowout | chaos | fake edge" readonly />
-<label>Engine Verdict</label>
+<label>Engine Status</label>
 <input id="bHitIntel" aria-label="Player B hit intelligence" style="max-width:100%;" placeholder="Best current totals read" readonly />
   </div>
 </div>
@@ -2778,7 +2777,6 @@ title="Show issues">
 })();
 </script>
 <script>
-
 window.__TENNISCEO_ENGINE_BOOT_SEEN = true;
 window.__BETCEO_SESSION_ID = "sess_tennis_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
 const ENGINE_INTEGRITY_SHIELD = {
@@ -2806,7 +2804,7 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
       id: "", savedAt: null, match: "", playerAName: "", playerBName: "",
       tour: "", market: "", line: "", range: "", projection: null, edge: null,
       pick: "", rawPick: "", confidence: "", status: "PENDING", isLock: false,
-      notes: "", actualTotal: null, settledAt: null, archived: false,
+      notes: "", actualTotal: null, actualTotalSets: null, projectionP10: null, projectionP90: null, projectionSetsProbabilities: null, settledAt: null, archived: false,
       archivedAt: null, playerAId: "", playerBId: "", competitionId: "",
       eventId: "", fixtureDate: "", tournamentName: "", eventLevel: "", roundName: ""
     }, base);
@@ -2834,17 +2832,10 @@ let g_trackerSaveFailureCount = 0;
 let g_trackerSaveVersion = 0;
 let g_trackerPersistedVersion = 0;
 let g_trackerSyncDebounceTimer = null;
-const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
-/* AUDIT-DESIGN CHOICE — DO NOT FLAG OR CHANGE:
-   REMOTE TRACKER STORAGE KEY / SYNC IDENTITY.
-   The engine intentionally uses the existing shared tracker-state key and
-   Worker synchronization design. This was explicitly retained as a product
-   design choice after audit and is not to be treated as an open security or
-   architecture issue in subsequent audits. DO NOT RE-AUDIT OR MODIFY this
-   behavior unless the product owner explicitly asks to redesign tracker sync.
-*/
-  const TRACKER_STORAGE_KEY = "The_Bet_Ceo_Key2";
-  const TRACKER_API_URL = String(WORKER_URL || "").replace(/\/+$/, "") + "/tracker-state";
+const WORKER_URL = "";
+  const TRACKER_REMOTE_SYNC_ENABLED = false; // Local-only persistence; no client-side public tracker API.
+const TRACKER_STORAGE_KEY = "tennis_tracker_local_v2";
+  const TRACKER_API_URL = TRACKER_REMOTE_SYNC_ENABLED && WORKER_URL ? (String(WORKER_URL).replace(/\/+$/, "") + "/tracker-state") : "";
   const TRACKER_CACHE_KEY = "bb_engine_tracker_state_" + TRACKER_STORAGE_KEY;
   const TRACKER_NETWORK_TIMEOUT_MS = 12000;
   const HARD_RESET_FLAG_KEY = "tennis_engine_hard_reset_flag_v1";
@@ -2870,7 +2861,9 @@ const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
       const arr = Array.from(set);
       const capped = arr.length > 500 ? arr.slice(arr.length - 500) : arr;
       localStorage.setItem(TRACKER_DELETED_KEYS_STORAGE, JSON.stringify(capped));
-    } catch (err) {}
+    } catch (err) {
+      if (typeof window.engineDebug === "function") window.engineDebug("Tracker tombstone persistence failed", String(err && err.message || err));
+    }
   }
   const selectedPlayerIds = { A: null, B: null };
   const fixtureRecordMap = new Map();
@@ -3027,28 +3020,29 @@ let g_clearDebug = {
       request.onerror = () => reject(request.error);
     });
   }
-  /* AUDIT-SKIP — ALREADY FIXED:
-   INDEXEDDB ASYNC ERROR HANDLING.
-   Previous issue: IndexedDB request/transaction failures could leave Promises
-   pending forever, preventing the intended localStorage fallback. Fixed by
-   rejecting failed asynchronous requests/transactions so the outer fallback
-   path can execute.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify persistence failures.
-*/
   async function writeAsync(key, value) {
     try {
       const db = await initDatabase();
       const tx = db.transaction(STORE_NAME, "readwrite");
       tx.objectStore(STORE_NAME).put(value, key);
       return await new Promise((resolve, reject) => {
-        tx.oncomplete = () => resolve(true);
-        tx.onerror = () => reject(tx.error || new Error("IndexedDB transaction failed"));
-        tx.onabort = () => reject(tx.error || new Error("IndexedDB transaction aborted"));
+        let settled = false;
+        function finish(fn, value) {
+          if (settled) return;
+          settled = true;
+          try { db.close(); } catch (_) {}
+          fn(value);
+        }
+        tx.oncomplete = () => finish(resolve, true);
+        tx.onerror = () => finish(reject, tx.error || new Error("IndexedDB transaction failed"));
+        tx.onabort = () => finish(reject, tx.error || new Error("IndexedDB transaction aborted"));
       });
     } catch (err) {
-      localStorage.setItem(key, JSON.stringify(value));
-      return true;
+      try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+      catch (storageErr) {
+        if (typeof window.engineDebug === "function") window.engineDebug("LOCAL PERSISTENCE FAILED", { message: String(storageErr && storageErr.message || storageErr) });
+        return false;
+      }
     }
   }
   async function readAsync(key) {
@@ -3057,13 +3051,25 @@ let g_clearDebug = {
       const tx = db.transaction(STORE_NAME, "readonly");
       const req = tx.objectStore(STORE_NAME).get(key);
       return await new Promise((resolve, reject) => {
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error || new Error("IndexedDB read failed"));
-        tx.onabort = () => reject(tx.error || new Error("IndexedDB read transaction aborted"));
+        let settled = false;
+        function finish(fn, value) {
+          if (settled) return;
+          settled = true;
+          try { db.close(); } catch (_) {}
+          fn(value);
+        }
+        req.onsuccess = () => finish(resolve, req.result);
+        req.onerror = () => finish(reject, req.error || new Error("IndexedDB read failed"));
+        tx.onabort = () => finish(reject, tx.error || new Error("IndexedDB read transaction aborted"));
       });
     } catch (err) {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : undefined;
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : undefined;
+      } catch (storageErr) {
+        if (typeof window.engineDebug === "function") window.engineDebug("LOCAL READ FAILED", { message: String(storageErr && storageErr.message || storageErr) });
+        return undefined;
+      }
     }
   }
   window.loadTrackerStateFromLocal = async function() {
@@ -3141,7 +3147,7 @@ let g_clearDebug = {
     });
   }
   function forceStartupCollapsedLayout() {
-    const openIds = new Set(["marketSection"]);
+    const openIds = new Set(["leagueSection", "espnSection"]);
     document.querySelectorAll(".section").forEach(function (section) {
       if (!section || !section.id) return;
       if (openIds.has(section.id)) {
@@ -3361,15 +3367,6 @@ let g_clearDebug = {
     if (value === null || value === undefined || Number.isNaN(value)) return "-";
     return round2(value).toFixed(2);
   }
-  /* AUDIT-SKIP — ALREADY FIXED:
-   fmtCompact DEAD TERNARY.
-   Previous issue: both branches of the integer/decimal ternary returned the
-   same string, making the conditional dead code. Fixed by simplifying the
-   helper so its formatting logic is explicit and no misleading no-op branch
-   remains.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify formatting cleanup.
-*/
   function fmtCompact(value) {
     if (value === null || value === undefined || Number.isNaN(value)) return "-";
     return String(round2(value));
@@ -3585,7 +3582,10 @@ let g_clearDebug = {
         tName.includes("shanghai") || tName.includes("bercy") ||
         tName.includes("paris masters") || tName.includes("rolex paris") ||
         tName.includes("vienna") || tName.includes("erste bank") ||
-        tName.includes("nitto atp") || tName.includes("atp finals")) return "Hard";
+        tName.includes("nitto atp") || tName.includes("atp finals") ||
+        tName.includes("dubai") || tName.includes("doha") || tName.includes("beijing") ||
+        tName.includes("tokyo") || tName.includes("basel") || tName.includes("rotterdam") ||
+        tName.includes("brisbane")) return "Hard";
     return "";
   }
   function inferSurfaceFromRecord(record) {
@@ -3683,13 +3683,20 @@ let g_clearDebug = {
     const TENNIS_MODEL_VERSION = "tennis_points_sets_v1.2.0";
     const TENNIS_MIN_POINT_MATCHES = 5;
     const TENNIS_DEFAULT_DECAY = 0.90;
-    const TENNIS_DEFAULT_SHRINKAGE_PRIOR_N = 20;
-    const TENNIS_MC_MIN_RUNS = 50000;
-    const TENNIS_MC_MAX_RUNS = 300000;
-    const TENNIS_MC_TARGET_SE = 0.0015;
-    const TENNIS_NEUTRAL_SERVE = 0.63;
-    const TENNIS_NEUTRAL_RETURN = 0.37;
-    const TENNIS_DEFAULT_LOGIT_SD = 0.08;
+    const TENNIS_DEFAULT_SHRINKAGE_PRIOR_N = 5;
+    const TENNIS_MC_MIN_RUNS = 10000;
+    const TENNIS_MC_MAX_RUNS = 60000;
+    const TENNIS_MC_TARGET_SE = 0.0025;
+    const TENNIS_TOUR_PRIORS = {
+      ATP: { serve: 0.63, ret: 0.37 },
+      WTA: { serve: 0.60, ret: 0.40 }
+    };
+    const TENNIS_NEUTRAL_SERVE = TENNIS_TOUR_PRIORS.ATP.serve;
+    const TENNIS_NEUTRAL_RETURN = TENNIS_TOUR_PRIORS.ATP.ret;
+    function getTourPriors(tour) {
+      return TENNIS_TOUR_PRIORS[String(tour || "ATP").toUpperCase()] || TENNIS_TOUR_PRIORS.ATP;
+    }
+    const TENNIS_DEFAULT_LOGIT_SD = 0.10;
 
     function finiteProbability(v) {
       const n = Number(v);
@@ -3740,9 +3747,17 @@ let g_clearDebug = {
         const a = Number(frac[1]), b = Number(frac[2]);
         return b > 0 ? clampProbability(a / b, 0, 1) : null;
       }
-      const n = Number(s.replace("%", ""));
-      if (!Number.isFinite(n)) return null;
-      return n > 1 ? clampProbability(n / 100, 0, 1) : clampProbability(n, 0, 1);
+      if (/%$/.test(s)) {
+        const pct = Number(s.slice(0,-1));
+        return Number.isFinite(pct) ? clampProbability(pct / 100, 0, 1) : null;
+      }
+      const n = Number(s);
+      if (!Number.isFinite(n) || n < 0) return null;
+      // ESPN sometimes exposes percentage values without the percent sign.
+      // Treat exactly 1 as 1%, not 100%; fractions below 1 remain fractions.
+      if (n > 1) return clampProbability(n / 100, 0, 1);
+      if (n === 1) return 0.01;
+      return clampProbability(n, 0, 1);
     }
     function updatePointStatsAutoStatus(message, state) {
       const tag = qs("pointStatsAutoTag");
@@ -3771,8 +3786,7 @@ let g_clearDebug = {
       const n = Number(String(v).replace(/,/g, "").replace(/%/g, "").trim());
       return Number.isFinite(n) && n >= 0 ? n : null;
     }
-    function statValueToProbability(v) { return normalizePctValue(v); }
-    function extractCompetitorPointStats(payload, athleteId, athleteName, assumeTarget) {
+    function extractCompetitorPointStats(payload, athleteId, athleteName) {
       const wantedId = String(athleteId || "");
       const wantedName = normalizeName(athleteName || "");
       const found = {
@@ -3830,72 +3844,32 @@ let g_clearDebug = {
           if (v && typeof v === "object") walk(v, target);
         });
       }
-      walk(payload, !!assumeTarget);
-      if (found.service == null && Number.isFinite(found.serviceWon) && Number.isFinite(found.servicePlayed) && found.servicePlayed > 0) found.service = found.serviceWon / found.servicePlayed;
-      if (found.ret == null && Number.isFinite(found.returnWon) && Number.isFinite(found.returnPlayed) && found.returnPlayed > 0) found.ret = found.returnWon / found.returnPlayed;
-      if (found.first == null && Number.isFinite(found.firstWon) && Number.isFinite(found.firstPlayed) && found.firstPlayed > 0) found.first = found.firstWon / found.firstPlayed;
-      if (found.second == null && Number.isFinite(found.secondWon) && Number.isFinite(found.secondPlayed) && found.secondPlayed > 0) found.second = found.secondWon / found.secondPlayed;
+      walk(payload, false);
+      if (Number.isFinite(found.serviceWon) && Number.isFinite(found.servicePlayed) && found.servicePlayed > 0) found.service = found.serviceWon / found.servicePlayed;
+      if (Number.isFinite(found.returnWon) && Number.isFinite(found.returnPlayed) && found.returnPlayed > 0) found.ret = found.returnWon / found.returnPlayed;
+      if (Number.isFinite(found.firstWon) && Number.isFinite(found.firstPlayed) && found.firstPlayed > 0) found.first = found.firstWon / found.firstPlayed;
+      if (Number.isFinite(found.secondWon) && Number.isFinite(found.secondPlayed) && found.secondPlayed > 0) found.second = found.secondWon / found.secondPlayed;
       return found;
     }
-    async function fetchTennisCompetitorPointStats(league, record, playerId) {
-      const eventId = String(record && (record.eventId || record.competitionId) || "").trim();
-      const competitionId = String(record && (record.competitionId || record.eventId) || "").trim();
-      const athleteId = String(playerId || "").trim();
-      if (!eventId || !competitionId || !athleteId) return null;
-      const leagueSlug = String(league || "").trim().toLowerCase();
-      const leagueCandidates = [];
-      [leagueSlug, "all"].forEach(function (value) {
-        if (value && leagueCandidates.indexOf(value) === -1) leagueCandidates.push(value);
-      });
-      let lastErr = null;
-      for (let i = 0; i < leagueCandidates.length; i += 1) {
-        const url = "https://sports.core.api.espn.com/v2/sports/tennis/leagues/" + leagueCandidates[i] +
-          "/events/" + encodeURIComponent(eventId) +
-          "/competitions/" + encodeURIComponent(competitionId) +
-          "/competitors/" + encodeURIComponent(athleteId) +
-          "/statistics?lang=en&region=us";
-        try {
-          const payload = await proxyFetch(url, 9000);
-          const parsed = extractCompetitorPointStats(payload, athleteId, "", true);
-          if (parsed && parsed.service != null && parsed.ret != null) return parsed;
-        } catch (err) {
-          lastErr = err;
-        }
-      }
-      if (lastErr && typeof engineDebug === "function") {
-        engineDebug("Point-stat core endpoint unavailable", { eventId: eventId, athleteId: athleteId, error: String(lastErr.message || lastErr) });
-      }
-      return null;
-    }
     async function hydratePointStatsForRecords(league, records, playerId, playerName) {
-      const out = [];
-      const list = Array.isArray(records) ? records.slice().sort((a,b) => new Date(b.date)-new Date(a.date)) : [];
-      for (const record of list) {
-        if (out.length >= TENNIS_MIN_POINT_MATCHES) break;
-        if (!record || !(record.competitionId || record.eventId)) continue;
-        let st = null;
-        try {
-          const payload = await fetchTennisSummaryByEvent(league, record.eventId || record.competitionId);
-          st = extractCompetitorPointStats(payload, playerId, playerName, false);
-        } catch (err) {
-          if (typeof engineDebug === "function") engineDebug("Point-stat summary fetch failed", { eventId: record.competitionId || record.eventId || "", error: String(err && err.message || err) });
-        }
-        // ESPN's summary schema is not consistent across tennis events. The
-        // core competitor-statistics resource is the second authoritative path
-        // and is scoped to the already-resolved athlete, so it does not require
-        // heuristic player matching.
-        if (!st || st.service == null || st.ret == null) {
+      const list = Array.isArray(records) ? records.slice().sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0,8) : [];
+      const out=[];
+      const queue=list.slice();
+      const workers=Array.from({length:3},async function(){
+        while(queue.length){
+          const record=queue.shift();
+          if(!record || !(record.competitionId || record.matchId || record.eventId)) continue;
           try {
-            const coreStats = await fetchTennisCompetitorPointStats(league, record, playerId);
-            if (coreStats) st = coreStats;
-          } catch (err) {
-            if (typeof engineDebug === "function") engineDebug("Point-stat core fetch failed", { eventId: record.competitionId || record.eventId || "", error: String(err && err.message || err) });
+            const payload=await fetchTennisSummaryByEvent(league,record.matchId||record.competitionId||record.eventId);
+            const st=extractCompetitorPointStats(payload,playerId,playerName);
+            if(st.service!=null&&st.ret!=null) out.push(Object.assign({},record,{pointStats:st}));
+          } catch(err) {
+            if(typeof window.engineDebug==="function") window.engineDebug("Optional point-stat fetch failed",{eventId:record.matchId||record.competitionId||record.eventId||"",message:String(err&&err.message||err)});
           }
         }
-        if (!st || st.service == null || st.ret == null) continue;
-        out.push(Object.assign({}, record, { pointStats: st }));
-      }
-      return out;
+      });
+      await Promise.all(workers);
+      return out.sort(function(a,b){return new Date(b.date)-new Date(a.date);}).slice(0,TENNIS_MIN_POINT_MATCHES);
     }
     function buildPointStatsFromRecords(records, playerId) {
       const service = [], ret = [], first = [], second = [], observations = [];
@@ -3910,8 +3884,8 @@ let g_clearDebug = {
       return { service, ret, first, second, observations };
     }
     function getSurfaceWeight(observation, surface) {
-      const a = String(observation && observation.surface || "").toLowerCase();
-      const b = String(surface || "").toLowerCase();
+      const a = inferSurfaceFromText(observation && observation.surface, observation && observation.tournamentName).toLowerCase();
+      const b = inferSurfaceFromText(surface, "").toLowerCase() || String(surface || "").toLowerCase();
       if (!a || !b || b === "unknown") return 1;
       return a === b ? 1 : 0.45;
     }
@@ -3982,11 +3956,17 @@ let g_clearDebug = {
       return {service:sMean,ret:rMean,surfaceService:surfaceS,surfaceReturn:surfaceR,effectiveServiceN:s.effectiveN,effectiveReturnN:r.effectiveN,posterior:{service:servicePosterior,return:returnPosterior},elo:Number.isFinite(elo)?elo:null};
     }
     function estimateOpponentAdjustedPair(strengthA,strengthB){
-      const neutralServe=TENNIS_NEUTRAL_SERVE, neutralReturn=TENNIS_NEUTRAL_RETURN;
+      const priors=getTourPriors(strengthA.tour || strengthB.tour);
+      const neutralServe=priors.serve, neutralReturn=priors.ret;
       const aServeLogit=logit(strengthA.surfaceService||strengthA.service), bReturnLogit=logit(strengthB.surfaceReturn||strengthB.ret);
       const bServeLogit=logit(strengthB.surfaceService||strengthB.service), aReturnLogit=logit(strengthA.surfaceReturn||strengthA.ret);
-      const pA=logistic(logit(neutralServe)+0.5*(aServeLogit-logit(neutralServe))-0.5*(bReturnLogit-logit(neutralReturn)));
-      const pB=logistic(logit(neutralServe)+0.5*(bServeLogit-logit(neutralServe))-0.5*(aReturnLogit-logit(neutralReturn)));
+      let pA=logistic(logit(neutralServe)+0.5*(aServeLogit-logit(neutralServe))-0.5*(bReturnLogit-logit(neutralReturn)));
+      let pB=logistic(logit(neutralServe)+0.5*(bServeLogit-logit(neutralServe))-0.5*(aReturnLogit-logit(neutralReturn)));
+      if (Number.isFinite(strengthA.elo) && Number.isFinite(strengthB.elo)) {
+        const eloEdge = clampProbability((strengthA.elo-strengthB.elo+400)/800,0.05,0.95)-0.5;
+        pA = logistic(logit(pA) + 0.10 * eloEdge);
+        pB = logistic(logit(pB) - 0.10 * eloEdge);
+      }
       return {pA:clampProbability(pA,0.45,0.90),pB:clampProbability(pB,0.45,0.90)};
     }
     function resolveTennisScoringRules(ctx) {
@@ -4003,14 +3983,15 @@ let g_clearDebug = {
       }
       const standardTarget = Number(ctx && ctx.standardTiebreakPoints) || 7;
       const finalTarget = Number(ctx && ctx.finalSetTiebreakPoints) || (finalType === "SUPER_10" ? 10 : 7);
+      const explicit = Boolean(ctx && ctx.scoringRulesAuthoritative);
       return {
         format,
         setsToWin:isBO5 ? 3 : 2,
         standardSet:{gamesToWin:6, winByTwo:true},
         standardTiebreak:{enabledAt:6, targetPoints:standardTarget, winByTwo:true},
         finalSet:{tiebreakType:finalType, targetPoints:finalTarget, winByTwo:true},
-        source:rulesSource,
-        authoritative:Boolean((ctx && ctx.scoringRulesAuthoritative) || rulesSource === "validated-map" || rulesSource === "context")
+        source: explicit ? "context" : (rulesSource === "validated-map" ? "validated-map" : "default-standard"),
+        authoritative: explicit || rulesSource === "validated-map"
       };
     }
     function exactGameWinProbability(p) {
@@ -4019,6 +4000,19 @@ let g_clearDebug = {
       const reachDeuce = 20 * p*p*p * q*q*q;
       const fromDeuce = p*p / (p*p + q*q);
       return p**4 + 4*p**4*q + 10*p**4*q*q + reachDeuce*fromDeuce;
+    }
+    function gameWinProbFromPointProb(pointProb) {
+      return exactGameWinProbability(clampProbability(pointProb, 0, 1));
+    }
+    function pointProbFromGameWinProb(gameWinProb) {
+      const target = clampProbability(gameWinProb, 1e-6, 1-1e-6);
+      let lo = 0, hi = 1;
+      for (let i = 0; i < 60; i += 1) {
+        const mid = (lo + hi) / 2;
+        if (exactGameWinProbability(mid) < target) lo = mid;
+        else hi = mid;
+      }
+      return (lo + hi) / 2;
     }
     function simulateFullMatchOnce(pA, pB, rules, rng) {
       let totalPoints=0, totalGames=0, totalSets=0, setsA=0, setsB=0, server=rng()<0.5?"A":"B";
@@ -4098,28 +4092,31 @@ let g_clearDebug = {
       const aR=sampleRatePosterior(strengthA.posterior&&strengthA.posterior.return,rng);
       const bS=sampleRatePosterior(strengthB.posterior&&strengthB.posterior.service,rng);
       const bR=sampleRatePosterior(strengthB.posterior&&strengthB.posterior.return,rng);
-      const neutralServe=TENNIS_NEUTRAL_SERVE, neutralReturn=TENNIS_NEUTRAL_RETURN;
+      const priors=getTourPriors(strengthA.tour || strengthB.tour);
+      const neutralServe=priors.serve, neutralReturn=priors.ret;
       const pA=logistic(logit(neutralServe)+0.5*(logit(aS)-logit(neutralServe))-0.5*(logit(bR)-logit(neutralReturn)));
       const pB=logistic(logit(neutralServe)+0.5*(logit(bS)-logit(neutralServe))-0.5*(logit(aR)-logit(neutralReturn)));
       return {pA:clampProbability(pA,0.45,0.90),pB:clampProbability(pB,0.45,0.90)};
     }
     function runParameterUncertaintyMonteCarlo(strengthA,strengthB,rules,runs){
-      const n=Math.max(10000,Number(runs)||50000);
-      const rng=seededRng(stableSimulationSeed(['posterior',strengthA.service,strengthB.service,rules.format,rules.finalSet.tiebreakType].join('|')));
-      const points=[], sets={}; let sum=0,sum2=0;
+      const n=Math.max(5000,Number(runs)||15000);
+      const rng=seededRng(stableSimulationSeed(['posterior',strengthA.service,strengthB.service,strengthA.elo,strengthB.elo,rules.format,rules.finalSet.tiebreakType].join('|')));
+      const points=[], sets={}, jointCounts={}; let sum=0,sum2=0;
       for(let i=0;i<n;i++){
         const pair=sampleMatchupFromPosterior(strengthA,strengthB,rng);
         const m=simulateFullMatchOnce(pair.pA,pair.pB,rules,rng);
-        points.push(m.totalPoints); sets[m.totalSets]=(sets[m.totalSets]||0)+1; sum+=m.totalPoints; sum2+=m.totalPoints*m.totalPoints;
+        points.push(m.totalPoints);
+        sets[m.totalSets]=(sets[m.totalSets]||0)+1;
+        const jointKey=m.totalSets+"|"+m.totalPoints;
+        jointCounts[jointKey]=(jointCounts[jointKey]||0)+1;
+        sum+=m.totalPoints; sum2+=m.totalPoints*m.totalPoints;
       }
       const meanV=sum/n;
       const probabilities={}; Object.keys(sets).forEach(k=>probabilities[k]=sets[k]/n);
-      return {runs:n,mean:meanV,median:percentile(points,.5),p10:percentile(points,.1),p25:percentile(points,.25),p75:percentile(points,.75),p90:percentile(points,.9),se:Math.sqrt(Math.max(0,sum2/n-meanV*meanV)/n),sets:probabilities,samples:points};
+      const jointDistribution={}; Object.keys(jointCounts).forEach(k=>jointDistribution[k]=jointCounts[k]/n);
+      return {runs:n,mean:meanV,median:percentile(points,.5),p10:percentile(points,.1),p25:percentile(points,.25),p75:percentile(points,.75),p90:percentile(points,.9),se:Math.sqrt(Math.max(0,sum2/n-meanV*meanV)/n),sets:probabilities,jointDistribution:jointDistribution,samples:points};
     }
     function runMonteCarlo(pA,pB,rules){
-      // Only total points and set-count frequencies are consumed downstream.
-      // Retaining the full per-match object (including setScores) for up to
-      // 200k runs created unnecessary allocation/GC pressure on mobile.
       const points=[]; let n=0, sum=0, sum2=0, sets={};
       const rng=seededRng(stableSimulationSeed([pA,pB,rules.format,rules.finalSet.tiebreakType].join("|")));
       let targetRuns=TENNIS_MC_MIN_RUNS;
@@ -4329,63 +4326,180 @@ let g_clearDebug = {
     function buildNoPlay(reason, missing, ctx){
       return {status:"NO_PLAY",reason,missing:missing||[],modelVersion:TENNIS_MODEL_VERSION,dataAsOf:ctx&&ctx.fixtureDate||new Date().toISOString(),market:"NO PLAY",pick:"PASS",confidence:"PASS",notes:[reason].concat(missing||[])};
     }
+    function weightedScoreShare(series, playerId, surface) {
+      const rows=(Array.isArray(series)?series:[]).filter(function(r){
+        const pg=Number(r&&r.playerGames), og=Number(r&&r.opponentGames);
+        return Number.isFinite(pg)&&Number.isFinite(og)&&(pg+og)>0;
+      }).slice(0,5);
+      if(!rows.length) return {gameShare:0.5,setShare:0.5,effectiveN:0,records:0};
+      let sw=0, game=0, set=0, set1=0;
+      rows.forEach(function(r,i){
+        const w=Math.pow(TENNIS_DEFAULT_DECAY,i)*getSurfaceWeight(r,surface);
+        const total=Number(r.playerGames)+Number(r.opponentGames);
+        const setTotal=Array.isArray(r.aSets)&&Array.isArray(r.bSets) ?
+          r.aSets.reduce(function(a,v){return a+(Number.isFinite(v)?v:0);},0)+r.bSets.reduce(function(a,v){return a+(Number.isFinite(v)?v:0);},0) : total;
+        const pset=Array.isArray(r.aSets)&&Array.isArray(r.bSets) ?
+          (r.aSets.reduce(function(a,v){return a+(Number.isFinite(v)?v:0);},0)/(Math.max(1,setTotal))) :
+          (Number(r.playerGames)/Math.max(1,total));
+        const set1Total=Number(r.playerSet1Games)+Number(r.opponentSet1Games);
+        const pset1=Number.isFinite(set1Total)&&set1Total>0 ? Number(r.playerSet1Games)/set1Total : pset;
+        game += (Number(r.playerGames)/total)*w;
+        set += pset*w;
+        set1 += pset1*w;
+        sw += w;
+      });
+      return {gameShare:sw?game/sw:0.5,setShare:sw?set/sw:0.5,set1Share:sw?set1/sw:0.5,effectiveN:sw,records:rows.length};
+    }
+    function makeScoreStrength(series, h2hRows, playerId, opponentElo, elo, surface, isA, tour, fatigueProfile, indoorOutdoor) {
+      const priors=getTourPriors(tour);
+      const recent=weightedScoreShare(series,playerId,surface);
+      const fatigue=fatigueProfile || {daysRest:null,matches7:0,longLoad:0};
+      const fatigueUncertainty = Math.min(0.035, Math.max(0,Number(fatigue.matches7)||0)*0.004 + Math.max(0,Number(fatigue.longLoad)||0)*0.004 + (Number.isFinite(Number(fatigue.daysRest)) && Number(fatigue.daysRest)<2 ? (2-Number(fatigue.daysRest))*0.005 : 0));
+      const environmentUncertainty = String(indoorOutdoor || "").toLowerCase()==="unknown" || !indoorOutdoor ? 0.008 : 0;
+      const h2h=Array.isArray(h2hRows)&&h2hRows.length ? h2hRows.slice(0,5).map(function(r){
+        const isPlayerA=String(r.playerAId)===String(playerId);
+        const pg=isPlayerA?Number(r.playerAGames):Number(r.playerBGames);
+        const og=isPlayerA?Number(r.playerBGames):Number(r.playerAGames);
+        return Number.isFinite(pg)&&Number.isFinite(og)&&(pg+og)>0?pg/(pg+og):null;
+      }).filter(Number.isFinite):[];
+      const h2hShare=h2h.length?weightedMeanByDate(h2h,TENNIS_DEFAULT_DECAY):null;
+      const eloProb=Number.isFinite(elo)&&Number.isFinite(opponentElo) ? 1/(1+Math.pow(10,(opponentElo-elo)/400)) : 0.5;
+      // Use score-derived game share as the primary evidence, with small and
+      // explicitly bounded Elo/H2H adjustments. These inputs are historical
+      // outcomes; no synthetic point statistics are introduced.
+      const base=0.5 + (recent.gameShare-0.5)*0.60 + (recent.setShare-0.5)*0.15 + (recent.set1Share-0.5)*0.10;
+      const h2hAdj=h2hShare==null?0:(h2hShare-0.5)*0.10;
+      const eloAdj=(eloProb-0.5)*0.20;
+      const gameShare=clampProbability(base+h2hAdj+eloAdj,0.35,0.65);
+      const serviceGameTarget=clampProbability(2*gameShare-(1-gameWinProbFromPointProb(priors.serve)),0.05,0.95);
+      const servicePoint=pointProbFromGameWinProb(serviceGameTarget);
+      const returnPoint=clampProbability(1-servicePoint + (gameShare-0.5)*0.25,0.10,0.55);
+      const virtualN=Math.max(8,Math.round(18*recent.effectiveN));
+      return {
+        service:servicePoint,ret:returnPoint,surfaceService:servicePoint,surfaceReturn:returnPoint,
+        effectiveServiceN:recent.effectiveN,effectiveReturnN:recent.effectiveN,
+        posterior:{
+          service:{kind:"logitNormal",mean:logit(servicePoint),sd:TENNIS_DEFAULT_LOGIT_SD + fatigueUncertainty + environmentUncertainty},
+          return:{kind:"logitNormal",mean:logit(returnPoint),sd:TENNIS_DEFAULT_LOGIT_SD + fatigueUncertainty + environmentUncertainty}
+        },
+        elo:Number.isFinite(elo)?elo:null, eloProb:eloProb, virtualN:virtualN,
+        recentGameShare:recent.gameShare, recentSetShare:recent.setShare, recentSet1Share:recent.set1Share, h2hGameShare:h2hShare,
+        fatigue:fatigue, indoorOutdoor:indoorOutdoor || "Unknown", records:recent.records, surface:surface, tour:String(tour||"ATP").toUpperCase(), tourPrior:priors
+      };
+    }
+    function medianFromDistribution(probabilities) {
+      const keys=Object.keys(probabilities||{}).map(Number).filter(Number.isFinite).sort(function(a,b){return a-b;});
+      let cumulative=0;
+      for(const k of keys){ cumulative += Number(probabilities[String(k)]||0); if(cumulative>=0.5) return k; }
+      return keys.length?keys[keys.length-1]:null;
+    }
+    function deriveMarketPick(comparison, volatility) {
+      if(!comparison || !comparison.probabilities) return {pick:"PASS",confidence:"PASS",edge:null};
+      const p= comparison.probabilities.over - comparison.probabilities.under;
+      const threshold=Math.max(0.05,Math.min(0.15, (Number(volatility)||0)/100));
+      if(Math.abs(p)<threshold) return {pick:"PASS",confidence:"PASS",edge:comparison.meanDelta};
+      const pick=p>0?"OVER":"UNDER";
+      const confidence=Math.abs(p)>=0.20?"HIGH":Math.abs(p)>=0.12?"MEDIUM":"LOW";
+      return {pick,confidence,edge:comparison.meanDelta};
+    }
     async function buildEngineResults(){
-      const tour=String(qs("leagueSelect").value||"").trim();
+      const tour=String(qs("leagueSelect").value||"").trim().toUpperCase();
       const playerAName=String(qs("teamAName").value||"").trim();
       const playerBName=String(qs("teamBName").value||"").trim();
       if(!tour||!playerAName||!playerBName) throw new Error("Tour and both player names are required.");
-      const ctx=getEffectiveContext(tour,playerAName,playerBName);
-      ctx.playerAId=selectedPlayerIds.A||""; ctx.playerBId=selectedPlayerIds.B||"";
-      if(!ctx.playerAId||!ctx.playerBId) throw new Error("Player identities are required. Select/fetch the fixture first.");
-      if(!ctx.surface||String(ctx.surface).toLowerCase()==="unknown") throw new Error("Surface is required. NO PLAY.");
-      if(!ctx.indoorOutdoor) throw new Error("Indoor/outdoor status is unavailable. NO PLAY.");
-      const rules=resolveTennisScoringRules(ctx);
-      if(!rules.authoritative) return {tour,playerAName,playerBName,playerAId:ctx.playerAId,playerBId:ctx.playerBId,context:ctx,matchResult:buildNoPlay("Authoritative scoring rules are unavailable for this match.",["tournament scoring rules"],ctx),set1Result:null,teamAResult:null,teamBResult:null};
-
-      const pointRecordsA=Array.isArray(ctx.pointStatsA)?ctx.pointStatsA.slice():[];
-      const pointRecordsB=Array.isArray(ctx.pointStatsB)?ctx.pointStatsB.slice():[];
-      const statsA=buildPointStatsFromRecords(pointRecordsA,ctx.playerAId);
-      const statsB=buildPointStatsFromRecords(pointRecordsB,ctx.playerBId);
-      if(statsA.service.length<TENNIS_MIN_POINT_MATCHES||statsA.ret.length<TENNIS_MIN_POINT_MATCHES||statsB.service.length<TENNIS_MIN_POINT_MATCHES||statsB.ret.length<TENNIS_MIN_POINT_MATCHES){
-        return {tour,playerAName,playerBName,playerAId:ctx.playerAId,playerBId:ctx.playerBId,context:ctx,matchResult:buildNoPlay("Required serve/return point statistics could not be auto-fetched from enough completed matches.",["A service points won","A return points won","B service points won","B return points won"],ctx),set1Result:null,teamAResult:null,teamBResult:null};
+      const fixtureSelect=qs("fixtureSelect");
+      const fixtureKey=fixtureSelect?fixtureSelect.value:"";
+      const fixture=fixtureKey?fixtureRecordMap.get(fixtureKey):null;
+      if(!fixture) throw new Error("Select a scheduled fixture before running the engine.");
+      const ctx=Object.assign({},getEffectiveContext(tour,playerAName,playerBName),{
+        playerAId:selectedPlayerIds.A||fixture.playerAId,
+        playerBId:selectedPlayerIds.B||fixture.playerBId,
+        competitionId:fixture.competitionId||"",
+        eventId:fixture.eventId||"",
+        fixtureDate:fixture.date||"",
+        tournamentName:fixture.tournamentName||"",
+        eventLevel:fixture.eventLevel||"",
+        roundName:fixture.roundName||"",
+        surface:inferSurfaceFromRecord(fixture)||fixture.surface||"",
+        indoorOutdoor:fixture.indoorOutdoor||"Unknown",
+        matchFormat:fixture.matchFormat||inferMatchFormat(tour,fixture.eventLevel||"")
+      });
+      selectedPlayerIds.A=ctx.playerAId; selectedPlayerIds.B=ctx.playerBId;
+      if(!ctx.playerAId||!ctx.playerBId) throw new Error("Player identities are required. Select the fixture again.");
+      if(!ctx.surface){
+        // Surface is no longer a hard gate. Unknown surface receives neutral weighting.
+        ctx.surface="unknown";
       }
-      const normalizedA=statsA.observations.map(function(r){return {date:r.date,surface:r.surface||ctx.surface,service:r.service,ret:r.ret,serviceWon:r.serviceWon,servicePlayed:r.servicePlayed,returnWon:r.returnWon,returnPlayed:r.returnPlayed,first:r.first,second:r.second};});
-      const normalizedB=statsB.observations.map(function(r){return {date:r.date,surface:r.surface||ctx.surface,service:r.service,ret:r.ret,serviceWon:r.serviceWon,servicePlayed:r.servicePlayed,returnWon:r.returnWon,returnPlayed:r.returnPlayed,first:r.first,second:r.second};});
-      // Stable, non-target-dependent structural priors. These are explicit model baselines,
-      // not a prior built from the two players currently being predicted.
-      const tourMean={service:TENNIS_NEUTRAL_SERVE,ret:TENNIS_NEUTRAL_RETURN};
-      const strengthA=calculatePlayerStrength(normalizedA,ctx.surface,ctx.eloA,tourMean);
-      const strengthB=calculatePlayerStrength(normalizedB,ctx.surface,ctx.eloB,tourMean);
+      if(!ctx.indoorOutdoor) ctx.indoorOutdoor="Unknown";
+      const rules=resolveTennisScoringRules(ctx);
+      const pointRecordsA=Array.isArray(ctx.pointStatsA)?ctx.pointStatsA:[];
+      const pointRecordsB=Array.isArray(ctx.pointStatsB)?ctx.pointStatsB:[];
+      // Build from completed score history. Point-stat summaries, where available,
+      // are deliberately not required for correctness.
+      const recentA=(latestFetchedContext&&Array.isArray(latestFetchedContext.recentA)?latestFetchedContext.recentA:[]);
+      const recentB=(latestFetchedContext&&Array.isArray(latestFetchedContext.recentB)?latestFetchedContext.recentB:[]);
+      let seriesA=recentA.slice(0,5), seriesB=recentB.slice(0,5), h2h=Array.isArray(latestFetchedContext&&latestFetchedContext.h2h)?latestFetchedContext.h2h:[];
+      if(!seriesA.length||!seriesB.length){
+        const [ha,hb]=await Promise.all([
+          fetchRecentPlayerMatchesByDay(tour,ctx.playerAId,ctx.fixtureDate,ctx.playerAId,5,5),
+          fetchRecentPlayerMatchesByDay(tour,ctx.playerBId,ctx.fixtureDate,ctx.playerBId,5,5)
+        ]);
+        seriesA=buildRecentSeries(ha.records,ctx.playerAId).slice(0,5);
+        seriesB=buildRecentSeries(hb.records,ctx.playerBId).slice(0,5);
+      }
+      if(!seriesA.length||!seriesB.length) return {tour,playerAName,playerBName,playerAId:ctx.playerAId,playerBId:ctx.playerBId,context:ctx,matchResult:buildNoPlay("Insufficient completed score history from ESPN.",["Player A recent matches","Player B recent matches"],ctx),set1Result:null,teamAResult:null,teamBResult:null};
+      const eloA=Number.isFinite(ctx.eloA)?ctx.eloA:1500, eloB=Number.isFinite(ctx.eloB)?ctx.eloB:1500;
+      const fatigueA=latestFetchedContext&&latestFetchedContext.fatigueA?latestFetchedContext.fatigueA:{daysRest:null,matches7:0,longLoad:0};
+      const fatigueB=latestFetchedContext&&latestFetchedContext.fatigueB?latestFetchedContext.fatigueB:{daysRest:null,matches7:0,longLoad:0};
+      const strengthA=makeScoreStrength(seriesA,h2h,ctx.playerAId,eloB,eloA,ctx.surface,true,tour,fatigueA,ctx.indoorOutdoor);
+      const strengthB=makeScoreStrength(seriesB,h2h,ctx.playerBId,eloA,eloB,ctx.surface,false,tour,fatigueB,ctx.indoorOutdoor);
       const matchup=estimateOpponentAdjustedPair(strengthA,strengthB);
       const exact=exactSetCountDistribution(matchup.pA,matchup.pB,rules);
       const mc=runMonteCarlo(matchup.pA,matchup.pB,rules);
-      const posteriorMC=runParameterUncertaintyMonteCarlo(strengthA,strengthB,rules,Math.min(mc.runs,100000));
+      const posteriorMC=runParameterUncertaintyMonteCarlo(strengthA,strengthB,rules,15000);
       const totalSetsMean=Object.keys(posteriorMC.sets).reduce(function(sum,k){return sum+Number(k)*posteriorMC.sets[k];},0);
-      const totalPoints={mean:posteriorMC.mean,median:posteriorMC.median,p10:posteriorMC.p10,p25:posteriorMC.p25,p50:posteriorMC.median,p75:posteriorMC.p75,p90:posteriorMC.p90,simulationSE:posteriorMC.se,conditionalMean:mc.mean,conditionalMedian:mc.median,samples:posteriorMC.samples};
-      const totalSets={mean:totalSetsMean,probabilities:posteriorMC.sets,conditionalExactMean:Object.keys(exact).reduce(function(sum,k){return sum+Number(k)*exact[k];},0)};
+      const totalSetsMedian=medianFromDistribution(posteriorMC.sets);
+      const totalPoints={mean:posteriorMC.mean,median:posteriorMC.median,p10:posteriorMC.p10,p25:posteriorMC.p25,p50:posteriorMC.median,p75:posteriorMC.p75,p90:posteriorMC.p90,simulationSE:posteriorMC.se,conditionalMean:mc.mean,conditionalMedian:mc.median};
+      const totalSets={mean:totalSetsMean,median:totalSetsMedian,probabilities:posteriorMC.sets,conditionalExactMean:Object.keys(exact).reduce(function(sum,k){return sum+Number(k)*exact[k];},0)};
       const pointLine=parseTennisMarketLine(qs("totalPointsMarket")&&qs("totalPointsMarket").value);
       const setLine=parseTennisMarketLine(qs("totalSetsMarket")&&qs("totalSetsMarket").value);
-      const market=buildMarketComparison(totalPoints,totalSets,pointLine,setLine);
-      const jointCounts={}; posteriorMC.samples.forEach(function(x){const k=x.totalSets+"|"+x.totalPoints;jointCounts[k]=(jointCounts[k]||0)+1;});
-      const jointDistribution={}; Object.keys(jointCounts).forEach(function(k){jointDistribution[k]=jointCounts[k]/posteriorMC.runs;});
+      const market=buildMarketComparison(Object.assign({},totalPoints,{samples:posteriorMC.samples}),totalSets,pointLine,setLine);
+      const jointDistribution=posteriorMC.jointDistribution;
+      const volatility=posteriorMC.se;
+      const pointPick=deriveMarketPick(market.totalPoints,volatility);
+      const setPick=deriveMarketPick(market.totalSets,volatility);
+      const primary=pointLine?pointPick:(setLine?setPick:{pick:"PASS",confidence:"PASS",edge:null});
+      const notes=uniqueNotes([
+        "Score-history model: recent game/set results + bounded H2H + Elo",
+        "Serve/return point summaries are optional enrichment and are not required",
+        ctx.surface==="unknown"?"Surface unavailable; neutral surface weighting applied":"Surface-normalized historical weighting",
+        ctx.indoorOutdoor==="Unknown"?"Indoor/outdoor unavailable; neutral environment assumption applied":"Venue environment retained as context",
+        rules.authoritative?"Validated scoring rule source":"Standard scoring fallback used; no hard NO PLAY gate"
+      ]);
       const result={
-        status:"OK",market:"Total Points / Total Sets",pick:"MODEL",confidence:"MODEL",
+        status:"OK",market:"Total Points / Total Sets",pick:primary.pick,confidence:primary.confidence,
         modelVersion:TENNIS_MODEL_VERSION,dataAsOf:ctx.fixtureDate||new Date().toISOString(),pA:matchup.pA,pB:matchup.pB,
-        pointStrength:{A:strengthA,B:strengthB},
-        totalPoints:totalPoints,
-        totalSets:totalSets,
-        jointDistribution:jointDistribution,
-        exactSetDistribution:exact,
-        simulation:{runs:mc.runs,se:mc.se,conditionalOnPointRates:true},
+        pointStrength:{A:strengthA,B:strengthB},totalPoints:totalPoints,totalSets:totalSets,
+        jointDistribution:jointDistribution,exactSetDistribution:exact,
+        simulation:{runs:mc.runs,se:mc.se,conditionalOnPointRates:false},
         parameterUncertaintySimulation:{runs:posteriorMC.runs,mean:posteriorMC.mean,median:posteriorMC.median,p10:posteriorMC.p10,p25:posteriorMC.p25,p75:posteriorMC.p75,p90:posteriorMC.p90,se:posteriorMC.se,setProbabilities:posteriorMC.sets},
         exactVsSimulation:compareExactToMonteCarlo(exact,mc),rules,
-        diagnostics:{dataQuality:{A:{serviceMatches:normalizedA.length,returnMatches:normalizedA.length},B:{serviceMatches:normalizedB.length,returnMatches:normalizedB.length}},rulesSource:rules.source,rulesAuthoritative:rules.authoritative,parameterUncertaintyIncluded:true,posteriorTypeA:{service:strengthA.posterior.service.kind,return:strengthA.posterior.return.kind},posteriorTypeB:{service:strengthB.posterior.service.kind,return:strengthB.posterior.return.kind}},
-        projection:posteriorMC.mean,edge:pointLine?posteriorMC.mean-pointLine.line:null,volatility:Math.sqrt(Math.max(0,posteriorMC.samples.reduce(function(a,x){return a+(x-posteriorMC.mean)*(x-posteriorMC.mean);},0)/Math.max(1,posteriorMC.samples.length-1))),marketComparison:market,
-        notes:["Hierarchical serve/return point model","Full-match posterior-predictive simulation generates both targets","Market lines are comparison inputs only","No manual or synthetic point-rate values are accepted"]
+        diagnostics:{
+          dataQuality:{A:{recentMatches:strengthA.records},B:{recentMatches:strengthB.records}},
+          rulesSource:rules.source,rulesAuthoritative:rules.authoritative,
+          pointStatsOptional:true,pointStatsUsed:pointRecordsA.length>0&&pointRecordsB.length>0,
+          elo:{A:eloA,B:eloB,difference:eloA-eloB},
+          h2hMatches:h2h.length,surface:ctx.surface,indoorOutdoor:ctx.indoorOutdoor,
+          calibration:window.__TENNIS_REGRESSION || null
+        },
+        projection:posteriorMC.mean,edge:primary.edge,volatility:volatility,marketComparison:market,
+        notes:notes,
+        picks:{totalPoints:pointLine?pointPick:{pick:"PASS",confidence:"PASS"},totalSets:setLine?setPick:{pick:"PASS",confidence:"PASS"}}
       };
       return {tour,playerAName,playerBName,playerAId:ctx.playerAId,playerBId:ctx.playerBId,competitionId:ctx.competitionId||"",eventId:ctx.eventId||"",fixtureDate:ctx.fixtureDate||"",context:ctx,matchResult:result,set1Result:null,teamAResult:null,teamBResult:null};
     }
 
+  window.__TENNIS_REGRESSION = runTennisModelRegressionSuite();
   window.TennisPointModel = {
     version: TENNIS_MODEL_VERSION,
     getConfig: getDefaultTennisConfig,
@@ -4393,7 +4507,8 @@ let g_clearDebug = {
     compareExactMonteCarlo: compareExactToMonteCarlo,
     calibration: calculateCalibrationMetrics,
     walkForward: walkForwardEvaluateTennis,
-    regressionSuite: runTennisModelRegressionSuite
+    regressionSuite: runTennisModelRegressionSuite,
+    settleTracker: autoSettleTracker
   };
   function getPickCellClass(pick, confidence) {
     if (confidence === "PASS" || pick === "PASS") return "pred-noplay";
@@ -4499,7 +4614,7 @@ let g_clearDebug = {
     const mc=result.marketComparison||{};
     const pointMarket=mc.totalPoints&&mc.totalPoints.probabilities ? ('Line '+fmt(mc.totalPoints.line)+' • O '+(mc.totalPoints.probabilities.over*100).toFixed(1)+'% / U '+(mc.totalPoints.probabilities.under*100).toFixed(1)+'% • Δ '+fmt(mc.totalPoints.meanDelta)) : 'No point market line';
     const setMarket=mc.totalSets&&mc.totalSets.probabilities ? ('Line '+fmt(mc.totalSets.line)+' • O '+(mc.totalSets.probabilities.over*100).toFixed(1)+'% / U '+(mc.totalSets.probabilities.under*100).toFixed(1)+'% • Δ '+fmt(mc.totalSets.meanDelta)) : 'No set market line';
-    body.innerHTML = '<tr><td class="result-market" style="font-weight:800;">Total Points</td><td style="font-family:monospace;">'+fmt(tp.mean)+'</td><td style="font-family:monospace;">'+fmt(tp.median)+'</td><td style="font-family:monospace;">'+fmt(tp.p10)+' – '+fmt(tp.p90)+'</td><td style="font-size:11px;">N='+htmlEscape(String(result.parameterUncertaintySimulation.runs))+' • '+htmlEscape(pointMarket)+'</td></tr>' + '<tr><td class="result-market" style="font-weight:800;">Total Sets</td><td style="font-family:monospace;">'+fmt(ts.mean)+'</td><td style="font-family:monospace;">'+fmt(ts.mean)+'</td><td style="font-family:monospace;">'+htmlEscape(setDistribution)+'</td><td style="font-size:11px;">'+htmlEscape(setMarket)+' • '+htmlEscape(result.rules.format)+'</td></tr>';
+    body.innerHTML = '<tr><td class="result-market" style="font-weight:800;">Total Points</td><td style="font-family:monospace;">'+fmt(tp.mean)+'</td><td style="font-family:monospace;">'+fmt(tp.median)+'</td><td style="font-family:monospace;">'+fmt(tp.p10)+' – '+fmt(tp.p90)+'</td><td style="font-size:11px;">N='+htmlEscape(String(result.parameterUncertaintySimulation.runs))+' • '+htmlEscape(pointMarket)+'</td></tr>' + '<tr><td class="result-market" style="font-weight:800;">Total Sets</td><td style="font-family:monospace;">'+fmt(ts.mean)+'</td><td style="font-family:monospace;">'+fmt(ts.median)+'</td><td style="font-family:monospace;">'+htmlEscape(setDistribution)+' • P50 '+fmt(ts.median)+'</td><td style="font-size:11px;">'+htmlEscape(setMarket)+' • '+htmlEscape(result.rules.format)+(result.pick&&result.pick!=="PASS"?' • '+htmlEscape(result.pick):'')+'</td></tr>';
     const marketBox=qs("marketComparison");
     if(marketBox){ marketBox.style.display=(mc.totalPoints||mc.totalSets)?"block":"none"; marketBox.textContent=(mc.totalPoints?pointMarket:"No point line")+" • "+(mc.totalSets?setMarket:"No set line"); }
     showResults(); scrollResultsIntoView();
@@ -4508,134 +4623,12 @@ let g_clearDebug = {
     const result=resultBundle && resultBundle.matchResult; const ctx=resultBundle && resultBundle.context || {};
     const meta=[]; if(ctx.surface)meta.push(ctx.surface); if(ctx.eventLevel)meta.push(ctx.eventLevel); if(ctx.roundName)meta.push(ctx.roundName); if(ctx.matchFormat)meta.push(ctx.matchFormat);
     const tp=result&&result.totalPoints, ts=result&&result.totalSets;
-    if(qs("aFormIntel"))qs("aFormIntel").value=result&&result.status==="OK"?('Points '+fmt(tp.mean)+' mean | P50 '+fmt(tp.median)+' | pA '+(result.pA*100).toFixed(2)+'%'+(meta.length?' | '+meta.join(' | '):'')):'NO PLAY';
-    if(qs("bFormIntel"))qs("bFormIntel").value=result&&result.status==="OK"?('Sets E='+fmt(ts.mean)+' | '+Object.keys(ts.probabilities||{}).map(k=>k+': '+(ts.probabilities[k]*100).toFixed(1)+'%').join(' | ')):'NO PLAY';
+    if(qs("aFormIntel"))qs("aFormIntel").value=result&&result.status==="OK"?('Match points '+fmt(tp.mean)+' mean | P50 '+fmt(tp.median)+' | pA '+(result.pA*100).toFixed(2)+'%'+(meta.length?' | '+meta.join(' | '):'')):'NO PLAY';
+    if(qs("bFormIntel"))qs("bFormIntel").value=result&&result.status==="OK"?('Set distribution E='+fmt(ts.mean)+' | '+Object.keys(ts.probabilities||{}).map(k=>k+': '+(ts.probabilities[k]*100).toFixed(1)+'%').join(' | ')):'NO PLAY';
     if(qs("aSpreadIntel"))qs("aSpreadIntel").value=result&&result.status==="OK"?('Total points P10/P50/P90: '+fmt(tp.p10)+' / '+fmt(tp.median)+' / '+fmt(tp.p90)):'NO PLAY';
-    if(qs("bSpreadIntel"))qs("bSpreadIntel").value=result&&result.status==="OK"?('Total sets: '+Object.keys(ts.probabilities||{}).map(k=>k+'='+((ts.probabilities[k]||0)*100).toFixed(1)+'%').join(', ')):'NO PLAY';
+    if(qs("bSpreadIntel"))qs("bSpreadIntel").value=result&&result.status==="OK"?('Total sets by probability: '+Object.keys(ts.probabilities||{}).map(k=>k+'='+((ts.probabilities[k]||0)*100).toFixed(1)+'%').join(', ')):'NO PLAY';
     if(qs("aHitIntel"))qs("aHitIntel").value=result?(result.notes||[]).join(' | '):'';
-    if(qs("bHitIntel"))qs("bHitIntel").value=result&&result.status==="OK"?('pA '+(result.pA*100).toFixed(2)+'% | pB '+(result.pB*100).toFixed(2)+'% | '+result.modelVersion):'NO PLAY';
-  }
-
-  /* AUDIT-FIX — RESTORE SAFE TRACKER BRIDGE.
-     The tracker UI retained references to functions that had been removed from
-     the calculation bundle. Those references executed during boot and could
-     abort the entire engine before ESPN listeners were registered. The bridge
-     below keeps tracker persistence/UI isolated from prediction execution. */
-  function getTrackerItems() {
-    return g_trackerState && Array.isArray(g_trackerState.items)
-      ? g_trackerState.items.map(normalizeTrackerItem)
-      : [];
-  }
-  async function saveTrackerItems(items) {
-    const normalized = (Array.isArray(items) ? items : []).map(normalizeTrackerItem);
-    g_trackerState = { items: normalized, updatedAt: new Date().toISOString(), vId: g_trackerSaveVersion || 0 };
-    if (typeof window.saveTrackerStateToLocal === "function") await window.saveTrackerStateToLocal(g_trackerState);
-    updateTrackerUI();
-    return normalized;
-  }
-  function updateTrackerUI() {
-    const items = getTrackerItems();
-    const summary = qs("trackerSummary");
-    if (summary) {
-      const settled = items.filter(i => ["WIN", "LOSS", "PUSH"].includes(String(i.status || "").toUpperCase())).length;
-      const wins = items.filter(i => String(i.status || "").toUpperCase() === "WIN").length;
-      summary.textContent = items.length + " saved • " + settled + " settled • " + wins + " wins";
-    }
-    const empty = qs("trackerEmpty");
-    if (empty) empty.style.display = items.length ? "none" : "block";
-    const body = qs("trackedPicksBody");
-    if (body && !items.length) body.innerHTML = "";
-    const archive = qs("trackerArchiveBody");
-    if (archive && !items.some(i => i.archived)) archive.innerHTML = "";
-  }
-  async function hydrateTrackerState(force) {
-    if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
-    g_trackerHydratePromise = (async function () {
-      try {
-        if (typeof window.loadTrackerStateFromLocal === "function") await window.loadTrackerStateFromLocal();
-      } catch (err) {
-        if (typeof window.engineDebug === "function") window.engineDebug("Local tracker hydrate failed", { message: err && err.message });
-      }
-      updateTrackerUI();
-      return g_trackerState;
-    })().finally(function () { g_trackerHydratePromise = null; });
-    return g_trackerHydratePromise;
-  }
-  async function refreshTrackerNow(force) { return hydrateTrackerState(!!force); }
-  function forceTrackerSaveNow() {
-    saveTrackerItems(getTrackerItems()).catch(function (err) {
-      if (typeof window.engineDebug === "function") window.engineDebug("Tracker local save failed", { message: err && err.message });
-    });
-  }
-  function autoSaveCurrentRunToTracker() { return 0; }
-  async function autoSettleTracker() { return { settled: 0, checked: 0 }; }
-  async function settleTrackerItemFromRecord() { return false; }
-  function isActuallyCompletedTennisRecord(record) {
-    const status = record && record.status ? record.status : {};
-    const state = String(status.state || "").toLowerCase();
-    const name = String(status.name || "").toUpperCase();
-    return !!status.completed || state === "post" || name === "STATUS_FINAL" || name === "FINAL";
-  }
-  async function deleteTrackerItemForever(id) {
-    const key = String(id || "");
-    if (!key) return false;
-    addDeletedTrackerKey(key);
-    await saveTrackerItems(getTrackerItems().filter(function (item) { return String(item.id || "") !== key; }));
-    return true;
-  }
-  function renderTrackerAnalytics() {
-    const panel = qs("trackerAnalyticsPanel");
-    if (panel) panel.innerHTML = "";
-  }
-  function openTrackerModal() {
-    const modal = qs("trackerModal");
-    if (!modal) return;
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden", "false");
-    document.body.classList.add("tracker-open");
-    updateTrackerUI();
-  }
-  function setTrackerView(view) {
-    const mode = String(view || "list").toLowerCase();
-    const archive = qs("trackerArchiveWrap");
-    if (archive) archive.style.display = mode === "archive" || mode === "report" ? "block" : "none";
-  }
-  function showTrackerDeleteConfirm(label) {
-    return Promise.resolve(window.confirm("Delete this tracked pick permanently?\n\n" + String(label || "")));
-  }
-  function stopLiveClockTicker() {
-    if (_liveTickTimer) clearInterval(_liveTickTimer);
-    _liveTickTimer = null;
-  }
-  function showRunError(message) {
-    setRunStatus(String(message || "Engine run failed."), "err");
-    setHeaderError(true, String(message || "Engine run failed."));
-  }
-  function gameWinProbFromPointProb(pointProbability) {
-    const p = Number(pointProbability);
-    if (!Number.isFinite(p)) return null;
-    if (p <= 0) return 0;
-    if (p >= 1) return 1;
-    const q = 1 - p;
-    const reachDeuce = 20 * Math.pow(p, 3) * Math.pow(q, 3);
-    return Math.pow(p, 4) + 4 * Math.pow(p, 4) * q + 10 * Math.pow(p, 4) * Math.pow(q, 2) + reachDeuce * (p * p / (p * p + q * q));
-  }
-  function pointProbFromGameWinProb(gameProbability) {
-    const target = Number(gameProbability);
-    if (!Number.isFinite(target)) return null;
-    if (target <= 0) return 0;
-    if (target >= 1) return 1;
-    let lo = 0, hi = 1;
-    for (let i = 0; i < 60; i += 1) {
-      const mid = (lo + hi) / 2;
-      if (gameWinProbFromPointProb(mid) < target) lo = mid;
-      else hi = mid;
-    }
-    return (lo + hi) / 2;
-  }
-  function buildTrackerEntriesFromBundle(bundle) {
-    // The replacement model produces distributions, not OVER/UNDER picks.
-    g_trackerDebug.lastGeneratedEntries = 0; g_trackerDebug.lastGeneratedPicks = []; return [];
+    if(qs("bHitIntel"))qs("bHitIntel").value=result&&result.status==="OK"?('pA '+(result.pA*100).toFixed(2)+'% | pB '+(result.pB*100).toFixed(2)+'% | '+result.modelVersion+' | '+(result.rules&&result.rules.format||'')):'NO PLAY';
   }
   function closeTrackerModal() {
     const modal = qs("trackerModal");
@@ -4649,14 +4642,6 @@ let g_clearDebug = {
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("tracker-open");
   }
-  /* AUDIT-SKIP — ALREADY FIXED:
-   RUN-BUTTON REENTRANCY.
-   Previous issue: rapid repeated Run clicks could create concurrent engine runs
-   and allow an older result to overwrite a newer result. Fixed with an
-   in-flight/disabled execution guard so only one run is active at a time.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify run orchestration.
-*/
   let runEngineInFlight = null;
   async function runEngine() {
     if (runEngineInFlight) return runEngineInFlight;
@@ -4688,8 +4673,8 @@ let g_clearDebug = {
         renderTrackerDebug();
         return bundle;
       } catch (err) {
-        showRunError(err.message || "Engine run failed.");
-        throw err;
+        showRunError(err && err.message ? err.message : "Engine run failed.");
+        return null;
       } finally {
         if (runBtn) runBtn.disabled = false;
         runEngineInFlight = null;
@@ -4714,11 +4699,32 @@ let g_clearDebug = {
     const day = String(d.getDate()).padStart(2, "0");
     return String(y) + m + day;
   }
+  function dateKeyESPN(offsetDays) {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+    let y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate();
+    parts.forEach(function(part){ if(part.type==="year") y=Number(part.value); if(part.type==="month") m=Number(part.value); if(part.type==="day") d=Number(part.value); });
+    const base = new Date(Date.UTC(y, m-1, d));
+    base.setUTCDate(base.getUTCDate()+Number(offsetDays||0));
+    return String(base.getUTCFullYear()) + String(base.getUTCMonth()+1).padStart(2,"0") + String(base.getUTCDate()).padStart(2,"0");
+  }
   function dateKeyFromDate(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, "0");
     const d = String(dateObj.getDate()).padStart(2, "0");
     return String(y) + m + d;
+  }
+  function dateKeyInTimeZone(dateObj, timeZone) {
+    const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
+    if (!Number.isFinite(d.getTime())) return "";
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", { timeZone: timeZone || "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d);
+      let y="", m="", day="";
+      parts.forEach(function(part){ if(part.type==="year") y=part.value; else if(part.type==="month") m=part.value; else if(part.type==="day") day=part.value; });
+      return y+m+day;
+    } catch (err) {
+      return dateKeyFromDate(d);
+    }
   }
   function addDays(dateObj, days) {
     const d = new Date(dateObj.getTime());
@@ -4739,51 +4745,57 @@ let g_clearDebug = {
   }
   function getTennisBaseCandidates(league) {
     const slug = String(league || "").trim().toLowerCase();
-    const slugs = [];
-    function addSlug(value) {
-      const v = String(value || "").trim().toLowerCase();
-      if (v && slugs.indexOf(v) === -1) slugs.push(v);
-    }
-    if (slug === "atp" || slug === "wta") addSlug("all");
-    addSlug(slug);
-    const bases = [];
-    ["https://site.api.espn.com/apis/site/v2/sports/tennis/",
-     "https://site.web.api.espn.com/apis/site/v2/sports/tennis/"]
-      .forEach(function (prefix) {
-        slugs.forEach(function (candidate) { bases.push(prefix + candidate); });
-      });
-    return bases;
+    return [
+      "https://site.web.api.espn.com/apis/site/v2/sports/tennis/" + slug,
+      "https://site.api.espn.com/apis/site/v2/sports/tennis/" + slug
+    ];
   }
-  async function fetchJson(requestUrl, timeoutMs) {
-    const controller = new AbortController();
-    const timer = setTimeout(function () {
-      controller.abort();
-    }, timeoutMs);
-    try {
-      const res = await fetch(requestUrl, {
-        signal: controller.signal,
-        cache: "no-store"
-      });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return await res.json();
-    } finally {
-      clearTimeout(timer);
-    }
+  const httpJsonCache = new Map();
+  const httpJsonInFlight = new Map();
+  let workerProxyHealthy = null;
+  function getJsonCacheTTL(url) {
+    const text=String(url||"");
+    if (/\/summary\?/i.test(text)) return 6*60*60*1000;
+    if (/\/scoreboard\?/i.test(text)) return /dates=\d{8}/.test(text) ? 20*1000 : 5*60*1000;
+    return 30*60*1000;
+  }
+  async function fetchJson(requestUrl, timeoutMs, cacheTtlMs) {
+    const key=String(requestUrl||"");
+    const ttl=Number.isFinite(cacheTtlMs) ? cacheTtlMs : getJsonCacheTTL(key);
+    const cached=httpJsonCache.get(key);
+    if(cached && Date.now()-cached.at<ttl) return cached.value;
+    const inFlight=httpJsonInFlight.get(key);
+    if(inFlight) return inFlight;
+    const promise=(async function(){
+      const controller = new AbortController();
+      const timer = setTimeout(function () { controller.abort(); }, timeoutMs || 8000);
+      try {
+        const res = await fetch(requestUrl, { signal: controller.signal, cache: "default" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const json=await res.json();
+        httpJsonCache.set(key,{at:Date.now(),value:json});
+        return json;
+      } finally { clearTimeout(timer); }
+    })();
+    httpJsonInFlight.set(key,promise);
+    try { return await promise; }
+    finally { httpJsonInFlight.delete(key); }
   }
   async function proxyFetch(url, timeoutMs) {
-    const timeout = timeoutMs || 7000;
     try {
-      return await fetchJson(url, timeout);
+      return await fetchJson(url, Math.min(timeoutMs || 8000, 8000));
     } catch (directErr) {
-      const workerBase = String(WORKER_URL || "").replace(/\/+$/, "");
-      if (!workerBase) throw directErr;
-      const encoded = workerBase + "/?url=" + encodeURIComponent(url);
+      if (!TRACKER_REMOTE_SYNC_ENABLED && !WORKER_URL) throw directErr;
+      if (workerProxyHealthy === false) throw directErr;
+      const encoded = WORKER_URL.replace(/\/+$/, "") + "/?url=" + encodeURIComponent(url);
       try {
-        return await fetchJson(encoded, timeout);
+        const result = await fetchJson(encoded, 2500);
+        workerProxyHealthy = true;
+        return result;
       } catch (workerErr) {
-        const directMessage = directErr && directErr.message ? directErr.message : String(directErr);
-        const workerMessage = workerErr && workerErr.message ? workerErr.message : String(workerErr);
-        throw new Error("ESPN request failed: direct=" + directMessage + "; proxy=" + workerMessage);
+        workerProxyHealthy = false;
+        if (typeof window.engineDebug === "function") window.engineDebug("ESPN direct + proxy fetch failed", { url: url, direct: String(directErr && directErr.message || directErr), proxy: String(workerErr && workerErr.message || workerErr) });
+        throw directErr;
       }
     }
   }
@@ -4803,18 +4815,14 @@ let g_clearDebug = {
         return base + "/scoreboard?region=us&lang=en&limit=1000&dates=" + encodeURIComponent(datesQuery);
       });
       let lastErr = null;
-      let firstValidPayload = null;
       for (const url of urls) {
         try {
-          const payload = await proxyFetch(url, 7000);
-          if (!payload || !Array.isArray(payload.events)) continue;
-          if (!firstValidPayload) firstValidPayload = payload;
-          if (payload.events.length) return payload;
+          const payload = await proxyFetch(url, 5000);
+          if (payload && Array.isArray(payload.events)) return payload;
         } catch (err) {
           lastErr = err;
         }
       }
-      if (firstValidPayload) return firstValidPayload;
       throw lastErr || new Error("Unable to load ESPN tennis scoreboard data.");
     })();
 
@@ -5037,7 +5045,7 @@ let g_clearDebug = {
       const chunkStartOffset = Math.min(totalDays, startOffset + chunkSize - 1);
       const rangeEnd = addDays(end, -chunkEndOffset);
       const rangeStart = addDays(end, -chunkStartOffset);
-      chunks.push(dateKeyFromDate(rangeStart) + "-" + dateKeyFromDate(rangeEnd));
+      chunks.push(dateKeyInTimeZone(rangeStart, "America/New_York") + "-" + dateKeyInTimeZone(rangeEnd, "America/New_York"));
     }
     return chunks;
   }
@@ -5051,6 +5059,7 @@ let g_clearDebug = {
     const collected = [];
     const seen = new Set();
     const maxMatches = 5;
+    const collectionTarget = maxMatches;
     const cutoffDate = cutoffIso && Number.isFinite(Date.parse(cutoffIso)) ? new Date(cutoffIso) : new Date();
     const seasonStart = new Date(cutoffDate.getFullYear() - 1, 0, 1);
     let windowEnd = new Date(cutoffDate);
@@ -5059,7 +5068,7 @@ let g_clearDebug = {
     while (collected.length < maxMatches && windowEnd >= seasonStart) {
       const rawStart = addDays(windowEnd, -(WINDOW_DAYS - 1));
       const windowStart = rawStart < seasonStart ? seasonStart : rawStart;
-      const datesQuery = dateKeyFromDate(windowStart) + '-' + dateKeyFromDate(windowEnd);
+      const datesQuery = dateKeyInTimeZone(windowStart, 'America/New_York') + '-' + dateKeyInTimeZone(windowEnd, 'America/New_York');
       let windowRecords = [];
 
       for (let c = 0; c < candidates.length; c += 1) {
@@ -5159,6 +5168,7 @@ let g_clearDebug = {
             break;
           }
         } catch (err) {
+          checks.push({label:"athlete-history-miss", query:"athlete="+athleteId+" year="+year, records:0, exact:0, fuzzy:0, relaxed:0, error:String(err&&err.message||err)});
         }
       }
       if (!gotThisYear) {
@@ -5178,6 +5188,7 @@ let g_clearDebug = {
           });
           if (playerRecords.length) all.push.apply(all, playerRecords);
         } catch (err) {
+          checks.push({label:"athlete-core-miss", query:"athlete="+athleteId+" year="+year, records:0, exact:0, fuzzy:0, relaxed:0, error:String(err&&err.message||err)});
         }
       }
     }
@@ -5298,8 +5309,8 @@ let g_clearDebug = {
     const indoorOutdoor = venueObj.indoor === true || String(venueObj.type || venueObj.indoorOutdoor || '').toLowerCase() === 'indoor' ? 'Indoor' : (venueObj.indoor === false || String(venueObj.type || venueObj.indoorOutdoor || '').toLowerCase() === 'outdoor' ? 'Outdoor' : '');
     let gender = "UNKNOWN";
     const combinedSearch = (labelText + " " + tournamentName).toLowerCase();
-    if (combinedSearch.includes("women") || combinedSearch.includes("wta")) gender = "WTA";
-    else if (combinedSearch.includes("men") || combinedSearch.includes("atp")) gender = "ATP";
+    if (/\bwomen(?:'s)?\b/.test(combinedSearch) || /\bwta\b/.test(combinedSearch)) gender = "WTA";
+    else if (/\bmen(?:'s)?\b/.test(combinedSearch) || /\batp\b/.test(combinedSearch)) gender = "ATP";
     const playerARank = toNumber((a && a.curatedRank && (a.curatedRank.current || a.curatedRank.value || a.curatedRank.rank)) || (a && a.athlete && a.athlete.rank) || (a && a.rank));
     const playerBRank = toNumber((b && b.curatedRank && (b.curatedRank.current || b.curatedRank.value || b.curatedRank.rank)) || (b && b.athlete && b.athlete.rank) || (b && b.rank));
     const playerARankMove = toNumber((a && a.curatedRank && (a.curatedRank.change || a.curatedRank.movement)) || (a && a.athlete && (a.athlete.rankChange || a.athlete.movement)) || (a && a.rankChange));
@@ -5311,11 +5322,10 @@ let g_clearDebug = {
     const playerBSet1Games = setCount ? bSets[0] : null;
     const set1Total = Number.isFinite(playerASet1Games) && Number.isFinite(playerBSet1Games) ? playerASet1Games + playerBSet1Games : null;
     return {
+      matchId: String(comp.id || ""),
       competitionId: String(comp.id || ""),
-      // ESPN distinguishes the event container from its competition. The
-      // previous code incorrectly used competitionId as eventId, which made
-      // core competitor-statistics lookups address the wrong resource.
-      eventId: String((parentEvent && parentEvent.id) || comp.id || ""),
+      eventId: String((parentEvent && parentEvent.id) || comp.eventId || ""),
+      tournamentId: String((parentEvent && parentEvent.id) || comp.eventId || ""),
       tournamentName: tournamentName,
       eventLevel: eventLevel,
       roundName: String(comp.round && comp.round.displayName || "").trim(),
@@ -5419,15 +5429,15 @@ let g_clearDebug = {
       setFetchStatus("Select ATP or WTA first.", "");
       return;
     }
-    const token = fixtureLoadToken;
-    const targetDayKey = dateKeyLocal(offset);
-    const dateQuery = dateKeyLocal(offset - 1) + "-" + dateKeyLocal(offset + 1);
+    const token = ++fixtureLoadToken;
+    const dateQuery = dateKeyESPN(offset);
     setFetchStatus("Loading " + league + " fixtures from ESPN...", "loading");
     select.innerHTML = '<option value="">Loading matches...</option>';
     try {
       const payload = await fetchTennisScoreboard(league, dateQuery);
       if (token !== fixtureLoadToken) return;
       const now = new Date();
+      const targetDayKey = dateQuery;
       const records = extractCompetitionRecords(payload).filter(function (record) {
         const statusObj = record.status || {};
         const state = String(statusObj.state || "").toLowerCase();
@@ -5456,10 +5466,10 @@ let g_clearDebug = {
         if (isUnavailableForPrediction || isLive) return false;
         if (!hasRealPlayers || !notPlaceholderPair) return false;
         if (!hasValidDate) return false;
-        if (dateKeyFromDate(scheduledAt) !== targetDayKey) return false;
-        if (offset === 0) {
-          return isScheduled && scheduledAt.getTime() > now.getTime();
-        }
+        // ESPN's displayed start time is an estimate. For today's board, keep
+        // scheduled/pre matches even when the estimated clock has passed; only
+        // completed/live/cancelled/postponed matches are excluded above.
+        if (dateKeyInTimeZone(scheduledAt, "America/New_York") !== targetDayKey) return false;
         return isScheduled;
       }).sort(function (a, b) {
         const tA = new Date(a.date).getTime();
@@ -5475,6 +5485,7 @@ let g_clearDebug = {
       setFetchStatus("Unable to load ESPN fixtures right now.", "err");
     }
   }
+  let fixtureFetchDebounceTimer = null;
   function onFixtureSelect() {
     const select = qs("fixtureSelect");
     if (!select) return;
@@ -5515,7 +5526,11 @@ let g_clearDebug = {
     window.__surfaceSelectRef = surfaceSelect;
     openSection("espnSection");
     openSection("marketSection");
-    fetchESPNTennis();
+    if (fixtureFetchDebounceTimer) clearTimeout(fixtureFetchDebounceTimer);
+    fixtureFetchDebounceTimer = setTimeout(function () {
+      fixtureFetchDebounceTimer = null;
+      fetchESPNTennis();
+    }, 180);
   }
   function getChunkedHistoryRanges(totalDays, chunkSize) {
     const chunks = [];
@@ -5525,7 +5540,7 @@ let g_clearDebug = {
       const chunkStartOffset = Math.min(totalDays - 1, startOffset + chunkSize - 1);
       const rangeEnd = addDays(end, -chunkEndOffset);
       const rangeStart = addDays(end, -chunkStartOffset);
-      chunks.push(dateKeyFromDate(rangeStart) + "-" + dateKeyFromDate(rangeEnd));
+      chunks.push(dateKeyInTimeZone(rangeStart, "America/New_York") + "-" + dateKeyInTimeZone(rangeEnd, "America/New_York"));
     }
     return chunks;
   }
@@ -5555,14 +5570,6 @@ let g_clearDebug = {
       return new Date(b.date) - new Date(a.date);
     });
   }
-  /* AUDIT-SKIP — ALREADY FIXED:
-   HISTORY-POOL CACHE FRESHNESS.
-   Previous issue: the 180-day history pool never expired during a session,
-   allowing form/H2H/Elo inputs to become stale. Fixed with a bounded cache TTL
-   and timestamp-based refresh logic.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify history caching.
-*/
   async function fetchHistoryPool(league) {
     const key = String(league || "").trim().toUpperCase();
     const cachedAt = historyPoolCacheFetchedAt.get(key) || 0;
@@ -5574,7 +5581,7 @@ let g_clearDebug = {
       historyPoolCacheFetchedAt.delete(key);
     }
     const promise = (async function () {
-      const chunks = getChunkedHistoryRanges(180, 60);
+      const chunks = getChunkedHistoryRanges(90, 30);
       const settled = await Promise.all(chunks.map(async function(datesQuery) {
         try {
           const payload = await fetchTennisScoreboard(key, datesQuery);
@@ -5588,13 +5595,25 @@ let g_clearDebug = {
               Number.isFinite(record.playerASet1Games) &&
               Number.isFinite(record.playerBSet1Games);
           });
-        } catch(e) { return []; }
+        } catch(e) {
+          if (typeof window.engineDebug === "function") window.engineDebug("History pool chunk failed", { query: datesQuery, message: String(e && e.message || e) });
+          return null;
+        }
       }));
-      return dedupeRecords([].concat.apply([], settled));
+      const usable = settled.filter(Array.isArray);
+      const records = dedupeRecords([].concat.apply([], usable));
+      if (!records.length && usable.length !== settled.length) throw new Error("ESPN history pool unavailable; all requested history windows failed.");
+      return records;
     })();
-    historyPoolCache.set(key, promise);
+    const guardedPromise = promise.catch(function (err) {
+      historyPoolCache.delete(key);
+      historyPoolCacheFetchedAt.delete(key);
+      if (typeof window.engineDebug === "function") window.engineDebug("History pool fetch failed", String(err && err.message || err));
+      throw err;
+    });
+    historyPoolCache.set(key, guardedPromise);
     historyPoolCacheFetchedAt.set(key, Date.now());
-    return promise;
+    return guardedPromise;
   }
   function findPlayerCandidatesByName(name, records, tour) {
     const target = normalizeName(name);
@@ -5644,7 +5663,7 @@ let g_clearDebug = {
    */
   async function fetchRecentPlayerMatchesByDay(league, athleteId, cutoffIso, playerName, limit, searchLimit) {
     const maxMatches = Math.max(1, Number(limit) || 5);
-    const collectionTarget = Math.max(maxMatches, Number(searchLimit) || maxMatches);
+    const collectionTarget = maxMatches;
     const slug = String(league || "").trim().toLowerCase();
     const candidates = [];
     if (slug) candidates.push(slug);
@@ -5661,8 +5680,8 @@ let g_clearDebug = {
     // batches, so a structurally-missing player fails fast instead of
     // paying ~80+ sequential network round-trips before giving up.
     const HISTORY_WINDOW_DAYS = 400;
-    const BATCH_DAYS = 7;
-    const MAX_BATCHES = 26; // 26 * 7 = 182 days back; point-stat hydration can therefore find five valid matches even when recent matches lack stats
+    const BATCH_DAYS = 14;
+    const MAX_BATCHES = 12; // 26 * 7 = 182 days back; point-stat hydration can therefore find five valid matches even when recent matches lack stats
     const EMPTY_BATCH_BAILOUT = 4; // stop early if this many consecutive batches find nothing
     const cutoff = cutoffIso ? new Date(cutoffIso) : new Date();
     const safeCutoff = new Date(Number.isFinite(cutoff.getTime()) ? cutoff : Date.now());
@@ -5694,7 +5713,7 @@ let g_clearDebug = {
       }
 
       const primaryResults = await Promise.all(batchDays.map(async function (day) {
-        const dayKey = dateKeyFromDate(day);
+        const dayKey = dateKeyInTimeZone(day, "America/New_York");
         try {
           return { dayKey: dayKey, records: validRecords(await fetchTennisScoreboard(slug, dayKey)) };
         } catch (err) {
@@ -5717,7 +5736,7 @@ let g_clearDebug = {
         });
       }
 
-      primaryResults.sort(function (a, b) { return new Date(b.dayKey) - new Date(a.dayKey); });
+      primaryResults.sort(function (a, b) { return String(b.dayKey).localeCompare(String(a.dayKey)); });
       const collectedBeforeBatch = collected.length;
       for (let r = 0; r < primaryResults.length && collected.length < collectionTarget; r += 1) {
         const result = primaryResults[r];
@@ -5785,7 +5804,7 @@ let g_clearDebug = {
       let endDate = new Date(year, 11, 31, 23, 59, 59, 999);
       if (year === effectiveEnd.getFullYear()) endDate = effectiveEnd;
       if (endDate >= startDate) {
-        yearWindows.push({ year: year, datesQuery: dateKeyFromDate(startDate) + "-" + dateKeyFromDate(endDate) });
+        yearWindows.push({ year: year, datesQuery: dateKeyInTimeZone(startDate, "America/New_York") + "-" + dateKeyInTimeZone(endDate, "America/New_York") });
       }
     });
 
@@ -5823,61 +5842,7 @@ let g_clearDebug = {
       deduped = dedupeRecords(deduped.concat(result.records));
     });
 
-    // Athlete-history H2H probe: scoreboard year dumps often omit older completed
-    // events. Pull each player's year results and intersect via buildH2HSeries.
-    if (playerAId && playerBId) {
-      const athleteYears = years.slice(); // already rolling 3 years from window build
-      const athleteTasks = [];
-      athleteYears.forEach(function (year) {
-        athleteTasks.push({ year: year, athleteId: playerAId, side: "A" });
-        athleteTasks.push({ year: year, athleteId: playerBId, side: "B" });
-      });
-      const athleteSettled = await Promise.all(athleteTasks.map(async function (task) {
-        const slug = String(league || "").trim().toLowerCase() || "atp";
-        const urls = [
-          "https://site.web.api.espn.com/apis/common/v3/sports/tennis/" + slug + "/athletes/" + task.athleteId + "/results?year=" + task.year + "&limit=1000&page=1",
-          "https://site.api.espn.com/apis/common/v3/sports/tennis/" + slug + "/athletes/" + task.athleteId + "/results?year=" + task.year + "&limit=1000&page=1",
-          "https://site.web.api.espn.com/apis/common/v3/sports/tennis/all/athletes/" + task.athleteId + "/results?year=" + task.year + "&limit=1000&page=1",
-          "https://site.api.espn.com/apis/common/v3/sports/tennis/all/athletes/" + task.athleteId + "/results?year=" + task.year + "&limit=1000&page=1"
-        ];
-        for (let u = 0; u < urls.length; u += 1) {
-          try {
-            const parsed = await fetchAthleteHistoryPayload(urls[u]);
-            const recs = (parsed.records || []).filter(function (record) {
-              return record && record.status && record.status.completed && !record.retired &&
-                Number.isFinite(record.totalGames) && Number.isFinite(record.set1Total) &&
-                Number.isFinite(record.playerAGames) && Number.isFinite(record.playerBGames);
-            });
-            if (recs.length) return { task: task, records: recs };
-          } catch (err) {}
-        }
-        try {
-          const coreParsed = await resolveAthletePageCompetitionRecords(league, task.athleteId, task.year);
-          return { task: task, records: coreParsed.records || [] };
-        } catch (err2) {
-          return { task: task, records: [] };
-        }
-      }));
-      athleteSettled.forEach(function (result) {
-        if (!result.records || !result.records.length) return;
-        const h2hAth = buildH2HSeries(result.records, playerAId, playerBId, playerAName, playerBName);
-        if (h2hAth.length) {
-          checks.push({
-            label: "h2h-athlete-history-hit",
-            query: "side=" + result.task.side + " year=" + result.task.year + " athlete=" + result.task.athleteId,
-            records: h2hAth.length,
-            exact: h2hAth.length,
-            fuzzy: 0,
-            relaxed: 0,
-            sample: h2hAth.slice(0, 5).map(function (record) {
-              return (record.playerAName || "?") + " vs " + (record.playerBName || "?");
-            }).join(" | ")
-          });
-        }
-        deduped = dedupeRecords(deduped.concat(result.records));
-      });
-    }
-
+    // Athlete-history probes are intentionally disabled: they caused large request bursts and duplicate data.
     h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName)
       .filter(function (record) {
         const d = new Date(record.date);
@@ -5920,15 +5885,6 @@ let g_clearDebug = {
       return new Date(b.date) - new Date(a.date);
     });
   }
-  /* AUDIT-SKIP — ALREADY FIXED:
-   TIEBREAK-SET DETECTION.
-   Previous issue: the form metric inferred a tiebreak set solely from a
-   13-game set total, which could misclassify historical advantage-scoring sets.
-   Fixed so the tiebreak-set determination uses the available set/scoring
-   evidence rather than blindly assuming every 13-game set was a tiebreak.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify tiebreak classification.
-*/
   function buildH2HSeries(records, playerAId, playerBId, playerAName, playerBName) {
     const idA = String(playerAId || "").trim();
     const idB = String(playerBId || "").trim();
@@ -6131,26 +6087,20 @@ let g_clearDebug = {
       const recentPoolB = dedupeSeriesBySignature(buildRecentSeries(playerBHistory.records, playerBId));
       let recentA = recentPoolA.slice(0, 5);
       let recentB = recentPoolB.slice(0, 5);
-      setFetchStatus("Loading serve/return point statistics from completed match summaries...", "loading");
-      const hydratedA = await hydratePointStatsForRecords(league, recentPoolA, playerAId, qs("teamAName").value);
-      const hydratedB = await hydratePointStatsForRecords(league, recentPoolB, playerBId, qs("teamBName").value);
-      ctxPointStatsA = hydratedA.slice(0, TENNIS_MIN_POINT_MATCHES);
-      ctxPointStatsB = hydratedB.slice(0, TENNIS_MIN_POINT_MATCHES);
+      // Serve/return point summaries are optional enrichment only. ESPN does not
+      // expose them consistently across tours/tiers, so prediction correctness must
+      // not depend on a match-summary endpoint that may not exist.
+      ctxPointStatsA = [];
+      ctxPointStatsB = [];
       updatePointStatsAutoStatus(
-        "Player A: " + ctxPointStatsA.length + "/" + TENNIS_MIN_POINT_MATCHES + " valid point-stat matches • Player B: " + ctxPointStatsB.length + "/" + TENNIS_MIN_POINT_MATCHES + ".",
-        (ctxPointStatsA.length >= TENNIS_MIN_POINT_MATCHES && ctxPointStatsB.length >= TENNIS_MIN_POINT_MATCHES) ? "ok" : "err"
+        "Point-level serve/return stats are optional and are not required for prediction. Score history + Elo are used as the stable input path.",
+        "info"
       );
       const MIN_REAL_FORM_MATCHES = 1;
       if (recentA.length < MIN_REAL_FORM_MATCHES || recentB.length < MIN_REAL_FORM_MATCHES) {
         throw new Error(
           "Insufficient player history from ESPN. Player A: " + recentA.length +
           ", Player B: " + recentB.length + ". No synthetic matches were added."
-        );
-      }
-      if (ctxPointStatsA.length < TENNIS_MIN_POINT_MATCHES || ctxPointStatsB.length < TENNIS_MIN_POINT_MATCHES) {
-        throw new Error(
-          "ESPN did not provide enough match-level serve/return point statistics. Player A: " + ctxPointStatsA.length + "/" + TENNIS_MIN_POINT_MATCHES +
-          ", Player B: " + ctxPointStatsB.length + "/" + TENNIS_MIN_POINT_MATCHES + ". No manual or synthetic values are used."
         );
       }
 
@@ -6180,12 +6130,6 @@ let g_clearDebug = {
       // the effective sample size and makes the comparison asymmetric.
       // Use the largest common real window available, capped at 10.
       const commonRecentCount = Math.min(5, recentA.length, recentB.length);
-      if (commonRecentCount < 3) {
-        throw new Error(
-          "Insufficient common recent history from ESPN. Both players need at least 3 real completed matches; " +
-          "Player A: " + recentA.length + ", Player B: " + recentB.length + "."
-        );
-      }
       // AUDIT-FIX — SAMPLE-IMBALANCE GUARD:
       // If one player's raw history pool is dramatically smaller than the
       // other's, the smaller side is very likely an ingestion failure rather
@@ -6258,14 +6202,6 @@ let g_clearDebug = {
             const rA = map.get(rAId), rB = map.get(rBId);
             const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
             const aSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.aSets.filter((g, i) => g > (r.bSets[i] || 0)).length : (r.playerAGames > r.playerBGames ? 1 : 0);
-            /* AUDIT-SKIP — ALREADY FIXED:
-   ELO PLAYER-B FALLBACK SCORING.
-   Previous issue: when set arrays were unavailable, Player B was forced to
-   zero sets, causing a real Player-B win to be scored as a draw. Fixed by
-   mirroring the games-based fallback for Player B.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify Elo fallback scoring.
-*/
             const bSetsWon = Array.isArray(r.aSets) && Array.isArray(r.bSets) ? r.bSets.filter((g, i) => g > (r.aSets[i] || 0)).length : (r.playerBGames > r.playerAGames ? 1 : 0);
             const scoreA = aSetsWon > bSetsWon ? 1 : aSetsWon < bSetsWon ? 0 : 0.5;
             const kFactor = K_MAP[r.eventLevel] || 28;
@@ -6332,15 +6268,6 @@ let g_clearDebug = {
         if (m.playerAId === playerBId && Number.isFinite(m.playerAGames)) return m.playerAGames;
         return null;
       }).filter(Number.isFinite);
-      /* AUDIT-SKIP — ALREADY FIXED:
-   HISTORICAL SET-COUNT NORMALIZATION.
-   Previous issue: missing set-count metadata defaulted to two sets, inflating
-   per-set game averages for three- or five-set matches. Fixed so set count is
-   derived from reliable available metadata or the record is excluded rather
-   than assuming a two-set match.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify form normalization.
-*/
       const normalizeMatchGames = (series) => series.map(function(m) {
         if (!Number.isFinite(m.playerGames)) return null;
         const derivedSetCount = Array.isArray(m.aSets) && m.aSets.length ? m.aSets.length : (Array.isArray(m.bSets) && m.bSets.length ? m.bSets.length : null);
@@ -6405,6 +6332,9 @@ let g_clearDebug = {
       const brutalB = null;
       // ESPN is the sole history source. No secondary provider is consulted.
       latestFetchedContext = {
+        recentA: recentAWindow.slice(0,5),
+        recentB: recentBWindow.slice(0,5),
+        h2h: h2h.slice(0,5),
         matchupKey: matchupKey(league, qs("teamAName").value, qs("teamBName").value),
         tour: league,
         surface: currentSurface || "",
@@ -6416,6 +6346,8 @@ let g_clearDebug = {
         eloA, eloB, 
         recentMatchA: bayesianANorm, recentMatchB: bayesianBNorm,
         recentSet1A: bayesianS1A, recentSet1B: bayesianS1B,
+        recentA: recentAWindow.slice(0,5), recentB: recentBWindow.slice(0,5),
+        h2h: h2h.slice(0,5),
         pointStatsA: ctxPointStatsA.slice(), pointStatsB: ctxPointStatsB.slice(),
         h2hMatch: h2hMatchTotals, h2hSet1: h2hSet1Totals, h2hRichMatch: h2hRichMatch, h2hRichSet1: h2hRichSet1,
         h2hPlayerA: h2hPlayerAGames, h2hPlayerB: h2hPlayerBGames,
@@ -6467,6 +6399,234 @@ let g_clearDebug = {
       }
     }
   }
+
+  // ---- Runtime compatibility layer -------------------------------------------------
+  // These helpers are intentionally small and synchronous where callers expect a
+  // sync API. Tracker persistence is local-only; no client secret or public worker
+  // endpoint is embedded in the engine.
+  function stopLiveClockTicker() {
+    if (_liveTickTimer) clearInterval(_liveTickTimer);
+    _liveTickTimer = null;
+    if (_liveClockPollTimer) clearTimeout(_liveClockPollTimer);
+    _liveClockPollTimer = null;
+  }
+  function getTrackerItems() {
+    const normalized=normalizeTrackerState(g_trackerState);
+    const deleted=getDeletedTrackerKeys();
+    return normalized.items.filter(function(item){ return item && item.id && !deleted.has(String(item.id)); });
+  }
+  function saveTrackerItems(items) {
+    const normalized=normalizeTrackerState({items:Array.isArray(items)?items:[] ,vId:(g_trackerSaveVersion||0)+1,updatedAt:new Date().toISOString()});
+    g_trackerState=normalized;
+    g_trackerSaveVersion=normalized.vId||0;
+    g_trackerDebug.lastLocalCount=normalized.items.length;
+    g_trackerDebug.lastLocalSaveAt=new Date().toISOString();
+    void writeAsync(TRACKER_CACHE_KEY,normalized).then(function(ok){
+      if(!ok&&typeof window.engineDebug==="function") window.engineDebug("TRACKER LOCAL SAVE FAILED");
+      renderTrackerDebug();
+    });
+    return true;
+  }
+  function getTrackerHeaders() { return {"Content-Type":"application/json"}; }
+  async function hydrateTrackerState() {
+    try { await window.loadTrackerStateFromLocal(); }
+    catch(err) { if(typeof window.engineDebug==="function") window.engineDebug("TRACKER HYDRATE FAILED",String(err&&err.message||err)); }
+    updateTrackerUI();
+    return g_trackerState;
+  }
+  function updateTrackerUI() {
+    const items=getTrackerItems();
+    const active=items.filter(function(i){return !i.archived;});
+    const archived=items.filter(function(i){return i.archived;});
+    const summary=qs("trackerSummary");
+    const settled=items.filter(function(i){return ["WIN","LOSS","PUSH"].includes(String(i.status).toUpperCase());});
+    const wins=settled.filter(function(i){return String(i.status).toUpperCase()==="WIN";});
+    if(summary) summary.textContent=items.length+" saved • "+settled.length+" settled • "+wins.length+" wins";
+    const empty=qs("trackerEmpty"); if(empty) empty.style.display=active.length?"none":"block";
+    const body=qs("trackedPicksBody");
+    if(body){
+      body.innerHTML=active.map(function(item){
+        const status=String(item.status||"PENDING").toUpperCase();
+        const actions=status==="PENDING" ? '<button class="tracker-settle-btn" data-id="'+htmlEscape(item.id)+'" data-manual-settle="WIN">W</button><button class="tracker-settle-btn" data-id="'+htmlEscape(item.id)+'" data-manual-settle="LOSS">L</button><button class="tracker-settle-btn" data-id="'+htmlEscape(item.id)+'" data-manual-settle="PUSH">P</button>' : '<button class="tracker-settled-edit-btn" data-id="'+htmlEscape(item.id)+'">Edit</button>';
+        return '<tr><td>'+htmlEscape(item.savedAt?new Date(item.savedAt).toLocaleDateString():"")+'</td><td>'+htmlEscape(item.tour||"")+'</td><td>'+htmlEscape(item.match||"")+'</td><td>'+htmlEscape(item.market||"")+'</td><td>'+htmlEscape(item.line==null?"":String(item.line))+'</td><td>'+htmlEscape(item.pick||item.rawPick||"")+'</td><td>'+htmlEscape(item.confidence||"")+'</td><td>'+htmlEscape(status)+' '+actions+' <button class="tracker-delete-pick" data-id="'+htmlEscape(item.id)+'">×</button></td></tr>';
+      }).join("");
+    }
+    const archiveWrap=qs("trackerArchiveWrap"); const archiveBody=qs("trackerArchiveBody");
+    if(archiveWrap) archiveWrap.style.display=archived.length?"block":"none";
+    if(archiveBody) archiveBody.innerHTML=archived.map(function(item){return '<tr><td>'+htmlEscape(item.savedAt?new Date(item.savedAt).toLocaleDateString():"")+'</td><td>'+htmlEscape(item.match||"")+'</td><td>'+htmlEscape(item.market||"")+'</td><td>'+htmlEscape(item.line==null?"":String(item.line))+'</td><td>'+htmlEscape(item.pick||item.rawPick||"")+'</td><td>'+htmlEscape(item.confidence||"")+'</td><td>'+htmlEscape(item.edge==null?"":String(item.edge))+'</td><td>'+htmlEscape(item.status||"")+'</td></tr>';}).join("");
+    renderTrackerAnalytics();
+  }
+  function renderTrackerAnalytics() {
+    const items=getTrackerItems(); const settled=items.filter(function(i){return ["WIN","LOSS","PUSH"].includes(String(i.status).toUpperCase());});
+    const wins=settled.filter(function(i){return String(i.status).toUpperCase()==="WIN";}).length;
+    const losses=settled.filter(function(i){return String(i.status).toUpperCase()==="LOSS";}).length;
+    const pushes=settled.filter(function(i){return String(i.status).toUpperCase()==="PUSH";}).length;
+    const rate=(wins+losses)>0?((wins/(wins+losses))*100).toFixed(1)+"%":"n/a";
+    const calibrationRows=settled.map(function(i){
+      return {
+        actualTotalPoints: Number.isFinite(Number(i.actualTotal)) ? Number(i.actualTotal) : null,
+        predictedTotalPoints: Number.isFinite(Number(i.projection)) ? {
+          mean:Number(i.projection), p10:Number(i.projectionP10), p90:Number(i.projectionP90)
+        } : null,
+        actualTotalSets: Number.isFinite(Number(i.actualTotalSets)) ? Number(i.actualTotalSets) : null,
+        predictedTotalSets: i.projectionSetsProbabilities ? { probabilities:i.projectionSetsProbabilities } : null
+      };
+    });
+    // Run the model's canonical calibration implementation against settled real
+    // results. This keeps the tracker analytics and the exported calibration API
+    // on the same metric definitions rather than maintaining two divergent
+    // implementations.
+    const modelCalibration=calculateCalibrationMetrics(calibrationRows);
+    window.__TENNIS_LIVE_CALIBRATION=modelCalibration;
+    const pointMAE=modelCalibration.points.MAE;
+    const coverage=modelCalibration.points.P10P90Coverage;
+    const setBrier=modelCalibration.sets.Brier;
+    const setLogLoss=modelCalibration.sets.LogLoss;
+    const calibration=settled.length ? " • Calibration: point MAE "+(pointMAE==null?"n/a":pointMAE.toFixed(2))+"; P10-P90 "+(coverage==null?"n/a":(coverage*100).toFixed(1)+"%")+"; set Brier "+(setBrier==null?"n/a":setBrier.toFixed(3))+"; set log-loss "+(setLogLoss==null?"n/a":setLogLoss.toFixed(3)) : "";
+    const el=qs("trackerAnalyticsPanel"); if(el) el.textContent=settled.length?"Settled: "+settled.length+" • W "+wins+" / L "+losses+" / P "+pushes+" • Win rate "+rate+calibration:"No settled picks yet.";
+    const ms=qs("trackerMarketSummary"); if(ms) ms.textContent=items.length?"Local tracker only • "+items.length+" total entries":"";
+  }
+  function refreshTrackerNow() { updateTrackerUI(); return g_trackerState; }
+  function setTrackerView(view) { const title=qs("trackerHeadTitle"); if(title) title.textContent=(view==="report"?"Tracker Report":"Tracked Picks"); }
+  function openTrackerModal() {
+    const modal=qs("trackerModal"); if(!modal) return;
+    modal.classList.add("open"); modal.setAttribute("aria-hidden","false"); document.body.classList.add("tracker-open");
+    setTrackerView("list"); updateTrackerUI();
+  }
+  function showTrackerDeleteConfirm(label) {
+    const modal=qs("trackerDeleteConfirm"), text=qs("trackerDeleteConfirmText"), ok=qs("trackerDeleteOkBtn"), cancel=qs("trackerDeleteCancelBtn");
+    if(!modal||!ok||!cancel) return Promise.resolve(window.confirm("Delete tracked pick?"));
+    text.textContent="Delete "+(label||"this pick")+" permanently?";
+    modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
+    return new Promise(function(resolve){
+      function finish(value){ modal.classList.remove("open"); modal.setAttribute("aria-hidden","true"); ok.onclick=null; cancel.onclick=null; resolve(value); }
+      ok.onclick=function(){finish(true);}; cancel.onclick=function(){finish(false);};
+    });
+  }
+  function deleteTrackerItemForever(id) {
+    addDeletedTrackerKey(String(id));
+    g_trackerState.items=getTrackerItems().filter(function(i){return String(i.id)!==String(id);});
+    saveTrackerItems(g_trackerState.items); updateTrackerUI();
+  }
+  function isActuallyCompletedTennisRecord(record) { return !!(record&&record.status&&record.status.completed&&!record.retired); }
+  function settleTrackerItemFromRecord(item, record) {
+    if(!item||!isActuallyCompletedTennisRecord(record)) return item;
+    const market=String(item.market||"").toLowerCase();
+    const isSets=market.includes("set");
+    const actual=isSets ? Number(record.setCount) : Number(record.totalGames);
+    const line=Number(item.line);
+    if(!Number.isFinite(actual)||!Number.isFinite(line)) return item;
+    if(isSets) item.actualTotalSets=actual; else item.actualTotal=actual;
+    const pick=String(item.rawPick||item.pick||"").toUpperCase();
+    if(pick==="OVER") item.status=actual>line?"WIN":actual<line?"LOSS":"PUSH";
+    else if(pick==="UNDER") item.status=actual<line?"WIN":actual>line?"LOSS":"PUSH";
+    if(item.status!=="PENDING") item.settledAt=new Date().toISOString();
+    return item;
+  }
+  function recordMatchesTrackerItem(record,item) {
+    if(!record||!item) return false;
+    const a=String(item.playerAId||""), b=String(item.playerBId||"");
+    const ra=String(record.playerAId||""), rb=String(record.playerBId||"");
+    const idsMatch=a&&b&&ra&&rb && ((a===ra&&b===rb)||(a===rb&&b===ra));
+    if(idsMatch) return true;
+    const names=normalizeName(item.playerAName||"")+"|"+normalizeName(item.playerBName||"");
+    const recNames=normalizeName(record.playerAName||"")+"|"+normalizeName(record.playerBName||"");
+    const recNamesReverse=normalizeName(record.playerBName||"")+"|"+normalizeName(record.playerAName||"");
+    return names && (names===recNames || names===recNamesReverse);
+  }
+  async function fetchTrackerSettlementRecord(item) {
+    const tour=String(item.tour||"").trim().toLowerCase();
+    const fixtureDate=item.fixtureDate||item.savedAt||null;
+    if(!tour||!fixtureDate) return null;
+    const center=new Date(fixtureDate);
+    if(!Number.isFinite(center.getTime())) return null;
+    const dates=[];
+    for(let delta=-1;delta<=1;delta++){
+      const d=addDays(center,delta);
+      const key=dateKeyInTimeZone(d,"America/New_York");
+      if(key && dates.indexOf(key)<0) dates.push(key);
+    }
+    const scopes=[tour,"all"];
+    for(const dayKey of dates){
+      for(const scope of scopes){
+        try {
+          const payload=await fetchTennisScoreboard(scope,dayKey);
+          const records=extractCompetitionRecords(payload);
+          const found=records.find(function(r){return isActuallyCompletedTennisRecord(r)&&recordMatchesTrackerItem(r,item);});
+          if(found) return found;
+        } catch(err) {
+          if(typeof window.engineDebug==="function") window.engineDebug("Tracker settlement query failed",String(err&&err.message||err));
+        }
+      }
+    }
+    return null;
+  }
+  async function autoSettleTracker() {
+    const items=getTrackerItems();
+    const pending=items.filter(function(i){return String(i.status).toUpperCase()==="PENDING";}).slice(0,20);
+    if(!pending.length){ updateTrackerUI(); return true; }
+    let changed=false;
+    for(const item of pending){
+      try {
+        const record=await fetchTrackerSettlementRecord(item);
+        if(record){ settleTrackerItemFromRecord(item,record); changed=changed || item.status!=="PENDING"; }
+      } catch(err) {
+        if(typeof window.engineDebug==="function") window.engineDebug("Tracker auto-settle failed",String(err&&err.message||err));
+      }
+    }
+    if(changed){
+      saveTrackerItems(items);
+      g_trackerState.items=items.map(normalizeTrackerItem);
+    }
+    updateTrackerUI();
+    return true;
+  }
+  function forceTrackerSaveNow() { return saveTrackerItems(getTrackerItems()); }
+  function renderClearDebug() {}
+  function getClearDebugSnapshot() { return {nonEmpty:[],collapsedMap:{}}; }
+  function clearAutoTags() {
+    ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(function(id){const el=qs(id);if(el)el.style.display="none";});
+    clearFetchedAutofill();
+  }
+  function clearFetchedAutofill() {
+    ["aFTScored","aFTAllowedOpp","aFTAllowed","aSet1AllowedOpp","bFTScored","bFTAllowedOpp","bFTAllowed","bSet1AllowedOpp","aFTH2H","a1HH2H"].forEach(function(id){const el=qs(id);if(el)el.value="";});
+    ["tournamentDisplay","leagueLevelDisplay","formatDisplay","roundDisplay"].forEach(function(id){const el=qs(id);if(el)el.value="";});
+    latestFetchedContext=null; ctxPointStatsA=[]; ctxPointStatsB=[];
+    updatePointStatsAutoStatus("Waiting for match selection.","info");
+  }
+  function showRunError(message) {
+    const msg=String(message||"Engine run failed.");
+    setRunStatus(msg,"err"); setHeaderError(true,msg); hideResults();
+    const body=qs("resultsBody"); if(body) body.innerHTML='<tr><td colspan="5" class="results-empty-cell"><strong>RUN FAILED</strong><br>'+htmlEscape(msg)+'</td></tr>';
+    g_trackerDebug.lastEngineError=msg;
+    if(typeof window.engineDebug==="function") window.engineDebug("ENGINE RUN FAILED",{message:msg});
+  }
+  function buildTrackerEntriesFromBundle(bundle) {
+    const out=[]; const result=bundle&&bundle.matchResult; if(!result||result.status!=="OK") return out;
+    const now=new Date().toISOString(); const base={savedAt:now,tour:bundle.tour,playerAName:bundle.playerAName,playerBName:bundle.playerBName,match:bundle.playerAName+" vs "+bundle.playerBName,playerAId:bundle.playerAId,playerBId:bundle.playerBId,competitionId:bundle.competitionId||"",eventId:bundle.eventId||"",fixtureDate:bundle.fixtureDate||"",tournamentName:bundle.context&&bundle.context.tournamentName||"",eventLevel:bundle.context&&bundle.context.eventLevel||"",roundName:bundle.context&&bundle.context.roundName||""};
+    if(result.picks&&result.picks.totalPoints&&result.picks.totalPoints.pick!=="PASS") out.push(normalizeTrackerItem(Object.assign({},base,{id:"tp_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),market:"Total Points",line:result.marketComparison&&result.marketComparison.totalPoints?result.marketComparison.totalPoints.line:"",projection:result.totalPoints&&result.totalPoints.mean,projectionP10:result.totalPoints&&result.totalPoints.p10,projectionP90:result.totalPoints&&result.totalPoints.p90,edge:result.picks.totalPoints.edge,pick:result.picks.totalPoints.pick,rawPick:result.picks.totalPoints.pick,confidence:result.picks.totalPoints.confidence,status:"PENDING",notes:result.notes.join(" | ")})));
+    if(result.picks&&result.picks.totalSets&&result.picks.totalSets.pick!=="PASS") out.push(normalizeTrackerItem(Object.assign({},base,{id:"ts_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),market:"Total Sets",line:result.marketComparison&&result.marketComparison.totalSets?result.marketComparison.totalSets.line:"",projection:result.totalSets&&result.totalSets.mean,projectionSetsProbabilities:result.totalSets&&result.totalSets.probabilities,edge:result.picks.totalSets.edge,pick:result.picks.totalSets.pick,rawPick:result.picks.totalSets.pick,confidence:result.picks.totalSets.confidence,status:"PENDING",notes:result.notes.join(" | ")})));
+    g_trackerDebug.lastGeneratedEntries=out.length; g_trackerDebug.lastGeneratedPicks=out.map(function(i){return i.pick;}); return out;
+  }
+  function autoSaveCurrentRunToTracker() {
+    const entries=buildTrackerEntriesFromBundle(latestRunBundle); if(!entries.length) return 0;
+    saveTrackerItems(getTrackerItems().concat(entries)); updateTrackerUI(); return entries.length;
+  }
+  function clearAll() {
+    const ids=["leagueSelect","fixtureSelect","surfaceSelect","indoorOutdoorSelect","teamAName","teamBName","totalPointsMarket","totalSetsMarket","runStatus","fetchStatus"];
+    ids.forEach(function(id){const el=qs(id);if(el){if(el.tagName==="SELECT")el.value="";else el.value="";}});
+    selectedPlayerIds.A=null; selectedPlayerIds.B=null; fixtureRecordMap.clear(); fixtureLoadToken+=1; clearFetchedAutofill(); hideResults(); latestRunBundle=null; setRunStatus("","" ); setFetchStatus("Select ATP or WTA first.","");
+    collapseAll(); openSection("leagueSection"); updateSectionLocks();
+  }
+  function applyHardResetState() { clearAll(); historyPoolCache.clear(); historyPoolCacheFetchedAt.clear(); espnScoreboardRequestCache.clear(); httpJsonCache.clear(); httpJsonInFlight.clear(); }
+  
+  // Define the debug surface before DOMContentLoaded and before any async boot probes.
+  window.engineDebug = window.engineDebug || function(msg, detail) {
+    const textMsg=String(msg||"ENGINE"); const stamp=new Date().toLocaleTimeString();
+    try { g_engineDebugLog.unshift("["+stamp+"] "+textMsg+(detail!==undefined?" | "+(typeof detail==="string"?detail:JSON.stringify(detail)):"")); if(g_engineDebugLog.length>180)g_engineDebugLog=g_engineDebugLog.slice(0,180); } catch(_) {}
+    if(typeof AFDB!=="undefined"&&AFDB&&typeof AFDB.log==="function") { try { AFDB.log(/error|fail|critical/i.test(textMsg)?"ERROR":/warn|missing/i.test(textMsg)?"WARN":"ENGINE","ENGINE",textMsg,detail); } catch(_) {} }
+  };
+
 document.addEventListener("DOMContentLoaded", function () {
     applySavedTheme();
     document.querySelectorAll(".section").forEach(function (section) {
@@ -6476,8 +6636,9 @@ document.addEventListener("DOMContentLoaded", function () {
     collapseAll();
     updateSectionLocks();
     forceStartupCollapsedLayout();
-    openSection("marketSection");
-    updatePointStatsAutoStatus("Select a match and run Fetch Stats. Point data is auto-fetched; no manual point inputs are accepted.", "info");
+    openSection("leagueSection");
+    openSection("espnSection");
+    updatePointStatsAutoStatus("Select a match and run Fetch Stats. Score history is auto-fetched; point-level serve/return summaries are optional enrichment.", "info");
     document.querySelectorAll(".section").forEach(syncSectionBodyDisplay);
     hideResults();
     clearHeaderError();
@@ -6611,7 +6772,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!itemId || !["WIN", "LOSS", "PUSH"].includes(resultStatus)) return;
       btn.disabled = true;
       Promise.resolve(settleTrackedPick(itemId, resultStatus))
-        .catch(function(err) { if (typeof engineDebug === "function") engineDebug("settle failed", err && err.message); else console.error("[Tennis Engine] settle failed", err); })
+        .catch(function(err) { if (typeof window.engineDebug === "function") window.engineDebug("settle failed", err && err.message); else console.error("[Tennis Engine] settle failed", err); })
         .finally(function() { btn.disabled = false; });
     }
     window.settleTrackedPick = settleTrackedPick;
@@ -6655,12 +6816,11 @@ document.addEventListener("DOMContentLoaded", function () {
         if (leagueSelect.value) {
           openSection("espnSection");
           loadFixtures(currentFixtureOffset);
-          fetchHistoryPool(leagueSelect.value); 
         } else {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
           setFetchStatus("Select ATP or WTA first.", "");
           collapseAll();
-          openSection("marketSection");
+          openSection("leagueSection");
         }
       });
     }
@@ -6735,16 +6895,13 @@ document.addEventListener("DOMContentLoaded", function () {
     runInitStep("loadBucketPerformance", loadBucketPerformance);
     runInitStep("updateTrackerUI", updateTrackerUI);
     runInitStep("renderTrackerDebug", renderTrackerDebug);
-    hydrateTrackerState(true).then(function () {
+    hydrateTrackerState().then(function () {
       updateTrackerUI();
       renderTrackerDebug();
       autoSettleTracker(true);
-    });
+    }).catch(function(err){ if(typeof window.engineDebug==="function") window.engineDebug("TRACKER INIT FAILED",String(err&&err.message||err)); });
     setInterval(function () {
-      hydrateTrackerState(true).then(function () {
-        updateTrackerUI();
-        autoSettleTracker(true);
-      });
+      hydrateTrackerState().then(function () { autoSettleTracker(true); }).catch(function(err){ if(typeof window.engineDebug==="function") window.engineDebug("TRACKER REFRESH FAILED",String(err&&err.message||err)); });
     }, 300000);
     setTrackerView("list");
     setTimeout(() => {
@@ -6759,18 +6916,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     window.addEventListener("beforeunload", function() {
       if (g_trackerState && Array.isArray(g_trackerState.items) && g_trackerState.items.length > 0) {
-        try {
-          const payload = JSON.stringify({
-            key: TRACKER_STORAGE_KEY,
-            state: normalizeTrackerState(g_trackerState)
-          });
-          fetch(TRACKER_API_URL, {
-            method: "POST",
-            headers: getTrackerHeaders(true),
-            body: payload,
-            keepalive: true
-          });
-        } catch(e) {}
+        try { void writeAsync(TRACKER_CACHE_KEY, normalizeTrackerState(g_trackerState)); }
+        catch(e) { if(typeof window.engineDebug==="function") window.engineDebug("TRACKER UNLOAD SAVE FAILED",String(e&&e.message||e)); }
       }
     });
     [["teamAName", "dropA", "A"], ["teamBName", "dropB", "B"]].forEach(function(cfg) {
@@ -6784,9 +6931,9 @@ document.addEventListener("DOMContentLoaded", function () {
         acDrop.style.display = "none";
         if (!query || query.length < 2) return;
         var league = String((qs("leagueSelect") || {}).value || "").trim().toUpperCase();
-        if (!league || !historyPoolCache.has(league)) return;
+        if (!league) return;
         var records;
-        try { records = await historyPoolCache.get(league); } catch (e) { return; }
+        try { records = historyPoolCache.has(league) ? await historyPoolCache.get(league) : await fetchHistoryPool(league); } catch (e) { if(typeof window.engineDebug==="function") window.engineDebug("Autocomplete history load failed",String(e&&e.message||e)); return; }
         if (!Array.isArray(records)) return;
         var seen = new Set();
         var pool = [];
@@ -6827,6 +6974,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       });
     });
+    window.__TENNISCEO_ENGINE_BOOT_SEEN = true;
   });
     window.copyEngineJson = function(btn) {
       if (!latestRunBundle) {
@@ -6836,12 +6984,19 @@ document.addEventListener("DOMContentLoaded", function () {
       var payload;
       try {
         payload = JSON.stringify({
-          _meta: { copiedAt: new Date().toISOString(), model: "tennis_v1_final" },
+          _meta: { copiedAt: new Date().toISOString(), model: latestRunBundle.matchResult && latestRunBundle.matchResult.modelVersion ? latestRunBundle.matchResult.modelVersion : TENNIS_MODEL_VERSION },
           tour: latestRunBundle.tour,
           playerAName: latestRunBundle.playerAName,
           playerBName: latestRunBundle.playerBName,
           context: latestRunBundle.context,
-          matchResult: latestRunBundle.matchResult,
+          matchResult: (function(){
+            var r=latestRunBundle.matchResult;
+            if(!r) return null;
+            var copy=JSON.parse(JSON.stringify(r));
+            if(copy.totalPoints) delete copy.totalPoints.samples;
+            if(copy.parameterUncertaintySimulation) delete copy.parameterUncertaintySimulation.samples;
+            return copy;
+          })(),
           set1Result: latestRunBundle.set1Result,
           teamAResult: latestRunBundle.teamAResult,
           teamBResult: latestRunBundle.teamBResult
@@ -6875,8 +7030,6 @@ document.addEventListener("DOMContentLoaded", function () {
     window.renderTrackerDebug = renderTrackerDebug;
     window.refreshTrackerNow = refreshTrackerNow;
     window.forceTrackerSaveNow = forceTrackerSaveNow;
-    window.loadTrackerStateFromLocal = loadTrackerStateFromLocal;
-    window.saveTrackerStateToLocal = saveTrackerStateToLocal;
     window.normalizeTrackerState = normalizeTrackerState;
     window.openTrackerModal = openTrackerModal;
     window.setTrackerView = setTrackerView;
@@ -6927,11 +7080,10 @@ document.addEventListener("DOMContentLoaded", function () {
           setTimeout(function() { statusEl.textContent = ""; statusEl.style.color = ""; }, 2000);
         }
         if (btn) btn.style.opacity = "1";
-        if (typeof engineDebug === "function") engineDebug("MILITARY RAID FAIL", err && err.message ? err.message : String(err));
+        if (typeof window.engineDebug === "function") window.engineDebug("MILITARY RAID FAIL", err && err.message ? err.message : String(err));
       });
     };
 })();
-
 </script>
 <div id="afdbOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,0.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
   <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;"></div>
@@ -6957,15 +7109,6 @@ const AFDB = (function() {
     _currentLogLevel = levels[(levels.indexOf(_currentLogLevel) + 1) % levels.length];
     _render();
   }
-  /* AUDIT-SKIP — ALREADY FIXED:
-   AFDB CLIPBOARD COPY FEEDBACK.
-   Previous issue: navigator.clipboard.writeText() was asynchronous, but the
-   success state was shown immediately and the synchronous try/catch could not
-   catch a rejected Promise. Fixed by handling clipboard success/failure
-   asynchronously and only reporting success after the write succeeds.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify clipboard handling.
-*/
   async function copy(btnEl) {
     const text = _log.slice().reverse().map(function(e) {
       var line = '[' + e.ts + '] [' + e.level + '] [' + e.section + '] ' + e.msg;
@@ -6993,14 +7136,6 @@ const AFDB = (function() {
   function _render() {
     var panel = document.getElementById('afdbPanel');
     if (!panel) return;
-    /* AUDIT-SKIP — ALREADY FIXED:
-   AFDB LOG-SEVERITY FILTER.
-   Previous issue: the WARN filter could hide ERROR entries because the severity
-   inclusion logic was asymmetric. Fixed so the diagnostic filtering behavior
-   is consistent with the intended severity hierarchy.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify AFDB filtering.
-*/
     // BUG FIX — LOG-SEVERITY FILTER DIRECTION:
     // Filtering should show "this severity and more severe", not both
     // directions. WARN should also surface ERROR (more severe), but ERROR
@@ -7091,14 +7226,6 @@ setTimeout(function() {
 if (typeof window.setTrackerView === 'function') window.setTrackerView('report'); 
 }, 80); 
 } 
-/* AUDIT-SKIP — ALREADY FIXED:
-   AFDB MANUAL SETTLEMENT ACTION.
-   Previous issue: settleNow() existed but was not reachable from the rendered
-   debug console UI. Fixed by connecting the manual settlement action to the
-   diagnostic interface.
-   This section has already been audited and remediated. DO NOT RE-AUDIT OR
-   MODIFY THIS FIX unless specifically asked to verify the AFDB settlement UI.
-*/
 function settleNow(btnEl) { 
 if (btnEl) { var orig = btnEl.innerHTML; btnEl.innerHTML = '⏳ Running...'; btnEl.disabled = true; } 
 log('INFO', 'SETTLE', 'Manual settlement triggered — watch for SETTLE P1/P2 entries below...'); 
