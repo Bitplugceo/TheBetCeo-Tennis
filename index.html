@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2777,6 +2778,7 @@ title="Show issues">
 })();
 </script>
 <script>
+
 window.__TENNISCEO_ENGINE_BOOT_SEEN = true;
 window.__BETCEO_SESSION_ID = "sess_tennis_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
 const ENGINE_INTEGRITY_SHIELD = {
@@ -3770,7 +3772,7 @@ let g_clearDebug = {
       return Number.isFinite(n) && n >= 0 ? n : null;
     }
     function statValueToProbability(v) { return normalizePctValue(v); }
-    function extractCompetitorPointStats(payload, athleteId, athleteName) {
+    function extractCompetitorPointStats(payload, athleteId, athleteName, assumeTarget) {
       const wantedId = String(athleteId || "");
       const wantedName = normalizeName(athleteName || "");
       const found = {
@@ -3828,12 +3830,42 @@ let g_clearDebug = {
           if (v && typeof v === "object") walk(v, target);
         });
       }
-      walk(payload, false);
+      walk(payload, !!assumeTarget);
       if (found.service == null && Number.isFinite(found.serviceWon) && Number.isFinite(found.servicePlayed) && found.servicePlayed > 0) found.service = found.serviceWon / found.servicePlayed;
       if (found.ret == null && Number.isFinite(found.returnWon) && Number.isFinite(found.returnPlayed) && found.returnPlayed > 0) found.ret = found.returnWon / found.returnPlayed;
       if (found.first == null && Number.isFinite(found.firstWon) && Number.isFinite(found.firstPlayed) && found.firstPlayed > 0) found.first = found.firstWon / found.firstPlayed;
       if (found.second == null && Number.isFinite(found.secondWon) && Number.isFinite(found.secondPlayed) && found.secondPlayed > 0) found.second = found.secondWon / found.secondPlayed;
       return found;
+    }
+    async function fetchTennisCompetitorPointStats(league, record, playerId) {
+      const eventId = String(record && (record.eventId || record.competitionId) || "").trim();
+      const competitionId = String(record && (record.competitionId || record.eventId) || "").trim();
+      const athleteId = String(playerId || "").trim();
+      if (!eventId || !competitionId || !athleteId) return null;
+      const leagueSlug = String(league || "").trim().toLowerCase();
+      const leagueCandidates = [];
+      [leagueSlug, "all"].forEach(function (value) {
+        if (value && leagueCandidates.indexOf(value) === -1) leagueCandidates.push(value);
+      });
+      let lastErr = null;
+      for (let i = 0; i < leagueCandidates.length; i += 1) {
+        const url = "https://sports.core.api.espn.com/v2/sports/tennis/leagues/" + leagueCandidates[i] +
+          "/events/" + encodeURIComponent(eventId) +
+          "/competitions/" + encodeURIComponent(competitionId) +
+          "/competitors/" + encodeURIComponent(athleteId) +
+          "/statistics?lang=en&region=us";
+        try {
+          const payload = await proxyFetch(url, 9000);
+          const parsed = extractCompetitorPointStats(payload, athleteId, "", true);
+          if (parsed && parsed.service != null && parsed.ret != null) return parsed;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (lastErr && typeof engineDebug === "function") {
+        engineDebug("Point-stat core endpoint unavailable", { eventId: eventId, athleteId: athleteId, error: String(lastErr.message || lastErr) });
+      }
+      return null;
     }
     async function hydratePointStatsForRecords(league, records, playerId, playerName) {
       const out = [];
@@ -3841,14 +3873,27 @@ let g_clearDebug = {
       for (const record of list) {
         if (out.length >= TENNIS_MIN_POINT_MATCHES) break;
         if (!record || !(record.competitionId || record.eventId)) continue;
+        let st = null;
         try {
-          const payload = await fetchTennisSummaryByEvent(league, record.competitionId || record.eventId);
-          const st = extractCompetitorPointStats(payload, playerId, playerName);
-          if (st.service == null || st.ret == null) continue;
-          out.push(Object.assign({}, record, { pointStats: st }));
+          const payload = await fetchTennisSummaryByEvent(league, record.eventId || record.competitionId);
+          st = extractCompetitorPointStats(payload, playerId, playerName, false);
         } catch (err) {
           if (typeof engineDebug === "function") engineDebug("Point-stat summary fetch failed", { eventId: record.competitionId || record.eventId || "", error: String(err && err.message || err) });
         }
+        // ESPN's summary schema is not consistent across tennis events. The
+        // core competitor-statistics resource is the second authoritative path
+        // and is scoped to the already-resolved athlete, so it does not require
+        // heuristic player matching.
+        if (!st || st.service == null || st.ret == null) {
+          try {
+            const coreStats = await fetchTennisCompetitorPointStats(league, record, playerId);
+            if (coreStats) st = coreStats;
+          } catch (err) {
+            if (typeof engineDebug === "function") engineDebug("Point-stat core fetch failed", { eventId: record.competitionId || record.eventId || "", error: String(err && err.message || err) });
+          }
+        }
+        if (!st || st.service == null || st.ret == null) continue;
+        out.push(Object.assign({}, record, { pointStats: st }));
       }
       return out;
     }
@@ -4072,18 +4117,21 @@ let g_clearDebug = {
       return {runs:n,mean:meanV,median:percentile(points,.5),p10:percentile(points,.1),p25:percentile(points,.25),p75:percentile(points,.75),p90:percentile(points,.9),se:Math.sqrt(Math.max(0,sum2/n-meanV*meanV)/n),sets:probabilities,samples:points};
     }
     function runMonteCarlo(pA,pB,rules){
-      const values=[]; let n=0, sum=0, sum2=0, sets={};
+      // Only total points and set-count frequencies are consumed downstream.
+      // Retaining the full per-match object (including setScores) for up to
+      // 200k runs created unnecessary allocation/GC pressure on mobile.
+      const points=[]; let n=0, sum=0, sum2=0, sets={};
       const rng=seededRng(stableSimulationSeed([pA,pB,rules.format,rules.finalSet.tiebreakType].join("|")));
       let targetRuns=TENNIS_MC_MIN_RUNS;
       while(true){
-        while(n<targetRuns){const m=simulateFullMatchOnce(pA,pB,rules,rng);values.push(m);n++;sum+=m.totalPoints;sum2+=m.totalPoints*m.totalPoints;sets[m.totalSets]=(sets[m.totalSets]||0)+1;}
+        while(n<targetRuns){const m=simulateFullMatchOnce(pA,pB,rules,rng);points.push(m.totalPoints);n++;sum+=m.totalPoints;sum2+=m.totalPoints*m.totalPoints;sets[m.totalSets]=(sets[m.totalSets]||0)+1;}
         const meanV=sum/n; const variance=Math.max(0,sum2/n-meanV*meanV); const meanSE=Math.sqrt(variance/n);
         const maxProbSE=Math.sqrt(0.25/n);
         if(maxProbSE<=TENNIS_MC_TARGET_SE || n>=TENNIS_MC_MAX_RUNS) break;
         targetRuns=Math.min(TENNIS_MC_MAX_RUNS,n*2);
       }
-      const pts=values.map(v=>v.totalPoints); const probabilities={}; Object.keys(sets).forEach(k=>probabilities[k]=sets[k]/n);
-      return {runs:n,mean:sum/n,median:percentile(pts,.5),p10:percentile(pts,.1),p25:percentile(pts,.25),p75:percentile(pts,.75),p90:percentile(pts,.9),se:Math.sqrt(Math.max(0,sum2/n-(sum/n)**2)/n),sets:probabilities,samples:values};
+      const probabilities={}; Object.keys(sets).forEach(k=>probabilities[k]=sets[k]/n);
+      return {runs:n,mean:sum/n,median:percentile(points,.5),p10:percentile(points,.1),p25:percentile(points,.25),p75:percentile(points,.75),p90:percentile(points,.9),se:Math.sqrt(Math.max(0,sum2/n-(sum/n)**2)/n),sets:probabilities,samples:points};
     }
     function exactSetCountDistribution(pA,pB,rules){
       function exactTB(firstServer,target){
@@ -4467,6 +4515,124 @@ let g_clearDebug = {
     if(qs("aHitIntel"))qs("aHitIntel").value=result?(result.notes||[]).join(' | '):'';
     if(qs("bHitIntel"))qs("bHitIntel").value=result&&result.status==="OK"?('pA '+(result.pA*100).toFixed(2)+'% | pB '+(result.pB*100).toFixed(2)+'% | '+result.modelVersion):'NO PLAY';
   }
+
+  /* AUDIT-FIX — RESTORE SAFE TRACKER BRIDGE.
+     The tracker UI retained references to functions that had been removed from
+     the calculation bundle. Those references executed during boot and could
+     abort the entire engine before ESPN listeners were registered. The bridge
+     below keeps tracker persistence/UI isolated from prediction execution. */
+  function getTrackerItems() {
+    return g_trackerState && Array.isArray(g_trackerState.items)
+      ? g_trackerState.items.map(normalizeTrackerItem)
+      : [];
+  }
+  async function saveTrackerItems(items) {
+    const normalized = (Array.isArray(items) ? items : []).map(normalizeTrackerItem);
+    g_trackerState = { items: normalized, updatedAt: new Date().toISOString(), vId: g_trackerSaveVersion || 0 };
+    if (typeof window.saveTrackerStateToLocal === "function") await window.saveTrackerStateToLocal(g_trackerState);
+    updateTrackerUI();
+    return normalized;
+  }
+  function updateTrackerUI() {
+    const items = getTrackerItems();
+    const summary = qs("trackerSummary");
+    if (summary) {
+      const settled = items.filter(i => ["WIN", "LOSS", "PUSH"].includes(String(i.status || "").toUpperCase())).length;
+      const wins = items.filter(i => String(i.status || "").toUpperCase() === "WIN").length;
+      summary.textContent = items.length + " saved • " + settled + " settled • " + wins + " wins";
+    }
+    const empty = qs("trackerEmpty");
+    if (empty) empty.style.display = items.length ? "none" : "block";
+    const body = qs("trackedPicksBody");
+    if (body && !items.length) body.innerHTML = "";
+    const archive = qs("trackerArchiveBody");
+    if (archive && !items.some(i => i.archived)) archive.innerHTML = "";
+  }
+  async function hydrateTrackerState(force) {
+    if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
+    g_trackerHydratePromise = (async function () {
+      try {
+        if (typeof window.loadTrackerStateFromLocal === "function") await window.loadTrackerStateFromLocal();
+      } catch (err) {
+        if (typeof window.engineDebug === "function") window.engineDebug("Local tracker hydrate failed", { message: err && err.message });
+      }
+      updateTrackerUI();
+      return g_trackerState;
+    })().finally(function () { g_trackerHydratePromise = null; });
+    return g_trackerHydratePromise;
+  }
+  async function refreshTrackerNow(force) { return hydrateTrackerState(!!force); }
+  function forceTrackerSaveNow() {
+    saveTrackerItems(getTrackerItems()).catch(function (err) {
+      if (typeof window.engineDebug === "function") window.engineDebug("Tracker local save failed", { message: err && err.message });
+    });
+  }
+  function autoSaveCurrentRunToTracker() { return 0; }
+  async function autoSettleTracker() { return { settled: 0, checked: 0 }; }
+  async function settleTrackerItemFromRecord() { return false; }
+  function isActuallyCompletedTennisRecord(record) {
+    const status = record && record.status ? record.status : {};
+    const state = String(status.state || "").toLowerCase();
+    const name = String(status.name || "").toUpperCase();
+    return !!status.completed || state === "post" || name === "STATUS_FINAL" || name === "FINAL";
+  }
+  async function deleteTrackerItemForever(id) {
+    const key = String(id || "");
+    if (!key) return false;
+    addDeletedTrackerKey(key);
+    await saveTrackerItems(getTrackerItems().filter(function (item) { return String(item.id || "") !== key; }));
+    return true;
+  }
+  function renderTrackerAnalytics() {
+    const panel = qs("trackerAnalyticsPanel");
+    if (panel) panel.innerHTML = "";
+  }
+  function openTrackerModal() {
+    const modal = qs("trackerModal");
+    if (!modal) return;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("tracker-open");
+    updateTrackerUI();
+  }
+  function setTrackerView(view) {
+    const mode = String(view || "list").toLowerCase();
+    const archive = qs("trackerArchiveWrap");
+    if (archive) archive.style.display = mode === "archive" || mode === "report" ? "block" : "none";
+  }
+  function showTrackerDeleteConfirm(label) {
+    return Promise.resolve(window.confirm("Delete this tracked pick permanently?\n\n" + String(label || "")));
+  }
+  function stopLiveClockTicker() {
+    if (_liveTickTimer) clearInterval(_liveTickTimer);
+    _liveTickTimer = null;
+  }
+  function showRunError(message) {
+    setRunStatus(String(message || "Engine run failed."), "err");
+    setHeaderError(true, String(message || "Engine run failed."));
+  }
+  function gameWinProbFromPointProb(pointProbability) {
+    const p = Number(pointProbability);
+    if (!Number.isFinite(p)) return null;
+    if (p <= 0) return 0;
+    if (p >= 1) return 1;
+    const q = 1 - p;
+    const reachDeuce = 20 * Math.pow(p, 3) * Math.pow(q, 3);
+    return Math.pow(p, 4) + 4 * Math.pow(p, 4) * q + 10 * Math.pow(p, 4) * Math.pow(q, 2) + reachDeuce * (p * p / (p * p + q * q));
+  }
+  function pointProbFromGameWinProb(gameProbability) {
+    const target = Number(gameProbability);
+    if (!Number.isFinite(target)) return null;
+    if (target <= 0) return 0;
+    if (target >= 1) return 1;
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 60; i += 1) {
+      const mid = (lo + hi) / 2;
+      if (gameWinProbFromPointProb(mid) < target) lo = mid;
+      else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
   function buildTrackerEntriesFromBundle(bundle) {
     // The replacement model produces distributions, not OVER/UNDER picks.
     g_trackerDebug.lastGeneratedEntries = 0; g_trackerDebug.lastGeneratedPicks = []; return [];
@@ -4573,10 +4739,20 @@ let g_clearDebug = {
   }
   function getTennisBaseCandidates(league) {
     const slug = String(league || "").trim().toLowerCase();
-    return [
-      "https://site.web.api.espn.com/apis/site/v2/sports/tennis/" + slug,
-      "https://site.api.espn.com/apis/site/v2/sports/tennis/" + slug
-    ];
+    const slugs = [];
+    function addSlug(value) {
+      const v = String(value || "").trim().toLowerCase();
+      if (v && slugs.indexOf(v) === -1) slugs.push(v);
+    }
+    if (slug === "atp" || slug === "wta") addSlug("all");
+    addSlug(slug);
+    const bases = [];
+    ["https://site.api.espn.com/apis/site/v2/sports/tennis/",
+     "https://site.web.api.espn.com/apis/site/v2/sports/tennis/"]
+      .forEach(function (prefix) {
+        slugs.forEach(function (candidate) { bases.push(prefix + candidate); });
+      });
+    return bases;
   }
   async function fetchJson(requestUrl, timeoutMs) {
     const controller = new AbortController();
@@ -4595,11 +4771,20 @@ let g_clearDebug = {
     }
   }
   async function proxyFetch(url, timeoutMs) {
-    const encoded = WORKER_URL.replace(/\/+$/, "") + "/?url=" + encodeURIComponent(url);
+    const timeout = timeoutMs || 7000;
     try {
-      return await fetchJson(encoded, timeoutMs || 5000);
-    } catch (workerErr) {
-      return await fetchJson(url, timeoutMs || 5000);
+      return await fetchJson(url, timeout);
+    } catch (directErr) {
+      const workerBase = String(WORKER_URL || "").replace(/\/+$/, "");
+      if (!workerBase) throw directErr;
+      const encoded = workerBase + "/?url=" + encodeURIComponent(url);
+      try {
+        return await fetchJson(encoded, timeout);
+      } catch (workerErr) {
+        const directMessage = directErr && directErr.message ? directErr.message : String(directErr);
+        const workerMessage = workerErr && workerErr.message ? workerErr.message : String(workerErr);
+        throw new Error("ESPN request failed: direct=" + directMessage + "; proxy=" + workerMessage);
+      }
     }
   }
   // Share completed/in-flight ESPN scoreboard requests between Player A,
@@ -4618,14 +4803,18 @@ let g_clearDebug = {
         return base + "/scoreboard?region=us&lang=en&limit=1000&dates=" + encodeURIComponent(datesQuery);
       });
       let lastErr = null;
+      let firstValidPayload = null;
       for (const url of urls) {
         try {
-          const payload = await proxyFetch(url, 5000);
-          if (payload && Array.isArray(payload.events)) return payload;
+          const payload = await proxyFetch(url, 7000);
+          if (!payload || !Array.isArray(payload.events)) continue;
+          if (!firstValidPayload) firstValidPayload = payload;
+          if (payload.events.length) return payload;
         } catch (err) {
           lastErr = err;
         }
       }
+      if (firstValidPayload) return firstValidPayload;
       throw lastErr || new Error("Unable to load ESPN tennis scoreboard data.");
     })();
 
@@ -5123,7 +5312,10 @@ let g_clearDebug = {
     const set1Total = Number.isFinite(playerASet1Games) && Number.isFinite(playerBSet1Games) ? playerASet1Games + playerBSet1Games : null;
     return {
       competitionId: String(comp.id || ""),
-      eventId: String(comp.id || (parentEvent && parentEvent.id) || ""),
+      // ESPN distinguishes the event container from its competition. The
+      // previous code incorrectly used competitionId as eventId, which made
+      // core competitor-statistics lookups address the wrong resource.
+      eventId: String((parentEvent && parentEvent.id) || comp.id || ""),
       tournamentName: tournamentName,
       eventLevel: eventLevel,
       roundName: String(comp.round && comp.round.displayName || "").trim(),
@@ -5228,14 +5420,14 @@ let g_clearDebug = {
       return;
     }
     const token = fixtureLoadToken;
-    const dateQuery = dateKeyLocal(offset);
+    const targetDayKey = dateKeyLocal(offset);
+    const dateQuery = dateKeyLocal(offset - 1) + "-" + dateKeyLocal(offset + 1);
     setFetchStatus("Loading " + league + " fixtures from ESPN...", "loading");
     select.innerHTML = '<option value="">Loading matches...</option>';
     try {
       const payload = await fetchTennisScoreboard(league, dateQuery);
       if (token !== fixtureLoadToken) return;
       const now = new Date();
-      const targetDayKey = dateKeyLocal(offset);
       const records = extractCompetitionRecords(payload).filter(function (record) {
         const statusObj = record.status || {};
         const state = String(statusObj.state || "").toLowerCase();
@@ -6739,6 +6931,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     };
 })();
+
 </script>
 <div id="afdbOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,0.96);flex-direction:column;font-family:ui-monospace,Consolas,monospace;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);">
   <div id="afdbPanel" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;"></div>
