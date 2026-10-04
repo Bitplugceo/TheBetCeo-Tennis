@@ -1,4 +1,3 @@
-S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5886,7 +5885,67 @@ let g_clearDebug = {
       })
       .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
 
+    if (h2h.length < maxMeetings) {
+      const extra = await fetchH2HChunked(league, playerAId, playerBId, playerAName, playerBName, maxMeetings - h2h.length, cutoffIso);
+      if (extra.length) {
+        checks.push({ label: "h2h-chunk-hit", query: "14-day windows", records: extra.length, exact: extra.length, fuzzy: 0, relaxed: 0, sample: "" });
+        deduped = dedupeRecords(deduped.concat(extra));
+        h2h = buildH2HSeries(deduped, playerAId, playerBId, playerAName, playerBName)
+          .filter(function (record) {
+            const d = new Date(record.date);
+            return Number.isFinite(d.getTime()) && d <= effectiveEnd;
+          })
+          .sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+      }
+    }
     return { records: deduped, h2h: h2h.slice(0, maxMeetings), checks: checks };
+  }
+
+  async function fetchH2HChunked(league, playerAId, playerBId, playerAName, playerBName, need, cutoffIso) {
+    const want = Math.max(1, Number(need) || 1);
+    const slug = String(league || "").trim().toLowerCase();
+    const scopes = [];
+    if (slug) scopes.push(slug);
+    if (slug === "atp" || slug === "wta") scopes.push("all");
+    const cutoff = cutoffIso ? new Date(cutoffIso) : new Date();
+    const end = Number.isFinite(cutoff.getTime()) ? cutoff : new Date();
+    const start = addDays(end, -730);
+    const found = [];
+    const seen = new Set();
+    let cursor = new Date(end);
+    cursor.setHours(0, 0, 0, 0);
+    let emptyRuns = 0;
+    while (found.length < want && cursor >= start && emptyRuns < 8) {
+      const chunkEnd = new Date(cursor);
+      const chunkStart = addDays(chunkEnd, -13);
+      const datesQuery = dateKeyInTimeZone(chunkStart < start ? start : chunkStart, "America/New_York") + "-" + dateKeyInTimeZone(chunkEnd, "America/New_York");
+      let batch = [];
+      for (let s = 0; s < scopes.length && !batch.length; s += 1) {
+        try {
+          const payload = await fetchTennisScoreboard(scopes[s], datesQuery);
+          batch = extractCompetitionRecords(payload).filter(function (record) {
+            return record && record.status && record.status.completed && !record.retired &&
+              Number.isFinite(record.totalGames) && Number.isFinite(record.set1Total);
+          });
+        } catch (err) {
+          batch = [];
+        }
+      }
+      const hits = buildH2HSeries(batch, playerAId, playerBId, playerAName, playerBName).filter(function (record) {
+        const d = new Date(record.date);
+        return Number.isFinite(d.getTime()) && d < end;
+      });
+      hits.forEach(function (record) {
+        const key = [record.playerAId, record.playerBId].sort().join("|") + "|" + String(record.date || "").slice(0, 10) + "|" + record.totalGames;
+        if (seen.has(key)) return;
+        seen.add(key);
+        found.push(record);
+      });
+      emptyRuns = hits.length ? 0 : emptyRuns + 1;
+      cursor = addDays(chunkStart, -1);
+      if (found.length >= want) break;
+    }
+    return found;
   }
 
   function buildRecentSeries(records, playerId) {
@@ -7019,6 +7078,12 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
     window.__TENNISCEO_ENGINE_BOOT_SEEN = true;
+
+document.querySelectorAll(".section").forEach(function (section) {
+  if (typeof wrapSection === "function") wrapSection(section);
+  if (typeof syncSectionBodyDisplay === "function") syncSectionBodyDisplay(section);
+});
+if (typeof forceStartupCollapsedLayout === "function") forceStartupCollapsedLayout();
   });
     window.copyEngineJson = function(btn) {
       if (!latestRunBundle) {
