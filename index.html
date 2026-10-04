@@ -1,3 +1,4 @@
+S
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2445,8 +2446,7 @@ title="Show issues">
     <select id="leagueSelect" class="league-box" style="max-width:50%;">
       <option value="">- Select Tour -</option>
       <option value="ATP">ATP</option>
-      <option value="WTA">WTA</option>
-    </select>
+          </select>
   </div>
   <div class="section" id="espnSection">
     <h3>⚡ ESPN Auto-Fetch</h3>
@@ -2489,7 +2489,7 @@ title="Show issues">
 </div>
 <div style="margin-top:6px;">
   <button type="button" id="fetchStatsBtn" class="fetch-btn">Fetch Stats</button>
-  <div id="fetchStatus" style="margin-top:4px; font-size:10px;">Select ATP or WTA, then pick a match to auto-fetch stats.</div>
+  <div id="fetchStatus" style="margin-top:4px; font-size:10px;">Select ATP, then pick a match to auto-fetch stats.</div>
   <label style="margin-top:8px;font-size:11px;font-weight:700;">
     <input type="checkbox" id="useTypedForm" aria-label="Use typed form instead of fetched per-set form" />
     Use typed form (ignore fetched per-set)
@@ -2505,17 +2505,15 @@ title="Show issues">
 </div>
   </div>
   <div class="section" id="marketSection">
-    <h3>Market Lines</h3>
-    <div class="section-note">Optional market inputs. These do not alter the model; they are used only to compare the model distribution with the book line.</div>
+    <h3>ATP Market Lines</h3>
+    <div class="section-note">Four totals markets only: Match Total Games, Player A Total Games, Player B Total Games, and Match Total Sets.</div>
     <div class="input-row-2">
-      <div class="input-col">
-        <label id="totalPointsMarketLabel">Match Total Points</label>
-        <input id="totalPointsMarket" aria-label="Match total points market line" inputmode="decimal" placeholder="e.g. 182.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
-      </div>
-      <div class="input-col">
-        <label id="totalSetsMarketLabel">Match Total Sets</label>
-        <input id="totalSetsMarket" aria-label="Match total sets market line" inputmode="decimal" placeholder="e.g. 2.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" />
-      </div>
+      <div class="input-col"><label>Match Total Games</label><input id="totalGamesMarket" aria-label="Match total games market line" inputmode="decimal" placeholder="e.g. 24.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" /></div>
+      <div class="input-col"><label>Player A Total Games</label><input id="playerATotalGamesMarket" aria-label="Player A total games market line" inputmode="decimal" placeholder="e.g. 12.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" /></div>
+    </div>
+    <div class="input-row-2" style="margin-top:4px;">
+      <div class="input-col"><label>Player B Total Games</label><input id="playerBTotalGamesMarket" aria-label="Player B total games market line" inputmode="decimal" placeholder="e.g. 11.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" /></div>
+      <div class="input-col"><label>Match Total Sets</label><input id="totalSetsMarket" aria-label="Match total sets market line" inputmode="decimal" placeholder="e.g. 2.5" style="font-size:11px;padding:5px 7px;margin-bottom:0;" /></div>
     </div>
     <div id="marketComparison" class="section-note" style="margin-top:6px;display:none;"></div>
   </div>
@@ -2591,18 +2589,18 @@ title="Show issues">
 <div style="font-size:11px;color:#7b8088;margin:0 0 8px 0;font-weight:700;line-height:1.5;">
   This engine uses recent completed score history, H2H, Elo, surface context, fatigue uncertainty, and exact tennis scoring simulation. Serve/return point summaries are optional enrichment.
 </div>
-<label>Match Point/Win Summary</label>
-<input id="aFormIntel" aria-label="Match point and win probability intelligence" style="max-width:100%;" placeholder="Games avg | Set1 avg | volatility" readonly />
-<label>Set Distribution Summary</label>
-<input id="bFormIntel" aria-label="Set distribution intelligence" style="max-width:100%;" placeholder="Games avg | Set1 avg | volatility" readonly />
-<label>Match Total Summary</label>
-<input id="aSpreadIntel" aria-label="Player A projection versus line" style="max-width:100%;" placeholder="Projection vs line" readonly />
-<label>Total Sets Summary</label>
-<input id="bSpreadIntel" aria-label="Total sets projection versus line" style="max-width:100%;" placeholder="Projection vs line" readonly />
+<label>Match Total Games</label>
+<input id="aFormIntel" aria-label="Match total games intelligence" style="max-width:100%;" placeholder="Model total games | P10/P50/P90" readonly />
+<label>Player A / B Game Projections</label>
+<input id="bFormIntel" aria-label="Player game projections" style="max-width:100%;" placeholder="Player A games | Player B games" readonly />
+<label>Total Sets Distribution</label>
+<input id="aSpreadIntel" aria-label="Total sets distribution" style="max-width:100%;" placeholder="2 sets | 3 sets | 4 sets | 5 sets" readonly />
+<label>Grades</label>
+<input id="bSpreadIntel" aria-label="Market grades" style="max-width:100%;" placeholder="Four-market grades" readonly />
 <label>Model Notes</label>
-<input id="aHitIntel" aria-label="Player A hit intelligence" style="max-width:100%;" placeholder="Blowout | chaos | fake edge" readonly />
+<input id="aHitIntel" aria-label="Player A hit intelligence" style="max-width:100%;" placeholder="Form | H2H | fatigue | data quality" readonly />
 <label>Engine Status</label>
-<input id="bHitIntel" aria-label="Player B hit intelligence" style="max-width:100%;" placeholder="Best current totals read" readonly />
+<input id="bHitIntel" aria-label="Player B hit intelligence" style="max-width:100%;" placeholder="Final ALMIGHTY PICK status" readonly />
   </div>
 </div>
 <div class="actions">
@@ -2613,22 +2611,21 @@ title="Show issues">
 </div>
 <div class="table-wrap">
   <table id="results" class="results-hidden">
-       <thead>
+    <thead>
       <tr>
-        <th>Target</th>
-        <th>Mean</th>
-        <th>Median</th>
-        <th>Range P10–P90</th>
-        <th>Distribution</th>
+        <th>Market</th>
+        <th>Pick</th>
+        <th>Model %</th>
+        <th>Grade</th>
+        <th>Value</th>
       </tr>
     </thead>
-      <tbody id="resultsBody">
-  <tr>
-    <td colspan="5" class="results-empty-cell">Run the engine to populate results.</td>
-  </tr>
-</tbody>
+    <tbody id="resultsBody">
+      <tr><td colspan="5" class="results-empty-cell">Run the engine to populate results.</td></tr>
+    </tbody>
   </table>
 </div>
+<div id="almightyPick" class="section-note" style="display:none;margin-top:8px;text-align:center;font-weight:900;"></div>
 <div id="trackerModal" class="tracker-modal" aria-hidden="true">
   <div class="tracker-panel">
     <div class="tracker-head">
@@ -2823,8 +2820,8 @@ setTimeout(function() { ENGINE_INTEGRITY_SHIELD.run(); }, 200);
     items.sort((a, b) => (Date.parse(b.savedAt || 0) - Date.parse(a.savedAt || 0)));
     return { items: items, updatedAt: source.updatedAt || null, vId: source.vId || 0 };
   }
-  const APP_BUILD_VERSION = "tennis_calc_fix_v4_calc_remainders";
-  const ENGINE_MODEL_VERSION = "tennis_v4_calc_remainders";
+  const APP_BUILD_VERSION = "ATP_TOTALS_FULL_STOLEN_v1";
+  const ENGINE_MODEL_VERSION = "atp_totals_v2_stolen";
   let g_engineDebugLog = [];
   let g_engineAlertNeedsReview = false;
   let g_trackerSaveInFlight = false;
@@ -3662,17 +3659,23 @@ let g_clearDebug = {
       Object.keys(probabilities).forEach(function(k){ const v=Number(k), p=Number(probabilities[k]||0); if(v>line) over+=p; else if(v<line) under+=p; else push+=p; });
       return {over,under,push,n:null};
     }
-    function buildMarketComparison(totalPoints, totalSets, pointLine, setLine) {
-      const out = { totalPoints:null, totalSets:null };
-      if (pointLine) {
-        const probs = marketProbabilitiesFromSamples(totalPoints.samples, pointLine.line);
-        out.totalPoints = { line:pointLine.line, raw:pointLine.raw, modelMean:totalPoints.mean, meanDelta:totalPoints.mean-pointLine.line, probabilities:probs };
-      }
-      if (setLine) {
-        const probs = marketProbabilitiesFromSetDistribution(totalSets.probabilities, setLine.line);
-        out.totalSets = { line:setLine.line, raw:setLine.raw, modelMean:totalSets.mean, meanDelta:totalSets.mean-setLine.line, probabilities:probs };
-      }
+    function buildMarketComparison(totalGames,totalSets,matchLine,playerALine,playerBLine,setLine){
+      const out={totalGames:null,playerATotalGames:null,playerBTotalGames:null,totalSets:null};
+      function add(key,obj,line){if(!line||!obj||!Array.isArray(obj.samples))return;const probs=marketProbabilitiesFromSamples(obj.samples,line.line);out[key]={line:line.line,raw:line.raw,modelMean:obj.mean,median:obj.median,p10:obj.p10,p90:obj.p90,meanDelta:obj.mean-line.line,probabilities:probs};}
+      add('totalGames',totalGames,matchLine);add('playerATotalGames',totalGames.playerA,playerALine);add('playerBTotalGames',totalGames.playerB,playerBLine);
+      if(setLine){const probs=marketProbabilitiesFromSetDistribution(totalSets.probabilities,setLine.line);out.totalSets={line:setLine.line,raw:setLine.raw,modelMean:totalSets.mean,median:totalSets.median,meanDelta:totalSets.mean-setLine.line,probabilities:probs};}
       return out;
+    }
+    function deriveTotalsPick(comparison){
+      if(!comparison||!comparison.probabilities)return {pick:'PASS',confidence:'PASS',edge:null,probability:null};
+      const over=Number(comparison.probabilities.over)||0,under=Number(comparison.probabilities.under)||0,decisive=Math.max(over,under),margin=Math.abs(over-under);
+      if(decisive<0.55||margin<0.08)return {pick:'PASS',confidence:'PASS',edge:comparison.meanDelta,probability:decisive};
+      return {pick:over>under?'OVER':'UNDER',confidence:margin>=0.20?'A':margin>=0.12?'B':'C',edge:comparison.meanDelta,probability:decisive};
+    }
+    function chooseAlmightyPick(picks){
+      const order={A:3,B:2,C:1,PASS:0};let best=null;
+      Object.keys(picks||{}).forEach(function(key){const p=picks[key];if(!p||p.pick==='PASS')return;const score=(order[p.confidence]||0)*100+(Number(p.probability)||0)*10+Math.min(9,Math.abs(Number(p.edge)||0));if(!best||score>best.score)best={market:key,pick:p.pick,confidence:p.confidence,probability:p.probability,edge:p.edge,score};});
+      return best||{market:null,pick:'NO PLAY',confidence:'PASS',probability:null,edge:null};
     }
 
     /* ========================================================================
@@ -3680,7 +3683,7 @@ let g_clearDebug = {
        Production calculation layer.
        The old games-first market model has been removed from the execution path.
        ======================================================================== */
-    const TENNIS_MODEL_VERSION = "tennis_points_sets_v1.2.0";
+    const TENNIS_MODEL_VERSION = "atp_totals_v2_stolen";
     const TENNIS_MIN_POINT_MATCHES = 5;
     const TENNIS_DEFAULT_DECAY = 0.90;
     const TENNIS_DEFAULT_SHRINKAGE_PRIOR_N = 5;
@@ -4015,7 +4018,7 @@ let g_clearDebug = {
       return (lo + hi) / 2;
     }
     function simulateFullMatchOnce(pA, pB, rules, rng) {
-      let totalPoints=0, totalGames=0, totalSets=0, setsA=0, setsB=0, server=rng()<0.5?"A":"B";
+      let totalPoints=0, totalGames=0, totalGamesA=0, totalGamesB=0, totalSets=0, setsA=0, setsB=0, server=rng()<0.5?"A":"B";
       const setScores=[], tbCount={value:0};
       function pointWinProb(srv){ return srv === "A" ? pA : 1-pB; }
       function simGame(srv){
@@ -4034,7 +4037,7 @@ let g_clearDebug = {
       while(setsA<rules.setsToWin && setsB<rules.setsToWin){
         let gA=0,gB=0, setFirst=server;
         while(true){
-          const g=simGame(server); totalGames++; if(g.winner==="A")gA++;else gB++; server=server==="A"?"B":"A";
+          const g=simGame(server); totalGames++; if(g.winner==="A"){gA++; totalGamesA++;}else{gB++; totalGamesB++;} server=server==="A"?"B":"A";
           if(gA>=6 && gA-gB>=2){setsA++;break;} if(gB>=6 && gB-gA>=2){setsB++;break;}
           if(gA===6 && gB===6){
             const final = isFinalSet(rules,setsA,setsB);
@@ -4051,7 +4054,7 @@ let g_clearDebug = {
         // ends, the next set begins with that same alternating-server state.
         // Keeping it here preserves the continuous service sequence. 
       }
-      return {totalPoints,totalGames,totalSets:setsA+setsB,setScores,tiebreakCount:tbCount.value,matchWinner:setsA>setsB?"A":"B"};
+      return {totalPoints,totalGames,totalGamesA,totalGamesB,totalSets:setsA+setsB,setScores,tiebreakCount:tbCount.value,matchWinner:setsA>setsB?"A":"B"};
     }
     function isFinalSet(rules, setsA, setsB) { return rules.format === "BO3" ? (setsA===1&&setsB===1) : (setsA===2&&setsB===2); }
     function stableSimulationSeed(parts){
@@ -4101,34 +4104,29 @@ let g_clearDebug = {
     function runParameterUncertaintyMonteCarlo(strengthA,strengthB,rules,runs){
       const n=Math.max(5000,Number(runs)||15000);
       const rng=seededRng(stableSimulationSeed(['posterior',strengthA.service,strengthB.service,strengthA.elo,strengthB.elo,rules.format,rules.finalSet.tiebreakType].join('|')));
-      const points=[], sets={}, jointCounts={}; let sum=0,sum2=0;
+      const points=[],games=[],gamesA=[],gamesB=[],sets={},jointCounts={};let sum=0,sum2=0,sumGames=0,sumGamesA=0,sumGamesB=0;
       for(let i=0;i<n;i++){
-        const pair=sampleMatchupFromPosterior(strengthA,strengthB,rng);
-        const m=simulateFullMatchOnce(pair.pA,pair.pB,rules,rng);
-        points.push(m.totalPoints);
-        sets[m.totalSets]=(sets[m.totalSets]||0)+1;
-        const jointKey=m.totalSets+"|"+m.totalPoints;
-        jointCounts[jointKey]=(jointCounts[jointKey]||0)+1;
-        sum+=m.totalPoints; sum2+=m.totalPoints*m.totalPoints;
+        const pair=sampleMatchupFromPosterior(strengthA,strengthB,rng),m=simulateFullMatchOnce(pair.pA,pair.pB,rules,rng);
+        points.push(m.totalPoints);games.push(m.totalGames);gamesA.push(m.totalGamesA);gamesB.push(m.totalGamesB);sets[m.totalSets]=(sets[m.totalSets]||0)+1;
+        const jk=m.totalSets+'|'+m.totalGames;jointCounts[jk]=(jointCounts[jk]||0)+1;sum+=m.totalPoints;sum2+=m.totalPoints*m.totalPoints;sumGames+=m.totalGames;sumGamesA+=m.totalGamesA;sumGamesB+=m.totalGamesB;
       }
-      const meanV=sum/n;
-      const probabilities={}; Object.keys(sets).forEach(k=>probabilities[k]=sets[k]/n);
-      const jointDistribution={}; Object.keys(jointCounts).forEach(k=>jointDistribution[k]=jointCounts[k]/n);
-      return {runs:n,mean:meanV,median:percentile(points,.5),p10:percentile(points,.1),p25:percentile(points,.25),p75:percentile(points,.75),p90:percentile(points,.9),se:Math.sqrt(Math.max(0,sum2/n-meanV*meanV)/n),sets:probabilities,jointDistribution:jointDistribution,samples:points};
+      const meanV=sum/n,probabilities={},jointDistribution={};Object.keys(sets).forEach(k=>probabilities[k]=sets[k]/n);Object.keys(jointCounts).forEach(k=>jointDistribution[k]=jointCounts[k]/n);
+      const pack=(arr,total)=>({mean:total/n,median:percentile(arr,.5),p10:percentile(arr,.1),p25:percentile(arr,.25),p75:percentile(arr,.75),p90:percentile(arr,.9),samples:arr});
+      return {runs:n,mean:meanV,median:percentile(points,.5),p10:percentile(points,.1),p25:percentile(points,.25),p75:percentile(points,.75),p90:percentile(points,.9),se:Math.sqrt(Math.max(0,sum2/n-meanV*meanV)/n),sets:probabilities,jointDistribution,samples:points,totalGames:pack(games,sumGames),playerAGames:pack(gamesA,sumGamesA),playerBGames:pack(gamesB,sumGamesB)};
     }
     function runMonteCarlo(pA,pB,rules){
-      const points=[]; let n=0, sum=0, sum2=0, sets={};
+      const points=[]; let n=0, sum=0, sum2=0, sets={},matchWinsA=0;
       const rng=seededRng(stableSimulationSeed([pA,pB,rules.format,rules.finalSet.tiebreakType].join("|")));
       let targetRuns=TENNIS_MC_MIN_RUNS;
       while(true){
-        while(n<targetRuns){const m=simulateFullMatchOnce(pA,pB,rules,rng);points.push(m.totalPoints);n++;sum+=m.totalPoints;sum2+=m.totalPoints*m.totalPoints;sets[m.totalSets]=(sets[m.totalSets]||0)+1;}
+        while(n<targetRuns){const m=simulateFullMatchOnce(pA,pB,rules,rng);if(m.matchWinner==="A")matchWinsA++;points.push(m.totalPoints);n++;sum+=m.totalPoints;sum2+=m.totalPoints*m.totalPoints;sets[m.totalSets]=(sets[m.totalSets]||0)+1;}
         const meanV=sum/n; const variance=Math.max(0,sum2/n-meanV*meanV); const meanSE=Math.sqrt(variance/n);
         const maxProbSE=Math.sqrt(0.25/n);
         if(maxProbSE<=TENNIS_MC_TARGET_SE || n>=TENNIS_MC_MAX_RUNS) break;
         targetRuns=Math.min(TENNIS_MC_MAX_RUNS,n*2);
       }
       const probabilities={}; Object.keys(sets).forEach(k=>probabilities[k]=sets[k]/n);
-      return {runs:n,mean:sum/n,median:percentile(points,.5),p10:percentile(points,.1),p25:percentile(points,.25),p75:percentile(points,.75),p90:percentile(points,.9),se:Math.sqrt(Math.max(0,sum2/n-(sum/n)**2)/n),sets:probabilities,samples:points};
+      return {runs:n,mean:sum/n,median:percentile(points,.5),p10:percentile(points,.1),p25:percentile(points,.25),p75:percentile(points,.75),p90:percentile(points,.9),se:Math.sqrt(Math.max(0,sum2/n-(sum/n)**2)/n),sets:probabilities,samples:points,matchWinA:matchWinsA/n,matchWinB:1-matchWinsA/n};
     }
     function exactSetCountDistribution(pA,pB,rules){
       function exactTB(firstServer,target){
@@ -4403,99 +4401,22 @@ let g_clearDebug = {
       return {pick,confidence,edge:comparison.meanDelta};
     }
     async function buildEngineResults(){
-      const tour=String(qs("leagueSelect").value||"").trim().toUpperCase();
-      const playerAName=String(qs("teamAName").value||"").trim();
-      const playerBName=String(qs("teamBName").value||"").trim();
-      if(!tour||!playerAName||!playerBName) throw new Error("Tour and both player names are required.");
-      const fixtureSelect=qs("fixtureSelect");
-      const fixtureKey=fixtureSelect?fixtureSelect.value:"";
-      const fixture=fixtureKey?fixtureRecordMap.get(fixtureKey):null;
-      if(!fixture) throw new Error("Select a scheduled fixture before running the engine.");
-      const ctx=Object.assign({},getEffectiveContext(tour,playerAName,playerBName),{
-        playerAId:selectedPlayerIds.A||fixture.playerAId,
-        playerBId:selectedPlayerIds.B||fixture.playerBId,
-        competitionId:fixture.competitionId||"",
-        eventId:fixture.eventId||"",
-        fixtureDate:fixture.date||"",
-        tournamentName:fixture.tournamentName||"",
-        eventLevel:fixture.eventLevel||"",
-        roundName:fixture.roundName||"",
-        surface:inferSurfaceFromRecord(fixture)||fixture.surface||"",
-        indoorOutdoor:fixture.indoorOutdoor||"Unknown",
-        matchFormat:fixture.matchFormat||inferMatchFormat(tour,fixture.eventLevel||"")
-      });
-      selectedPlayerIds.A=ctx.playerAId; selectedPlayerIds.B=ctx.playerBId;
-      if(!ctx.playerAId||!ctx.playerBId) throw new Error("Player identities are required. Select the fixture again.");
-      if(!ctx.surface){
-        // Surface is no longer a hard gate. Unknown surface receives neutral weighting.
-        ctx.surface="unknown";
-      }
-      if(!ctx.indoorOutdoor) ctx.indoorOutdoor="Unknown";
-      const rules=resolveTennisScoringRules(ctx);
-      const pointRecordsA=Array.isArray(ctx.pointStatsA)?ctx.pointStatsA:[];
-      const pointRecordsB=Array.isArray(ctx.pointStatsB)?ctx.pointStatsB:[];
-      // Build from completed score history. Point-stat summaries, where available,
-      // are deliberately not required for correctness.
-      const recentA=(latestFetchedContext&&Array.isArray(latestFetchedContext.recentA)?latestFetchedContext.recentA:[]);
-      const recentB=(latestFetchedContext&&Array.isArray(latestFetchedContext.recentB)?latestFetchedContext.recentB:[]);
-      let seriesA=recentA.slice(0,5), seriesB=recentB.slice(0,5), h2h=Array.isArray(latestFetchedContext&&latestFetchedContext.h2h)?latestFetchedContext.h2h:[];
-      if(!seriesA.length||!seriesB.length){
-        const [ha,hb]=await Promise.all([
-          fetchRecentPlayerMatchesByDay(tour,ctx.playerAId,ctx.fixtureDate,ctx.playerAId,5,5),
-          fetchRecentPlayerMatchesByDay(tour,ctx.playerBId,ctx.fixtureDate,ctx.playerBId,5,5)
-        ]);
-        seriesA=buildRecentSeries(ha.records,ctx.playerAId).slice(0,5);
-        seriesB=buildRecentSeries(hb.records,ctx.playerBId).slice(0,5);
-      }
-      if(!seriesA.length||!seriesB.length) return {tour,playerAName,playerBName,playerAId:ctx.playerAId,playerBId:ctx.playerBId,context:ctx,matchResult:buildNoPlay("Insufficient completed score history from ESPN.",["Player A recent matches","Player B recent matches"],ctx),set1Result:null,teamAResult:null,teamBResult:null};
-      const eloA=Number.isFinite(ctx.eloA)?ctx.eloA:1500, eloB=Number.isFinite(ctx.eloB)?ctx.eloB:1500;
-      const fatigueA=latestFetchedContext&&latestFetchedContext.fatigueA?latestFetchedContext.fatigueA:{daysRest:null,matches7:0,longLoad:0};
-      const fatigueB=latestFetchedContext&&latestFetchedContext.fatigueB?latestFetchedContext.fatigueB:{daysRest:null,matches7:0,longLoad:0};
-      const strengthA=makeScoreStrength(seriesA,h2h,ctx.playerAId,eloB,eloA,ctx.surface,true,tour,fatigueA,ctx.indoorOutdoor);
-      const strengthB=makeScoreStrength(seriesB,h2h,ctx.playerBId,eloA,eloB,ctx.surface,false,tour,fatigueB,ctx.indoorOutdoor);
-      const matchup=estimateOpponentAdjustedPair(strengthA,strengthB);
-      const exact=exactSetCountDistribution(matchup.pA,matchup.pB,rules);
-      const mc=runMonteCarlo(matchup.pA,matchup.pB,rules);
-      const posteriorMC=runParameterUncertaintyMonteCarlo(strengthA,strengthB,rules,15000);
-      const totalSetsMean=Object.keys(posteriorMC.sets).reduce(function(sum,k){return sum+Number(k)*posteriorMC.sets[k];},0);
-      const totalSetsMedian=medianFromDistribution(posteriorMC.sets);
-      const totalPoints={mean:posteriorMC.mean,median:posteriorMC.median,p10:posteriorMC.p10,p25:posteriorMC.p25,p50:posteriorMC.median,p75:posteriorMC.p75,p90:posteriorMC.p90,simulationSE:posteriorMC.se,conditionalMean:mc.mean,conditionalMedian:mc.median};
-      const totalSets={mean:totalSetsMean,median:totalSetsMedian,probabilities:posteriorMC.sets,conditionalExactMean:Object.keys(exact).reduce(function(sum,k){return sum+Number(k)*exact[k];},0)};
-      const pointLine=parseTennisMarketLine(qs("totalPointsMarket")&&qs("totalPointsMarket").value);
-      const setLine=parseTennisMarketLine(qs("totalSetsMarket")&&qs("totalSetsMarket").value);
-      const market=buildMarketComparison(Object.assign({},totalPoints,{samples:posteriorMC.samples}),totalSets,pointLine,setLine);
-      const jointDistribution=posteriorMC.jointDistribution;
-      const volatility=posteriorMC.se;
-      const pointPick=deriveMarketPick(market.totalPoints,volatility);
-      const setPick=deriveMarketPick(market.totalSets,volatility);
-      const primary=pointLine?pointPick:(setLine?setPick:{pick:"PASS",confidence:"PASS",edge:null});
-      const notes=uniqueNotes([
-        "Score-history model: recent game/set results + bounded H2H + Elo",
-        "Serve/return point summaries are optional enrichment and are not required",
-        ctx.surface==="unknown"?"Surface unavailable; neutral surface weighting applied":"Surface-normalized historical weighting",
-        ctx.indoorOutdoor==="Unknown"?"Indoor/outdoor unavailable; neutral environment assumption applied":"Venue environment retained as context",
-        rules.authoritative?"Validated scoring rule source":"Standard scoring fallback used; no hard NO PLAY gate"
-      ]);
-      const result={
-        status:"OK",market:"Total Points / Total Sets",pick:primary.pick,confidence:primary.confidence,
-        modelVersion:TENNIS_MODEL_VERSION,dataAsOf:ctx.fixtureDate||new Date().toISOString(),pA:matchup.pA,pB:matchup.pB,
-        pointStrength:{A:strengthA,B:strengthB},totalPoints:totalPoints,totalSets:totalSets,
-        jointDistribution:jointDistribution,exactSetDistribution:exact,
-        simulation:{runs:mc.runs,se:mc.se,conditionalOnPointRates:false},
-        parameterUncertaintySimulation:{runs:posteriorMC.runs,mean:posteriorMC.mean,median:posteriorMC.median,p10:posteriorMC.p10,p25:posteriorMC.p25,p75:posteriorMC.p75,p90:posteriorMC.p90,se:posteriorMC.se,setProbabilities:posteriorMC.sets},
-        exactVsSimulation:compareExactToMonteCarlo(exact,mc),rules,
-        diagnostics:{
-          dataQuality:{A:{recentMatches:strengthA.records},B:{recentMatches:strengthB.records}},
-          rulesSource:rules.source,rulesAuthoritative:rules.authoritative,
-          pointStatsOptional:true,pointStatsUsed:pointRecordsA.length>0&&pointRecordsB.length>0,
-          elo:{A:eloA,B:eloB,difference:eloA-eloB},
-          h2hMatches:h2h.length,surface:ctx.surface,indoorOutdoor:ctx.indoorOutdoor,
-          calibration:window.__TENNIS_REGRESSION || null
-        },
-        projection:posteriorMC.mean,edge:primary.edge,volatility:volatility,marketComparison:market,
-        notes:notes,
-        picks:{totalPoints:pointLine?pointPick:{pick:"PASS",confidence:"PASS"},totalSets:setLine?setPick:{pick:"PASS",confidence:"PASS"}}
-      };
+      const tour=String(qs("leagueSelect").value||"").trim().toUpperCase(),playerAName=String(qs("teamAName").value||"").trim(),playerBName=String(qs("teamBName").value||"").trim();
+      if(tour!=="ATP"||!playerAName||!playerBName)throw new Error("ATP and both player names are required.");
+      const fixtureSelect=qs("fixtureSelect"),fixtureKey=fixtureSelect?fixtureSelect.value:"",fixture=fixtureKey?fixtureRecordMap.get(fixtureKey):null;if(!fixture)throw new Error("Select a scheduled ATP fixture before running the engine.");
+      const ctx=Object.assign({},getEffectiveContext(tour,playerAName,playerBName),{playerAId:selectedPlayerIds.A||fixture.playerAId,playerBId:selectedPlayerIds.B||fixture.playerBId,competitionId:fixture.competitionId||"",eventId:fixture.eventId||"",fixtureDate:fixture.date||"",tournamentName:fixture.tournamentName||"",eventLevel:fixture.eventLevel||"",roundName:fixture.roundName||"",surface:inferSurfaceFromRecord(fixture)||fixture.surface||"",indoorOutdoor:fixture.indoorOutdoor||"Unknown",matchFormat:fixture.matchFormat||inferMatchFormat(tour,fixture.eventLevel||"")});
+      selectedPlayerIds.A=ctx.playerAId;selectedPlayerIds.B=ctx.playerBId;if(!ctx.playerAId||!ctx.playerBId)throw new Error("Player identities are required. Select the fixture again.");if(!ctx.surface)throw new Error("Surface is required for ATP totals prediction.");if(!ctx.indoorOutdoor)ctx.indoorOutdoor="Unknown";
+      const rules=resolveTennisScoringRules(ctx),recentA=latestFetchedContext&&Array.isArray(latestFetchedContext.recentA)?latestFetchedContext.recentA:[],recentB=latestFetchedContext&&Array.isArray(latestFetchedContext.recentB)?latestFetchedContext.recentB:[];let seriesA=recentA.slice(0,5),seriesB=recentB.slice(0,5),h2h=Array.isArray(latestFetchedContext&&latestFetchedContext.h2h)?latestFetchedContext.h2h:[];
+      if(!seriesA.length||!seriesB.length){const [ha,hb]=await Promise.all([fetchRecentPlayerMatchesByDay(tour,ctx.playerAId,ctx.fixtureDate,ctx.playerAId,5,5),fetchRecentPlayerMatchesByDay(tour,ctx.playerBId,ctx.fixtureDate,ctx.playerBId,5,5)]);seriesA=buildRecentSeries(ha.records,ctx.playerAId).slice(0,5);seriesB=buildRecentSeries(hb.records,ctx.playerBId).slice(0,5);}
+      if(seriesA.length<5||seriesB.length<5)return {tour,playerAName,playerBName,playerAId:ctx.playerAId,playerBId:ctx.playerBId,context:ctx,matchResult:buildNoPlay("At least 5 completed ATP matches are required for each player.",["Player A recent matches","Player B recent matches"],ctx),set1Result:null,teamAResult:null,teamBResult:null};
+      const eloA=Number.isFinite(ctx.eloA)?ctx.eloA:1500,eloB=Number.isFinite(ctx.eloB)?ctx.eloB:1500,fatigueA=latestFetchedContext&&latestFetchedContext.fatigueA?latestFetchedContext.fatigueA:{daysRest:null,matches7:0,longLoad:0},fatigueB=latestFetchedContext&&latestFetchedContext.fatigueB?latestFetchedContext.fatigueB:{daysRest:null,matches7:0,longLoad:0};
+      const strengthA=makeScoreStrength(seriesA,h2h,ctx.playerAId,eloB,eloA,ctx.surface,true,tour,fatigueA,ctx.indoorOutdoor),strengthB=makeScoreStrength(seriesB,h2h,ctx.playerBId,eloA,eloB,ctx.surface,false,tour,fatigueB,ctx.indoorOutdoor),matchup=estimateOpponentAdjustedPair(strengthA,strengthB),exact=exactSetCountDistribution(matchup.pA,matchup.pB,rules),mc=runMonteCarlo(matchup.pA,matchup.pB,rules),posteriorMC=runParameterUncertaintyMonteCarlo(strengthA,strengthB,rules,15000);
+      const totalGames={mean:posteriorMC.totalGames.mean,median:posteriorMC.totalGames.median,p10:posteriorMC.totalGames.p10,p90:posteriorMC.totalGames.p90,samples:posteriorMC.totalGames.samples,playerA:posteriorMC.playerAGames,playerB:posteriorMC.playerBGames};
+      const totalSetsMean=Object.keys(posteriorMC.sets).reduce((sum,k)=>sum+Number(k)*posteriorMC.sets[k],0),totalSetsMedian=medianFromDistribution(posteriorMC.sets),totalSets={mean:totalSetsMean,median:totalSetsMedian,probabilities:posteriorMC.sets};
+      const matchLine=parseTennisMarketLine(qs("totalGamesMarket")&&qs("totalGamesMarket").value),aLine=parseTennisMarketLine(qs("playerATotalGamesMarket")&&qs("playerATotalGamesMarket").value),bLine=parseTennisMarketLine(qs("playerBTotalGamesMarket")&&qs("playerBTotalGamesMarket").value),setLine=parseTennisMarketLine(qs("totalSetsMarket")&&qs("totalSetsMarket").value),market=buildMarketComparison(totalGames,totalSets,matchLine,aLine,bLine,setLine);
+      const picks={totalGames:matchLine?deriveTotalsPick(market.totalGames):{pick:'PASS',confidence:'PASS'},playerATotalGames:aLine?deriveTotalsPick(market.playerATotalGames):{pick:'PASS',confidence:'PASS'},playerBTotalGames:bLine?deriveTotalsPick(market.playerBTotalGames):{pick:'PASS',confidence:'PASS'},totalSets:setLine?deriveTotalsPick(market.totalSets):{pick:'PASS',confidence:'PASS'}},almighty=chooseAlmightyPick(picks);
+      const notes=uniqueNotes(["ATP totals model: recent completed games + bounded H2H + Elo + surface context","Exact tennis scoring simulation retained for BO3/BO5 totals","Player A/B total-games distributions are derived from the same match simulation",ctx.indoorOutdoor==="Unknown"?"Indoor/outdoor unavailable; neutral environment assumption applied":"Indoor/outdoor context retained",rules.authoritative?"Validated scoring rule source":"Standard ATP scoring fallback used"]);
+      const result={status:almighty.pick!=="NO PLAY"?"OK":"NO_PLAY",market:"Total Games / Player A Games / Player B Games / Total Sets",pick:almighty.pick,confidence:almighty.confidence,modelVersion:ENGINE_MODEL_VERSION,dataAsOf:ctx.fixtureDate||new Date().toISOString(),pA:matchup.pA,pB:matchup.pB,pointStrength:{A:strengthA,B:strengthB},totalGames,totalSets,exactSetDistribution:exact,simulation:{runs:mc.runs,se:mc.se},parameterUncertaintySimulation:{runs:posteriorMC.runs,se:posteriorMC.se,totalGames,totalSets},exactVsSimulation:compareExactToMonteCarlo(exact,mc),rules,diagnostics:{dataQuality:{A:{recentMatches:strengthA.records},B:{recentMatches:strengthB.records}},rulesSource:rules.source,rulesAuthoritative:rules.authoritative,elo:{A:eloA,B:eloB,difference:eloA-eloB},h2hMatches:h2h.length,surface:ctx.surface,indoorOutdoor:ctx.indoorOutdoor,fatigue:{A:fatigueA,B:fatigueB},calibration:window.__TENNIS_REGRESSION||null},projection:totalGames.mean,edge:almighty.edge,volatility:posteriorMC.se,marketComparison:market,notes,picks,almightyPick:almighty};
       return {tour,playerAName,playerBName,playerAId:ctx.playerAId,playerBId:ctx.playerBId,competitionId:ctx.competitionId||"",eventId:ctx.eventId||"",fixtureDate:ctx.fixtureDate||"",context:ctx,matchResult:result,set1Result:null,teamAResult:null,teamBResult:null};
     }
 
@@ -4510,125 +4431,26 @@ let g_clearDebug = {
     regressionSuite: runTennisModelRegressionSuite,
     settleTracker: autoSettleTracker
   };
-  function getPickCellClass(pick, confidence) {
-    if (confidence === "PASS" || pick === "PASS") return "pred-noplay";
-    if (pick === "OVER") return "pred-over";
-    if (pick === "UNDER") return "pred-under";
-    return "pred-noplay";
+  function getPickCellClass(pick, confidence) { return confidence === "PASS" || pick === "PASS" ? "pred-noplay" : "pred-over"; }
+  function getConfidenceCellClass(confidence) { if(confidence==="A")return "conf-a"; if(confidence==="B")return "conf-b"; if(confidence==="C")return "conf-c"; return "conf-none"; }
+  function confidenceScore(confidence, edge) { const map={A:4,B:3,C:2,PASS:0}; return (map[confidence]||0)*100+(Number.isFinite(Number(edge))?Math.max(-20,Math.min(20,Number(edge)*100)):0); }
+  function showResults(){const r=qs("results");if(r){r.classList.remove("results-hidden");r.style.display="table";}}
+  function hideResults(){const r=qs("results");if(r){r.classList.add("results-hidden");r.style.display="none";}}
+  function renderResults(bundle){
+    const body=qs("resultsBody"),result=bundle&&bundle.matchResult,almighty=qs("almightyPick");if(!body)return;
+    if(!result||result.status!=="OK"){const reason=result&&result.reason?result.reason:"No qualifying market has enough edge.";body.innerHTML='<tr><td colspan="5" class="results-empty-cell"><strong>NO PLAY</strong><br>'+htmlEscape(reason)+'</td></tr>';if(almighty){almighty.style.display="block";almighty.textContent="ALMIGHTY PICK: NO PLAY";}showResults();scrollResultsIntoView();return;}
+    const mc=result.marketComparison||{},picks=result.picks||{},rows=[['totalGames','Total Games'],['playerATotalGames',bundle.playerAName+' Total Games'],['playerBTotalGames',bundle.playerBName+' Total Games'],['totalSets','Total Sets']];
+    body.innerHTML=rows.map(function(x){const key=x[0],m=mc[key],p=picks[key]||{pick:'PASS',confidence:'PASS'};if(!m)return '<tr><td class="result-market" style="font-weight:800;">'+htmlEscape(x[1])+'</td><td colspan="4" style="color:#777;">NO LINE</td></tr>';const prob=p.probability!=null?(p.probability*100).toFixed(1)+'%':'—',edge=Number.isFinite(Number(p.edge))?((p.edge>=0?'+':'')+Number(p.edge).toFixed(2)+' games'):'—';return '<tr><td class="result-market" style="font-weight:800;">'+htmlEscape(x[1])+'</td><td style="font-weight:900;">'+htmlEscape(p.pick)+'</td><td style="font-family:monospace;">'+prob+'</td><td class="'+getConfidenceCellClass(p.confidence)+'" style="font-weight:900;">'+htmlEscape(p.confidence)+'</td><td style="font-family:monospace;">'+htmlEscape(edge)+'</td></tr>';}).join('');
+    if(almighty){const a=result.almightyPick||{};almighty.style.display="block";almighty.textContent=a.pick&&a.pick!=="NO PLAY"?"ALMIGHTY PICK: "+({totalGames:'TOTAL GAMES',playerATotalGames:bundle.playerAName+' TOTAL GAMES',playerBTotalGames:bundle.playerBName+' TOTAL GAMES',totalSets:'TOTAL SETS'}[a.market]||a.market)+' '+a.pick+' • '+(a.probability!=null?(a.probability*100).toFixed(1)+'%':'—')+' • GRADE '+a.confidence:'ALMIGHTY PICK: NO PLAY';}
+    if(qs("marketComparison")){qs("marketComparison").style.display="block";qs("marketComparison").textContent=rows.map(function(x){const m=mc[x[0]];return m?x[1]+': '+m.raw+' | O '+(m.probabilities.over*100).toFixed(1)+'% | U '+(m.probabilities.under*100).toFixed(1)+'%':'';}).filter(Boolean).join(' • ');}showResults();scrollResultsIntoView();
   }
-  function getConfidenceCellClass(confidence) {
-    if (confidence === "A") return "conf-a";
-    if (confidence === "B") return "conf-b";
-    if (confidence === "C") return "conf-c";
-    return "conf-none";
-  }
-  function confidenceScore(confidence, edge, volatility) {
-    const map = { "A": 4, "B": 3, "C": 2, "PASS": 1 };
-    const safeVol = (typeof volatility === "number" && volatility > 0) ? volatility : 0.01;
-    const edgeZ = Math.abs(edge) / safeVol;
-    return (map[confidence] || 0) * 100 + Math.min(edgeZ, 10);
-  }
-  function getShownLineForResult(result) {
-    if (!result || !result.lineRange) return null;
-    return result.lineRange.mid;
-  }
-  function getPredictionText(result) {
-    if (!result || result.pick === "PASS" || result.confidence === "PASS") return "NO PLAY";
-    const shownLine = getShownLineForResult(result);
-    if (shownLine == null || Number.isNaN(shownLine)) {
-      return result.pick;
-    }
-    return result.pick + " " + fmtCompact(shownLine);
-  }
-  function selectLockIndex(results) {
-    const actionable = results
-      .map(function (result, idx) { return { result: result, idx: idx }; })
-      .filter(function (item) {
-        return item.result &&
-          item.result.pick !== "PASS" &&
-          item.result.confidence !== "PASS";
-      })
-      .sort(function (a, b) {
-        const scoreA = confidenceScore(a.result.confidence, a.result.edge, a.result.volatility);
-        const scoreB = confidenceScore(b.result.confidence, b.result.edge, b.result.volatility);
-        return scoreB - scoreA;
-      });
-    return actionable.length ? actionable[0].idx : -1;
-  }
-  function pickBestResult(match, set1) {
-    const valid = [match, set1].filter(Boolean); 
-    const ranked = valid.sort(function (a, b) {
-      const scoreA = confidenceScore(a.confidence, a.edge, a.volatility);
-      const scoreB = confidenceScore(b.confidence, b.edge, b.volatility);
-      return scoreB - scoreA;
-    });
-    return ranked[0];
-  }
-  function showResults() {
-    const results = qs("results");
-    if (results) {
-      results.classList.remove("results-hidden");
-      results.style.display = "table";
-    }
-  }
-  function hideResults() {
-    const results = qs("results");
-    if (results) {
-      results.classList.add("results-hidden");
-      results.style.display = "none";
-    }
-  }
-  function showLockCelebration() {
-    const overlay = document.createElement('div');
-    overlay.className = 'lock-celebration';
-    const particleCount = 50;
-    for (let i = 0; i < particleCount; i++) {
-      const particle = document.createElement('div');
-      particle.className = 'particle';
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 100 + Math.random() * 200;
-      const tx = Math.cos(angle) * distance;
-      const ty = Math.sin(angle) * distance;
-      particle.style.setProperty('--tx', tx + 'px');
-      particle.style.setProperty('--ty', ty + 'px');
-      particle.style.left = (window.innerWidth / 2) + (Math.random() - 0.5) * 60 + 'px';
-      particle.style.top = (window.innerHeight / 2) + (Math.random() - 0.5) * 60 + 'px';
-      particle.style.animationDelay = Math.random() * 0.2 + 's';
-      overlay.appendChild(particle);
-    }
-    document.body.appendChild(overlay);
-    setTimeout(() => { overlay.remove(); }, 2000);
-  }
-  function renderResults(resultBundle) {
-    const body = qs("resultsBody");
-    if (!body) return;
-    const result = resultBundle && resultBundle.matchResult;
-    if (!result || result.status === "NO_PLAY") {
-      const reason = result && result.reason ? result.reason : "Required data unavailable.";
-      const missing = result && Array.isArray(result.missing) ? result.missing.join("; ") : "";
-      body.innerHTML = '<tr><td colspan="5" class="results-empty-cell"><strong>NO PLAY</strong><br>' + htmlEscape(reason) + (missing ? '<br>' + htmlEscape(missing) : '') + '</td></tr>';
-      showResults(); scrollResultsIntoView(); return;
-    }
-    const tp=result.totalPoints, ts=result.totalSets;
-    const setDistribution=Object.keys(ts.probabilities||{}).sort((a,b)=>Number(a)-Number(b)).map(k=>k+' sets: '+(Number(ts.probabilities[k])*100).toFixed(1)+'%').join(' • ');
-    const mc=result.marketComparison||{};
-    const pointMarket=mc.totalPoints&&mc.totalPoints.probabilities ? ('Line '+fmt(mc.totalPoints.line)+' • O '+(mc.totalPoints.probabilities.over*100).toFixed(1)+'% / U '+(mc.totalPoints.probabilities.under*100).toFixed(1)+'% • Δ '+fmt(mc.totalPoints.meanDelta)) : 'No point market line';
-    const setMarket=mc.totalSets&&mc.totalSets.probabilities ? ('Line '+fmt(mc.totalSets.line)+' • O '+(mc.totalSets.probabilities.over*100).toFixed(1)+'% / U '+(mc.totalSets.probabilities.under*100).toFixed(1)+'% • Δ '+fmt(mc.totalSets.meanDelta)) : 'No set market line';
-    body.innerHTML = '<tr><td class="result-market" style="font-weight:800;">Total Points</td><td style="font-family:monospace;">'+fmt(tp.mean)+'</td><td style="font-family:monospace;">'+fmt(tp.median)+'</td><td style="font-family:monospace;">'+fmt(tp.p10)+' – '+fmt(tp.p90)+'</td><td style="font-size:11px;">N='+htmlEscape(String(result.parameterUncertaintySimulation.runs))+' • '+htmlEscape(pointMarket)+'</td></tr>' + '<tr><td class="result-market" style="font-weight:800;">Total Sets</td><td style="font-family:monospace;">'+fmt(ts.mean)+'</td><td style="font-family:monospace;">'+fmt(ts.median)+'</td><td style="font-family:monospace;">'+htmlEscape(setDistribution)+' • P50 '+fmt(ts.median)+'</td><td style="font-size:11px;">'+htmlEscape(setMarket)+' • '+htmlEscape(result.rules.format)+(result.pick&&result.pick!=="PASS"?' • '+htmlEscape(result.pick):'')+'</td></tr>';
-    const marketBox=qs("marketComparison");
-    if(marketBox){ marketBox.style.display=(mc.totalPoints||mc.totalSets)?"block":"none"; marketBox.textContent=(mc.totalPoints?pointMarket:"No point line")+" • "+(mc.totalSets?setMarket:"No set line"); }
-    showResults(); scrollResultsIntoView();
-  }
-  function updateIntel(resultBundle) {
-    const result=resultBundle && resultBundle.matchResult; const ctx=resultBundle && resultBundle.context || {};
-    const meta=[]; if(ctx.surface)meta.push(ctx.surface); if(ctx.eventLevel)meta.push(ctx.eventLevel); if(ctx.roundName)meta.push(ctx.roundName); if(ctx.matchFormat)meta.push(ctx.matchFormat);
-    const tp=result&&result.totalPoints, ts=result&&result.totalSets;
-    if(qs("aFormIntel"))qs("aFormIntel").value=result&&result.status==="OK"?('Match points '+fmt(tp.mean)+' mean | P50 '+fmt(tp.median)+' | pA '+(result.pA*100).toFixed(2)+'%'+(meta.length?' | '+meta.join(' | '):'')):'NO PLAY';
-    if(qs("bFormIntel"))qs("bFormIntel").value=result&&result.status==="OK"?('Set distribution E='+fmt(ts.mean)+' | '+Object.keys(ts.probabilities||{}).map(k=>k+': '+(ts.probabilities[k]*100).toFixed(1)+'%').join(' | ')):'NO PLAY';
-    if(qs("aSpreadIntel"))qs("aSpreadIntel").value=result&&result.status==="OK"?('Total points P10/P50/P90: '+fmt(tp.p10)+' / '+fmt(tp.median)+' / '+fmt(tp.p90)):'NO PLAY';
-    if(qs("bSpreadIntel"))qs("bSpreadIntel").value=result&&result.status==="OK"?('Total sets by probability: '+Object.keys(ts.probabilities||{}).map(k=>k+'='+((ts.probabilities[k]||0)*100).toFixed(1)+'%').join(', ')):'NO PLAY';
-    if(qs("aHitIntel"))qs("aHitIntel").value=result?(result.notes||[]).join(' | '):'';
-    if(qs("bHitIntel"))qs("bHitIntel").value=result&&result.status==="OK"?('pA '+(result.pA*100).toFixed(2)+'% | pB '+(result.pB*100).toFixed(2)+'% | '+result.modelVersion+' | '+(result.rules&&result.rules.format||'')):'NO PLAY';
+  function updateIntel(bundle){
+    const r=bundle&&bundle.matchResult,ctx=bundle&&bundle.context||{};if(!r||r.status!=="OK"){["aFormIntel","bFormIntel","aSpreadIntel","bSpreadIntel","aHitIntel","bHitIntel"].forEach(id=>{const e=qs(id);if(e)e.value="NO PLAY";});return;}const tg=r.totalGames,ts=r.totalSets,p=r.picks||{};
+    if(qs("aFormIntel"))qs("aFormIntel").value='Total Games '+tg.mean.toFixed(2)+' | P10 '+tg.p10.toFixed(1)+' | P50 '+tg.median.toFixed(1)+' | P90 '+tg.p90.toFixed(1);
+    if(qs("bFormIntel"))qs("bFormIntel").value=bundle.playerAName+' '+tg.playerA.mean.toFixed(2)+' games | '+bundle.playerBName+' '+tg.playerB.mean.toFixed(2)+' games | '+(ctx.surface||'surface');
+    if(qs("aSpreadIntel"))qs("aSpreadIntel").value='Sets: '+Object.keys(ts.probabilities||{}).sort((a,b)=>Number(a)-Number(b)).map(k=>k+'='+((ts.probabilities[k]||0)*100).toFixed(1)+'%').join(' | ');
+    if(qs("bSpreadIntel"))qs("bSpreadIntel").value='Total '+p.totalGames.confidence+' | A '+p.playerATotalGames.confidence+' | B '+p.playerBTotalGames.confidence+' | Sets '+p.totalSets.confidence;
+    if(qs("aHitIntel"))qs("aHitIntel").value=(r.notes||[]).join(' | ');if(qs("bHitIntel"))qs("bHitIntel").value='ALMIGHTY PICK: '+(r.almightyPick&&r.almightyPick.pick||'NO PLAY');
   }
   function closeTrackerModal() {
     const modal = qs("trackerModal");
@@ -4642,6 +4464,179 @@ let g_clearDebug = {
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("tracker-open");
   }
+  /* ========================================================================
+     BB ENGINE STEAL PACKAGE — ATP TOTALS ADAPTATION
+     Infrastructure only: persistence verification, invariants, line movement,
+     market-integrity gates, projection lineage, workload diagnostics, and
+     settled-performance feedback. No basketball scoring math is imported.
+     ======================================================================== */
+  const ATP_STOLEN_VERSION = "bb-steal-package-atp-v1";
+  const ATP_MARKETS = ["totalGames","playerATotalGames","playerBTotalGames","totalSets"];
+  const ATP_MARKET_LABELS = {
+    totalGames:"Total Games", playerATotalGames:"Player A Total Games",
+    playerBTotalGames:"Player B Total Games", totalSets:"Total Sets"
+  };
+  const ATP_LINE_MEMORY_KEY = "atp_totals_line_memory_v2";
+  const ATP_INVARIANT_KEY = "atp_engine_invariant_failures_v1";
+  const ATP_COVERAGE_KEY = "atp_tracker_coverage_v1";
+
+  function atpFinite(v){ return Number.isFinite(Number(v)); }
+  function atpClamp(v,lo,hi){ return Math.max(lo,Math.min(hi,Number(v))); }
+  function atpMarketInputLine(marketKey){
+    const id={totalGames:"totalGamesMarket",playerATotalGames:"playerATotalGamesMarket",playerBTotalGames:"playerBTotalGamesMarket",totalSets:"totalSetsMarket"}[marketKey];
+    const el=id?qs(id):null; if(!el) return null;
+    try { const x=parseTennisMarketLine(el.value); return x&&atpFinite(x.line)?Number(x.line):null; } catch(_){ return null; }
+  }
+  function atpFixtureIdentity(bundle){
+    const c=bundle&&bundle.context||{};
+    return [bundle&&bundle.eventId||c.eventId||"",bundle&&bundle.playerAId||c.playerAId||"",bundle&&bundle.playerBId||c.playerBId||"",String(c.surface||"").toLowerCase(),String(bundle&&bundle.fixtureDate||c.fixtureDate||"").slice(0,10)].join("|");
+  }
+  function atpInvariant(condition,label,context){
+    if(condition) return true;
+    const entry={label:String(label||"unnamed"),context:context||{},ts:new Date().toISOString()};
+    try{
+      const raw=localStorage.getItem(ATP_INVARIANT_KEY),arr=raw?JSON.parse(raw):[];
+      arr.push(entry); while(arr.length>200)arr.shift(); localStorage.setItem(ATP_INVARIANT_KEY,JSON.stringify(arr));
+    }catch(_){ }
+    g_engineAlertNeedsReview=true;
+    if(typeof window.engineDebug==="function") window.engineDebug("ATP INVARIANT FAILED",entry);
+    return false;
+  }
+  function validateATPTotalsBundle(bundle){
+    const r=bundle&&bundle.matchResult; if(!r) return false;
+    const tg=r.totalGames||{}, a=tg.playerA||{}, b=tg.playerB||{};
+    atpInvariant(r.market==="Total Games / Player A Games / Player B Games / Total Sets","production_market_scope",{market:r.market});
+    atpInvariant(atpFinite(tg.mean)&&atpFinite(a.mean)&&atpFinite(b.mean),"finite_game_projections",{tg:tg.mean,a:a.mean,b:b.mean});
+    atpInvariant(Number(tg.mean)>=4&&Number(a.mean)>=2&&Number(b.mean)>=2,"positive_game_projections",{tg:tg.mean,a:a.mean,b:b.mean});
+    atpInvariant(atpFinite(r.totalSets&&r.totalSets.mean)&&Number(r.totalSets.mean)>=2,"finite_set_projection",{sets:r.totalSets&&r.totalSets.mean});
+    atpInvariant(Math.abs(Number(a.mean)+Number(b.mean)-Number(tg.mean))<1.25,"player_game_components_consistent",{total:tg.mean,a:a.mean,b:b.mean});
+    const p=r.picks||{};
+    ATP_MARKETS.forEach(k=>{
+      const x=p[k];
+      if(x&&x.pick!=="PASS"){
+        atpInvariant(["OVER","UNDER"].includes(x.pick),"pick_polarity_"+k,{pick:x.pick});
+        atpInvariant(atpFinite(x.probability)&&Number(x.probability)>=0&&Number(x.probability)<=1,"pick_probability_"+k,{probability:x.probability});
+      }
+    });
+    return !g_engineAlertNeedsReview;
+  }
+
+  function loadATPStolenLineMemory(){
+    try{ const raw=localStorage.getItem(ATP_LINE_MEMORY_KEY); return raw?JSON.parse(raw):{}; }catch(_){ return {}; }
+  }
+  function saveATPStolenLineMemory(mem){ try{ localStorage.setItem(ATP_LINE_MEMORY_KEY,JSON.stringify(mem)); }catch(e){ if(typeof window.engineDebug==="function")window.engineDebug("ATP line-memory persistence failed",String(e&&e.message||e)); } }
+  function recordATPLineSnapshot(bundle){
+    const mem=loadATPStolenLineMemory(), identity=atpFixtureIdentity(bundle), now=Date.now(), out={};
+    ATP_MARKETS.forEach(k=>{
+      const line=atpMarketInputLine(k); if(!atpFinite(line)) return;
+      const key=identity+"|"+k, prev=mem[key];
+      out[k]={available:true,currentLine:Number(line),openLine:prev&&atpFinite(prev.openLine)?Number(prev.openLine):Number(line),delta:prev&&atpFinite(prev.openLine)?Number((line-prev.openLine).toFixed(2)):0,adverse:false,firstSeen:prev&&prev.firstSeen||new Date(now).toISOString()};
+      const side=bundle.matchResult&&bundle.matchResult.picks&&bundle.matchResult.picks[k]&&bundle.matchResult.picks[k].pick;
+      const d=out[k].delta;
+      if(side==="OVER") out[k].adverse=d>0.25;
+      else if(side==="UNDER") out[k].adverse=d< -0.25;
+      mem[key]={openLine:out[k].openLine,lastLine:Number(line),lastSeen:new Date(now).toISOString(),firstSeen:out[k].firstSeen,side:side||null};
+    });
+    const entries=Object.entries(mem).sort((a,b)=>Date.parse(b[1]&&b[1].lastSeen||0)-Date.parse(a[1]&&a[1].lastSeen||0));
+    saveATPStolenLineMemory(Object.fromEntries(entries.slice(0,1000)));
+    return out;
+  }
+  function atpMarketIntegrityGate(marketKey, comparison, pick, lineMove, result){
+    const gate={market:marketKey,allowed:true,level:"PASS",reasons:[],warnings:[]};
+    if(!comparison||!pick||pick.pick==="PASS"){ gate.allowed=false;gate.level="NO_PLAY";gate.reasons.push("No qualifying market distribution.");return gate; }
+    const probs=comparison.probabilities||{}, decisive=Math.max(Number(probs.over)||0,Number(probs.under)||0), margin=Math.abs((Number(probs.over)||0)-(Number(probs.under)||0));
+    if(decisive<0.55||margin<0.08){gate.allowed=false;gate.level="NO_PLAY";gate.reasons.push("Distribution does not clear the minimum directional threshold.");}
+    const edgeAbs=Math.abs(Number(comparison.meanDelta));
+    const edgeFloor=marketKey==="totalSets"?0.12:1.00;
+    if(!atpFinite(comparison.meanDelta)||edgeAbs<edgeFloor){gate.allowed=false;gate.level="NO_PLAY";gate.reasons.push("Edge is below the ATP market floor.");}
+    const width=atpFinite(comparison.p10)&&atpFinite(comparison.p90)?Number(comparison.p90)-Number(comparison.p10):null;
+    const widthLimit=marketKey==="totalSets"?1.5:12;
+    if(width!==null&&width>widthLimit){gate.allowed=false;gate.level="NO_PLAY";gate.reasons.push("Prediction distribution is too wide.");}
+    if(lineMove&&lineMove.available&&lineMove.adverse){
+      const severe=marketKey==="totalSets"?Math.abs(lineMove.delta)>=0.75:Math.abs(lineMove.delta)>=2;
+      if(severe){gate.allowed=false;gate.level="NO_PLAY";gate.reasons.push("Market moved materially against the selected side.");}
+      else gate.warnings.push("Line moved against the selected side.");
+    }
+    const samples=result&&result.parameterUncertaintySimulation&&result.parameterUncertaintySimulation.runs;
+    if(atpFinite(samples)&&Number(samples)<5000){gate.allowed=false;gate.level="NO_PLAY";gate.reasons.push("Simulation sample count is below safety minimum.");}
+    return gate;
+  }
+  function applyATPMarketIntegrity(bundle,lineMoves){
+    const r=bundle&&bundle.matchResult;if(!r||r.status!=="OK")return;
+    const gates={}, picks=Object.assign({},r.picks||{});
+    ATP_MARKETS.forEach(k=>{
+      const gate=atpMarketIntegrityGate(k,r.marketComparison&&r.marketComparison[k],picks[k],lineMoves&&lineMoves[k],r); gates[k]=gate;
+      if(!gate.allowed && picks[k] && picks[k].pick!=="PASS") picks[k]=Object.assign({},picks[k],{pick:"PASS",confidence:"PASS",probability:null,gate:gate});
+      else if(picks[k]) picks[k]=Object.assign({},picks[k],{gate:gate});
+    });
+    const almighty=chooseAlmightyPick(picks);
+    r.picks=picks;r.almightyPick=almighty;r.pick=almighty.pick;r.confidence=almighty.confidence;r.edge=almighty.edge;
+    r.marketIntegrity={gates,lineMoves:lineMoves||{},evaluatedAt:new Date().toISOString()};
+    if(!almighty||almighty.pick==="NO PLAY")r.status="NO_PLAY";
+  }
+  function addATPProjectionLineage(bundle){
+    const r=bundle&&bundle.matchResult;if(!r)return;
+    const tg=r.totalGames||{},a=tg.playerA||{},b=tg.playerB||{};
+    r.projectionLineage={
+      baseModel:{matchGames:tg.mean,playerAGames:a.mean,playerBGames:b.mean,totalSets:r.totalSets&&r.totalSets.mean},
+      simulation:{runs:r.parameterUncertaintySimulation&&r.parameterUncertaintySimulation.runs,se:r.parameterUncertaintySimulation&&r.parameterUncertaintySimulation.se},
+      context:{surface:bundle.context&&bundle.context.surface||null,format:bundle.context&&bundle.context.matchFormat||null},
+      workload:r.diagnostics&&r.diagnostics.fatigue||null,
+      h2hMatches:r.diagnostics&&r.diagnostics.h2hMatches||0,
+      note:"Lineage is diagnostic; no post-model modifier is allowed to silently overwrite the simulated distribution."
+    };
+  }
+  function buildATPWorkloadDiagnostics(series,refDate){
+    const arr=Array.isArray(series)?series.slice(0,10):[], now=refDate?new Date(refDate):new Date();
+    let matches7=0,matches14=0,sets7=0,sets14=0,games7=0,games14=0,longMatches7=0;
+    arr.forEach(g=>{
+      const d=g&&g.date?new Date(g.date):null;if(!d||Number.isNaN(d.getTime()))return;
+      const days=Math.max(0,Math.floor((now-d)/86400000)); const sets=Number(g&&g.totalSets||g&&g.sets||0),games=Number(g&&g.totalGames||g&&g.games||0);
+      if(days<=7){matches7++;sets7+=Number.isFinite(sets)?sets:0;games7+=Number.isFinite(games)?games:0;if(Number(games)>=30)longMatches7++;}
+      if(days<=14){matches14++;sets14+=Number.isFinite(sets)?sets:0;games14+=Number.isFinite(games)?games:0;}
+    });
+    const latest=arr[0]&&arr[0].date?new Date(arr[0].date):null;
+    return {daysRest:latest&&!Number.isNaN(latest.getTime())?Math.max(0,Math.floor((now-latest)/86400000)):null,matches7,matches14,sets7,sets14,games7,games14,longMatches7};
+  }
+  function enrichATPWorkload(bundle){
+    const a=latestFetchedContext&&latestFetchedContext.recentA||[],b=latestFetchedContext&&latestFetchedContext.recentB||[];
+    const workload={A:buildATPWorkloadDiagnostics(a,bundle.fixtureDate||null),B:buildATPWorkloadDiagnostics(b,bundle.fixtureDate||null)};
+    if(bundle.matchResult&&bundle.matchResult.diagnostics) bundle.matchResult.diagnostics.workload=workload;
+    return workload;
+  }
+  function trackerCoverageKey(item){
+    if(!item)return "";
+    return [item.eventId||"",item.playerAId||"",item.playerBId||"",String(item.market||"").toLowerCase(),Number(item.line)||""].join("|");
+  }
+  async function verifyATPTrackerCoverage(expectedItems){
+    const expected=(Array.isArray(expectedItems)?expectedItems:[]).map(trackerCoverageKey).filter(Boolean);
+    const actual=getTrackerItems().map(trackerCoverageKey).filter(Boolean),set=new Set(actual),missing=expected.filter(k=>!set.has(k));
+    const record={ts:new Date().toISOString(),expected:expected.length,actual:actual.length,missing:missing.length};
+    try{localStorage.setItem(ATP_COVERAGE_KEY,JSON.stringify(record));}catch(_){ }
+    if(missing.length&&typeof window.engineDebug==="function")window.engineDebug("ATP TRACKER COVERAGE FAILURE",record);
+    return {ok:missing.length===0,missing,record};
+  }
+  async function saveATPTrackerVerified(items,expectedItems){
+    const before=Array.isArray(items)?items:[];
+    saveTrackerItems(before);
+    let persisted=null;
+    try { await writeAsync(TRACKER_CACHE_KEY,g_trackerState); } catch(_){ }
+    try{ persisted=await readAsync(TRACKER_CACHE_KEY); }catch(_){ }
+    const persistedState=normalizeTrackerState(persisted||g_trackerState),expected=(expectedItems||[]).map(trackerCoverageKey).filter(Boolean),actual=new Set(persistedState.items.map(trackerCoverageKey).filter(Boolean)),missing=expected.filter(k=>!actual.has(k));
+    g_trackerPersistedVersion=persistedState.vId||g_trackerPersistedVersion||0;
+    const ok=missing.length===0;
+    g_trackerDebug.lastSaveDiagnosis=ok?"Verified tracker persistence and coverage.":"Tracker persistence coverage failure: "+missing.length+" missing.";
+    if(!ok&&typeof window.engineDebug==="function")window.engineDebug("ATP VERIFIED SAVE FAILURE",{missing:missing.length,expected:expected.length,persisted:persistedState.items.length});
+    return {ok,missing,persistedCount:persistedState.items.length};
+  }
+  function enhanceATPTrackerItem(item){
+    if(!item)return item;
+    item.surface=item.surface||((latestRunBundle&&latestRunBundle.context&&latestRunBundle.context.surface)||"");
+    item.marketKey=ATP_MARKETS.find(k=>ATP_MARKET_LABELS[k]===item.market)||item.marketKey||"";
+    item.coverageKey=trackerCoverageKey(item);
+    return item;
+  }
+
   let runEngineInFlight = null;
   async function runEngine() {
     if (runEngineInFlight) return runEngineInFlight;
@@ -4660,11 +4655,23 @@ let g_clearDebug = {
       try {
         const bundle = await buildEngineResults();
         bundle._trackerSaved = false;
+        g_engineAlertNeedsReview=false;
+        const lineMoves=recordATPLineSnapshot(bundle);
+        enrichATPWorkload(bundle);
+        addATPProjectionLineage(bundle);
+        applyATPMarketIntegrity(bundle,lineMoves);
+        const invariantOK=validateATPTotalsBundle(bundle);
+        if(!invariantOK && bundle.matchResult){
+          bundle.matchResult.status="NO_PLAY";
+          bundle.matchResult.pick="NO PLAY";
+          bundle.matchResult.confidence="PASS";
+          bundle.matchResult.almightyPick={market:null,pick:"NO PLAY",confidence:"PASS",probability:null,edge:null};
+        }
         latestRunBundle = bundle;
         renderResults(bundle);
         updateIntel(bundle);
         clearHeaderError();
-        const savedCount = autoSaveCurrentRunToTracker();
+        const savedCount = await autoSaveCurrentRunToTracker();
         if (savedCount > 0) {
           setRunStatus(bundle.playerAName + " vs " + bundle.playerBName + " calculated and auto-saved.", "ok");
         } else {
@@ -5426,7 +5433,7 @@ let g_clearDebug = {
     clearAutoTags();
     if (!league) {
       select.innerHTML = '<option value="">- Select match -</option>';
-      setFetchStatus("Select ATP or WTA first.", "");
+      setFetchStatus("Select ATP first.", "");
       return;
     }
     const token = ++fixtureLoadToken;
@@ -5498,7 +5505,7 @@ let g_clearDebug = {
     // screen and, if Track Pick were clicked before re-running the engine,
     // could save the old match's prediction under the new match's fixture.
     latestRunBundle = null;
-    ["totalPointsMarket", "totalSetsMarket"].forEach(function (id) {
+    ["totalGamesMarket", "playerATotalGamesMarket", "playerBTotalGamesMarket", "totalSetsMarket"].forEach(function (id) {
       const el = qs(id);
       if (el) el.value = "";
     });
@@ -5982,9 +5989,9 @@ let g_clearDebug = {
       btn.disabled = true;
       btn.textContent = 'Fetching...';
     }
-    if (!league) {
-      setHeaderError(true, "Select ATP or WTA first.");
-      setFetchStatus("Select ATP or WTA first.", "err");
+    if (league !== "ATP") {
+      setHeaderError(true, "Select ATP first.");
+      setFetchStatus("Select ATP first.", "err");
       if (btn) { btn.disabled = false; btn.textContent = 'Fetch Stats'; }
       return;
     }
@@ -6511,18 +6518,18 @@ let g_clearDebug = {
   function isActuallyCompletedTennisRecord(record) { return !!(record&&record.status&&record.status.completed&&!record.retired); }
   function settleTrackerItemFromRecord(item, record) {
     if(!item||!isActuallyCompletedTennisRecord(record)) return item;
-    const market=String(item.market||"").toLowerCase();
-    const isSets=market.includes("set");
-    const actual=isSets ? Number(record.setCount) : Number(record.totalGames);
-    const line=Number(item.line);
-    if(!Number.isFinite(actual)||!Number.isFinite(line)) return item;
-    if(isSets) item.actualTotalSets=actual; else item.actualTotal=actual;
-    const pick=String(item.rawPick||item.pick||"").toUpperCase();
-    if(pick==="OVER") item.status=actual>line?"WIN":actual<line?"LOSS":"PUSH";
-    else if(pick==="UNDER") item.status=actual<line?"WIN":actual>line?"LOSS":"PUSH";
-    if(item.status!=="PENDING") item.settledAt=new Date().toISOString();
+    const market=String(item.market||"").toLowerCase(),isSets=market.includes("set"),isA=market.includes("player a"),isB=market.includes("player b");
+    const actual=isSets?Number(record.setCount):(isA?Number(record.playerAGames):(isB?Number(record.playerBGames):Number(record.totalGames)));
+    const line=Number(item.line);if(!Number.isFinite(actual)||!Number.isFinite(line)) return item;
+    if(isSets)item.actualTotalSets=actual;else if(isA)item.actualPlayerAGames=actual;else if(isB)item.actualPlayerBGames=actual;else item.actualTotal=actual;
+    const pick=String(item.rawPick||item.pick||"").toUpperCase();if(pick==="OVER")item.status=actual>line?"WIN":actual<line?"LOSS":"PUSH";else if(pick==="UNDER")item.status=actual<line?"WIN":actual>line?"LOSS":"PUSH";
+    if(item.status!=="PENDING") {
+      item.settledAt=new Date().toISOString();
+      try { updateBucketPerformance(item,item.status,actual,Number(item.line)); } catch(_){ }
+    }
     return item;
   }
+
   function recordMatchesTrackerItem(record,item) {
     if(!record||!item) return false;
     const a=String(item.playerAId||""), b=String(item.playerBId||"");
@@ -6601,21 +6608,23 @@ let g_clearDebug = {
     g_trackerDebug.lastEngineError=msg;
     if(typeof window.engineDebug==="function") window.engineDebug("ENGINE RUN FAILED",{message:msg});
   }
-  function buildTrackerEntriesFromBundle(bundle) {
-    const out=[]; const result=bundle&&bundle.matchResult; if(!result||result.status!=="OK") return out;
-    const now=new Date().toISOString(); const base={savedAt:now,tour:bundle.tour,playerAName:bundle.playerAName,playerBName:bundle.playerBName,match:bundle.playerAName+" vs "+bundle.playerBName,playerAId:bundle.playerAId,playerBId:bundle.playerBId,competitionId:bundle.competitionId||"",eventId:bundle.eventId||"",fixtureDate:bundle.fixtureDate||"",tournamentName:bundle.context&&bundle.context.tournamentName||"",eventLevel:bundle.context&&bundle.context.eventLevel||"",roundName:bundle.context&&bundle.context.roundName||""};
-    if(result.picks&&result.picks.totalPoints&&result.picks.totalPoints.pick!=="PASS") out.push(normalizeTrackerItem(Object.assign({},base,{id:"tp_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),market:"Total Points",line:result.marketComparison&&result.marketComparison.totalPoints?result.marketComparison.totalPoints.line:"",projection:result.totalPoints&&result.totalPoints.mean,projectionP10:result.totalPoints&&result.totalPoints.p10,projectionP90:result.totalPoints&&result.totalPoints.p90,edge:result.picks.totalPoints.edge,pick:result.picks.totalPoints.pick,rawPick:result.picks.totalPoints.pick,confidence:result.picks.totalPoints.confidence,status:"PENDING",notes:result.notes.join(" | ")})));
-    if(result.picks&&result.picks.totalSets&&result.picks.totalSets.pick!=="PASS") out.push(normalizeTrackerItem(Object.assign({},base,{id:"ts_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),market:"Total Sets",line:result.marketComparison&&result.marketComparison.totalSets?result.marketComparison.totalSets.line:"",projection:result.totalSets&&result.totalSets.mean,projectionSetsProbabilities:result.totalSets&&result.totalSets.probabilities,edge:result.picks.totalSets.edge,pick:result.picks.totalSets.pick,rawPick:result.picks.totalSets.pick,confidence:result.picks.totalSets.confidence,status:"PENDING",notes:result.notes.join(" | ")})));
-    g_trackerDebug.lastGeneratedEntries=out.length; g_trackerDebug.lastGeneratedPicks=out.map(function(i){return i.pick;}); return out;
+  function buildTrackerEntriesFromBundle(bundle){
+    const out=[],result=bundle&&bundle.matchResult;if(!result||result.status!=="OK")return out;const now=new Date().toISOString(),base={savedAt:now,tour:'ATP',playerAName:bundle.playerAName,playerBName:bundle.playerBName,match:bundle.playerAName+' vs '+bundle.playerBName,playerAId:bundle.playerAId,playerBId:bundle.playerBId,competitionId:bundle.competitionId||'',eventId:bundle.eventId||'',fixtureDate:bundle.fixtureDate||'',tournamentName:bundle.context&&bundle.context.tournamentName||'',eventLevel:bundle.context&&bundle.context.eventLevel||'',roundName:bundle.context&&bundle.context.roundName||''};
+    [['totalGames','Total Games',result.totalGames&&result.totalGames.mean],['playerATotalGames',bundle.playerAName+' Total Games',result.totalGames&&result.totalGames.playerA&&result.totalGames.playerA.mean],['playerBTotalGames',bundle.playerBName+' Total Games',result.totalGames&&result.totalGames.playerB&&result.totalGames.playerB.mean],['totalSets','Total Sets',result.totalSets&&result.totalSets.mean]].forEach(function(spec,i){const pick=result.picks&&result.picks[spec[0]],m=result.marketComparison&&result.marketComparison[spec[0]];if(!pick||pick.pick==='PASS'||!m)return;out.push(normalizeTrackerItem(Object.assign({},base,{id:'tg_'+i+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),market:spec[1],line:m.line,projection:spec[2],projectionP10:m.p10,projectionP90:m.p90,edge:pick.edge,pick:pick.pick,rawPick:pick.pick,confidence:pick.confidence,status:'PENDING',isLock:result.almightyPick&&result.almightyPick.market===spec[0],notes:(result.notes||[]).join(' | ')})));});g_trackerDebug.lastGeneratedEntries=out.length;g_trackerDebug.lastGeneratedPicks=out.map(i=>i.pick);return out;
   }
-  function autoSaveCurrentRunToTracker() {
+  async function autoSaveCurrentRunToTracker() {
     const entries=buildTrackerEntriesFromBundle(latestRunBundle); if(!entries.length) return 0;
-    saveTrackerItems(getTrackerItems().concat(entries)); updateTrackerUI(); return entries.length;
+    const enriched=entries.map(enhanceATPTrackerItem);
+    const result=await saveATPTrackerVerified(getTrackerItems().concat(enriched),enriched);
+    updateTrackerUI();
+    latestRunBundle._trackerSaveVerified=!!result.ok;
+    latestRunBundle._trackerCoverage=result;
+    return result.ok?enriched.length:0;
   }
   function clearAll() {
-    const ids=["leagueSelect","fixtureSelect","surfaceSelect","indoorOutdoorSelect","teamAName","teamBName","totalPointsMarket","totalSetsMarket","runStatus","fetchStatus"];
+    const ids=["leagueSelect","fixtureSelect","surfaceSelect","indoorOutdoorSelect","teamAName","teamBName","totalGamesMarket","playerATotalGamesMarket","playerBTotalGamesMarket","totalSetsMarket","runStatus","fetchStatus"];
     ids.forEach(function(id){const el=qs(id);if(el){if(el.tagName==="SELECT")el.value="";else el.value="";}});
-    selectedPlayerIds.A=null; selectedPlayerIds.B=null; fixtureRecordMap.clear(); fixtureLoadToken+=1; clearFetchedAutofill(); hideResults(); latestRunBundle=null; setRunStatus("","" ); setFetchStatus("Select ATP or WTA first.","");
+    selectedPlayerIds.A=null; selectedPlayerIds.B=null; fixtureRecordMap.clear(); fixtureLoadToken+=1; clearFetchedAutofill(); hideResults(); latestRunBundle=null; setRunStatus("","" ); setFetchStatus("Select ATP first.","");
     collapseAll(); openSection("leagueSection"); updateSectionLocks();
   }
   function applyHardResetState() { clearAll(); historyPoolCache.clear(); historyPoolCacheFetchedAt.clear(); espnScoreboardRequestCache.clear(); httpJsonCache.clear(); httpJsonInFlight.clear(); }
@@ -6692,7 +6701,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!item) return;
       const matchName = item.match;
       const score = prompt(
-        "Enter actual total games for " + matchName + "\n(e.g. 24 — or leave blank to skip):",
+        "Enter actual result value for " + matchName + "\n(total games, player games, or total sets):",
         isFinite(item.actualTotal) ? String(item.actualTotal) : ""
       );
       if (score === null) return;
@@ -6725,7 +6734,13 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!finalStatus) { alert("Invalid status."); return; }
       if (score && score.trim()) {
         const parsedTotal = parseFloat(score.trim());
-        if (isFinite(parsedTotal)) item.actualTotal = parsedTotal;
+        if (isFinite(parsedTotal)) {
+          const m=String(item.market||"").toLowerCase();
+          if(m.includes("set")) item.actualTotalSets=parsedTotal;
+          else if(m.includes("player a")) item.actualPlayerAGames=parsedTotal;
+          else if(m.includes("player b")) item.actualPlayerBGames=parsedTotal;
+          else item.actualTotal=parsedTotal;
+        }
       }
       settleTrackedPick(id, finalStatus);
     }
@@ -6818,7 +6833,7 @@ document.addEventListener("DOMContentLoaded", function () {
           loadFixtures(currentFixtureOffset);
         } else {
           qs("fixtureSelect").innerHTML = '<option value="">- Select match -</option>';
-          setFetchStatus("Select ATP or WTA first.", "");
+          setFetchStatus("Select ATP first.", "");
           collapseAll();
           openSection("leagueSection");
         }
@@ -7198,12 +7213,12 @@ var suspects = 0;
 var tour = (document.getElementById('leagueSelect') || {}).value || ''; 
 var pA = ((document.getElementById('teamAName') || {}).value || '').trim(); 
 var pB = ((document.getElementById('teamBName') || {}).value || '').trim(); 
-var ft = ((document.getElementById('totalPointsMarket') || {}).value || '').trim(); 
+var ft = ''; 
 var freshPage = !tour && !pA && !pB && !ft; 
 if (!freshPage) { 
-if (!tour) { log('ERROR', 'INPUT', 'No tour selected (ATP/WTA) — fetch is blocked.'); suspects++; } 
+if (!tour) { log('ERROR', 'INPUT', 'No ATP tour selected — fetch is blocked.'); suspects++; } 
 if (tour && (!pA || !pB)) { log('WARN', 'INPUT', 'Player name(s) missing — fetch will fail.'); suspects++; } 
-if (!ft) { log('WARN', 'MARKETS', 'Match total line is empty.'); suspects++; } 
+if (!ft) { log('INFO', 'MARKETS', 'No optional odds supplied.'); } 
 } 
 try { 
 var items = typeof getTrackerItems === 'function' ? getTrackerItems() : []; 
